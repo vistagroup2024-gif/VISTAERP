@@ -13,11 +13,21 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // A plain user ID (no "@") is mapped to an internal email so users can
+  // sign in with just an ID + password — e.g. "ADMIN" -> "admin@vista.local".
+  function toLoginEmail(input: string) {
+    const v = input.trim();
+    return v.includes("@") ? v.toLowerCase() : `${v.toLowerCase()}@vista.local`;
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: toLoginEmail(email),
+      password,
+    });
     setLoading(false);
     if (error) {
       setError(error.message);
@@ -40,10 +50,12 @@ export default function LoginPage() {
           </div>
         )}
         <div>
-          <label className="label">Email</label>
+          <label className="label">User ID</label>
           <input
             className="input"
-            type="email"
+            type="text"
+            placeholder="e.g. ADMIN"
+            autoCapitalize="none"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
