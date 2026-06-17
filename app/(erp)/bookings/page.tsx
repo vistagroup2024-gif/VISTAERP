@@ -17,19 +17,19 @@ export default async function BookingsPage() {
   const supabase = createClient();
   const { data: rows } = await supabase
     .from("bookings")
-    .select("id, booking_no, status, travel_date, pax_count, total_sell, sell_currency, parties:customer_id(name), packages:package_id(name)")
+    .select("id, booking_no, status, category, travel_date, pax_count, total_sell, sell_currency, parties:customer_id(name), packages:package_id(name)")
     .order("created_at", { ascending: false });
 
   return (
     <div>
-      <PageHeader title="Bookings" action={{ href: "/bookings/new", label: "+ New Booking" }} />
+      <PageHeader title="Sales Orders" action={{ href: "/bookings/new", label: "+ New Order" }} />
       <div className="card overflow-hidden p-0">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>
               <th className="th">Booking #</th>
               <th className="th">Customer</th>
-              <th className="th">Package</th>
+              <th className="th">Type</th>
               <th className="th">Travel</th>
               <th className="th text-center">Pax</th>
               <th className="th text-right">Total</th>
@@ -43,7 +43,7 @@ export default async function BookingsPage() {
                   <Link href={`/bookings/${r.id}`} className="text-brand hover:underline">{r.booking_no}</Link>
                 </td>
                 <td className="td">{r.parties?.name ?? "—"}</td>
-                <td className="td">{r.packages?.name ?? "—"}</td>
+                <td className="td capitalize">{r.category ? r.category.replace("_", " ") : (r.packages?.name ?? "—")}</td>
                 <td className="td">{dateStr(r.travel_date)}</td>
                 <td className="td text-center">{r.pax_count}</td>
                 <td className="td text-right">{money(r.total_sell, r.sell_currency)}</td>
