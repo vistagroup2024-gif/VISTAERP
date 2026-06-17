@@ -14,6 +14,13 @@ const NAV = [
   { href: "/parties", label: "Customers / Agents", icon: "👥" },
 ];
 
+const ACCOUNTING = [
+  { href: "/accounting/accounts", label: "Chart of Accounts", icon: "📚" },
+  { href: "/accounting/journal", label: "Journal", icon: "📓" },
+  { href: "/accounting/receipts", label: "Receipts", icon: "💵" },
+  { href: "/accounting/trial-balance", label: "Trial Balance", icon: "⚖️" },
+];
+
 export default function Sidebar({ name }: { name: string }) {
   const path = usePathname();
   const router = useRouter();
@@ -42,6 +49,25 @@ export default function Sidebar({ name }: { name: string }) {
                 active
                   ? "bg-brand text-white"
                   : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <span>{n.icon}</span>
+              {n.label}
+            </Link>
+          );
+        })}
+
+        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Accounting
+        </p>
+        {ACCOUNTING.map((n) => {
+          const active = path === n.href || path.startsWith(n.href + "/");
+          return (
+            <Link
+              key={n.href}
+              href={n.href}
+              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${
+                active ? "bg-brand text-white" : "text-slate-600 hover:bg-slate-100"
               }`}
             >
               <span>{n.icon}</span>
