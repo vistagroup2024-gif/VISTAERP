@@ -19,6 +19,8 @@ const ACCOUNTING = [
   { href: "/accounting/journal", label: "Journal", icon: "📓" },
   { href: "/accounting/receipts", label: "Receipts", icon: "💵" },
   { href: "/accounting/trial-balance", label: "Trial Balance", icon: "⚖️" },
+  { href: "/accounting/profit-loss", label: "Profit & Loss", icon: "📈" },
+  { href: "/accounting/balance-sheet", label: "Balance Sheet", icon: "🧮" },
 ];
 
 export default function Sidebar({ name }: { name: string }) {
