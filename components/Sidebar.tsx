@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "▣" },
@@ -21,10 +22,6 @@ const PURCHASE = [
   { href: "/purchase/payments", label: "Supplier Payments", icon: "💸" },
 ];
 
-const SETTINGS = [
-  { href: "/settings/users", label: "Users & Roles", icon: "👤" },
-];
-
 const ACCOUNTING = [
   { href: "/accounting/accounts", label: "Chart of Accounts", icon: "📚" },
   { href: "/accounting/journal", label: "Journal", icon: "📓" },
@@ -34,8 +31,28 @@ const ACCOUNTING = [
   { href: "/accounting/balance-sheet", label: "Balance Sheet", icon: "🧮" },
 ];
 
-export default function Sidebar({ name }: { name: string }) {
+const SETTINGS = [
+  { href: "/settings/users", label: "Users & Roles", icon: "👤" },
+];
+
+function NavLink({ href, label, icon, onClick }: { href: string; label: string; icon: string; onClick?: () => void }) {
   const path = usePathname();
+  const active = path === href || path.startsWith(href + "/");
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${
+        active ? "bg-brand text-white" : "text-slate-600 hover:bg-slate-100"
+      }`}
+    >
+      <span>{icon}</span>
+      {label}
+    </Link>
+  );
+}
+
+function SidebarContent({ name, onClose }: { name: string; onClose?: () => void }) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -46,85 +63,29 @@ export default function Sidebar({ name }: { name: string }) {
   }
 
   return (
-    <aside className="flex w-60 flex-col border-r border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-5 py-4">
-        <p className="text-lg font-bold text-brand-dark">Vista ERP</p>
-        <p className="truncate text-xs text-slate-400">{name}</p>
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div>
+          <p className="text-lg font-bold text-brand-dark">Vista ERP</p>
+          <p className="truncate text-xs text-slate-400">{name}</p>
+        </div>
+        {onClose && (
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
+            ✕
+          </button>
+        )}
       </div>
-      <nav className="flex-1 space-y-1 p-3">
-        {NAV.map((n) => {
-          const active = path === n.href || path.startsWith(n.href + "/");
-          return (
-            <Link
-              key={n.href}
-              href={n.href}
-              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${
-                active
-                  ? "bg-brand text-white"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <span>{n.icon}</span>
-              {n.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+        {NAV.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
 
-        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Purchase
-        </p>
-        {PURCHASE.map((n) => {
-          const active = path === n.href || path.startsWith(n.href + "/");
-          return (
-            <Link
-              key={n.href}
-              href={n.href}
-              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${
-                active ? "bg-brand text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <span>{n.icon}</span>
-              {n.label}
-            </Link>
-          );
-        })}
+        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Purchase</p>
+        {PURCHASE.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
 
-        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Accounting
-        </p>
-        {ACCOUNTING.map((n) => {
-          const active = path === n.href || path.startsWith(n.href + "/");
-          return (
-            <Link
-              key={n.href}
-              href={n.href}
-              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${
-                active ? "bg-brand text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <span>{n.icon}</span>
-              {n.label}
-            </Link>
-          );
-        })}
-        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Settings
-        </p>
-        {SETTINGS.map((n) => {
-          const active = path === n.href || path.startsWith(n.href + "/");
-          return (
-            <Link
-              key={n.href}
-              href={n.href}
-              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${
-                active ? "bg-brand text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <span>{n.icon}</span>
-              {n.label}
-            </Link>
-          );
-        })}
+        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Accounting</p>
+        {ACCOUNTING.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
+
+        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Settings</p>
+        {SETTINGS.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
       </nav>
       <button
         onClick={signOut}
@@ -132,6 +93,43 @@ export default function Sidebar({ name }: { name: string }) {
       >
         Sign out
       </button>
-    </aside>
+    </div>
+  );
+}
+
+export default function Sidebar({ name }: { name: string }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
+        <SidebarContent name={name} />
+      </aside>
+
+      {/* Mobile top bar */}
+      <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
+        <p className="text-base font-bold text-brand-dark">Vista ERP</p>
+        <button
+          onClick={() => setOpen(true)}
+          className="rounded-md p-2 text-slate-600 hover:bg-slate-100"
+          aria-label="Open menu"
+        >
+          <span className="block h-0.5 w-5 bg-current mb-1"></span>
+          <span className="block h-0.5 w-5 bg-current mb-1"></span>
+          <span className="block h-0.5 w-5 bg-current"></span>
+        </button>
+      </div>
+
+      {/* Mobile drawer overlay */}
+      {open && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-xl">
+            <SidebarContent name={name} onClose={() => setOpen(false)} />
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

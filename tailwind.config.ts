@@ -7,6 +7,7 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      spacing: { "18": "4.5rem" },
       colors: {
         brand: {
           DEFAULT: "#0e7490",
@@ -16,6 +17,7 @@ const config: Config = {
       },
     },
   },
+  safelist: ["pt-18"],
   plugins: [],
 };
 export default config;
