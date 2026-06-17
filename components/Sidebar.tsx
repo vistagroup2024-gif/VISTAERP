@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
@@ -64,10 +65,13 @@ function SidebarContent({ name, onClose }: { name: string; onClose?: () => void 
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-        <div>
-          <p className="text-lg font-bold text-brand-dark">Vista ERP</p>
-          <p className="truncate text-xs text-slate-400">{name}</p>
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Image src="/icon.svg" alt="Vista Group" width={36} height={36} />
+          <div>
+            <p className="text-sm font-bold text-slate-800 leading-tight">Vista Group</p>
+            <p className="truncate text-xs text-slate-400 leading-tight">{name}</p>
+          </div>
         </div>
         {onClose && (
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
@@ -109,7 +113,10 @@ export default function Sidebar({ name }: { name: string }) {
 
       {/* Mobile top bar */}
       <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
-        <p className="text-base font-bold text-brand-dark">Vista ERP</p>
+        <div className="flex items-center gap-2">
+          <Image src="/icon.svg" alt="Vista Group" width={30} height={30} />
+          <p className="text-base font-bold text-slate-800">Vista Group</p>
+        </div>
         <button
           onClick={() => setOpen(true)}
           className="rounded-md p-2 text-slate-600 hover:bg-slate-100"

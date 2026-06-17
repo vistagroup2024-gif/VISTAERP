@@ -10,9 +10,10 @@ const config: Config = {
       spacing: { "18": "4.5rem" },
       colors: {
         brand: {
-          DEFAULT: "#0e7490",
-          dark: "#155e75",
-          light: "#06b6d4",
+          DEFAULT: "#1a6b5a",
+          dark: "#124a3e",
+          light: "#2a9b82",
+          orange: "#e8511a",
         },
       },
     },

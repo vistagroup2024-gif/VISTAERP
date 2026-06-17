@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- White background for maskable icon safe zone -->
+  <rect width="512" height="512" fill="white"/>
+  <!-- Location pin / V shape in teal -->
+  <path d="M256 60
+    C158 60 80 138 80 234
+    C80 292 106 343 148 378
+    L256 470
+    L364 378
+    C406 343 432 292 432 234
+    C432 138 354 60 256 60Z"
+    fill="#1a6b5a"/>
+  <!-- Inner cutout circle -->
+  <circle cx="256" cy="228" r="90" fill="white"/>
+  <!-- Orange swoosh ribbon -->
+  <path d="M68 262 C108 228 172 252 214 255 C234 256 246 258 256 258 C266 258 278 256 298 255 C340 252 404 228 444 262 L432 284 C392 250 334 274 298 277 C278 278 266 280 256 280 C246 280 234 278 214 277 C178 274 120 250 80 284 Z"
+    fill="#e8511a"/>
+</svg>

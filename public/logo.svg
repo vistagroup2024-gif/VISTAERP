@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 480" fill="none">
+  <!-- Location pin / V shape in teal -->
+  <path d="M200 40
+    C120 40 60 100 60 175
+    C60 220 80 258 110 285
+    L200 420
+    L290 285
+    C320 258 340 220 340 175
+    C340 100 280 40 200 40Z"
+    fill="#1a6b5a"/>
+  <!-- Inner cutout circle -->
+  <circle cx="200" cy="170" r="68" fill="white"/>
+  <!-- Orange swoosh ribbon -->
+  <path d="M52 195 C80 170 130 188 165 190 C185 191 195 193 200 193 C205 193 215 191 235 190 C270 188 320 170 348 195 L340 215 C312 190 268 208 235 210 C215 211 205 213 200 213 C195 213 185 211 165 210 C132 208 88 190 60 215 Z"
+    fill="#e8511a"/>
+  <text x="200" y="460" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="52" fill="#2d2d2d" letter-spacing="2">VISTA GROUP</text>
+  <text x="200" y="490" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="22" fill="#555555">Where Ease and Comfort Unite</text>
+</svg>
