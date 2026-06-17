@@ -22,7 +22,7 @@ export default async function ErpLayout({
   return (
     <div className="flex min-h-screen">
       <Sidebar name={profile?.full_name || user.email || "User"} />
-      <main className="flex-1 overflow-x-hidden p-8">{children}</main>
+      <main className="flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-8">{children}</main>
     </div>
   );
 }
