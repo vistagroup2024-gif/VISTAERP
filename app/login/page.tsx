@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -41,8 +42,10 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center px-6">
       <form onSubmit={onSubmit} className="card w-full max-w-sm space-y-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-brand-dark">Vista ERP</h1>
-          <p className="text-sm text-slate-500">Staff sign in</p>
+          <div className="flex justify-center mb-3">
+            <Image src="/logo.svg" alt="Vista Group" width={160} height={120} priority />
+          </div>
+          <p className="text-sm text-slate-500 mt-1">Staff sign in</p>
         </div>
         {error && (
           <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
