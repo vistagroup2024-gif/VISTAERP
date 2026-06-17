@@ -29,9 +29,9 @@ const ROLE_COLOR: Record<string, string> = {
 export default async function UsersPage() {
   const supabase = createClient();
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name, is_active, created_at")
+  const { data: users } = await supabase
+    .from("staff_users")
+    .select("id, full_name, username, is_active, created_at")
     .order("created_at");
 
   const { data: allRoles } = await supabase
@@ -48,28 +48,29 @@ export default async function UsersPage() {
     <div>
       <PageHeader title="Users & Roles" action={{ href: "/settings/users/new", label: "+ New User" }} />
       <p className="mb-4 text-sm text-slate-500">
-        Manage staff accounts and their permission roles. Only admins can create or edit users.
+        Manage staff accounts and permission roles. Login ID is the username — no email needed.
       </p>
       <div className="card overflow-hidden p-0">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>
-              <th className="th">Name</th>
-              <th className="th">Username (login)</th>
+              <th className="th">Full Name</th>
+              <th className="th">Login ID</th>
               <th className="th">Roles</th>
               <th className="th">Status</th>
               <th className="th"></th>
             </tr>
           </thead>
           <tbody>
-            {(profiles ?? []).map((p: any) => {
-              const roles = rolesByUser[p.id] ?? [];
+            {(users ?? []).map((u: any) => {
+              const roles = rolesByUser[u.id] ?? [];
               return (
-                <tr key={p.id} className="border-t border-slate-100">
-                  <td className="td font-medium">{p.full_name ?? "—"}</td>
-                  <td className="td font-mono text-sm text-slate-500">
-                    {/* email stored as username@vista.local */}
-                    —
+                <tr key={u.id} className="border-t border-slate-100">
+                  <td className="td font-medium">{u.full_name ?? "—"}</td>
+                  <td className="td">
+                    <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-sm text-slate-700">
+                      {u.username}
+                    </span>
                   </td>
                   <td className="td">
                     <div className="flex flex-wrap gap-1">
@@ -82,19 +83,19 @@ export default async function UsersPage() {
                     </div>
                   </td>
                   <td className="td">
-                    {p.is_active
+                    {u.is_active
                       ? <span className="badge bg-green-100 text-green-700">Active</span>
                       : <span className="badge bg-slate-100 text-slate-500">Inactive</span>}
                   </td>
                   <td className="td text-right">
-                    <Link href={`/settings/users/${p.id}`} className="text-brand text-sm hover:underline">
+                    <Link href={`/settings/users/${u.id}`} className="text-brand text-sm hover:underline">
                       Edit
                     </Link>
                   </td>
                 </tr>
               );
             })}
-            {(profiles ?? []).length === 0 && (
+            {(users ?? []).length === 0 && (
               <tr><td className="td text-slate-400" colSpan={5}>No users found.</td></tr>
             )}
           </tbody>
