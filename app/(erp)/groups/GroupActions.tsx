@@ -6,8 +6,8 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function GroupActions({
-  groupId, brnStatus, visaStatus,
-}: { groupId: string; brnStatus: string; visaStatus: string }) {
+  groupId, brnStatus, visaStatus, isAdmin,
+}: { groupId: string; brnStatus: string; visaStatus: string; isAdmin: boolean }) {
   const router = useRouter();
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
@@ -24,19 +24,23 @@ export default function GroupActions({
     router.refresh();
   }
 
+  // After visa issued: only Super Admin sees Edit; normal users see a lock.
+  if (issued) {
+    return isAdmin
+      ? <Link href={`/groups/${groupId}/edit`} className="text-brand text-sm hover:underline">Edit</Link>
+      : <span className="text-slate-400" title="Locked — visa issued">🔒</span>;
+  }
+
+  // Before visa issued: only Mark Visa Issued (allocation already done at this stage)
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      <Link href={`/groups/${groupId}`} className="text-brand hover:underline">View</Link>
-      {!issued && <Link href={`/groups/${groupId}/edit`} className="text-slate-500 hover:underline">Edit</Link>}
-      <Link href={`/groups/${groupId}`} className="text-slate-500 hover:underline">
-        {allocated ? "BRNs" : "Allocate"}
-      </Link>
-      {allocated && !issued && (
-        <button onClick={markIssued} disabled={busy}
-          className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-          {busy ? "…" : "Mark Visa Issued"}
-        </button>
-      )}
+    <div className="flex items-center gap-2">
+      <button
+        onClick={markIssued}
+        disabled={busy || !allocated}
+        title={allocated ? "" : "Allocate BRNs first (open the group)"}
+        className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40">
+        {busy ? "…" : "Mark Visa Issued"}
+      </button>
       {err && <span className="text-xs text-red-600" title={err}>⚠</span>}
     </div>
   );

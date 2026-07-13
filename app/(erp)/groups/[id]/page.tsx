@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { dateStr } from "@/lib/format";
 import GroupAllocation from "./GroupAllocation";
+import GroupHeaderActions from "./GroupHeaderActions";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export default async function GroupDetail({ params }: { params: { id: string } }
           <h1 className="text-2xl font-bold font-mono">{g.group_no}</h1>
           <p className="text-slate-500">{g.group_name ?? "Umrah Group"} · {g.pax} pax · {g.total_nights} nights</p>
         </div>
-        <Link href="/groups" className="btn-outline">← All groups</Link>
+        <GroupHeaderActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} isAdmin={isAdmin} />
       </div>
 
       <div className="card grid grid-cols-2 gap-4 md:grid-cols-4">
