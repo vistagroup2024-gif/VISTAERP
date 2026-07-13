@@ -168,12 +168,12 @@ export default function NewGroupForm({
               <input className="input" value={f.departure_flight} onChange={(e) => set("departure_flight", e.target.value)} placeholder="SV-702" />
             </div>
             <div>
-              <label className="label">To (city)</label>
-              <AirportSelect airports={airports} value={f.departure_to} onChange={(c) => set("departure_to", c)} placeholder="Destination city" />
-            </div>
-            <div>
               <label className="label">Departure airport (Saudi)</label>
               <AirportSelect airports={airports} value={f.departure_airport} onChange={(c) => set("departure_airport", c)} placeholder="Saudi airport" saudiOnly />
+            </div>
+            <div>
+              <label className="label">To (international city)</label>
+              <AirportSelect airports={airports} value={f.departure_to} onChange={(c) => set("departure_to", c)} placeholder="Destination city" />
             </div>
           </div>
           <div className="rounded-lg bg-brand/5 px-4 py-2 text-sm">

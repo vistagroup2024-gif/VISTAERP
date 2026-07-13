@@ -26,10 +26,15 @@ export default async function GroupDetail({ params }: { params: { id: string } }
 
   const { data: allocations } = await supabase
     .from("group_brn_allocation")
-    .select("id, beds, brn_inventory:brn_id(id, brn, hotel_name, beds, check_in, check_out)")
+    .select("id, beds, brn_inventory:brn_id(id, brn, hotel_name, city, beds, check_in, check_out)")
     .eq("group_id", params.id);
 
   const A = (allocations ?? []) as any[];
+
+  // Is the current user an admin? (controls reopen)
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user?.id ?? "");
+  const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -73,6 +78,9 @@ export default async function GroupDetail({ params }: { params: { id: string } }
         groupId={g.id}
         pax={g.pax}
         brnStatus={g.brn_status}
+        visaStatus={g.visa_status}
+        visaIssuedAt={g.visa_issued_at}
+        isAdmin={isAdmin}
         allocations={A}
       />
     </div>

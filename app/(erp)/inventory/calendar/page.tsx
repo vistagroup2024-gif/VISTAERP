@@ -1,13 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
-import { Brn, Consumption, nightsBetween, usedOnNight, cellClass, fmtDay } from "@/lib/brn";
+import { Brn, Consumption, nightsBetween, usedOnNight, fmtDay } from "@/lib/brn";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default async function CalendarPage() {
+export default async function CalendarPage({ searchParams }: { searchParams: { city?: string } }) {
+  const city = searchParams.city ?? "Makkah";
   const supabase = createClient();
   const [{ data: brns }, { data: cons }] = await Promise.all([
-    supabase.from("brn_inventory").select("*").order("hotel_name").order("check_in"),
+    supabase.from("brn_inventory").select("*").eq("city", city).order("check_in"),
     supabase.from("brn_consumption").select("*"),
   ]);
 
@@ -16,7 +18,7 @@ export default async function CalendarPage() {
   const consByBrn: Record<string, Consumption[]> = {};
   C.forEach((c) => (consByBrn[c.brn_id] ||= []).push(c));
 
-  // Global date span across all BRNs
+  // Global date span
   let allDays: string[] = [];
   if (B.length) {
     const min = B.reduce((m, b) => (b.check_in < m ? b.check_in : m), B[0].check_in);
@@ -24,48 +26,57 @@ export default async function CalendarPage() {
     allDays = nightsBetween(min, max);
   }
 
+  // Total available beds across all BRNs of this city, per night
+  const perNight = allDays.map((day) => {
+    let capacity = 0, used = 0;
+    for (const b of B) {
+      if (b.check_in <= day && b.check_out > day) {
+        capacity += b.beds;
+        used += usedOnNight(day, consByBrn[b.id] ?? []);
+      }
+    }
+    return { day, capacity, used, available: capacity - used };
+  });
+
+  const tabs = ["Makkah", "Madinah", "Jeddah"];
+
   return (
     <div>
       <PageHeader title="Daily Inventory Calendar" />
-      <p className="mb-4 text-sm text-slate-500">
-        Available beds per night for each BRN.{" "}
-        <span className="badge bg-green-100 text-green-700">healthy</span>{" "}
-        <span className="badge bg-yellow-200 text-yellow-900">≤20%</span>{" "}
-        <span className="badge bg-orange-400 text-white">full</span>{" "}
-        <span className="badge bg-red-500 text-white">overbooked</span>
-      </p>
+      <div className="mb-4 flex gap-2">
+        {tabs.map((c) => (
+          <Link key={c} href={`/inventory/calendar?city=${c}`}
+            className={`rounded-md px-4 py-2 text-sm font-medium ${c === city ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+            {c}
+          </Link>
+        ))}
+      </div>
+      <p className="mb-4 text-sm text-slate-500">Total available beds across all active <b>{city}</b> BRNs, per night.</p>
 
-      {B.length === 0 ? (
-        <div className="card text-slate-400">No BRN inventory yet.</div>
+      {perNight.length === 0 ? (
+        <div className="card text-slate-400">No {city} BRN inventory yet.</div>
       ) : (
         <div className="card overflow-x-auto p-0">
-          <table className="min-w-max text-center text-sm">
+          <table className="w-full min-w-[600px] text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="th sticky left-0 z-10 bg-slate-50 text-left">BRN / Hotel</th>
-                {allDays.map((d) => (
-                  <th key={d} className="th whitespace-nowrap px-2">{fmtDay(d)}</th>
-                ))}
+                <th className="th">Date</th>
+                <th className="th text-right">Total Capacity</th>
+                <th className="th text-right">Consumed</th>
+                <th className="th text-right">Available Beds</th>
               </tr>
             </thead>
             <tbody>
-              {B.map((b) => {
-                const own = consByBrn[b.id] ?? [];
-                const span = new Set(nightsBetween(b.check_in, b.check_out));
-                return (
-                  <tr key={b.id} className="border-t border-slate-100">
-                    <td className="td sticky left-0 z-10 bg-white text-left">
-                      <div className="font-mono text-xs font-semibold">{b.brn}</div>
-                      <div className="text-xs text-slate-500">{b.hotel_name}</div>
-                    </td>
-                    {allDays.map((d) => {
-                      if (!span.has(d)) return <td key={d} className="td bg-slate-50/50"></td>;
-                      const avail = b.beds - usedOnNight(d, own);
-                      return <td key={d} className={`td ${cellClass(avail, b.beds)}`}>{avail}</td>;
-                    })}
-                  </tr>
-                );
-              })}
+              {perNight.map((n) => (
+                <tr key={n.day} className="border-t border-slate-100">
+                  <td className="td font-medium">{fmtDay(n.day)}</td>
+                  <td className="td text-right text-slate-500">{n.capacity}</td>
+                  <td className="td text-right text-slate-500">{n.used}</td>
+                  <td className={`td text-right font-semibold ${n.available < 0 ? "text-red-600" : n.available === 0 ? "text-orange-600" : "text-green-700"}`}>
+                    {n.available}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

@@ -31,8 +31,7 @@ export default async function GroupsPage() {
               <th className="th">Arrival</th>
               <th className="th">Departure</th>
               <th className="th text-right">Nights</th>
-              <th className="th">BRN</th>
-              <th className="th">Visa</th>
+              <th className="th">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -49,12 +48,11 @@ export default async function GroupsPage() {
                 <td className="td text-sm">{dateStr(g.departure_date)}</td>
                 <td className="td text-right">{g.total_nights}</td>
                 <td className="td">
-                  {g.brn_status === "allocated"
-                    ? <span className="badge bg-green-100 text-green-700">Allocated</span>
+                  {g.visa_status === "issued"
+                    ? <span className="badge bg-emerald-600 text-white">Visa Issued</span>
+                    : g.brn_status === "allocated"
+                    ? <span className="badge bg-green-100 text-green-700">BRN Allocated</span>
                     : <span className="badge bg-yellow-100 text-yellow-800">Pending</span>}
-                </td>
-                <td className="td">
-                  <span className="badge bg-slate-100 text-slate-600 capitalize">{g.visa_status}</span>
                 </td>
               </tr>
             ))}
