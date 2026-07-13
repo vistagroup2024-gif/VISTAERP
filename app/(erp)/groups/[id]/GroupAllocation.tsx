@@ -4,21 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
-import { nightsBetween, fmtDay } from "@/lib/brn";
 
 interface Alloc {
   id: string;
   beds: number;
-  brn_inventory: { id: string; brn: string; hotel_name: string; city: string | null; beds: number; check_in: string; check_out: string } | null;
+  brn_inventory: { id: string; brn: string; hotel_name: string; city: string | null; beds: number } | null;
+  brn_consumption: { check_in: string; check_out: string } | null;
 }
 
 export default function GroupAllocation({
-  groupId, pax, arrivalDate, departureDate, brnStatus, visaStatus, visaIssuedAt, isAdmin, allocations,
+  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, allocations,
 }: {
   groupId: string;
   pax: number;
-  arrivalDate: string;
-  departureDate: string;
   brnStatus: string;
   visaStatus: string;
   visaIssuedAt: string | null;
@@ -31,16 +29,13 @@ export default function GroupAllocation({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const nights = nightsBetween(arrivalDate, departureDate);
-  const [madinahNight, setMadinahNight] = useState(nights[0] ?? "");
-
   const allocated = brnStatus === "allocated";
   const issued = visaStatus === "issued";
   const brnList = allocations.map((a) => a.brn_inventory?.brn).filter(Boolean) as string[];
 
   async function allocate() {
     setBusy(true); setError(null);
-    const { error } = await supabase.rpc("allocate_group_brns", { p_group: groupId, p_madinah_night: madinahNight });
+    const { error } = await supabase.rpc("allocate_group_brns", { p_group: groupId });
     setBusy(false);
     if (error) return setError(error.message);
     router.refresh();
@@ -76,22 +71,11 @@ export default function GroupAllocation({
       {!allocated ? (
         <>
           <p className="text-sm text-slate-500">
-            Every package has <b>one Madinah night</b> — pick which night below. Remaining nights are Makkah.
-            If Madinah has no beds for the chosen night, the whole stay falls back to Makkah. Uses the fewest BRNs and blocks overbooking.
+            The system automatically covers the full stay with exactly <b>one Madinah night</b> (chosen automatically for best inventory use) and Makkah for the rest — using the fewest BRNs and blocking overbooking.
           </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <label className="label">Madinah night</label>
-              <select className="input w-auto" value={madinahNight} onChange={(e) => setMadinahNight(e.target.value)}>
-                {nights.map((n, i) => (
-                  <option key={n} value={n}>Night {i + 1} — {fmtDay(n)}</option>
-                ))}
-              </select>
-            </div>
-            <button className="btn" onClick={allocate} disabled={busy}>
-              {busy ? "Allocating…" : `⚡ Auto-allocate for ${pax} pax`}
-            </button>
-          </div>
+          <button className="btn" onClick={allocate} disabled={busy}>
+            {busy ? "Allocating…" : `⚡ Auto Allocate (${pax} pax)`}
+          </button>
         </>
       ) : (
         <>
@@ -110,7 +94,7 @@ export default function GroupAllocation({
               <tbody>
                 {allocations
                   .slice()
-                  .sort((a, b) => (a.brn_inventory?.check_in ?? "").localeCompare(b.brn_inventory?.check_in ?? ""))
+                  .sort((a, b) => (a.brn_consumption?.check_in ?? "").localeCompare(b.brn_consumption?.check_in ?? ""))
                   .map((a) => (
                   <tr key={a.id} className="border-t border-slate-100">
                     <td className="td font-mono font-medium">{a.brn_inventory?.brn}</td>
@@ -120,8 +104,8 @@ export default function GroupAllocation({
                         {a.brn_inventory?.city ?? "—"}
                       </span>
                     </td>
-                    <td className="td whitespace-nowrap">{dateStr(a.brn_inventory?.check_in)}</td>
-                    <td className="td whitespace-nowrap">{dateStr(a.brn_inventory?.check_out)}</td>
+                    <td className="td whitespace-nowrap">{dateStr(a.brn_consumption?.check_in)}</td>
+                    <td className="td whitespace-nowrap">{dateStr(a.brn_consumption?.check_out)}</td>
                     <td className="td text-right font-medium">{a.beds}</td>
                   </tr>
                 ))}
