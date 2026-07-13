@@ -67,11 +67,14 @@ revoke all on function add_brn(text,text,text,date,date,integer,uuid,numeric,cha
 grant execute on function add_brn(text,text,text,date,date,integer,uuid,numeric,char,text) to authenticated;
 
 -- ---- City-aware per-night allocation ----
+-- Rule: night 1 = Madinah IF Madinah can cover the whole group that night,
+-- otherwise the entire stay falls back to Makkah. Remaining nights = Makkah.
 create or replace function allocate_group_brns(p_group uuid)
 returns integer language plpgsql security definer set search_path = public as $$
 declare
   grp umrah_groups%rowtype; n date; seg_city text; need integer;
   rec record; take integer; run record; v_cons uuid;
+  v_mad_avail integer; v_night1_city text;
 begin
   if not is_staff() then raise exception 'Not authorized'; end if;
   select * into grp from umrah_groups where id = p_group for update;
@@ -79,10 +82,21 @@ begin
   if grp.visa_status = 'issued' then raise exception 'Visa already issued — reopen the group to change allocation'; end if;
   if grp.brn_status = 'allocated' then raise exception 'Group % already has BRNs allocated', grp.group_no; end if;
 
+  -- Madinah availability on the arrival night; if it can't cover all pax, use all-Makkah.
+  select coalesce(sum(inv.beds - coalesce((
+            select sum(c.beds) from brn_consumption c
+            where c.brn_id = inv.id and c.check_in <= grp.arrival_date and c.check_out > grp.arrival_date), 0)), 0)
+    into v_mad_avail
+  from brn_inventory inv
+  where inv.company_id = grp.company_id and inv.city = 'Madinah'
+    and inv.check_in <= grp.arrival_date and inv.check_out > grp.arrival_date;
+  if v_mad_avail >= grp.pax then v_night1_city := 'Madinah'; else v_night1_city := 'Makkah'; end if;
+
+  drop table if exists _alloc;
   create temp table _alloc(brn_id uuid, night date, beds int) on commit drop;
 
   for n in select d::date from generate_series(grp.arrival_date, grp.departure_date - interval '1 day', interval '1 day') d loop
-    if n = grp.arrival_date then seg_city := 'Madinah'; else seg_city := 'Makkah'; end if;
+    if n = grp.arrival_date then seg_city := v_night1_city; else seg_city := 'Makkah'; end if;
     need := grp.pax;
     for rec in
       select inv.id,
@@ -120,6 +134,7 @@ begin
     end loop;
   end loop;
 
+  drop table if exists _alloc;
   update umrah_groups set brn_status = 'allocated' where id = p_group;
   return grp.pax;
 end;

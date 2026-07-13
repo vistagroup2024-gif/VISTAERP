@@ -62,7 +62,7 @@ export default function GroupAllocation({
       {!allocated ? (
         <>
           <p className="text-sm text-slate-500">
-            Auto-allocation follows the rule: <b>night 1 → Madinah</b>, remaining nights → <b>Makkah</b>. The system splits across the fewest BRNs and blocks overbooking.
+            Auto-allocation rule: <b>night 1 → Madinah</b> (if Madinah has enough beds for the whole group that night), remaining nights → <b>Makkah</b>. If Madinah can’t cover night 1, the entire stay falls back to <b>Makkah</b>. Splits across the fewest BRNs and blocks overbooking.
           </p>
           <button className="btn" onClick={() => call("allocate_group_brns")} disabled={busy}>
             {busy ? "Allocating…" : `⚡ Auto-allocate BRNs for ${pax} pax`}
