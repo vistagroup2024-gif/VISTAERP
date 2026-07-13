@@ -8,6 +8,7 @@ import { dateStr } from "@/lib/format";
 
 export interface BrnRow {
   id: string;
+  company: string;
   brn: string;
   hotel_name: string;
   city: string;
@@ -24,6 +25,7 @@ export interface BrnRow {
 type SortKey = keyof BrnRow;
 
 const COLS: { key: SortKey; label: string; num?: boolean }[] = [
+  { key: "company", label: "Company" },
   { key: "brn", label: "BRN" },
   { key: "hotel_name", label: "Hotel" },
   { key: "city", label: "City" },
@@ -60,6 +62,7 @@ export default function BrnTable({ rows, isAdmin = false }: { rows: BrnRow[]; is
     if (error) { setDelErr(error.message); return; }
     router.refresh();
   }
+  const [company, setCompany] = useState("");
   const [hotel, setHotel] = useState("");
   const [brn, setBrn] = useState("");
   const [city, setCity] = useState("");
@@ -70,14 +73,16 @@ export default function BrnTable({ rows, isAdmin = false }: { rows: BrnRow[]; is
   const [minAvail, setMinAvail] = useState("");
 
   const uniq = (vals: string[]) => Array.from(new Set(vals.filter(Boolean))).sort();
+  const companiesList = useMemo(() => uniq(rows.map((r) => r.company)), [rows]);
   const hotels = useMemo(() => uniq(rows.map((r) => r.hotel_name)), [rows]);
   const brns = useMemo(() => uniq(rows.map((r) => r.brn)), [rows]);
   const cities = useMemo(() => uniq(rows.map((r) => r.city)), [rows]);
   const suppliers = useMemo(() => uniq(rows.map((r) => r.supplier)), [rows]);
-  const statuses = ["Available", "Full", "Overbooked"];
+  const statuses = ["Available", "Tight", "Overbooked"];
 
   const filtered = useMemo(() => {
     let r = rows.filter((row) =>
+      (!company || row.company === company) &&
       (!hotel || row.hotel_name.toLowerCase().includes(hotel.toLowerCase())) &&
       (!brn || row.brn.toLowerCase().includes(brn.toLowerCase())) &&
       (!city || row.city === city) &&
@@ -95,23 +100,29 @@ export default function BrnTable({ rows, isAdmin = false }: { rows: BrnRow[]; is
       return av < bv ? -dir : av > bv ? dir : 0;
     });
     return r;
-  }, [rows, hotel, brn, city, supplier, status, checkIn, checkOut, minAvail, sort]);
+  }, [rows, company, hotel, brn, city, supplier, status, checkIn, checkOut, minAvail, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((s) => (s.key === key ? { key, dir: (s.dir * -1) as 1 | -1 } : { key, dir: 1 }));
   }
   function reset() {
-    setHotel(""); setBrn(""); setCity(""); setSupplier(""); setStatus("");
+    setCompany(""); setHotel(""); setBrn(""); setCity(""); setSupplier(""); setStatus("");
     setCheckIn(""); setCheckOut(""); setMinAvail("");
   }
 
   const badge = (s: string) =>
-    s === "Overbooked" ? "bg-red-500 text-white" : s === "Full" ? "bg-orange-400 text-white" : "bg-green-100 text-green-700";
+    s === "Overbooked" ? "bg-red-500 text-white" : s === "Tight" ? "bg-orange-400 text-white" : "bg-green-100 text-green-700";
 
   return (
     <div className="space-y-3">
       {/* Filter bar */}
       <div className="card grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div>
+          <label className="label">Company</label>
+          <select className="input" value={company} onChange={(e) => setCompany(e.target.value)}>
+            <option value="">All</option>{companiesList.map((c) => <option key={c}>{c}</option>)}
+          </select>
+        </div>
         <div>
           <label className="label">Hotel</label>
           <input className="input" list="brn-hotels" value={hotel} onChange={(e) => setHotel(e.target.value)} placeholder="All" />
@@ -175,6 +186,7 @@ export default function BrnTable({ rows, isAdmin = false }: { rows: BrnRow[]; is
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id} className="border-t border-slate-100">
+                <td className="td text-slate-500">{r.company}</td>
                 <td className="td font-mono font-medium">
                   <Link href={`/inventory/brn/${r.id}`} className="text-brand hover:underline">{r.brn}</Link>
                 </td>

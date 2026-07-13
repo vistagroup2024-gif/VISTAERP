@@ -6,10 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 import { money } from "@/lib/format";
 import { totalNights } from "@/lib/brn";
 
-export default function NewBrnForm({ suppliers }: { suppliers: { id: string; name: string }[] }) {
+export default function NewBrnForm({ suppliers, companies }: { suppliers: { id: string; name: string }[]; companies: { id: string; name: string }[] }) {
   const router = useRouter();
   const supabase = createClient();
   const [form, setForm] = useState({
+    group_company_id: companies[0]?.id ?? "",
     hotel_name: "",
     brn: "",
     city: "Makkah",
@@ -31,6 +32,7 @@ export default function NewBrnForm({ suppliers }: { suppliers: { id: string; nam
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.group_company_id) return setError("Company is required");
     if (!form.hotel_name.trim()) return setError("Hotel name is required");
     if (!form.brn.trim()) return setError("Agreement number (BRN) is required");
     if (!form.check_in || !form.check_out) return setError("Check-in and check-out dates are required");
@@ -40,6 +42,7 @@ export default function NewBrnForm({ suppliers }: { suppliers: { id: string; nam
     setSaving(true);
     setError(null);
     const { error } = await supabase.rpc("add_brn", {
+      p_group_company_id: form.group_company_id,
       p_hotel_name: form.hotel_name.trim(),
       p_brn: form.brn.trim(),
       p_city: form.city,
@@ -69,6 +72,13 @@ export default function NewBrnForm({ suppliers }: { suppliers: { id: string; nam
         <div className="card space-y-4">
           <h2 className="font-semibold text-slate-700">Agreement</h2>
           <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="label">Company</label>
+              <select className="input" value={form.group_company_id} onChange={(e) => setForm({ ...form, group_company_id: e.target.value })} required>
+                <option value="">Select company…</option>
+                {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
             <div className="col-span-2">
               <label className="label">Hotel name</label>
               <input className="input" value={form.hotel_name} placeholder="e.g. Frontel Al Harithia"

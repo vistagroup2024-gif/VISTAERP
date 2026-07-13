@@ -12,6 +12,20 @@ export interface Brn {
   beds: number;
   remarks: string | null;
   rate_per_bed?: number | null;
+  group_company_id?: string | null;
+}
+
+// A BRN is fully consumed (archived) when NO night has any bed left to sell.
+export function isArchived(brn: Brn, cons: Consumption[]): boolean {
+  const daily = dailyForBrn(brn, cons);
+  if (!daily.length) return false;
+  return daily.every((d) => d.available <= 0);
+}
+
+// Highest number of beds still sellable on any single night.
+export function maxNightlyAvailable(brn: Brn, cons: Consumption[]): number {
+  const daily = dailyForBrn(brn, cons);
+  return daily.reduce((m, d) => Math.max(m, d.available), 0);
 }
 
 export interface Consumption {
@@ -21,6 +35,7 @@ export interface Consumption {
   check_in: string;
   check_out: string;
   beds: number;
+  created_at?: string;
 }
 
 // Occupied nights: check_in .. check_out-1 (checkout day is NEVER occupied).
