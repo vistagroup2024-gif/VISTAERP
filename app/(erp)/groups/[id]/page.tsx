@@ -42,7 +42,7 @@ export default async function GroupDetail({ params }: { params: { id: string } }
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold font-mono">{g.group_no}</h1>
-          <p className="text-slate-500">{g.group_name ?? "Umrah Group"} · {g.pax} pax · {g.total_nights} nights</p>
+          <p className="text-slate-500">{g.group_name ?? "Visa Group"} · {g.pax} pax · {g.total_nights} nights</p>
         </div>
         <GroupHeaderActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} isAdmin={isAdmin} />
       </div>

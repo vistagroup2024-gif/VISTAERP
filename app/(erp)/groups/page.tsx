@@ -29,7 +29,7 @@ export default async function GroupsPage() {
 
   return (
     <div>
-      <PageHeader title="Umrah Groups" action={{ href: "/groups/new", label: "+ New Group" }} />
+      <PageHeader title="Visa Groups" action={{ href: "/groups/new", label: "+ New Group" }} />
       <p className="mb-4 text-sm text-slate-500">Starting point of visa processing. Open a group to allocate hotel BRNs.</p>
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[950px]">
