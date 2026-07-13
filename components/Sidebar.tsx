@@ -43,6 +43,7 @@ const ACCOUNTING = [
 
 const SETTINGS = [
   { href: "/settings/users", label: "Users & Roles", icon: "👤" },
+  { href: "/settings/companies", label: "Companies", icon: "🏢" },
 ];
 
 function NavLink({ href, label, icon, onClick }: { href: string; label: string; icon: string; onClick?: () => void }) {
