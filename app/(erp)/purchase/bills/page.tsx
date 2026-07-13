@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
+import DeleteButton from "@/components/DeleteButton";
 import { dateStr, money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export default async function BillsPage() {
               <th className="th text-right">Total</th>
               <th className="th text-right">Balance</th>
               <th className="th">Status</th>
+              <th className="th">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -48,10 +50,11 @@ export default async function BillsPage() {
                 <td className="td text-right">{money(r.total, r.currency)}</td>
                 <td className="td text-right">{money(Number(r.total) - Number(r.amount_paid), r.currency)}</td>
                 <td className="td"><span className={`badge ${STATUS_COLOR[r.status]}`}>{r.status.replace("_", " ")}</span></td>
+                <td className="td"><DeleteButton rpc="delete_bill" paramName="p_bill" id={r.id} confirmText="Delete this bill? Its GL entry will be reversed. This cannot be undone." /></td>
               </tr>
             ))}
             {(rows ?? []).length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={7}>No supplier bills yet.</td></tr>
+              <tr><td className="td text-slate-400" colSpan={8}>No supplier bills yet.</td></tr>
             )}
           </tbody>
         </table>
