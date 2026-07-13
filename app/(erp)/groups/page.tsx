@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import { dateStr } from "@/lib/format";
+import GroupActions from "./GroupActions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,18 +21,19 @@ export default async function GroupsPage() {
       <PageHeader title="Umrah Groups" action={{ href: "/groups/new", label: "+ New Group" }} />
       <p className="mb-4 text-sm text-slate-500">Starting point of visa processing. Create a group, then auto-allocate hotel BRNs.</p>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[900px]">
+        <table className="w-full min-w-[1000px]">
           <thead className="bg-slate-50">
             <tr>
               <th className="th">Group No</th>
-              <th className="th">Date</th>
               <th className="th">Name</th>
               <th className="th">Agent</th>
               <th className="th text-right">Pax</th>
               <th className="th">Arrival</th>
               <th className="th">Departure</th>
               <th className="th text-right">Nights</th>
-              <th className="th">Status</th>
+              <th className="th">BRN Status</th>
+              <th className="th">Visa Status</th>
+              <th className="th">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -40,7 +42,6 @@ export default async function GroupsPage() {
                 <td className="td font-mono font-medium">
                   <Link href={`/groups/${g.id}`} className="text-brand hover:underline">{g.group_no}</Link>
                 </td>
-                <td className="td text-sm">{dateStr(g.group_date)}</td>
                 <td className="td">{g.group_name ?? "—"}</td>
                 <td className="td text-slate-500">{g.parties?.name ?? "—"}</td>
                 <td className="td text-right font-medium">{g.pax}</td>
@@ -48,11 +49,17 @@ export default async function GroupsPage() {
                 <td className="td text-sm">{dateStr(g.departure_date)}</td>
                 <td className="td text-right">{g.total_nights}</td>
                 <td className="td">
+                  {g.brn_status === "allocated"
+                    ? <span className="badge bg-green-100 text-green-700">Allocated</span>
+                    : <span className="badge bg-yellow-100 text-yellow-800">Pending</span>}
+                </td>
+                <td className="td">
                   {g.visa_status === "issued"
                     ? <span className="badge bg-emerald-600 text-white">Visa Issued</span>
-                    : g.brn_status === "allocated"
-                    ? <span className="badge bg-green-100 text-green-700">BRN Allocated</span>
-                    : <span className="badge bg-yellow-100 text-yellow-800">Pending</span>}
+                    : <span className="badge bg-slate-100 text-slate-600">Pending</span>}
+                </td>
+                <td className="td">
+                  <GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} />
                 </td>
               </tr>
             ))}

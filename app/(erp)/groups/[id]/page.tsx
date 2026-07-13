@@ -77,6 +77,8 @@ export default async function GroupDetail({ params }: { params: { id: string } }
       <GroupAllocation
         groupId={g.id}
         pax={g.pax}
+        arrivalDate={g.arrival_date}
+        departureDate={g.departure_date}
         brnStatus={g.brn_status}
         visaStatus={g.visa_status}
         visaIssuedAt={g.visa_issued_at}
