@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
+import DeleteButton from "@/components/DeleteButton";
 import { money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export default async function CatalogPage() {
               <th className="th text-right">Cost</th>
               <th className="th text-right">List price</th>
               <th className="th">Status</th>
+              <th className="th">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -44,10 +46,11 @@ export default async function CatalogPage() {
                 <td className="td text-right text-slate-500">{money(s.default_cost, s.cost_currency)}</td>
                 <td className="td text-right font-medium">{money(s.list_price, s.sell_currency)}</td>
                 <td className="td">{s.is_active ? <span className="badge bg-green-100 text-green-700">Active</span> : <span className="badge bg-slate-100 text-slate-500">Inactive</span>}</td>
+                <td className="td"><DeleteButton rpc="delete_service" paramName="p_service" id={s.id} /></td>
               </tr>
             ))}
             {(rows ?? []).length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={6}>No services yet.</td></tr>
+              <tr><td className="td text-slate-400" colSpan={7}>No services yet.</td></tr>
             )}
           </tbody>
         </table>

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
+import DeleteButton from "@/components/DeleteButton";
 import { money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export default async function PartiesPage() {
               <th className="th">Phone</th>
               <th className="th">Currency</th>
               <th className="th text-right">Credit limit</th>
+              <th className="th">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -43,10 +45,11 @@ export default async function PartiesPage() {
                 <td className="td">{p.phone ?? "—"}</td>
                 <td className="td">{p.currency ?? "—"}</td>
                 <td className="td text-right">{p.credit_limit ? money(p.credit_limit, p.currency ?? "PKR") : "—"}</td>
+                <td className="td"><DeleteButton rpc="delete_party" paramName="p_party" id={p.id} /></td>
               </tr>
             ))}
             {(rows ?? []).length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={6}>No parties yet.</td></tr>
+              <tr><td className="td text-slate-400" colSpan={7}>No parties yet.</td></tr>
             )}
           </tbody>
         </table>
