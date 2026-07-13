@@ -2,8 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { dateStr } from "@/lib/format";
+import { nightsBetween } from "@/lib/brn";
 import GroupAllocation from "./GroupAllocation";
 import GroupHeaderActions from "./GroupHeaderActions";
+import CopyExternalErp from "./CopyExternalErp";
+import { ExtGroup, ExtHotel } from "@/lib/externalErp";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +39,32 @@ export default async function GroupDetail({ params }: { params: { id: string } }
   const { data: { user } } = await supabase.auth.getUser();
   const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user?.id ?? "");
   const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
+
+  // ---- External ERP export mapping (uses actual allocated dates + city names) ----
+  const cityName = (j: any, code: string | null) => j?.city ?? code ?? "";
+  const extGroup: ExtGroup = {
+    groupNo: g.group_no,
+    pax: g.pax,
+    arrivalDate: dateStr(g.arrival_date),
+    arrivalFlight: g.arrival_flight ?? "",
+    arrivalFrom: cityName((g as any).af, g.arrival_from),
+    arrivalTo: cityName((g as any).aa, g.arrival_airport),
+    departureDate: dateStr(g.departure_date),
+    departureFlight: g.departure_flight ?? "",
+    departureFrom: cityName((g as any).da, g.departure_airport),
+    departureTo: cityName((g as any).dt, g.departure_to),
+  };
+  const extHotels: ExtHotel[] = A
+    .slice()
+    .sort((a, b) => (a.brn_consumption?.check_in ?? "").localeCompare(b.brn_consumption?.check_in ?? ""))
+    .map((a) => ({
+      agreement: a.brn_inventory?.brn ?? "",
+      city: a.brn_inventory?.city ?? "",
+      hotel: a.brn_inventory?.hotel_name ?? "",
+      checkIn: dateStr(a.brn_consumption?.check_in),
+      checkOut: dateStr(a.brn_consumption?.check_out),
+      nights: a.brn_consumption ? nightsBetween(a.brn_consumption.check_in, a.brn_consumption.check_out).length : 0,
+    }));
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -84,6 +113,8 @@ export default async function GroupDetail({ params }: { params: { id: string } }
         isAdmin={isAdmin}
         allocations={A}
       />
+
+      {g.brn_status === "allocated" && <CopyExternalErp group={extGroup} hotels={extHotels} />}
     </div>
   );
 }
