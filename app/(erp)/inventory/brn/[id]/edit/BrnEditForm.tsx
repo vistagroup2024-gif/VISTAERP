@@ -5,15 +5,17 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function BrnEditForm({
-  brn, suppliers, consumedCount,
+  brn, suppliers, companies, consumedCount,
 }: {
   brn: any;
   suppliers: { id: string; name: string }[];
+  companies: { id: string; name: string }[];
   consumedCount: number;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [form, setForm] = useState({
+    group_company_id: brn.group_company_id ?? "",
     hotel_name: brn.hotel_name ?? "",
     brn: brn.brn ?? "",
     city: brn.city ?? "Makkah",
@@ -37,6 +39,7 @@ export default function BrnEditForm({
     setSaving(true);
     setError(null);
     const { error } = await supabase.from("brn_inventory").update({
+      group_company_id: form.group_company_id || null,
       hotel_name: form.hotel_name.trim(),
       brn: form.brn.trim(),
       city: form.city,
@@ -65,6 +68,13 @@ export default function BrnEditForm({
       <form onSubmit={save} className="card space-y-4">
         {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="label">Company</label>
+            <select className="input" value={form.group_company_id} onChange={(e) => setForm({ ...form, group_company_id: e.target.value })} required>
+              <option value="">Select company…</option>
+              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
           <div className="col-span-2">
             <label className="label">Hotel name</label>
             <input className="input" value={form.hotel_name} onChange={(e) => setForm({ ...form, hotel_name: e.target.value })} required />

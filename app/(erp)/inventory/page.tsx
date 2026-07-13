@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
+import CompanyFilter from "@/components/CompanyFilter";
 import { money } from "@/lib/format";
-import { Brn, Consumption, dailyForBrn, usedOnNight } from "@/lib/brn";
+import { Brn, Consumption, dailyForBrn, usedOnNight, isArchived } from "@/lib/brn";
 
 export const dynamic = "force-dynamic";
 
@@ -27,21 +28,28 @@ function availableTodayForCity(B: Brn[], consByBrn: Record<string, Consumption[]
   return cap - used;
 }
 
-export default async function InventoryDashboard() {
+export default async function InventoryDashboard({ searchParams }: { searchParams: { company?: string } }) {
+  const company = searchParams.company ?? "";
   const supabase = createClient();
   const today = new Date().toISOString().slice(0, 10);
   const soon = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
-  const [{ data: brns }, { data: cons }, { data: bills }] = await Promise.all([
+  const [{ data: brns }, { data: cons }, { data: bills }, { data: companies }] = await Promise.all([
     supabase.from("brn_inventory").select("*"),
     supabase.from("brn_consumption").select("*"),
     supabase.from("bills").select("total, amount_paid, status, currency"),
+    supabase.from("group_companies").select("id, name").order("name"),
   ]);
 
-  const B = (brns ?? []) as Brn[];
+  const allB = (brns ?? []) as Brn[];
   const C = (cons ?? []) as Consumption[];
   const consByBrn: Record<string, Consumption[]> = {};
   C.forEach((c) => (consByBrn[c.brn_id] ||= []).push(c));
+
+  // Active (not fully consumed) + company filter — KPIs use active BRNs only.
+  const B = allB
+    .filter((b) => !isArchived(b, consByBrn[b.id] ?? []))
+    .filter((b) => !company || b.group_company_id === company);
 
   let capacityNights = 0, usedNights = 0;
   const overbooked: string[] = [];
@@ -71,6 +79,7 @@ export default async function InventoryDashboard() {
   return (
     <div>
       <PageHeader title="BRN Inventory Dashboard" action={{ href: "/inventory/brn/new", label: "+ Add BRN" }} />
+      <CompanyFilter companies={companies ?? []} value={company} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
         <Kpi label="Active Agreements" value={activeAgreements} />

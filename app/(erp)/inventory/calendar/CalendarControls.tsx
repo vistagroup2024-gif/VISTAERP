@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -8,13 +8,17 @@ export default function CalendarControls({
   month, year, city,
 }: { month: number; year: number; city: string }) {
   const router = useRouter();
+  const params = useSearchParams();
   const years = [year - 1, year, year + 1, year + 2];
 
   function go(next: { month?: number; year?: number; city?: string }) {
     const m = next.month ?? month;
     const y = next.year ?? year;
     const c = next.city ?? city;
-    router.push(`/inventory/calendar?month=${m}&year=${y}&city=${c}`);
+    const company = params.get("company");
+    const q = new URLSearchParams({ month: String(m), year: String(y), city: c });
+    if (company) q.set("company", company);
+    router.push(`/inventory/calendar?${q.toString()}`);
   }
 
   return (

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
+import CompanyFilter from "@/components/CompanyFilter";
 import { Brn, Consumption, usedOnNight, cellClass } from "@/lib/brn";
 import CalendarControls from "./CalendarControls";
 
@@ -9,11 +10,12 @@ function pad(n: number) { return String(n).padStart(2, "0"); }
 
 export default async function CalendarPage({
   searchParams,
-}: { searchParams: { month?: string; year?: string; city?: string } }) {
+}: { searchParams: { month?: string; year?: string; city?: string; company?: string } }) {
   const now = new Date();
   const month = Number(searchParams.month ?? now.getUTCMonth() + 1); // 1-12
   const year = Number(searchParams.year ?? now.getUTCFullYear());
   const city = searchParams.city ?? "Makkah";
+  const company = searchParams.company ?? "";
 
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const monthStart = `${year}-${pad(month)}-01`;
@@ -22,13 +24,13 @@ export default async function CalendarPage({
 
   const supabase = createClient();
   // BRNs of this city whose coverage overlaps the month
-  const [{ data: brns }, { data: cons }] = await Promise.all([
-    supabase.from("brn_inventory").select("*")
-      .eq("city", city)
-      .lte("check_in", monthEnd)
-      .gt("check_out", monthStart)
-      .order("hotel_name"),
+  let brnQuery = supabase.from("brn_inventory").select("*")
+    .eq("city", city).lte("check_in", monthEnd).gt("check_out", monthStart).order("hotel_name");
+  if (company) brnQuery = brnQuery.eq("group_company_id", company);
+  const [{ data: brns }, { data: cons }, { data: companies }] = await Promise.all([
+    brnQuery,
     supabase.from("brn_consumption").select("*"),
+    supabase.from("group_companies").select("id, name").order("name"),
   ]);
 
   const B = (brns ?? []) as Brn[];
@@ -51,6 +53,7 @@ export default async function CalendarPage({
   return (
     <div>
       <PageHeader title="Inventory Calendar" />
+      <CompanyFilter companies={companies ?? []} value={company} />
       <CalendarControls month={month} year={year} city={city} />
       <p className="mb-3 text-sm text-slate-500">
         Available beds per night for each <b>{city}</b> BRN. Checkout day is never counted.
