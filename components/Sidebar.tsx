@@ -8,6 +8,7 @@ import { useState } from "react";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "▣" },
+  { href: "/groups", label: "Umrah Groups", icon: "🕋" },
   { href: "/bookings", label: "Sales Orders", icon: "🧾" },
   { href: "/sales/catalog", label: "Service Catalog", icon: "🗂" },
   { href: "/sales/visas", label: "Visa Tracking", icon: "🛂" },
