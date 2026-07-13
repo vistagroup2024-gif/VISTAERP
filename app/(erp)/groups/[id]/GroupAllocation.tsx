@@ -8,15 +8,18 @@ import { dateStr } from "@/lib/format";
 interface Alloc {
   id: string;
   beds: number;
-  brn_inventory: { id: string; brn: string; hotel_name: string; beds: number; check_in: string; check_out: string } | null;
+  brn_inventory: { id: string; brn: string; hotel_name: string; city: string | null; beds: number; check_in: string; check_out: string } | null;
 }
 
 export default function GroupAllocation({
-  groupId, pax, brnStatus, allocations,
+  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, allocations,
 }: {
   groupId: string;
   pax: number;
   brnStatus: string;
+  visaStatus: string;
+  visaIssuedAt: string | null;
+  isAdmin: boolean;
   allocations: Alloc[];
 }) {
   const router = useRouter();
@@ -26,19 +29,12 @@ export default function GroupAllocation({
   const [copied, setCopied] = useState(false);
 
   const allocated = brnStatus === "allocated";
+  const issued = visaStatus === "issued";
   const brnList = allocations.map((a) => a.brn_inventory?.brn).filter(Boolean) as string[];
 
-  async function allocate() {
+  async function call(fn: string) {
     setBusy(true); setError(null);
-    const { error } = await supabase.rpc("allocate_group_brns", { p_group: groupId });
-    setBusy(false);
-    if (error) return setError(error.message);
-    router.refresh();
-  }
-
-  async function deallocate() {
-    setBusy(true); setError(null);
-    const { error } = await supabase.rpc("deallocate_group_brns", { p_group: groupId });
+    const { error } = await supabase.rpc(fn, { p_group: groupId });
     setBusy(false);
     if (error) return setError(error.message);
     router.refresh();
@@ -54,8 +50,10 @@ export default function GroupAllocation({
     <div className="card space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-slate-700">🏨 Hotel BRN Allocation</h2>
-        {allocated
-          ? <span className="badge bg-green-100 text-green-700">Allocated</span>
+        {issued
+          ? <span className="badge bg-emerald-600 text-white">🔒 Visa Issued</span>
+          : allocated
+          ? <span className="badge bg-green-100 text-green-700">BRN Allocated</span>
           : <span className="badge bg-yellow-100 text-yellow-800">Pending</span>}
       </div>
 
@@ -64,45 +62,45 @@ export default function GroupAllocation({
       {!allocated ? (
         <>
           <p className="text-sm text-slate-500">
-            The system will automatically find BRN(s) with enough beds for all {pax} pilgrims across the full stay and consume only what’s needed.
+            Auto-allocation follows the rule: <b>night 1 → Madinah</b>, remaining nights → <b>Makkah</b>. The system splits across the fewest BRNs and blocks overbooking.
           </p>
-          <button className="btn" onClick={allocate} disabled={busy}>
+          <button className="btn" onClick={() => call("allocate_group_brns")} disabled={busy}>
             {busy ? "Allocating…" : `⚡ Auto-allocate BRNs for ${pax} pax`}
           </button>
         </>
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px]">
+            <table className="w-full min-w-[620px] text-sm">
               <thead className="bg-slate-50">
                 <tr>
                   <th className="th">BRN</th>
                   <th className="th">Hotel</th>
-                  <th className="th">Coverage</th>
-                  <th className="th text-right">Beds used</th>
-                  <th className="th text-right">BRN total</th>
+                  <th className="th">City</th>
+                  <th className="th">Nights covered</th>
+                  <th className="th text-right">Beds</th>
                 </tr>
               </thead>
               <tbody>
-                {allocations.map((a) => (
+                {allocations
+                  .slice()
+                  .sort((a, b) => (a.brn_inventory?.check_in ?? "").localeCompare(b.brn_inventory?.check_in ?? ""))
+                  .map((a) => (
                   <tr key={a.id} className="border-t border-slate-100">
                     <td className="td font-mono font-medium">{a.brn_inventory?.brn}</td>
                     <td className="td">{a.brn_inventory?.hotel_name}</td>
+                    <td className="td">
+                      <span className={`badge ${a.brn_inventory?.city === "Madinah" ? "bg-purple-100 text-purple-700" : "bg-cyan-100 text-cyan-800"}`}>
+                        {a.brn_inventory?.city ?? "—"}
+                      </span>
+                    </td>
                     <td className="td text-sm text-slate-500">
                       {a.brn_inventory ? `${dateStr(a.brn_inventory.check_in)} → ${dateStr(a.brn_inventory.check_out)}` : "—"}
                     </td>
                     <td className="td text-right font-medium">{a.beds}</td>
-                    <td className="td text-right text-slate-500">{a.brn_inventory?.beds}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr className="border-t border-slate-200 font-semibold">
-                  <td className="td" colSpan={3}>Total allocated</td>
-                  <td className="td text-right">{allocations.reduce((s, a) => s + a.beds, 0)} / {pax}</td>
-                  <td className="td"></td>
-                </tr>
-              </tfoot>
             </table>
           </div>
 
@@ -111,12 +109,32 @@ export default function GroupAllocation({
               <p className="text-sm font-semibold text-slate-700">Copy BRN(s) for Nusuk Masar</p>
               <button className="btn text-sm" onClick={copyBrns}>{copied ? "✓ Copied" : "📋 Copy"}</button>
             </div>
-            <pre className="whitespace-pre-wrap font-mono text-sm text-slate-800">{brnList.join("\n")}</pre>
+            <pre className="whitespace-pre-wrap font-mono text-sm text-slate-800">{Array.from(new Set(brnList)).join("\n")}</pre>
           </div>
 
-          <button className="btn-outline text-sm text-red-600" onClick={deallocate} disabled={busy}>
-            {busy ? "Releasing…" : "Release allocation"}
-          </button>
+          {/* Visa issued action */}
+          {!issued ? (
+            <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+              <button className="btn bg-emerald-600 hover:bg-emerald-700" onClick={() => call("mark_visa_issued")} disabled={busy}>
+                {busy ? "Saving…" : "✅ Mark Visa Issued"}
+              </button>
+              <button className="btn-outline text-sm text-red-600" onClick={() => call("deallocate_group_brns")} disabled={busy}>
+                Release allocation
+              </button>
+              <span className="text-xs text-slate-400">Marking as issued locks the BRNs from changes.</span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+              <span className="text-sm text-emerald-700">
+                🔒 Visa issued{visaIssuedAt ? ` on ${dateStr(visaIssuedAt)}` : ""} — BRNs are locked.
+              </span>
+              {isAdmin && (
+                <button className="btn-outline text-sm" onClick={() => call("reopen_group")} disabled={busy}>
+                  Reopen (admin)
+                </button>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
