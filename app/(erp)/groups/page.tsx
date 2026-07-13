@@ -1,0 +1,69 @@
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import PageHeader from "@/components/PageHeader";
+import { dateStr } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
+
+export default async function GroupsPage() {
+  const supabase = createClient();
+  const { data: groups } = await supabase
+    .from("umrah_groups")
+    .select("id, group_no, group_date, group_name, pax, arrival_date, departure_date, total_nights, brn_status, visa_status, parties:agent_id(name)")
+    .order("group_date", { ascending: false })
+    .limit(500);
+
+  const G = groups ?? [];
+
+  return (
+    <div>
+      <PageHeader title="Umrah Groups" action={{ href: "/groups/new", label: "+ New Group" }} />
+      <p className="mb-4 text-sm text-slate-500">Starting point of visa processing. Create a group, then auto-allocate hotel BRNs.</p>
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full min-w-[900px]">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="th">Group No</th>
+              <th className="th">Date</th>
+              <th className="th">Name</th>
+              <th className="th">Agent</th>
+              <th className="th text-right">Pax</th>
+              <th className="th">Arrival</th>
+              <th className="th">Departure</th>
+              <th className="th text-right">Nights</th>
+              <th className="th">BRN</th>
+              <th className="th">Visa</th>
+            </tr>
+          </thead>
+          <tbody>
+            {G.map((g: any) => (
+              <tr key={g.id} className="border-t border-slate-100">
+                <td className="td font-mono font-medium">
+                  <Link href={`/groups/${g.id}`} className="text-brand hover:underline">{g.group_no}</Link>
+                </td>
+                <td className="td text-sm">{dateStr(g.group_date)}</td>
+                <td className="td">{g.group_name ?? "—"}</td>
+                <td className="td text-slate-500">{g.parties?.name ?? "—"}</td>
+                <td className="td text-right font-medium">{g.pax}</td>
+                <td className="td text-sm">{dateStr(g.arrival_date)}</td>
+                <td className="td text-sm">{dateStr(g.departure_date)}</td>
+                <td className="td text-right">{g.total_nights}</td>
+                <td className="td">
+                  {g.brn_status === "allocated"
+                    ? <span className="badge bg-green-100 text-green-700">Allocated</span>
+                    : <span className="badge bg-yellow-100 text-yellow-800">Pending</span>}
+                </td>
+                <td className="td">
+                  <span className="badge bg-slate-100 text-slate-600 capitalize">{g.visa_status}</span>
+                </td>
+              </tr>
+            ))}
+            {G.length === 0 && (
+              <tr><td className="td text-slate-400" colSpan={10}>No groups yet. Click “New Group” to start.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
