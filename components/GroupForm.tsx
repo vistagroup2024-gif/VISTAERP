@@ -13,7 +13,7 @@ export interface GroupInitial {
   group_name?: string | null;
   pax?: number;
   agent_id?: string | null;
-  ref_company_id?: string | null;
+  group_company_id?: string | null;
   arrival_date?: string;
   arrival_flight?: string | null;
   arrival_from?: string | null;
@@ -43,7 +43,7 @@ export default function GroupForm({
     group_name: existing?.group_name ?? "",
     pax: existing?.pax ?? 0,
     agent_id: existing?.agent_id ?? "",
-    ref_company_id: existing?.ref_company_id ?? companies[0]?.id ?? "",
+    group_company_id: existing?.group_company_id ?? companies[0]?.id ?? "",
     arrival_date: existing?.arrival_date ?? "",
     arrival_flight: existing?.arrival_flight ?? "",
     arrival_from: existing?.arrival_from ?? "",
@@ -93,7 +93,7 @@ export default function GroupForm({
       group_name: f.group_name.trim() || null,
       pax: Number(f.pax),
       agent_id: f.agent_id || null,
-      ref_company_id: f.ref_company_id || null,
+      group_company_id: f.group_company_id || null,
       arrival_date: f.arrival_date,
       arrival_flight: f.arrival_flight.trim(),
       arrival_from: f.arrival_from,
@@ -156,7 +156,7 @@ export default function GroupForm({
             </div>
             <div>
               <label className="label">Company</label>
-              <select className="input" value={f.ref_company_id} onChange={(e) => set("ref_company_id", e.target.value)}>
+              <select className="input" value={f.group_company_id} onChange={(e) => set("group_company_id", e.target.value)}>
                 <option value="">—</option>
                 {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>

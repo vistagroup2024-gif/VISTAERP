@@ -23,7 +23,7 @@ export default async function GroupDetail({ params }: { params: { id: string } }
   const supabase = createClient();
   const { data: g } = await supabase
     .from("umrah_groups")
-    .select("*, agent:agent_id(name), company:ref_company_id(name), af:arrival_from(city,code), aa:arrival_airport(city,code), dt:departure_to(city,code), da:departure_airport(city,code)")
+    .select("*, agent:agent_id(name), company:group_company_id(name), af:arrival_from(city,code), aa:arrival_airport(city,code), dt:departure_to(city,code), da:departure_airport(city,code)")
     .eq("id", params.id)
     .single();
   if (!g) notFound();

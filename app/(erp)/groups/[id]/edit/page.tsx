@@ -11,7 +11,7 @@ export default async function EditGroupPage({ params }: { params: { id: string }
     supabase.from("umrah_groups").select("*").eq("id", params.id).single(),
     supabase.from("airports").select("*").order("is_saudi", { ascending: false }).order("city"),
     supabase.from("parties").select("id, name").in("party_type", ["b2b_agent", "customer"]).eq("is_active", true).order("name"),
-    supabase.from("companies").select("id, name").order("name"),
+    supabase.from("group_companies").select("id, name").eq("is_active", true).order("name"),
   ]);
   if (!g) notFound();
 
