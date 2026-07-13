@@ -35,7 +35,7 @@ const COLS: { key: SortKey; label: string; num?: boolean }[] = [
   { key: "status", label: "Status" },
 ];
 
-export default function BrnTable({ rows }: { rows: BrnRow[] }) {
+export default function BrnTable({ rows, isAdmin = false }: { rows: BrnRow[]; isAdmin?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -46,6 +46,16 @@ export default function BrnTable({ rows }: { rows: BrnRow[] }) {
     if (!confirm(`Delete BRN ${brn}? This cannot be undone.`)) return;
     setDeleting(id); setDelErr(null);
     const { error } = await supabase.rpc("delete_brn", { p_brn: id });
+    setDeleting(null);
+    if (error) { setDelErr(error.message); return; }
+    router.refresh();
+  }
+
+  async function forceDel(id: string, brn: string) {
+    const reason = prompt(`Super Admin force-delete of BRN ${brn}.\nThis releases all its allocations (affected groups revert to pending).\nEnter a reason (recorded in the audit log):`);
+    if (reason === null) return;
+    setDeleting(id); setDelErr(null);
+    const { error } = await supabase.rpc("admin_delete_brn", { p_brn: id, p_reason: reason });
     setDeleting(null);
     if (error) { setDelErr(error.message); return; }
     router.refresh();
@@ -178,13 +188,26 @@ export default function BrnTable({ rows }: { rows: BrnRow[] }) {
                 <td className="td"><span className={`badge ${badge(r.status)}`}>{r.status}</span></td>
                 <td className="td whitespace-nowrap">
                   <Link href={`/inventory/brn/${r.id}/edit`} className="text-brand text-sm hover:underline">Edit</Link>
-                  <button
-                    onClick={() => del(r.id, r.brn)}
-                    disabled={deleting === r.id || r.consumed}
-                    title={r.consumed ? "Cannot delete — inventory consumed" : "Delete BRN"}
-                    className="ml-3 text-sm text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-slate-300 disabled:no-underline">
-                    {deleting === r.id ? "…" : "Delete"}
-                  </button>
+                  {r.consumed ? (
+                    isAdmin ? (
+                      <button
+                        onClick={() => forceDel(r.id, r.brn)}
+                        disabled={deleting === r.id}
+                        title="Super Admin force-delete (releases allocations)"
+                        className="ml-3 text-sm text-red-600 hover:underline disabled:opacity-40">
+                        {deleting === r.id ? "…" : "Force delete"}
+                      </button>
+                    ) : (
+                      <span className="ml-3 text-sm text-slate-300" title="Cannot delete — inventory consumed">Delete</span>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => del(r.id, r.brn)}
+                      disabled={deleting === r.id}
+                      className="ml-3 text-sm text-red-600 hover:underline disabled:opacity-40">
+                      {deleting === r.id ? "…" : "Delete"}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

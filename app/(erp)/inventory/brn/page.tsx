@@ -7,12 +7,15 @@ export const dynamic = "force-dynamic";
 
 export default async function BrnListPage() {
   const supabase = createClient();
-  const [{ data: brns }, { data: cons }] = await Promise.all([
+  const { data: { user } } = await supabase.auth.getUser();
+  const [{ data: brns }, { data: cons }, { data: roles }] = await Promise.all([
     supabase.from("brn_inventory")
       .select("*, parties:supplier_id(name)")
       .order("check_in"),
     supabase.from("brn_consumption").select("*"),
+    supabase.from("user_roles").select("role").eq("user_id", user?.id ?? ""),
   ]);
+  const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
 
   const B = (brns ?? []) as (Brn & { parties: { name: string } | null })[];
   const C = (cons ?? []) as Consumption[];
@@ -42,7 +45,7 @@ export default async function BrnListPage() {
     <div>
       <PageHeader title="BRN Inventory" action={{ href: "/inventory/brn/new", label: "+ Add BRN" }} />
       <p className="mb-4 text-sm text-slate-500">Filter and sort from the column headers. Click a BRN for daily availability.</p>
-      <BrnTable rows={rows} />
+      <BrnTable rows={rows} isAdmin={isAdmin} />
     </div>
   );
 }

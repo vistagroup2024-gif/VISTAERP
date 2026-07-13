@@ -121,7 +121,7 @@ export default function GroupForm({
 
   return (
     <div className="max-w-3xl">
-      <h1 className="mb-1 text-2xl font-bold">{isEdit ? "Edit Umrah Group" : "New Umrah Group"}</h1>
+      <h1 className="mb-1 text-2xl font-bold">{isEdit ? "Edit Visa Group" : "New Visa Group"}</h1>
       <p className="mb-6 text-sm text-slate-500">
         {isEdit ? "Update group details." : "Register a group. After saving you can auto-allocate hotel BRNs for the stay."}
       </p>
