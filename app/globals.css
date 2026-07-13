@@ -26,11 +26,19 @@ body {
   @apply mb-1 block text-sm font-medium text-slate-600;
 }
 .th {
-  @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
+  @apply px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500;
 }
 .td {
-  @apply px-4 py-3 text-sm text-slate-700;
+  @apply px-4 py-3 text-center text-sm text-slate-700;
 }
 .badge {
   @apply inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+/* ERP-wide table alignment: every header and cell is centre-aligned so
+   headers always line up with the data beneath them. This overrides any
+   per-cell text-left / text-right utilities for a consistent look. */
+table th,
+table td {
+  text-align: center !important;
 }
