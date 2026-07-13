@@ -8,20 +8,31 @@ export const dynamic = "force-dynamic";
 
 export default async function GroupsPage() {
   const supabase = createClient();
-  const { data: groups } = await supabase
-    .from("umrah_groups")
-    .select("id, group_no, group_date, group_name, pax, arrival_date, departure_date, total_nights, brn_status, visa_status, parties:agent_id(name)")
-    .order("group_date", { ascending: false })
-    .limit(500);
+  const { data: { user } } = await supabase.auth.getUser();
+  const [{ data: groups }, { data: roles }] = await Promise.all([
+    supabase
+      .from("umrah_groups")
+      .select("id, group_no, group_date, group_name, pax, arrival_date, departure_date, total_nights, brn_status, visa_status, parties:agent_id(name)")
+      .order("group_date", { ascending: false })
+      .limit(500),
+    supabase.from("user_roles").select("role").eq("user_id", user?.id ?? ""),
+  ]);
 
+  const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
   const G = groups ?? [];
+
+  function statusBadge(g: any) {
+    if (g.visa_status === "issued") return <span className="badge bg-emerald-600 text-white">Visa Issued</span>;
+    if (g.brn_status === "allocated") return <span className="badge bg-green-100 text-green-700">BRN Allocated</span>;
+    return <span className="badge bg-yellow-100 text-yellow-800">Pending</span>;
+  }
 
   return (
     <div>
       <PageHeader title="Umrah Groups" action={{ href: "/groups/new", label: "+ New Group" }} />
-      <p className="mb-4 text-sm text-slate-500">Starting point of visa processing. Create a group, then auto-allocate hotel BRNs.</p>
+      <p className="mb-4 text-sm text-slate-500">Starting point of visa processing. Open a group to allocate hotel BRNs.</p>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[1000px]">
+        <table className="w-full min-w-[950px]">
           <thead className="bg-slate-50">
             <tr>
               <th className="th">Group No</th>
@@ -31,7 +42,6 @@ export default async function GroupsPage() {
               <th className="th">Arrival</th>
               <th className="th">Departure</th>
               <th className="th text-right">Nights</th>
-              <th className="th">BRN Status</th>
               <th className="th">Visa Status</th>
               <th className="th">Actions</th>
             </tr>
@@ -48,23 +58,14 @@ export default async function GroupsPage() {
                 <td className="td text-sm">{dateStr(g.arrival_date)}</td>
                 <td className="td text-sm">{dateStr(g.departure_date)}</td>
                 <td className="td text-right">{g.total_nights}</td>
+                <td className="td">{statusBadge(g)}</td>
                 <td className="td">
-                  {g.brn_status === "allocated"
-                    ? <span className="badge bg-green-100 text-green-700">Allocated</span>
-                    : <span className="badge bg-yellow-100 text-yellow-800">Pending</span>}
-                </td>
-                <td className="td">
-                  {g.visa_status === "issued"
-                    ? <span className="badge bg-emerald-600 text-white">Visa Issued</span>
-                    : <span className="badge bg-slate-100 text-slate-600">Pending</span>}
-                </td>
-                <td className="td">
-                  <GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} />
+                  <GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} isAdmin={isAdmin} />
                 </td>
               </tr>
             ))}
             {G.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={10}>No groups yet. Click “New Group” to start.</td></tr>
+              <tr><td className="td text-slate-400" colSpan={9}>No groups yet. Click “New Group” to start.</td></tr>
             )}
           </tbody>
         </table>

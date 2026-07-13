@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { dateStr } from "@/lib/format";
 import { Brn, Consumption, dailyForBrn, cellClass, fmtDay } from "@/lib/brn";
+import BrnActions from "./BrnActions";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,10 @@ export default async function BrnDetail({ params }: { params: { id: string } }) 
             {b.city ? ` · ${b.city}` : ""} · {dateStr(b.check_in)} → {dateStr(b.check_out)} · {b.beds} beds
           </p>
         </div>
-        <Link href={`/inventory/consume?brn=${b.id}`} className="btn">Consume beds</Link>
+        <div className="flex flex-col items-end gap-2">
+          <Link href={`/inventory/consume?brn=${b.id}`} className="btn">Consume beds</Link>
+          <BrnActions brnId={b.id} canDelete={C.length === 0} />
+        </div>
       </div>
 
       <div className="card overflow-x-auto">
