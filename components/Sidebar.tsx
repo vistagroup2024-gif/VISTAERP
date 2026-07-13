@@ -21,6 +21,7 @@ const NAV = [
 
 const INVENTORY = [
   { href: "/inventory", label: "BRN Dashboard", icon: "📊" },
+  { href: "/inventory/planning", label: "Purchase Planning", icon: "🛒" },
   { href: "/inventory/brn", label: "BRN List", icon: "📋" },
   { href: "/inventory/calendar", label: "Daily Calendar", icon: "📅" },
   { href: "/inventory/consume", label: "Consume Inventory", icon: "➖" },
