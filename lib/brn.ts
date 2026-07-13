@@ -11,6 +11,7 @@ export interface Brn {
   check_out: string;  // yyyy-mm-dd (checkout day, not occupied)
   beds: number;
   remarks: string | null;
+  rate_per_bed?: number | null;
 }
 
 export interface Consumption {
