@@ -6,38 +6,59 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import AirportSelect, { Airport } from "@/components/AirportSelect";
 
-export default function NewGroupForm({
-  airports, agents, companies,
+export interface GroupInitial {
+  id?: string;
+  group_no?: string;
+  group_date?: string;
+  group_name?: string | null;
+  pax?: number;
+  agent_id?: string | null;
+  ref_company_id?: string | null;
+  arrival_date?: string;
+  arrival_flight?: string | null;
+  arrival_from?: string | null;
+  arrival_airport?: string | null;
+  departure_date?: string;
+  departure_flight?: string | null;
+  departure_to?: string | null;
+  departure_airport?: string | null;
+  remarks?: string | null;
+}
+
+export default function GroupForm({
+  airports, agents, companies, existing,
 }: {
   airports: Airport[];
   agents: { id: string; name: string }[];
   companies: { id: string; name: string }[];
+  existing?: GroupInitial;
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const isEdit = !!existing?.id;
 
   const [f, setF] = useState({
-    group_no: "",
-    group_date: new Date().toISOString().slice(0, 10),
-    group_name: "",
-    pax: 0,
-    agent_id: "",
-    ref_company_id: companies[0]?.id ?? "",
-    arrival_date: "",
-    arrival_flight: "",
-    arrival_from: "",
-    arrival_airport: "",
-    departure_date: "",
-    departure_flight: "",
-    departure_to: "",
-    departure_airport: "",
-    remarks: "",
+    group_no: existing?.group_no ?? "",
+    group_date: existing?.group_date ?? new Date().toISOString().slice(0, 10),
+    group_name: existing?.group_name ?? "",
+    pax: existing?.pax ?? 0,
+    agent_id: existing?.agent_id ?? "",
+    ref_company_id: existing?.ref_company_id ?? companies[0]?.id ?? "",
+    arrival_date: existing?.arrival_date ?? "",
+    arrival_flight: existing?.arrival_flight ?? "",
+    arrival_from: existing?.arrival_from ?? "",
+    arrival_airport: existing?.arrival_airport ?? "",
+    departure_date: existing?.departure_date ?? "",
+    departure_flight: existing?.departure_flight ?? "",
+    departure_to: existing?.departure_to ?? "",
+    departure_airport: existing?.departure_airport ?? "",
+    remarks: existing?.remarks ?? "",
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Auto-generate group number on mount
   useEffect(() => {
+    if (isEdit) return;
     (async () => {
       const { data } = await supabase.rpc("next_group_no", { p_company: COMPANY_ID });
       if (data) setF((prev) => ({ ...prev, group_no: data as string }));
@@ -47,8 +68,7 @@ export default function NewGroupForm({
 
   const nights =
     f.arrival_date && f.departure_date && f.departure_date > f.arrival_date
-      ? Math.round((+new Date(f.departure_date) - +new Date(f.arrival_date)) / 86400000)
-      : 0;
+      ? Math.round((+new Date(f.departure_date) - +new Date(f.arrival_date)) / 86400000) : 0;
 
   function set<K extends keyof typeof f>(k: K, v: (typeof f)[K]) {
     setF((prev) => ({ ...prev, [k]: v }));
@@ -66,7 +86,7 @@ export default function NewGroupForm({
 
     setSaving(true);
     setError(null);
-    const { data, error } = await supabase.from("umrah_groups").insert({
+    const payload = {
       company_id: COMPANY_ID,
       group_no: f.group_no.trim(),
       group_date: f.group_date,
@@ -83,18 +103,28 @@ export default function NewGroupForm({
       departure_to: f.departure_to,
       departure_airport: f.departure_airport,
       remarks: f.remarks.trim() || null,
-    }).select("id").single();
+    };
 
-    setSaving(false);
-    if (error) return setError(error.message);
-    router.push(`/groups/${data!.id}`);
+    if (isEdit) {
+      const { error } = await supabase.from("umrah_groups").update(payload).eq("id", existing!.id!);
+      setSaving(false);
+      if (error) return setError(error.message);
+      router.push(`/groups/${existing!.id}`);
+    } else {
+      const { data, error } = await supabase.from("umrah_groups").insert(payload).select("id").single();
+      setSaving(false);
+      if (error) return setError(error.message);
+      router.push(`/groups/${data!.id}`);
+    }
     router.refresh();
   }
 
   return (
     <div className="max-w-3xl">
-      <h1 className="mb-1 text-2xl font-bold">New Umrah Group</h1>
-      <p className="mb-6 text-sm text-slate-500">Register a group. After saving you can auto-allocate hotel BRNs for the stay.</p>
+      <h1 className="mb-1 text-2xl font-bold">{isEdit ? "Edit Umrah Group" : "New Umrah Group"}</h1>
+      <p className="mb-6 text-sm text-slate-500">
+        {isEdit ? "Update group details." : "Register a group. After saving you can auto-allocate hotel BRNs for the stay."}
+      </p>
       <form onSubmit={save} className="space-y-5">
         {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
@@ -188,7 +218,7 @@ export default function NewGroupForm({
         </div>
 
         <div className="flex gap-2">
-          <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save group"}</button>
+          <button className="btn" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save changes" : "Save group"}</button>
           <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
         </div>
       </form>

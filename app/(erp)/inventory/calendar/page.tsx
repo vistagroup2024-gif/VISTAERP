@@ -1,15 +1,33 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
-import { Brn, Consumption, nightsBetween, usedOnNight, fmtDay } from "@/lib/brn";
-import Link from "next/link";
+import { Brn, Consumption, usedOnNight, cellClass } from "@/lib/brn";
+import CalendarControls from "./CalendarControls";
 
 export const dynamic = "force-dynamic";
 
-export default async function CalendarPage({ searchParams }: { searchParams: { city?: string } }) {
+function pad(n: number) { return String(n).padStart(2, "0"); }
+
+export default async function CalendarPage({
+  searchParams,
+}: { searchParams: { month?: string; year?: string; city?: string } }) {
+  const now = new Date();
+  const month = Number(searchParams.month ?? now.getUTCMonth() + 1); // 1-12
+  const year = Number(searchParams.year ?? now.getUTCFullYear());
   const city = searchParams.city ?? "Makkah";
+
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const monthStart = `${year}-${pad(month)}-01`;
+  const monthEnd = `${year}-${pad(month)}-${pad(daysInMonth)}`;
+  const days = Array.from({ length: daysInMonth }, (_, i) => `${year}-${pad(month)}-${pad(i + 1)}`);
+
   const supabase = createClient();
+  // BRNs of this city whose coverage overlaps the month
   const [{ data: brns }, { data: cons }] = await Promise.all([
-    supabase.from("brn_inventory").select("*").eq("city", city).order("check_in"),
+    supabase.from("brn_inventory").select("*")
+      .eq("city", city)
+      .lte("check_in", monthEnd)
+      .gt("check_out", monthStart)
+      .order("hotel_name"),
     supabase.from("brn_consumption").select("*"),
   ]);
 
@@ -18,65 +36,59 @@ export default async function CalendarPage({ searchParams }: { searchParams: { c
   const consByBrn: Record<string, Consumption[]> = {};
   C.forEach((c) => (consByBrn[c.brn_id] ||= []).push(c));
 
-  // Global date span
-  let allDays: string[] = [];
-  if (B.length) {
-    const min = B.reduce((m, b) => (b.check_in < m ? b.check_in : m), B[0].check_in);
-    const max = B.reduce((m, b) => (b.check_out > m ? b.check_out : m), B[0].check_out);
-    allDays = nightsBetween(min, max);
+  // availability matrix: brn -> day -> available (or null if not covered that night)
+  function avail(b: Brn, day: string): number | null {
+    if (!(b.check_in <= day && b.check_out > day)) return null; // checkout day excluded
+    return b.beds - usedOnNight(day, consByBrn[b.id] ?? []);
   }
-
-  // Total available beds across all BRNs of this city, per night
-  const perNight = allDays.map((day) => {
-    let capacity = 0, used = 0;
-    for (const b of B) {
-      if (b.check_in <= day && b.check_out > day) {
-        capacity += b.beds;
-        used += usedOnNight(day, consByBrn[b.id] ?? []);
-      }
-    }
-    return { day, capacity, used, available: capacity - used };
-  });
-
-  const tabs = ["Makkah", "Madinah", "Jeddah"];
+  const totals = days.map((day) =>
+    B.reduce((sum, b) => {
+      const a = avail(b, day);
+      return a === null ? sum : sum + a;
+    }, 0)
+  );
 
   return (
     <div>
-      <PageHeader title="Daily Inventory Calendar" />
-      <div className="mb-4 flex gap-2">
-        {tabs.map((c) => (
-          <Link key={c} href={`/inventory/calendar?city=${c}`}
-            className={`rounded-md px-4 py-2 text-sm font-medium ${c === city ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-            {c}
-          </Link>
-        ))}
-      </div>
-      <p className="mb-4 text-sm text-slate-500">Total available beds across all active <b>{city}</b> BRNs, per night.</p>
+      <PageHeader title="Inventory Calendar" />
+      <CalendarControls month={month} year={year} city={city} />
+      <p className="mb-3 text-sm text-slate-500">
+        Available beds per night for each <b>{city}</b> BRN. Checkout day is never counted.
+      </p>
 
-      {perNight.length === 0 ? (
-        <div className="card text-slate-400">No {city} BRN inventory yet.</div>
+      {B.length === 0 ? (
+        <div className="card text-slate-400">No {city} BRN inventory in this month.</div>
       ) : (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full min-w-[600px] text-sm">
+          <table className="min-w-max border-collapse text-center text-xs">
             <thead className="bg-slate-50">
               <tr>
-                <th className="th">Date</th>
-                <th className="th text-right">Total Capacity</th>
-                <th className="th text-right">Consumed</th>
-                <th className="th text-right">Available Beds</th>
+                <th className="th sticky left-0 z-10 bg-slate-50 text-left">BRN / Hotel</th>
+                {days.map((d, i) => (
+                  <th key={d} className="th px-2 py-2">{i + 1}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {perNight.map((n) => (
-                <tr key={n.day} className="border-t border-slate-100">
-                  <td className="td font-medium">{fmtDay(n.day)}</td>
-                  <td className="td text-right text-slate-500">{n.capacity}</td>
-                  <td className="td text-right text-slate-500">{n.used}</td>
-                  <td className={`td text-right font-semibold ${n.available < 0 ? "text-red-600" : n.available === 0 ? "text-orange-600" : "text-green-700"}`}>
-                    {n.available}
+              {B.map((b) => (
+                <tr key={b.id} className="border-t border-slate-100">
+                  <td className="td sticky left-0 z-10 bg-white text-left">
+                    <div className="font-mono text-xs font-semibold">{b.brn}</div>
+                    <div className="text-[11px] text-slate-500">{b.hotel_name}</div>
                   </td>
+                  {days.map((d) => {
+                    const a = avail(b, d);
+                    if (a === null) return <td key={d} className="td bg-slate-50/40 px-2"></td>;
+                    return <td key={d} className={`td px-2 ${cellClass(a, b.beds)}`}>{a}</td>;
+                  })}
                 </tr>
               ))}
+              <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold">
+                <td className="td sticky left-0 z-10 bg-slate-50 text-left">TOTAL AVAILABLE</td>
+                {totals.map((t, i) => (
+                  <td key={i} className="td px-2">{t}</td>
+                ))}
+              </tr>
             </tbody>
           </table>
         </div>

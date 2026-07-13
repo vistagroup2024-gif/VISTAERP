@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
+import { nightsBetween, fmtDay } from "@/lib/brn";
 
 interface Alloc {
   id: string;
@@ -12,10 +13,12 @@ interface Alloc {
 }
 
 export default function GroupAllocation({
-  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, allocations,
+  groupId, pax, arrivalDate, departureDate, brnStatus, visaStatus, visaIssuedAt, isAdmin, allocations,
 }: {
   groupId: string;
   pax: number;
+  arrivalDate: string;
+  departureDate: string;
   brnStatus: string;
   visaStatus: string;
   visaIssuedAt: string | null;
@@ -28,9 +31,20 @@ export default function GroupAllocation({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const nights = nightsBetween(arrivalDate, departureDate);
+  const [madinahNight, setMadinahNight] = useState(nights[0] ?? "");
+
   const allocated = brnStatus === "allocated";
   const issued = visaStatus === "issued";
   const brnList = allocations.map((a) => a.brn_inventory?.brn).filter(Boolean) as string[];
+
+  async function allocate() {
+    setBusy(true); setError(null);
+    const { error } = await supabase.rpc("allocate_group_brns", { p_group: groupId, p_madinah_night: madinahNight });
+    setBusy(false);
+    if (error) return setError(error.message);
+    router.refresh();
+  }
 
   async function call(fn: string) {
     setBusy(true); setError(null);
@@ -41,7 +55,7 @@ export default function GroupAllocation({
   }
 
   function copyBrns() {
-    navigator.clipboard.writeText(brnList.join("\n"));
+    navigator.clipboard.writeText(Array.from(new Set(brnList)).join("\n"));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -62,11 +76,22 @@ export default function GroupAllocation({
       {!allocated ? (
         <>
           <p className="text-sm text-slate-500">
-            Auto-allocation rule: <b>night 1 → Madinah</b> (if Madinah has enough beds for the whole group that night), remaining nights → <b>Makkah</b>. If Madinah can’t cover night 1, the entire stay falls back to <b>Makkah</b>. Splits across the fewest BRNs and blocks overbooking.
+            Every package has <b>one Madinah night</b> — pick which night below. Remaining nights are Makkah.
+            If Madinah has no beds for the chosen night, the whole stay falls back to Makkah. Uses the fewest BRNs and blocks overbooking.
           </p>
-          <button className="btn" onClick={() => call("allocate_group_brns")} disabled={busy}>
-            {busy ? "Allocating…" : `⚡ Auto-allocate BRNs for ${pax} pax`}
-          </button>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="label">Madinah night</label>
+              <select className="input w-auto" value={madinahNight} onChange={(e) => setMadinahNight(e.target.value)}>
+                {nights.map((n, i) => (
+                  <option key={n} value={n}>Night {i + 1} — {fmtDay(n)}</option>
+                ))}
+              </select>
+            </div>
+            <button className="btn" onClick={allocate} disabled={busy}>
+              {busy ? "Allocating…" : `⚡ Auto-allocate for ${pax} pax`}
+            </button>
+          </div>
         </>
       ) : (
         <>
@@ -77,7 +102,8 @@ export default function GroupAllocation({
                   <th className="th">BRN</th>
                   <th className="th">Hotel</th>
                   <th className="th">City</th>
-                  <th className="th">Nights covered</th>
+                  <th className="th">Check-in</th>
+                  <th className="th">Check-out</th>
                   <th className="th text-right">Beds</th>
                 </tr>
               </thead>
@@ -94,9 +120,8 @@ export default function GroupAllocation({
                         {a.brn_inventory?.city ?? "—"}
                       </span>
                     </td>
-                    <td className="td text-sm text-slate-500">
-                      {a.brn_inventory ? `${dateStr(a.brn_inventory.check_in)} → ${dateStr(a.brn_inventory.check_out)}` : "—"}
-                    </td>
+                    <td className="td whitespace-nowrap">{dateStr(a.brn_inventory?.check_in)}</td>
+                    <td className="td whitespace-nowrap">{dateStr(a.brn_inventory?.check_out)}</td>
                     <td className="td text-right font-medium">{a.beds}</td>
                   </tr>
                 ))}
@@ -112,7 +137,6 @@ export default function GroupAllocation({
             <pre className="whitespace-pre-wrap font-mono text-sm text-slate-800">{Array.from(new Set(brnList)).join("\n")}</pre>
           </div>
 
-          {/* Visa issued action */}
           {!issued ? (
             <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
               <button className="btn bg-emerald-600 hover:bg-emerald-700" onClick={() => call("mark_visa_issued")} disabled={busy}>

@@ -22,12 +22,14 @@ export interface Consumption {
   beds: number;
 }
 
-// Inclusive list of occupied nights: check_in .. check_out-1
+// Occupied nights: check_in .. check_out-1 (checkout day is NEVER occupied).
+// All arithmetic is done in UTC so the result never shifts by a day
+// regardless of the server/runtime timezone.
 export function nightsBetween(checkIn: string, checkOut: string): string[] {
   const out: string[] = [];
-  const start = new Date(checkIn + "T00:00:00");
-  const end = new Date(checkOut + "T00:00:00");
-  for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+  const start = new Date(checkIn + "T00:00:00Z");
+  const end = new Date(checkOut + "T00:00:00Z");
+  for (let d = new Date(start); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
     out.push(d.toISOString().slice(0, 10));
   }
   return out;
@@ -91,8 +93,9 @@ export function cellClass(available: number, capacity: number): string {
 }
 
 export function fmtDay(day: string): string {
-  return new Date(day + "T00:00:00").toLocaleDateString("en-GB", {
+  return new Date(day + "T00:00:00Z").toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
+    timeZone: "UTC",
   });
 }
