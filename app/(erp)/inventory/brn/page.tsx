@@ -34,6 +34,7 @@ export default async function BrnListPage() {
       beds: b.beds,
       available: minAvail,
       status: minAvail < 0 ? "Overbooked" : minAvail === 0 ? "Full" : "Available",
+      consumed: (consByBrn[b.id]?.length ?? 0) > 0,
     };
   });
 

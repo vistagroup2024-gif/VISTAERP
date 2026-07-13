@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
 
 export interface BrnRow {
@@ -16,6 +18,7 @@ export interface BrnRow {
   beds: number;
   available: number;
   status: string;
+  consumed: boolean;
 }
 
 type SortKey = keyof BrnRow;
@@ -33,7 +36,20 @@ const COLS: { key: SortKey; label: string; num?: boolean }[] = [
 ];
 
 export default function BrnTable({ rows }: { rows: BrnRow[] }) {
+  const router = useRouter();
+  const supabase = createClient();
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [delErr, setDelErr] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "check_in", dir: 1 });
+
+  async function del(id: string, brn: string) {
+    if (!confirm(`Delete BRN ${brn}? This cannot be undone.`)) return;
+    setDeleting(id); setDelErr(null);
+    const { error } = await supabase.rpc("delete_brn", { p_brn: id });
+    setDeleting(null);
+    if (error) { setDelErr(error.message); return; }
+    router.refresh();
+  }
   const [hotel, setHotel] = useState("");
   const [brn, setBrn] = useState("");
   const [city, setCity] = useState("");
@@ -132,8 +148,10 @@ export default function BrnTable({ rows }: { rows: BrnRow[] }) {
         </div>
       </div>
 
+      {delErr && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{delErr}</div>}
+
       <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[900px] text-sm">
+        <table className="w-full min-w-[1000px] text-sm">
           <thead className="bg-slate-50">
             <tr>
               {COLS.map((c) => (
@@ -141,6 +159,7 @@ export default function BrnTable({ rows }: { rows: BrnRow[] }) {
                   {c.label} <span className="text-slate-400">{sort.key === c.key ? (sort.dir === 1 ? "▲" : "▼") : "↕"}</span>
                 </th>
               ))}
+              <th className="th">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -157,10 +176,20 @@ export default function BrnTable({ rows }: { rows: BrnRow[] }) {
                 <td className="td text-right">{r.beds}</td>
                 <td className="td text-right font-medium">{r.available}</td>
                 <td className="td"><span className={`badge ${badge(r.status)}`}>{r.status}</span></td>
+                <td className="td whitespace-nowrap">
+                  <Link href={`/inventory/brn/${r.id}/edit`} className="text-brand text-sm hover:underline">Edit</Link>
+                  <button
+                    onClick={() => del(r.id, r.brn)}
+                    disabled={deleting === r.id || r.consumed}
+                    title={r.consumed ? "Cannot delete — inventory consumed" : "Delete BRN"}
+                    className="ml-3 text-sm text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-slate-300 disabled:no-underline">
+                    {deleting === r.id ? "…" : "Delete"}
+                  </button>
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={COLS.length}>No matching BRNs.</td></tr>
+              <tr><td className="td text-slate-400" colSpan={COLS.length + 1}>No matching BRNs.</td></tr>
             )}
           </tbody>
         </table>

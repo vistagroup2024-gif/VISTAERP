@@ -24,6 +24,17 @@ export default function GroupActions({
     router.refresh();
   }
 
+  async function del() {
+    if (!confirm("Delete this group? This cannot be undone.")) return;
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc("delete_group", { p_group: groupId });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    router.refresh();
+  }
+
+  const canDelete = !issued && !allocated;
+
   // After visa issued: only Super Admin sees Edit; normal users see a lock.
   if (issued) {
     return isAdmin
@@ -31,9 +42,9 @@ export default function GroupActions({
       : <span className="text-slate-400" title="Locked — visa issued">🔒</span>;
   }
 
-  // Before visa issued: only Mark Visa Issued (allocation already done at this stage)
+  // Before visa issued: Mark Visa Issued + Delete (only when not yet allocated)
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       <button
         onClick={markIssued}
         disabled={busy || !allocated}
@@ -41,6 +52,9 @@ export default function GroupActions({
         className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40">
         {busy ? "…" : "Mark Visa Issued"}
       </button>
+      {canDelete && (
+        <button onClick={del} disabled={busy} className="text-xs text-red-600 hover:underline">Delete</button>
+      )}
       {err && <span className="text-xs text-red-600" title={err}>⚠</span>}
     </div>
   );
