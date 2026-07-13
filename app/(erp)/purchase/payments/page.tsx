@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
+import DeleteButton from "@/components/DeleteButton";
 import { dateStr, money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export default async function SupplierPaymentsPage() {
               <th className="th">Supplier</th>
               <th className="th">Bill</th>
               <th className="th text-right">Amount</th>
+              <th className="th">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -40,10 +42,11 @@ export default async function SupplierPaymentsPage() {
                 <td className="td">{r.parties?.name ?? "—"}</td>
                 <td className="td">{r.bills?.bill_no ?? "—"}</td>
                 <td className="td text-right font-medium">{money(r.amount, r.currency)}</td>
+                <td className="td"><DeleteButton rpc="delete_payment" paramName="p_payment" id={r.id} confirmText="Delete this payment? Its GL entry will be reversed and the bill balance restored." /></td>
               </tr>
             ))}
             {(rows ?? []).length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={5}>No supplier payments yet. Record one from a bill.</td></tr>
+              <tr><td className="td text-slate-400" colSpan={6}>No supplier payments yet. Record one from a bill.</td></tr>
             )}
           </tbody>
         </table>
