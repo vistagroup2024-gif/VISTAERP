@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { money } from "@/lib/format";
 import { totalNights } from "@/lib/brn";
+import { useUnsavedChanges, confirmDiscardIfDirty } from "@/lib/useUnsavedChanges";
 
 export default function NewBrnForm({ suppliers, companies }: { suppliers: { id: string; name: string }[]; companies: { id: string; name: string }[] }) {
   const router = useRouter();
@@ -24,6 +25,10 @@ export default function NewBrnForm({ suppliers, companies }: { suppliers: { id: 
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const savedRef = useRef(false);
+  const initialRef = useRef(JSON.stringify(form));
+  const dirty = !savedRef.current && JSON.stringify(form) !== initialRef.current;
+  useUnsavedChanges(dirty);
 
   const nights =
     form.check_in && form.check_out && form.check_out > form.check_in
@@ -56,6 +61,7 @@ export default function NewBrnForm({ suppliers, companies }: { suppliers: { id: 
     });
     setSaving(false);
     if (error) return setError(error.message);
+    savedRef.current = true;
     router.push("/inventory/brn");
     router.refresh();
   }
@@ -156,7 +162,7 @@ export default function NewBrnForm({ suppliers, companies }: { suppliers: { id: 
 
         <div className="flex gap-2">
           <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save BRN"}</button>
-          <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
+          <button type="button" className="btn-outline" onClick={() => { if (confirmDiscardIfDirty(dirty)) router.back(); }}>Cancel</button>
         </div>
       </form>
     </div>

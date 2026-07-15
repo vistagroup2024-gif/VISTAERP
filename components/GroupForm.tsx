@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import AirportSelect, { Airport } from "@/components/AirportSelect";
+import { useUnsavedChanges, confirmDiscardIfDirty } from "@/lib/useUnsavedChanges";
 
 export interface GroupInitial {
   id?: string;
@@ -56,6 +57,8 @@ export default function GroupForm({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  useUnsavedChanges(dirty);
 
   useEffect(() => {
     if (isEdit) return;
@@ -71,6 +74,7 @@ export default function GroupForm({
       ? Math.round((+new Date(f.departure_date) - +new Date(f.arrival_date)) / 86400000) : 0;
 
   function set<K extends keyof typeof f>(k: K, v: (typeof f)[K]) {
+    setDirty(true);
     setF((prev) => ({ ...prev, [k]: v }));
   }
 
@@ -114,11 +118,13 @@ export default function GroupForm({
       const { error } = await supabase.from("umrah_groups").update(payload).eq("id", existing!.id!);
       setSaving(false);
       if (error) return setError(dup(error));
+      setDirty(false);
       router.push(`/groups/${existing!.id}`);
     } else {
       const { data, error } = await supabase.from("umrah_groups").insert(payload).select("id").single();
       setSaving(false);
       if (error) return setError(dup(error));
+      setDirty(false);
       router.push(`/groups/${data!.id}`);
     }
     router.refresh();
@@ -224,7 +230,7 @@ export default function GroupForm({
 
         <div className="flex gap-2">
           <button className="btn" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save changes" : "Save group"}</button>
-          <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
+          <button type="button" className="btn-outline" onClick={() => { if (confirmDiscardIfDirty(dirty)) router.back(); }}>Cancel</button>
         </div>
       </form>
     </div>
