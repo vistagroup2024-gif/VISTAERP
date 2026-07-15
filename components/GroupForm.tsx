@@ -105,15 +105,20 @@ export default function GroupForm({
       remarks: f.remarks.trim() || null,
     };
 
+    const dup = (e: any) =>
+      e?.code === "23505" || /duplicate key|unique/i.test(e?.message ?? "")
+        ? "This Group Number already exists. Please use a unique Group Number."
+        : e.message;
+
     if (isEdit) {
       const { error } = await supabase.from("umrah_groups").update(payload).eq("id", existing!.id!);
       setSaving(false);
-      if (error) return setError(error.message);
+      if (error) return setError(dup(error));
       router.push(`/groups/${existing!.id}`);
     } else {
       const { data, error } = await supabase.from("umrah_groups").insert(payload).select("id").single();
       setSaving(false);
-      if (error) return setError(error.message);
+      if (error) return setError(dup(error));
       router.push(`/groups/${data!.id}`);
     }
     router.refresh();

@@ -13,7 +13,7 @@ interface Alloc {
 }
 
 export default function GroupAllocation({
-  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, allocations,
+  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, packageStatus, allocations,
 }: {
   groupId: string;
   pax: number;
@@ -21,6 +21,7 @@ export default function GroupAllocation({
   visaStatus: string;
   visaIssuedAt: string | null;
   isAdmin: boolean;
+  packageStatus: string | null;
   allocations: Alloc[];
 }) {
   const router = useRouter();
@@ -46,6 +47,15 @@ export default function GroupAllocation({
     const { error } = await supabase.rpc(fn, { p_group: groupId });
     setBusy(false);
     if (error) return setError(error.message);
+    router.refresh();
+  }
+
+  async function updatePackage() {
+    setBusy(true); setError(null);
+    const { data, error } = await supabase.rpc("update_package_brns", { p_group: groupId });
+    setBusy(false);
+    if (error) return setError(error.message);
+    if (data === "partial") setError("Some remaining nights still have no single BRN available — purchase inventory and run Update Package again.");
     router.refresh();
   }
 
@@ -112,6 +122,16 @@ export default function GroupAllocation({
               </tbody>
             </table>
           </div>
+
+          {packageStatus === "update_required" && !issued && (
+            <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+              <p className="text-sm font-semibold text-orange-800">🔄 Partial package — update required</p>
+              <p className="mt-1 text-sm text-orange-700">Click below to auto-allocate BRN(s) for the remaining uncovered nights. Existing BRNs are kept; new ones are added to the same group.</p>
+              <button className="btn mt-2 bg-orange-600 hover:bg-orange-700" onClick={updatePackage} disabled={busy}>
+                {busy ? "Updating…" : "🔄 Update Package (allocate remaining nights)"}
+              </button>
+            </div>
+          )}
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <div className="mb-2 flex items-center justify-between">

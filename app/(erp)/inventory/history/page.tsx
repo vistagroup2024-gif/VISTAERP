@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import { dateStr } from "@/lib/format";
 import { totalNights } from "@/lib/brn";
+import ReleaseButton from "./ReleaseButton";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function HistoryPage() {
               <th className="th">Stay</th>
               <th className="th text-right">Beds</th>
               <th className="th text-right">Bed-Nights</th>
+              <th className="th">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -42,9 +44,10 @@ export default async function HistoryPage() {
                 <td className="td text-sm">{dateStr(r.check_in)} → {dateStr(r.check_out)}</td>
                 <td className="td text-right font-medium">{r.beds}</td>
                 <td className="td text-right">{r.beds * totalNights(r.check_in, r.check_out)}</td>
+                <td className="td"><ReleaseButton consumptionId={r.id} /></td>
               </tr>
             ))}
-            {R.length === 0 && <tr><td className="td text-slate-400" colSpan={7}>No consumption history yet.</td></tr>}
+            {R.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>No consumption history yet.</td></tr>}
           </tbody>
         </table>
       </div>
