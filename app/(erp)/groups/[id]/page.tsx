@@ -114,6 +114,17 @@ export default async function GroupDetail({ params }: { params: { id: string } }
         allocations={A}
       />
 
+      {g.package_status === "update_required" && (
+        <div className="card border border-orange-200 bg-orange-50">
+          <p className="font-semibold text-orange-800">🔄 Partial package — update required</p>
+          <p className="mt-1 text-sm text-orange-700">
+            Hotel coverage is {dateStr(g.covered_from)} → {dateStr(g.covered_to)}, but the stay is {dateStr(g.arrival_date)} → {dateStr(g.departure_date)}.
+            Update the Nusuk package (arrival, flight and hotel nights) before the pilgrim travels.
+          </p>
+          <Link href="/groups/package-updates" className="mt-2 inline-block text-sm text-brand hover:underline">Open Package Update Management →</Link>
+        </div>
+      )}
+
       {g.brn_status === "allocated" && <CopyExternalErp group={extGroup} hotels={extHotels} />}
     </div>
   );
