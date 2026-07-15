@@ -111,6 +111,7 @@ export default async function GroupDetail({ params }: { params: { id: string } }
         visaStatus={g.visa_status}
         visaIssuedAt={g.visa_issued_at}
         isAdmin={isAdmin}
+        packageStatus={g.package_status}
         allocations={A}
       />
 
