@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useUnsavedChanges, confirmDiscardIfDirty } from "@/lib/useUnsavedChanges";
 
 export default function BrnEditForm({
   brn, suppliers, companies, consumedCount,
@@ -30,6 +31,10 @@ export default function BrnEditForm({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const locked = consumedCount > 0;
+  const savedRef = useRef(false);
+  const initialRef = useRef(JSON.stringify(form));
+  const dirty = !savedRef.current && JSON.stringify(form) !== initialRef.current;
+  useUnsavedChanges(dirty);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -53,6 +58,7 @@ export default function BrnEditForm({
     }).eq("id", brn.id);
     setSaving(false);
     if (error) return setError(error.message);
+    savedRef.current = true;
     router.push(`/inventory/brn/${brn.id}`);
     router.refresh();
   }
@@ -125,7 +131,7 @@ export default function BrnEditForm({
         <p className="text-xs text-slate-400">Note: editing the rate here does not change any bill already posted to Accounts Payable.</p>
         <div className="flex gap-2">
           <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>
-          <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
+          <button type="button" className="btn-outline" onClick={() => { if (confirmDiscardIfDirty(dirty)) router.back(); }}>Cancel</button>
         </div>
       </form>
     </div>

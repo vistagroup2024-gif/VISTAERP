@@ -30,7 +30,7 @@ export default async function GroupDetail({ params }: { params: { id: string } }
 
   const { data: allocations } = await supabase
     .from("group_brn_allocation")
-    .select("id, beds, brn_inventory:brn_id(id, brn, hotel_name, city, beds), brn_consumption:consumption_id(check_in, check_out)")
+    .select("id, beds, locked, brn_inventory:brn_id(id, brn, hotel_name, city, beds), brn_consumption:consumption_id(check_in, check_out)")
     .eq("group_id", params.id);
 
   const A = (allocations ?? []) as any[];

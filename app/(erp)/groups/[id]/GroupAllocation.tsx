@@ -8,6 +8,7 @@ import { dateStr } from "@/lib/format";
 interface Alloc {
   id: string;
   beds: number;
+  locked: boolean;
   brn_inventory: { id: string; brn: string; hotel_name: string; city: string | null; beds: number } | null;
   brn_consumption: { check_in: string; check_out: string } | null;
 }
@@ -35,6 +36,8 @@ export default function GroupAllocation({
   const allocated = brnStatus === "allocated";
   const issued = visaStatus === "issued";
   const brnList = allocations.map((a) => a.brn_inventory?.brn).filter(Boolean) as string[];
+  const sortedAllocs = [...allocations].sort((a, b) => (a.brn_consumption?.check_in ?? "").localeCompare(b.brn_consumption?.check_in ?? ""));
+  const latestId = sortedAllocs.length ? sortedAllocs[sortedAllocs.length - 1].id : null; // LIFO: only the latest may be removed
 
   async function rpc(fn: string, args: any, confirmMsg?: string) {
     if (confirmMsg && !confirm(confirmMsg)) return;
@@ -111,12 +114,9 @@ export default function GroupAllocation({
                 </tr>
               </thead>
               <tbody>
-                {allocations
-                  .slice()
-                  .sort((a, b) => (a.brn_consumption?.check_in ?? "").localeCompare(b.brn_consumption?.check_in ?? ""))
-                  .map((a) => (
+                {sortedAllocs.map((a) => (
                   <tr key={a.id} className="border-t border-slate-100">
-                    <td className="td font-mono font-medium">{a.brn_inventory?.brn}</td>
+                    <td className="td font-mono font-medium">{a.brn_inventory?.brn} {a.locked && <span title="Submitted to Nusuk — locked">🔒</span>}</td>
                     <td className="td">{a.brn_inventory?.hotel_name}</td>
                     <td className="td">
                       <span className={`badge ${a.brn_inventory?.city === "Madinah" ? "bg-purple-100 text-purple-700" : "bg-cyan-100 text-cyan-800"}`}>
@@ -127,18 +127,26 @@ export default function GroupAllocation({
                     <td className="td whitespace-nowrap">{dateStr(a.brn_consumption?.check_out)}</td>
                     <td className="td font-medium">{a.beds}</td>
                     <td className="td whitespace-nowrap">
-                      <button className="text-sm text-brand hover:underline" disabled={busy}
-                        onClick={() => rpc("reallocate_group_brn", { p_alloc: a.id }, "Replace this BRN with the best available alternative for the same nights?")}>
-                        Reallocate
-                      </button>
-                      <button className="ml-3 text-sm text-purple-600 hover:underline" disabled={busy}
-                        onClick={() => openReplace(a.id)}>
-                        Replace Hotel
-                      </button>
-                      <button className="ml-3 text-sm text-red-600 hover:underline" disabled={busy}
-                        onClick={() => rpc("remove_group_brn", { p_alloc: a.id }, "Remove this BRN and restore its inventory?")}>
-                        Remove
-                      </button>
+                      {a.locked ? (
+                        <span className="text-sm text-slate-400">Locked (Nusuk)</span>
+                      ) : (
+                        <>
+                          <button className="text-sm text-brand hover:underline" disabled={busy}
+                            onClick={() => rpc("reallocate_group_brn", { p_alloc: a.id }, "Replace this BRN with the best available alternative for the same nights?")}>
+                            Reallocate
+                          </button>
+                          <button className="ml-3 text-sm text-purple-600 hover:underline" disabled={busy}
+                            onClick={() => openReplace(a.id)}>
+                            Replace Hotel
+                          </button>
+                          <button className="ml-3 text-sm text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-slate-300 disabled:no-underline"
+                            disabled={busy || a.id !== latestId}
+                            title={a.id === latestId ? "" : "Remove the latest BRN first (LIFO)"}
+                            onClick={() => rpc("remove_group_brn", { p_alloc: a.id }, "Remove this BRN and restore its inventory?")}>
+                            Remove
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
