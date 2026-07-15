@@ -92,7 +92,7 @@ export default function ConsumeForm({
           </div>
           <div>
             <label className="label">Check-out</label>
-            <input className="input" type="date" value={checkOut} min={brn?.check_in}
+            <input className="input" type="date" value={checkOut} min={checkIn || brn?.check_in}
               max={brn?.check_out} onChange={(e) => setCheckOut(e.target.value)} required />
           </div>
           <div>

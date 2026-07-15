@@ -196,7 +196,7 @@ export default function GroupForm({
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div>
               <label className="label">Departure date</label>
-              <input className="input" type="date" value={f.departure_date} onChange={(e) => set("departure_date", e.target.value)} required />
+              <input className="input" type="date" value={f.departure_date} min={f.arrival_date || undefined} onChange={(e) => set("departure_date", e.target.value)} required />
             </div>
             <div>
               <label className="label">Flight number</label>
