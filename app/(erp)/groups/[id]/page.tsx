@@ -76,7 +76,8 @@ export default async function GroupDetail({ params }: { params: { id: string } }
         <GroupHeaderActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} isAdmin={isAdmin} />
       </div>
 
-      <div className="card grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="card grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
+        <Field label="Group No" value={<span className="font-mono">{g.group_no}</span>} />
         <Field label="Date" value={dateStr(g.group_date)} />
         <Field label="Agent" value={(g as any).agent?.name} />
         <Field label="Company" value={(g as any).company?.name} />
@@ -98,8 +99,8 @@ export default async function GroupDetail({ params }: { params: { id: string } }
           <div className="grid grid-cols-2 gap-3">
             <Field label="Date" value={dateStr(g.departure_date)} />
             <Field label="Flight" value={g.departure_flight} />
-            <Field label="To" value={(g as any).dt ? `${(g as any).dt.city} (${(g as any).dt.code})` : g.departure_to} />
             <Field label="Airport" value={(g as any).da ? `${(g as any).da.city} (${(g as any).da.code})` : g.departure_airport} />
+            <Field label="To" value={(g as any).dt ? `${(g as any).dt.city} (${(g as any).dt.code})` : g.departure_to} />
           </div>
         </div>
       </div>
