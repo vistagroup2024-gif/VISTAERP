@@ -105,7 +105,7 @@ export default function NewBrnForm({ suppliers, companies }: { suppliers: { id: 
             </div>
             <div>
               <label className="label">Check-out date</label>
-              <input className="input" type="date" value={form.check_out}
+              <input className="input" type="date" value={form.check_out} min={form.check_in || undefined}
                 onChange={(e) => setForm({ ...form, check_out: e.target.value })} required />
             </div>
             <div>

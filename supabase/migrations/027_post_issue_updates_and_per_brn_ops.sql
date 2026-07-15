@@ -1,0 +1,21 @@
+-- ============================================================
+-- VISTA ERP - 027 Post-issue package updates + individual BRN operations
+-- Additive only. Applied to remote DB via Supabase MCP; kept here for history.
+--
+-- - guard_group_update honours a session bypass flag (vista.bypass_guard) set
+--   only by controlled SECURITY DEFINER RPCs, so package updates / BRN ops work
+--   on Visa-Issued groups while direct form edits stay blocked for non-admins.
+-- - Visa-issued no longer blocks allocate_group_brns / update_package_brns.
+-- - commit_window uses the FULL engine (plan_window: auto Madinah, one BRN/night,
+--   company scope) — package updates never use a simplified method.
+-- - remove_group_brn / reallocate_group_brn / reallocate_all_brns for
+--   individual BRN management; recompute_group_coverage keeps status accurate.
+--
+-- Full function bodies were applied via MCP; see the database for the current
+-- definitions of: guard_group_update, commit_window, recompute_group_coverage,
+-- allocate_group_brns, update_package_brns, remove_group_brn,
+-- reallocate_group_brn, reallocate_all_brns.
+-- ============================================================
+
+-- (No standalone DDL beyond the function replacements applied via MCP.)
+select 1;

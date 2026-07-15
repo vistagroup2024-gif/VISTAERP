@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { dateStr } from "@/lib/format";
 import GroupActions from "./GroupActions";
@@ -34,94 +34,150 @@ const VISA_CLS: Record<string, string> = {
   "Pending": "bg-yellow-100 text-yellow-800",
 };
 
-export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdmin: boolean }) {
-  const [f, setF] = useState({
-    group_no: "", group_name: "", company: "", agent: "",
-    visa_label: "", package_label: "", arrival: "", departure: "",
-  });
+type Col = { key: keyof GroupRow; label: string; date?: boolean; plain?: boolean };
+const COLS: Col[] = [
+  { key: "group_date", label: "Date", date: true },
+  { key: "group_no", label: "Group No" },
+  { key: "company", label: "Company" },
+  { key: "group_name", label: "Name" },
+  { key: "agent", label: "Agent" },
+  { key: "pax", label: "Pax", plain: true },
+  { key: "arrival_date", label: "Arrival", date: true },
+  { key: "departure_date", label: "Departure", date: true },
+  { key: "total_nights", label: "Nights", plain: true },
+  { key: "visa_label", label: "Visa Status" },
+  { key: "package_label", label: "Package" },
+];
 
-  const uniq = (v: string[]) => Array.from(new Set(v.filter(Boolean))).sort();
-  const companies = useMemo(() => uniq(rows.map((r) => r.company)), [rows]);
-  const agents = useMemo(() => uniq(rows.map((r) => r.agent)), [rows]);
-  const groupNos = useMemo(() => uniq(rows.map((r) => r.group_no)), [rows]);
-  const names = useMemo(() => uniq(rows.map((r) => r.group_name)), [rows]);
-  const visaLabels = ["Pending", "BRN Allocated", "Visa Issued"];
-  const pkgLabels = ["Complete Package", "Package Update Required", "Package Updated"];
+function HeaderCell({
+  col, rows, active, sortDir, onPick, onSort, onClear,
+}: {
+  col: Col;
+  rows: GroupRow[];
+  active: string;
+  sortDir: 1 | -1 | 0;
+  onPick: (v: string) => void;
+  onSort: (dir: 1 | -1) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef<HTMLTableCellElement>(null);
 
-  const filtered = useMemo(() => rows.filter((r) =>
-    (!f.group_no || r.group_no.toLowerCase().includes(f.group_no.toLowerCase())) &&
-    (!f.group_name || r.group_name.toLowerCase().includes(f.group_name.toLowerCase())) &&
-    (!f.company || r.company === f.company) &&
-    (!f.agent || r.agent === f.agent) &&
-    (!f.visa_label || r.visa_label === f.visa_label) &&
-    (!f.package_label || r.package_label === f.package_label) &&
-    (!f.arrival || r.arrival_date >= f.arrival) &&
-    (!f.departure || r.departure_date <= f.departure)
-  ), [rows, f]);
+  useEffect(() => {
+    function onDoc(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
-  function reset() { setF({ group_no: "", group_name: "", company: "", agent: "", visa_label: "", package_label: "", arrival: "", departure: "" }); }
+  const values = useMemo(() => {
+    const set = Array.from(new Set(rows.map((r) => String(r[col.key] ?? "")).filter(Boolean)));
+    set.sort();
+    const s = q.trim().toLowerCase();
+    const disp = (v: string) => (col.date ? dateStr(v) : v);
+    return set.filter((v) => !s || disp(v).toLowerCase().includes(s) || v.toLowerCase().includes(s)).slice(0, 200);
+  }, [rows, col, q]);
+
+  const disp = (v: string) => (col.date ? dateStr(v) : v);
 
   return (
-    <div className="space-y-3">
-      <div className="card grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div><label className="label">Group No</label>
-          <input className="input" list="g-nos" value={f.group_no} onChange={(e) => setF({ ...f, group_no: e.target.value })} placeholder="All" />
-          <datalist id="g-nos">{groupNos.map((x) => <option key={x} value={x} />)}</datalist></div>
-        <div><label className="label">Group Name</label>
-          <input className="input" list="g-names" value={f.group_name} onChange={(e) => setF({ ...f, group_name: e.target.value })} placeholder="All" />
-          <datalist id="g-names">{names.map((x) => <option key={x} value={x} />)}</datalist></div>
-        <div><label className="label">Company</label>
-          <input className="input" list="g-cos" value={f.company} onChange={(e) => setF({ ...f, company: e.target.value })} placeholder="All" />
-          <datalist id="g-cos">{companies.map((x) => <option key={x} value={x} />)}</datalist></div>
-        <div><label className="label">Agent</label>
-          <input className="input" list="g-agents" value={f.agent} onChange={(e) => setF({ ...f, agent: e.target.value })} placeholder="All" />
-          <datalist id="g-agents">{agents.map((x) => <option key={x} value={x} />)}</datalist></div>
-        <div><label className="label">Visa Status</label>
-          <select className="input" value={f.visa_label} onChange={(e) => setF({ ...f, visa_label: e.target.value })}>
-            <option value="">All</option>{visaLabels.map((x) => <option key={x}>{x}</option>)}</select></div>
-        <div><label className="label">Package Status</label>
-          <select className="input" value={f.package_label} onChange={(e) => setF({ ...f, package_label: e.target.value })}>
-            <option value="">All</option>{pkgLabels.map((x) => <option key={x}>{x}</option>)}</select></div>
-        <div><label className="label">Arrival from</label>
-          <input className="input" type="date" value={f.arrival} onChange={(e) => setF({ ...f, arrival: e.target.value })} /></div>
-        <div><label className="label">Departure to</label>
-          <input className="input" type="date" value={f.departure} onChange={(e) => setF({ ...f, departure: e.target.value })} /></div>
-        <div className="col-span-2 flex items-end md:col-span-4">
-          <button onClick={reset} className="btn-outline text-sm">Reset filters</button>
-          <span className="ml-3 self-center text-sm text-slate-400">{filtered.length} of {rows.length}</span>
-        </div>
-      </div>
-
-      <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[1080px]">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="th">Date</th><th className="th">Group No</th><th className="th">Company</th><th className="th">Name</th>
-              <th className="th">Agent</th><th className="th">Pax</th><th className="th">Arrival</th><th className="th">Departure</th>
-              <th className="th">Nights</th><th className="th">Visa Status</th><th className="th">Package</th><th className="th">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((g) => (
-              <tr key={g.id} className="border-t border-slate-100">
-                <td className="td text-sm">{dateStr(g.group_date)}</td>
-                <td className="td font-mono font-medium"><Link href={`/groups/${g.id}`} className="text-brand hover:underline">{g.group_no}</Link></td>
-                <td className="td text-slate-500">{g.company || "—"}</td>
-                <td className="td">{g.group_name || "—"}</td>
-                <td className="td text-slate-500">{g.agent || "—"}</td>
-                <td className="td font-medium">{g.pax}</td>
-                <td className="td text-sm">{dateStr(g.arrival_date)}</td>
-                <td className="td text-sm">{dateStr(g.departure_date)}</td>
-                <td className="td">{g.total_nights}</td>
-                <td className="td"><span className={`badge ${VISA_CLS[g.visa_label] ?? "bg-slate-100"}`}>{g.visa_label}</span></td>
-                <td className="td">{g.package_status ? <span className={`badge ${PKG_CLS[g.package_label] ?? "bg-slate-100 text-slate-600"}`}>{g.package_label}</span> : <span className="text-slate-300">—</span>}</td>
-                <td className="td"><GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} isAdmin={isAdmin} /></td>
-              </tr>
+    <th className="th relative" ref={ref}>
+      <button className="inline-flex items-center gap-1 hover:text-slate-700" onClick={() => setOpen((o) => !o)}>
+        {col.label}
+        <span className={active || sortDir ? "text-brand" : "text-slate-400"}>
+          {sortDir === 1 ? "▲" : sortDir === -1 ? "▼" : active ? "▣" : "▾"}
+        </span>
+      </button>
+      {open && (
+        <div className="absolute left-0 z-30 mt-1 w-56 rounded-lg border border-slate-200 bg-white p-2 text-left shadow-lg">
+          <div className="mb-1 flex gap-1">
+            <button className="flex-1 rounded bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200" onClick={() => { onSort(1); setOpen(false); }}>Sort ↑</button>
+            <button className="flex-1 rounded bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200" onClick={() => { onSort(-1); setOpen(false); }}>Sort ↓</button>
+            <button className="flex-1 rounded bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200" onClick={() => { onClear(); setQ(""); }}>Clear</button>
+          </div>
+          <input autoFocus className="input mb-1 w-full text-xs" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <ul className="max-h-56 overflow-y-auto text-left text-xs">
+            <li>
+              <button className={`w-full rounded px-2 py-1 text-left hover:bg-slate-50 ${!active ? "font-semibold text-brand" : ""}`} onClick={() => { onClear(); setOpen(false); }}>
+                (All)
+              </button>
+            </li>
+            {values.map((v) => (
+              <li key={v}>
+                <button className={`w-full rounded px-2 py-1 text-left hover:bg-slate-50 ${active === v ? "font-semibold text-brand" : ""}`} onClick={() => { onPick(v); setOpen(false); }}>
+                  {disp(v)}
+                </button>
+              </li>
             ))}
-            {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={12}>No matching groups.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+            {values.length === 0 && <li className="px-2 py-1 text-slate-400">No values</li>}
+          </ul>
+        </div>
+      )}
+    </th>
+  );
+}
+
+export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdmin: boolean }) {
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [sort, setSort] = useState<{ key: keyof GroupRow; dir: 1 | -1 } | null>({ key: "group_date", dir: -1 });
+
+  const filtered = useMemo(() => {
+    let r = rows.filter((row) => COLS.every((c) => !filters[c.key as string] || String(row[c.key] ?? "") === filters[c.key as string]));
+    if (sort) {
+      const col = COLS.find((c) => c.key === sort.key);
+      r = [...r].sort((a, b) => {
+        let av: any = a[sort.key], bv: any = b[sort.key];
+        if (col?.plain) { av = Number(av); bv = Number(bv); }
+        return av < bv ? -sort.dir : av > bv ? sort.dir : 0;
+      });
+    }
+    return r;
+  }, [rows, filters, sort]);
+
+  return (
+    <div className="card overflow-x-auto overflow-y-visible p-0">
+      <table className="w-full min-w-[1120px]">
+        <thead className="bg-slate-50">
+          <tr>
+            {COLS.map((c) =>
+              c.plain ? (
+                <th key={c.key as string} className="th">{c.label}</th>
+              ) : (
+                <HeaderCell
+                  key={c.key as string}
+                  col={c}
+                  rows={rows}
+                  active={filters[c.key as string] ?? ""}
+                  sortDir={sort?.key === c.key ? sort.dir : 0}
+                  onPick={(v) => setFilters((f) => ({ ...f, [c.key as string]: v }))}
+                  onSort={(dir) => setSort({ key: c.key, dir })}
+                  onClear={() => setFilters((f) => { const n = { ...f }; delete n[c.key as string]; return n; })}
+                />
+              )
+            )}
+            <th className="th">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map((g) => (
+            <tr key={g.id} className="border-t border-slate-100">
+              <td className="td text-sm">{dateStr(g.group_date)}</td>
+              <td className="td font-mono font-medium"><Link href={`/groups/${g.id}`} className="text-brand hover:underline">{g.group_no}</Link></td>
+              <td className="td text-slate-500">{g.company || "—"}</td>
+              <td className="td">{g.group_name || "—"}</td>
+              <td className="td text-slate-500">{g.agent || "—"}</td>
+              <td className="td font-medium">{g.pax}</td>
+              <td className="td text-sm">{dateStr(g.arrival_date)}</td>
+              <td className="td text-sm">{dateStr(g.departure_date)}</td>
+              <td className="td">{g.total_nights}</td>
+              <td className="td"><span className={`badge ${VISA_CLS[g.visa_label] ?? "bg-slate-100"}`}>{g.visa_label}</span></td>
+              <td className="td">{g.package_status ? <span className={`badge ${PKG_CLS[g.package_label] ?? "bg-slate-100 text-slate-600"}`}>{g.package_label}</span> : <span className="text-slate-300">—</span>}</td>
+              <td className="td"><GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} isAdmin={isAdmin} /></td>
+            </tr>
+          ))}
+          {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={COLS.length + 1}>No matching groups.</td></tr>}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -95,7 +95,7 @@ export default function BrnEditForm({
           </div>
           <div>
             <label className="label">Check-out</label>
-            <input className="input" type="date" value={form.check_out} onChange={(e) => setForm({ ...form, check_out: e.target.value })} required />
+            <input className="input" type="date" value={form.check_out} min={form.check_in || undefined} onChange={(e) => setForm({ ...form, check_out: e.target.value })} required />
           </div>
           <div>
             <label className="label">Beds</label>
