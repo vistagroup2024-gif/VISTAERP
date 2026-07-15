@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 const PKG_LABEL: Record<string, string> = {
   complete: "Complete Package",
   update_required: "Package Update Required",
+  update_ready: "Package Ready for Nusuk Update",
   updated: "Package Updated",
 };
 

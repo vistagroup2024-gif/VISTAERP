@@ -29,6 +29,8 @@ export default function GroupAllocation({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [replaceFor, setReplaceFor] = useState<string | null>(null);
+  const [options, setOptions] = useState<any[]>([]);
 
   const allocated = brnStatus === "allocated";
   const issued = visaStatus === "issued";
@@ -42,6 +44,23 @@ export default function GroupAllocation({
     if (error) return setError(error.message);
     if (fn === "update_package_brns" && data === "partial")
       setError("Some remaining nights still have no single BRN available — purchase inventory and run Update Package again.");
+    router.refresh();
+  }
+
+  async function openReplace(allocId: string) {
+    setBusy(true); setError(null);
+    const { data, error } = await supabase.rpc("list_replacement_brns", { p_alloc: allocId });
+    setBusy(false);
+    if (error) return setError(error.message);
+    setOptions((data ?? []).filter((o: any) => o.available >= pax));
+    setReplaceFor(allocId);
+  }
+  async function doReplace(brnId: string) {
+    setBusy(true); setError(null);
+    const { error } = await supabase.rpc("replace_group_brn", { p_alloc: replaceFor, p_new_brn: brnId });
+    setBusy(false);
+    if (error) return setError(error.message);
+    setReplaceFor(null); setOptions([]);
     router.refresh();
   }
 
@@ -112,6 +131,10 @@ export default function GroupAllocation({
                         onClick={() => rpc("reallocate_group_brn", { p_alloc: a.id }, "Replace this BRN with the best available alternative for the same nights?")}>
                         Reallocate
                       </button>
+                      <button className="ml-3 text-sm text-purple-600 hover:underline" disabled={busy}
+                        onClick={() => openReplace(a.id)}>
+                        Replace Hotel
+                      </button>
                       <button className="ml-3 text-sm text-red-600 hover:underline" disabled={busy}
                         onClick={() => rpc("remove_group_brn", { p_alloc: a.id }, "Remove this BRN and restore its inventory?")}>
                         Remove
@@ -122,6 +145,45 @@ export default function GroupAllocation({
               </tbody>
             </table>
           </div>
+
+          {replaceFor && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-semibold text-purple-800">Replace Hotel Allocation — pick any BRN (Makkah or Madinah) for the same nights</p>
+                <button className="text-sm text-slate-500 hover:underline" onClick={() => { setReplaceFor(null); setOptions([]); }}>Cancel</button>
+              </div>
+              {options.length === 0 ? (
+                <p className="text-sm text-slate-500">No alternative BRN has enough beds for those nights.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[520px] text-sm">
+                    <thead className="bg-white/60"><tr><th className="th">BRN</th><th className="th">Hotel</th><th className="th">City</th><th className="th">Available</th><th className="th"></th></tr></thead>
+                    <tbody>
+                      {options.map((o) => (
+                        <tr key={o.id} className="border-t border-purple-100">
+                          <td className="td font-mono">{o.brn}</td>
+                          <td className="td">{o.hotel_name}</td>
+                          <td className="td"><span className={`badge ${o.city === "Madinah" ? "bg-purple-100 text-purple-700" : "bg-cyan-100 text-cyan-800"}`}>{o.city}</span></td>
+                          <td className="td">{o.available}</td>
+                          <td className="td"><button className="btn text-sm" disabled={busy} onClick={() => doReplace(o.id)}>Use this</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {packageStatus === "update_ready" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-800">✅ All nights covered — package is ready for the Nusuk update</p>
+              <p className="mt-1 text-sm text-amber-700">Update the package in Nusuk, then confirm here. This group stays in the Package Update queue until you confirm.</p>
+              <button className="btn mt-2 bg-blue-600 hover:bg-blue-700" onClick={() => rpc("mark_package_updated", { p_group: groupId })} disabled={busy}>
+                {busy ? "Saving…" : "✔ Mark Package Updated"}
+              </button>
+            </div>
+          )}
 
           {packageStatus === "update_required" && (
             <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
