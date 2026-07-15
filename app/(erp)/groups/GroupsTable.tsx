@@ -26,6 +26,7 @@ export interface GroupRow {
 const PKG_CLS: Record<string, string> = {
   "Complete Package": "bg-green-100 text-green-700",
   "Package Update Required": "bg-orange-100 text-orange-700",
+  "Package Ready for Nusuk Update": "bg-amber-100 text-amber-800",
   "Package Updated": "bg-blue-100 text-blue-700",
 };
 const VISA_CLS: Record<string, string> = {
