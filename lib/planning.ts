@@ -48,6 +48,33 @@ export function buildDemand(
   });
 }
 
+// A unit of demand: a group (or a partial package) that needs `pax` beds on a
+// specific set of nights (full stay for new groups; only the uncovered nights
+// for pending package updates).
+export interface DemandItem { id: string; pax: number; nights: Set<string>; arrival?: string }
+
+export function buildDemandFromItems(
+  days: string[], items: DemandItem[], brns: Brn[], consByBrn: Record<string, Consumption[]>
+): DayDemand[] {
+  return days.map((d) => {
+    const here = items.filter((it) => it.nights.has(d));
+    const required = here.reduce((s, it) => s + it.pax, 0);
+    let available = 0;
+    for (const b of brns) {
+      if (b.check_in <= d && b.check_out > d) available += b.beds - usedOnNight(d, consByBrn[b.id] ?? []);
+    }
+    return {
+      date: d,
+      arrivals: items.filter((it) => it.arrival === d).length,
+      staying: here.length,
+      required,
+      available,
+      shortage: Math.max(0, required - available),
+      maxGroupPax: here.reduce((m, it) => Math.max(m, it.pax), 0),
+    };
+  });
+}
+
 // Recommend the minimum number of new BRNs to cover the shortage.
 // Each contiguous shortage run becomes ONE BRN, sized to that run's peak
 // aggregate shortage but never smaller than the largest single group in the

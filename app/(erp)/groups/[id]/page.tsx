@@ -5,6 +5,7 @@ import { dateStr } from "@/lib/format";
 import { nightsBetween } from "@/lib/brn";
 import GroupAllocation from "./GroupAllocation";
 import GroupHeaderActions from "./GroupHeaderActions";
+import WorkflowCard from "./WorkflowCard";
 import CopyExternalErp from "./CopyExternalErp";
 import { ExtGroup, ExtHotel } from "@/lib/externalErp";
 
@@ -104,6 +105,12 @@ export default async function GroupDetail({ params }: { params: { id: string } }
           </div>
         </div>
       </div>
+
+      <WorkflowCard
+        groupId={g.id}
+        workflowStatus={g.workflow_status ?? (g.visa_status === "issued" ? "visa_issued" : g.brn_status === "allocated" ? "brn_allocated" : "pending")}
+        isAdmin={isAdmin}
+      />
 
       <GroupAllocation
         groupId={g.id}

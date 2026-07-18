@@ -18,6 +18,7 @@ export interface GroupRow {
   total_nights: number;
   brn_status: string;
   visa_status: string;
+  workflow_status: string;
   package_status: string | null;
   visa_label: string;
   package_label: string;
@@ -31,6 +32,8 @@ const PKG_CLS: Record<string, string> = {
 };
 const VISA_CLS: Record<string, string> = {
   "Visa Issued": "bg-emerald-600 text-white",
+  "Package Assigned": "bg-violet-100 text-violet-700",
+  "ERP Created": "bg-indigo-100 text-indigo-700",
   "BRN Allocated": "bg-green-100 text-green-700",
   "Pending": "bg-yellow-100 text-yellow-800",
 };
@@ -46,7 +49,7 @@ const COLS: Col[] = [
   { key: "arrival_date", label: "Arrival", date: true },
   { key: "departure_date", label: "Departure", date: true },
   { key: "total_nights", label: "Nights", plain: true },
-  { key: "visa_label", label: "Visa Status" },
+  { key: "visa_label", label: "Status" },
   { key: "package_label", label: "Package" },
 ];
 
@@ -173,7 +176,7 @@ export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdm
               <td className="td">{g.total_nights}</td>
               <td className="td"><span className={`badge ${VISA_CLS[g.visa_label] ?? "bg-slate-100"}`}>{g.visa_label}</span></td>
               <td className="td">{g.package_status ? <span className={`badge ${PKG_CLS[g.package_label] ?? "bg-slate-100 text-slate-600"}`}>{g.package_label}</span> : <span className="text-slate-300">—</span>}</td>
-              <td className="td"><GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} isAdmin={isAdmin} /></td>
+              <td className="td"><GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} workflowStatus={g.workflow_status} isAdmin={isAdmin} /></td>
             </tr>
           ))}
           {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={COLS.length + 1}>No matching groups.</td></tr>}

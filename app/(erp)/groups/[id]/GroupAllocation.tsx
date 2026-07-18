@@ -213,24 +213,16 @@ export default function GroupAllocation({
 
           {!issued ? (
             <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
-              <button className="btn bg-emerald-600 hover:bg-emerald-700" onClick={() => rpc("mark_visa_issued", { p_group: groupId })} disabled={busy}>
-                {busy ? "Saving…" : "✅ Mark Visa Issued"}
-              </button>
               <button className="btn-outline text-sm text-red-600" onClick={() => rpc("deallocate_group_brns", { p_group: groupId }, "Release the full allocation?")} disabled={busy}>
                 Release allocation
               </button>
-              <span className="text-xs text-slate-400">Marking as issued locks the group's details (BRNs can still be updated).</span>
+              <span className="text-xs text-slate-400">Use the Visa Workflow above to advance the group through each stage.</span>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
               <span className="text-sm text-emerald-700">
                 🔒 Visa issued{visaIssuedAt ? ` on ${dateStr(visaIssuedAt)}` : ""}. Hotel/BRN updates are still allowed above.
               </span>
-              {isAdmin && (
-                <button className="btn-outline text-sm" onClick={() => rpc("reopen_group", { p_group: groupId })} disabled={busy}>
-                  Reopen (admin)
-                </button>
-              )}
             </div>
           )}
         </>
