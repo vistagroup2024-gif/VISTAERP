@@ -3,7 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
 import { money } from "@/lib/format";
 import { Brn, Consumption, nightsBetween, fmtDay } from "@/lib/brn";
-import { PendGroup, buildDemand, recommendBrns, DayDemand, BrnRecommendation } from "@/lib/planning";
+import { PendGroup, buildDemandFromItems, recommendBrns, DayDemand, BrnRecommendation, DemandItem } from "@/lib/planning";
 import PurchaseSimulator from "./PurchaseSimulator";
 
 export const dynamic = "force-dynamic";
@@ -17,23 +17,27 @@ function Kpi({ label, value, tone }: { label: string; value: string | number; to
   );
 }
 
+interface CItem extends DemandItem { companyId: string | null }
 interface CompanyPlan {
-  id: string; name: string; groups: PendGroup[]; brns: Brn[];
+  id: string; name: string; count: number; brns: Brn[];
   demand: DayDemand[]; recs: BrnRecommendation[];
   pilgrims: number; capacityGap: number; capacity: number;
 }
 
-function planFor(id: string, name: string, groups: PendGroup[], brns: Brn[], consByBrn: Record<string, Consumption[]>): CompanyPlan {
+function planFor(id: string, name: string, items: CItem[], brns: Brn[], consByBrn: Record<string, Consumption[]>): CompanyPlan {
+  const allNights = items.flatMap((it) => Array.from(it.nights));
   let days: string[] = [];
-  if (groups.length) {
-    const min = groups.reduce((m, g) => (g.arrival_date < m ? g.arrival_date : m), groups[0].arrival_date);
-    const max = groups.reduce((m, g) => (g.departure_date > m ? g.departure_date : m), groups[0].departure_date);
-    days = nightsBetween(min, max);
+  if (allNights.length) {
+    const min = allNights.reduce((m, n) => (n < m ? n : m), allNights[0]);
+    const max = allNights.reduce((m, n) => (n > m ? n : m), allNights[0]);
+    // days must span from min night to the morning after the last night
+    const d = new Date(max + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1);
+    days = nightsBetween(min, d.toISOString().slice(0, 10));
   }
-  const demand = buildDemand(days, groups, brns, consByBrn);
+  const demand = buildDemandFromItems(days, items, brns, consByBrn);
   return {
-    id, name, groups, brns, demand, recs: recommendBrns(demand),
-    pilgrims: groups.reduce((s, g) => s + g.pax, 0),
+    id, name, count: items.length, brns, demand, recs: recommendBrns(demand),
+    pilgrims: items.reduce((s, it) => s + it.pax, 0),
     capacityGap: demand.reduce((s, d) => s + d.shortage, 0),
     capacity: brns.reduce((s, b) => s + b.beds, 0),
   };
@@ -42,20 +46,48 @@ function planFor(id: string, name: string, groups: PendGroup[], brns: Brn[], con
 export default async function PlanningPage({ searchParams }: { searchParams: { company?: string } }) {
   const company = searchParams.company ?? "";
   const supabase = createClient();
-  const [{ data: groups }, { data: brns }, { data: cons }, { data: companies }] = await Promise.all([
+  const [{ data: pendGroups }, { data: updGroups }, { data: brns }, { data: cons }, { data: companies }] = await Promise.all([
     supabase.from("umrah_groups")
       .select("id, group_no, pax, arrival_date, departure_date, group_company_id")
       .eq("brn_status", "pending").neq("visa_status", "issued"),
+    supabase.from("umrah_groups")
+      .select("id, pax, arrival_date, departure_date, group_company_id")
+      .eq("package_status", "update_required"),
     supabase.from("brn_inventory").select("*"),
     supabase.from("brn_consumption").select("*"),
     supabase.from("group_companies").select("id, name").order("name"),
   ]);
 
-  const allG = (groups ?? []) as (PendGroup & { group_company_id: string | null })[];
   const allB = (brns ?? []) as Brn[];
   const C = (cons ?? []) as Consumption[];
   const consByBrn: Record<string, Consumption[]> = {};
   C.forEach((c) => (consByBrn[c.brn_id] ||= []).push(c));
+
+  // Covered nights per pending-update group (to compute only the UNCOVERED demand)
+  const updIds = (updGroups ?? []).map((g: any) => g.id);
+  const { data: updAllocs } = updIds.length
+    ? await supabase.from("group_brn_allocation")
+        .select("group_id, brn_consumption:consumption_id(check_in, check_out)").in("group_id", updIds)
+    : { data: [] as any[] };
+  const coveredByGroup: Record<string, Set<string>> = {};
+  (updAllocs ?? []).forEach((a: any) => {
+    if (!a.brn_consumption) return;
+    const set = (coveredByGroup[a.group_id] ||= new Set());
+    nightsBetween(a.brn_consumption.check_in, a.brn_consumption.check_out).forEach((n) => set.add(n));
+  });
+
+  // New groups: full stay demand. Pending package updates: only uncovered nights.
+  const items: CItem[] = [
+    ...(pendGroups ?? []).map((g: any) => ({
+      companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date,
+      nights: new Set(nightsBetween(g.arrival_date, g.departure_date)),
+    })),
+    ...(updGroups ?? []).map((g: any) => {
+      const cov = coveredByGroup[g.id] ?? new Set<string>();
+      const need = nightsBetween(g.arrival_date, g.departure_date).filter((n) => !cov.has(n));
+      return { companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date, nights: new Set(need) };
+    }).filter((it) => it.nights.size > 0),
+  ];
 
   const avgRate = (() => {
     const rated = allB.filter((b) => Number(b.rate_per_bed) > 0);
@@ -65,15 +97,15 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
 
   const comps = (companies ?? []) as { id: string; name: string }[];
   const plans: CompanyPlan[] = comps
-    .map((c) => planFor(c.id, c.name, allG.filter((g) => g.group_company_id === c.id),
+    .map((c) => planFor(c.id, c.name, items.filter((i) => i.companyId === c.id),
       allB.filter((b) => b.group_company_id === c.id), consByBrn))
-    .filter((p) => p.groups.length > 0);
+    .filter((p) => p.count > 0);
 
   // ---- Focused single-company view ----
   if (company) {
     const p = plans.find((x) => x.id === company)
       ?? planFor(company, comps.find((c) => c.id === company)?.name ?? "Company",
-        allG.filter((g) => g.group_company_id === company), allB.filter((b) => b.group_company_id === company), consByBrn);
+        items.filter((i) => i.companyId === company), allB.filter((b) => b.group_company_id === company), consByBrn);
     const reqs = p.demand.map((d) => d.required);
     const avgDaily = reqs.length ? Math.round(reqs.reduce((s, x) => s + x, 0) / reqs.length) : 0;
     const peak = p.demand.reduce((m, d) => (d.required > (m?.required ?? -1) ? d : m), p.demand[0]);
@@ -87,7 +119,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
         <CompanyFilter companies={comps} value={company} />
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
-          <Kpi label="Pending Groups" value={p.groups.length} />
+          <Kpi label="Groups (new + updates)" value={p.count} />
           <Kpi label="Pending Pilgrims" value={p.pilgrims} />
           <Kpi label="Existing BRNs" value={p.brns.length} />
           <Kpi label="Existing Capacity" value={p.capacity} />
@@ -171,7 +203,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
   }
 
   // ---- All-companies overview ----
-  const totalGroups = plans.reduce((s, p) => s + p.groups.length, 0);
+  const totalGroups = plans.reduce((s, p) => s + p.count, 0);
   const totalPilgrims = plans.reduce((s, p) => s + p.pilgrims, 0);
   const totalGap = plans.reduce((s, p) => s + p.capacityGap, 0);
   const totalRecs = plans.reduce((s, p) => s + p.recs.length, 0);
@@ -203,7 +235,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
             {plans.map((p) => (
               <tr key={p.id} className={`border-t border-slate-100 ${p.capacityGap > 0 ? "bg-red-50" : ""}`}>
                 <td className="td font-medium">{p.name}</td>
-                <td className="td">{p.groups.length}</td>
+                <td className="td">{p.count}</td>
                 <td className="td">{p.pilgrims}</td>
                 <td className="td">{p.capacity}</td>
                 <td className="td font-semibold text-red-600">{p.capacityGap || ""}</td>
