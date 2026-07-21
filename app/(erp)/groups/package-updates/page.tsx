@@ -22,10 +22,13 @@ export default async function PackageUpdatesPage({ searchParams }: { searchParam
   const today = new Date().toISOString().slice(0, 10);
   const supabase = createClient();
 
+  // Monitor inventory: flip update_required <-> update_available as stock changes
+  await supabase.rpc("refresh_update_availability");
+
   let q = supabase
     .from("umrah_groups")
     .select("id, group_no, arrival_date, departure_date, covered_from, covered_to, package_status, parties:agent_id(name), group_companies:group_company_id(name)")
-    .in("package_status", ["update_required", "update_ready", "updated"])
+    .in("package_status", ["update_required", "update_available", "update_ready", "updated"])
     .order("arrival_date");
   if (company) q = q.eq("group_company_id", company);
 
@@ -66,12 +69,14 @@ export default async function PackageUpdatesPage({ searchParams }: { searchParam
 
   const pending = items.filter((i) => i.g.package_status !== "updated");
   const ready = items.filter((i) => i.g.package_status === "update_ready");
+  const available = items.filter((i) => i.g.package_status === "update_available");
   const overdue = pending.filter((i) => i.priority === "Overdue").length;
 
   const statusBadge = (s: string) =>
     s === "updated" ? <span className="badge bg-blue-100 text-blue-700">Package Updated</span>
       : s === "update_ready" ? <span className="badge bg-amber-100 text-amber-800">Ready for Nusuk Update</span>
-      : <span className="badge bg-orange-100 text-orange-700">Update Required</span>;
+      : s === "update_available" ? <span className="badge bg-teal-100 text-teal-700">Ready for Package Update</span>
+      : <span className="badge bg-orange-100 text-orange-700">Update Required (no inventory)</span>;
 
   return (
     <div>
@@ -81,15 +86,21 @@ export default async function PackageUpdatesPage({ searchParams }: { searchParam
         Groups whose Nusuk package needs a hotel update. Allocate remaining nights (on the group), then — once every night is covered — update the package in Nusuk and click <b>Mark Package Updated</b>.
       </p>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Kpi label="Pending (in queue)" value={pending.length} tone={pending.length > 0 ? "text-orange-600" : "text-slate-800"} />
+        <Kpi label="Ready for Package Update" value={available.length} tone={available.length > 0 ? "text-teal-600" : "text-slate-800"} />
         <Kpi label="Ready for Nusuk" value={ready.length} tone={ready.length > 0 ? "text-amber-600" : "text-slate-800"} />
         <Kpi label="Overdue" value={overdue} tone={overdue > 0 ? "text-red-600" : "text-slate-800"} />
         <Kpi label="Updated (history)" value={items.length - pending.length} tone="text-blue-600" />
       </div>
 
+      {available.length > 0 && (
+        <div className="mt-4 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800">
+          🔔 <b>{available.length}</b> package(s) can now be completed — BRN inventory is available. Open the group and click <b>Update Package</b> to allocate the remaining nights.
+        </div>
+      )}
       {overdue > 0 && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           ⚠️ <b>{overdue}</b> package update(s) are past their deadline.
         </div>
       )}
@@ -120,8 +131,10 @@ export default async function PackageUpdatesPage({ searchParams }: { searchParam
                 <td className="td">
                   {i.g.package_status === "update_ready"
                     ? <MarkUpdatedButton groupId={i.g.id} />
+                    : i.g.package_status === "update_available"
+                    ? <Link href={`/groups/${i.g.id}`} className="rounded bg-teal-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-teal-700">Update Package →</Link>
                     : i.g.package_status === "update_required"
-                    ? <Link href={`/groups/${i.g.id}`} className="text-brand text-sm hover:underline">Allocate remaining →</Link>
+                    ? <Link href={`/groups/${i.g.id}`} className="text-slate-400 text-sm hover:underline">Awaiting inventory</Link>
                     : "—"}
                 </td>
               </tr>

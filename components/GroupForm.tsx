@@ -24,6 +24,7 @@ export interface GroupInitial {
   departure_to?: string | null;
   departure_airport?: string | null;
   remarks?: string | null;
+  visa_type?: string | null;
 }
 
 export default function GroupForm({
@@ -58,7 +59,22 @@ export default function GroupForm({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [visaType, setVisaType] = useState<string>(existing?.visa_type ?? "normal");
+  const [agentRows, setAgentRows] = useState<{ brn: string; city: string; hotel: string; check_in: string; check_out: string }[]>([]);
+  const [masarGroupId, setMasarGroupId] = useState<string | null>(null);
   useUnsavedChanges(dirty);
+
+  function addAgentRow() { setDirty(true); setAgentRows((r) => [...r, { brn: "", city: "Makkah", hotel: "", check_in: "", check_out: "" }]); }
+  function setAgentRow(i: number, k: string, v: string) { setDirty(true); setAgentRows((r) => r.map((row, j) => j === i ? { ...row, [k]: v } : row)); }
+  function removeAgentRow(i: number) { setDirty(true); setAgentRows((r) => r.filter((_, j) => j !== i)); }
+
+  async function chooseMasar(opt: string) {
+    if (!masarGroupId) return;
+    await supabase.rpc("set_masar_option", { p_group: masarGroupId, p_option: opt });
+    setDirty(false);
+    router.push(`/groups/${masarGroupId}`);
+    router.refresh();
+  }
 
   useEffect(() => {
     if (isEdit) return;
@@ -107,6 +123,7 @@ export default function GroupForm({
       departure_to: f.departure_to,
       departure_airport: f.departure_airport,
       remarks: f.remarks.trim() || null,
+      visa_type: visaType,
     };
 
     const dup = (e: any) =>
@@ -114,19 +131,38 @@ export default function GroupForm({
         ? "This Group Number already exists. Please use a unique Group Number."
         : e.message;
 
+    let gid: string;
     if (isEdit) {
       const { error } = await supabase.from("umrah_groups").update(payload).eq("id", existing!.id!);
-      setSaving(false);
-      if (error) return setError(dup(error));
-      setDirty(false);
-      router.push(`/groups/${existing!.id}`);
+      if (error) { setSaving(false); return setError(dup(error)); }
+      gid = existing!.id!;
     } else {
       const { data, error } = await supabase.from("umrah_groups").insert(payload).select("id").single();
-      setSaving(false);
-      if (error) return setError(dup(error));
-      setDirty(false);
-      router.push(`/groups/${data!.id}`);
+      if (error) { setSaving(false); return setError(dup(error)); }
+      gid = data!.id;
     }
+
+    // Masar: record agent-provided BRNs, then validate coverage
+    if (visaType === "masar") {
+      for (const r of agentRows) {
+        if (!r.brn.trim() || !r.check_in || !r.check_out) continue;
+        const { error: ae } = await supabase.rpc("add_agent_brn", {
+          p_group: gid, p_brn: r.brn.trim(), p_city: r.city, p_hotel: r.hotel.trim() || r.brn.trim(),
+          p_check_in: r.check_in, p_check_out: r.check_out,
+        });
+        if (ae) { setSaving(false); return setError(ae.message); }
+      }
+      const { data: complete } = await supabase.rpc("nusuk_complete", { p_group: gid });
+      setSaving(false);
+      if (agentRows.some((r) => r.brn.trim()) && !complete) { setMasarGroupId(gid); return; } // show options modal
+      setDirty(false);
+      router.push(`/groups/${gid}`); router.refresh();
+      return;
+    }
+
+    setSaving(false);
+    setDirty(false);
+    router.push(`/groups/${gid}`);
     router.refresh();
   }
 
@@ -138,6 +174,19 @@ export default function GroupForm({
       </p>
       <form onSubmit={save} className="space-y-5">
         {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+
+        <div className="card space-y-3">
+          <h2 className="font-semibold text-slate-700">Visa Type</h2>
+          <div className="flex gap-2">
+            {[["normal", "Normal Visa"], ["masar", "Masar Visa"]].map(([v, lbl]) => (
+              <button type="button" key={v} onClick={() => { setDirty(true); setVisaType(v); }}
+                className={`rounded-md px-4 py-2 text-sm font-medium ${visaType === v ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+          {visaType === "masar" && <p className="text-xs text-slate-500">Masar: the agent has arranged the hotel BRNs — record them below. On save the ERP checks whether they satisfy the hotel coverage policy.</p>}
+        </div>
 
         <div className="card space-y-4">
           <h2 className="font-semibold text-slate-700">Group Information</h2>
@@ -228,11 +277,51 @@ export default function GroupForm({
           <input className="input" value={f.remarks} onChange={(e) => set("remarks", e.target.value)} />
         </div>
 
+        {visaType === "masar" && (
+          <div className="card space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-slate-700">Agent Provided BRNs</h2>
+              <button type="button" className="btn-outline text-sm" onClick={addAgentRow}>+ Add BRN</button>
+            </div>
+            {agentRows.length === 0 && <p className="text-sm text-slate-400">Add the BRNs the travel agent has already arranged.</p>}
+            {agentRows.map((r, i) => (
+              <div key={i} className="grid grid-cols-2 gap-2 rounded-lg border border-slate-100 p-2 md:grid-cols-6">
+                <input className="input" placeholder="BRN" value={r.brn} onChange={(e) => setAgentRow(i, "brn", e.target.value)} />
+                <select className="input" value={r.city} onChange={(e) => setAgentRow(i, "city", e.target.value)}>
+                  <option>Makkah</option><option>Madinah</option><option>Jeddah</option>
+                </select>
+                <input className="input" placeholder="Hotel" value={r.hotel} onChange={(e) => setAgentRow(i, "hotel", e.target.value)} />
+                <input className="input" type="date" value={r.check_in} onChange={(e) => setAgentRow(i, "check_in", e.target.value)} />
+                <input className="input" type="date" min={r.check_in || undefined} value={r.check_out} onChange={(e) => setAgentRow(i, "check_out", e.target.value)} />
+                <button type="button" className="text-sm text-red-600 hover:underline" onClick={() => removeAgentRow(i)}>Remove</button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex gap-2">
           <button className="btn" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save changes" : "Save group"}</button>
           <button type="button" className="btn-outline" onClick={() => { if (confirmDiscardIfDirty(dirty)) router.back(); }}>Cancel</button>
         </div>
       </form>
+
+      {masarGroupId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-slate-800">Hotel allocation is incomplete</h3>
+            <p className="mt-2 text-sm text-slate-600">The agent-provided BRNs don’t fully cover the stay under Nusuk rules. How would you like to proceed?</p>
+            <div className="mt-4 space-y-2">
+              <button className="btn w-full" onClick={() => chooseMasar("vista")}>
+                Remaining BRN by Vista — allocate the rest from our inventory
+              </button>
+              <button className="btn-outline w-full" onClick={() => chooseMasar("later")}>
+                Save for Later — the agent will provide the remaining BRNs
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-slate-400">Agent BRNs are saved and locked either way. You can open the group later to continue.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

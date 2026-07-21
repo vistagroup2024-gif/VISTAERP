@@ -6,6 +6,7 @@ import { nightsBetween } from "@/lib/brn";
 import GroupAllocation from "./GroupAllocation";
 import GroupHeaderActions from "./GroupHeaderActions";
 import WorkflowCard from "./WorkflowCard";
+import AgentBrnAdder from "./AgentBrnAdder";
 import CopyExternalErp from "./CopyExternalErp";
 import { ExtGroup, ExtHotel } from "@/lib/externalErp";
 
@@ -111,6 +112,8 @@ export default async function GroupDetail({ params }: { params: { id: string } }
         workflowStatus={g.workflow_status ?? (g.visa_status === "issued" ? "visa_issued" : g.brn_status === "allocated" ? "brn_allocated" : "pending")}
         isAdmin={isAdmin}
       />
+
+      {g.visa_type === "masar" && g.agent_brn_pending && <AgentBrnAdder groupId={g.id} />}
 
       <GroupAllocation
         groupId={g.id}

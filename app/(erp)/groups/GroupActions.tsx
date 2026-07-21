@@ -15,8 +15,8 @@ const NEXT: Record<string, { label: string; fn: string; args?: any; cls: string 
 };
 
 export default function GroupActions({
-  groupId, brnStatus, visaStatus, isAdmin, workflowStatus,
-}: { groupId: string; brnStatus: string; visaStatus: string; isAdmin: boolean; workflowStatus: string }) {
+  groupId, brnStatus, visaStatus, isAdmin, workflowStatus, agentPending,
+}: { groupId: string; brnStatus: string; visaStatus: string; isAdmin: boolean; workflowStatus: string; agentPending?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
@@ -45,6 +45,10 @@ export default function GroupActions({
     return isAdmin
       ? <Link href={`/groups/${groupId}/edit`} className="text-brand text-sm hover:underline">Edit</Link>
       : <span className="text-slate-400" title="Locked — visa issued">🔒</span>;
+  }
+
+  if (agentPending) {
+    return <Link href={`/groups/${groupId}`} className="badge bg-amber-100 text-amber-800 hover:underline" title="More agent BRNs pending">Agent BRNs pending</Link>;
   }
 
   return (
