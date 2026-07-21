@@ -193,11 +193,15 @@ export default function GroupAllocation({
             </div>
           )}
 
-          {packageStatus === "update_required" && (
-            <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-              <p className="text-sm font-semibold text-orange-800">🔄 Partial package — update required{issued ? " (visa already issued)" : ""}</p>
-              <p className="mt-1 text-sm text-orange-700">Auto-allocate BRN(s) for the remaining uncovered nights. Existing BRNs are kept.</p>
-              <button className="btn mt-2 bg-orange-600 hover:bg-orange-700" onClick={() => rpc("update_package_brns", { p_group: groupId })} disabled={busy}>
+          {(packageStatus === "update_required" || packageStatus === "update_available") && (
+            <div className={`rounded-lg border p-4 ${packageStatus === "update_available" ? "border-teal-200 bg-teal-50" : "border-orange-200 bg-orange-50"}`}>
+              <p className={`text-sm font-semibold ${packageStatus === "update_available" ? "text-teal-800" : "text-orange-800"}`}>
+                {packageStatus === "update_available" ? "🔔 Inventory available — ready for package update" : "🔄 Partial package — update required (awaiting inventory)"}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">Auto-allocate BRN(s) for the remaining uncovered nights. Existing BRNs are kept.</p>
+              <button className={`btn mt-2 ${packageStatus === "update_available" ? "bg-teal-600 hover:bg-teal-700" : "bg-orange-600 hover:bg-orange-700"}`}
+                onClick={() => rpc("update_package_brns", { p_group: groupId })} disabled={busy || packageStatus === "update_required"}
+                title={packageStatus === "update_required" ? "No single-BRN inventory available yet for the remaining nights" : ""}>
                 {busy ? "Updating…" : "🔄 Update Package (allocate remaining nights)"}
               </button>
             </div>

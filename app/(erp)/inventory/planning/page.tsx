@@ -3,7 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
 import { money } from "@/lib/format";
 import { Brn, Consumption, nightsBetween, fmtDay } from "@/lib/brn";
-import { PendGroup, buildDemandFromItems, recommendBrns, DayDemand, BrnRecommendation, DemandItem } from "@/lib/planning";
+import { PendGroup, buildDemandFromItems, recommendBrns, DayDemand, BrnRecommendation, DemandItem, planByCity } from "@/lib/planning";
 import PurchaseSimulator from "./PurchaseSimulator";
 
 export const dynamic = "force-dynamic";
@@ -113,6 +113,32 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
     const dayTone = (d: DayDemand) => d.shortage > 0 ? "bg-red-500 text-white"
       : d.available - d.required < d.required * 0.2 ? "bg-yellow-200 text-yellow-900" : "bg-green-100 text-green-800";
 
+    const cityPlan = planByCity(items.filter((i) => i.companyId === company), allB.filter((b) => b.group_company_id === company), consByBrn);
+    const CityBlock = ({ title, data, note }: { title: string; data: { demand: DayDemand[]; recs: BrnRecommendation[] }; note?: string }) => {
+      const required = data.demand.reduce((s, d) => s + d.required, 0);
+      const existing = data.demand.reduce((s, d) => s + Math.min(d.required, d.available), 0);
+      return (
+        <div className="rounded-lg border border-slate-200 p-4">
+          <p className="font-semibold text-slate-700">{title}</p>
+          {note && <p className="mb-2 text-xs text-slate-500">{note}</p>}
+          <div className="mb-2 grid grid-cols-3 gap-2 text-sm">
+            <div><span className="text-slate-400">Beds required</span><br /><b>{required}</b></div>
+            <div><span className="text-slate-400">Existing inventory</span><br /><b>{existing}</b></div>
+            <div><span className="text-slate-400">Recommended BRNs</span><br /><b className={data.recs.length ? "text-orange-600" : "text-green-700"}>{data.recs.length}</b></div>
+          </div>
+          {data.recs.length > 0 ? (
+            <ul className="space-y-1 text-sm">
+              {data.recs.map((r, i) => (
+                <li key={i} className="rounded bg-orange-50 px-2 py-1 text-orange-800">
+                  <b>{r.beds} beds</b> · {fmtDay(r.from)} → {fmtDay(r.to)} ({r.nights}n){avgRate > 0 ? ` · ≈ ${cost(r)}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-sm text-green-700">✓ Covered by existing inventory.</p>}
+        </div>
+      );
+    };
+
     return (
       <div className="space-y-6">
         <PageHeader title={`BRN Purchase Planning — ${p.name}`} />
@@ -153,6 +179,15 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
             <div><p className="text-xs text-slate-400">Peak demand</p><p className="text-lg font-bold">{peak?.required ?? 0} on {peak?.date ? fmtDay(peak.date) : "—"}</p></div>
             <div><p className="text-xs text-slate-400">Days needing BRNs</p><p className="text-lg font-bold text-red-600">{daysShort}</p></div>
             <div><p className="text-xs text-slate-400">Forecast / day</p><p className="text-lg font-bold">{avgDaily} beds</p></div>
+          </div>
+        </div>
+
+        <div className="card">
+          <h2 className="mb-3 font-semibold text-slate-700">🏙️ Planning by City</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <CityBlock title="🕋 Makkah" data={cityPlan.makkah} note="All nights except each group's single Madinah night." />
+            <CityBlock title="🕌 Madinah" data={cityPlan.madinah}
+              note={`One optimized Madinah night per group. Concentrated on ${cityPlan.madinah.assignments.length} date(s): ${cityPlan.madinah.assignments.map((a) => `${fmtDay(a.date)} (${a.beds} beds, ${a.groups} grp)`).join(", ") || "—"}.`} />
           </div>
         </div>
 

@@ -127,6 +127,67 @@ export function simulate(
   };
 }
 
+// City-wise planning with intelligent Madinah concentration.
+// Each item needs exactly ONE Madinah night (any night in its stay); the rest
+// are Makkah. We greedily concentrate Madinah nights on the dates shared by the
+// most demand (by beds) to minimise the number of Madinah BRNs to buy.
+export interface CityPlan {
+  makkah: { demand: DayDemand[]; recs: BrnRecommendation[] };
+  madinah: { demand: DayDemand[]; recs: BrnRecommendation[]; assignments: { date: string; beds: number; groups: number }[] };
+}
+
+export function planByCity(items: DemandItem[], brns: Brn[], consByBrn: Record<string, Consumption[]>): CityPlan {
+  const makBrns = brns.filter((b) => b.city === "Makkah");
+  const madBrns = brns.filter((b) => b.city === "Madinah");
+
+  // 1. Assign each item's single Madinah night by concentration (most beds shared)
+  const madAssign = new Map<string, string>();
+  let pool = items.filter((it) => it.nights.size > 0);
+  const assignments: { date: string; beds: number; groups: number }[] = [];
+  let guard = 0;
+  while (pool.length && guard++ < 1000) {
+    const freq = new Map<string, number>();
+    pool.forEach((it) => Array.from(it.nights).forEach((n) => freq.set(n, (freq.get(n) ?? 0) + it.pax)));
+    let best = "", bestv = -1;
+    freq.forEach((v, d) => { if (v > bestv) { bestv = v; best = d; } });
+    const chosen = pool.filter((it) => it.nights.has(best));
+    let beds = 0;
+    for (const it of chosen) { madAssign.set(it.id, best); beds += it.pax; }
+    assignments.push({ date: best, beds, groups: chosen.length });
+    pool = pool.filter((it) => !it.nights.has(best));
+  }
+
+  // 2. Build per-city demand-by-date
+  const allNights = Array.from(new Set(items.flatMap((it) => Array.from(it.nights)))).sort();
+  const days = allNights;
+
+  const madReq: Record<string, number> = {}, madMax: Record<string, number> = {};
+  const makReq: Record<string, number> = {}, makMax: Record<string, number> = {};
+  for (const it of items) {
+    const md = madAssign.get(it.id);
+    if (md) { madReq[md] = (madReq[md] ?? 0) + it.pax; madMax[md] = Math.max(madMax[md] ?? 0, it.pax); }
+    Array.from(it.nights).forEach((n) => {
+      if (n === md) return;
+      makReq[n] = (makReq[n] ?? 0) + it.pax; makMax[n] = Math.max(makMax[n] ?? 0, it.pax);
+    });
+  }
+
+  const cityDemand = (reqByDate: Record<string, number>, maxByDate: Record<string, number>, cityBrns: Brn[]): DayDemand[] =>
+    days.map((d) => {
+      const required = reqByDate[d] ?? 0;
+      let available = 0;
+      for (const b of cityBrns) if (b.check_in <= d && b.check_out > d) available += b.beds - usedOnNight(d, consByBrn[b.id] ?? []);
+      return { date: d, arrivals: 0, staying: 0, required, available, shortage: Math.max(0, required - available), maxGroupPax: maxByDate[d] ?? 0 };
+    }).filter((x) => x.required > 0 || x.shortage > 0);
+
+  const makDemand = cityDemand(makReq, makMax, makBrns);
+  const madDemand = cityDemand(madReq, madMax, madBrns);
+  return {
+    makkah: { demand: makDemand, recs: recommendBrns(makDemand) },
+    madinah: { demand: madDemand, recs: recommendBrns(madDemand), assignments: assignments.filter((a) => a.beds > 0).sort((a, b) => a.date.localeCompare(b.date)) },
+  };
+}
+
 export function todayUTC(): string {
   return new Date().toISOString().slice(0, 10);
 }
