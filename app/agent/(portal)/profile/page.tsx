@@ -10,7 +10,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default async function AgentProfile() {
   const agent = await getAgent();
-  if (!agent) redirect("/agent/login");
+  if (!agent) redirect("/login");
 
   return (
     <div className="space-y-6">

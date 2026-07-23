@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const agent = await getAgent();
-  if (!agent) redirect("/agent/login");
+  if (!agent) redirect("/login");
 
   const nav = [
     { href: "/agent", label: "Dashboard", show: can(agent, "dashboard.view") || true },
