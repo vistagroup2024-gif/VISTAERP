@@ -10,7 +10,6 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "▣" },
   { href: "/groups", label: "Visa Groups", icon: "🕋" },
   { href: "/groups/package-updates", label: "Package Updates", icon: "🔄" },
-  { href: "/groups/package-history", label: "Package History", icon: "🗂" },
   { href: "/bookings", label: "Sales Orders", icon: "🧾" },
   { href: "/sales/catalog", label: "Service Catalog", icon: "🗂" },
   { href: "/sales/visas", label: "Visa Tracking", icon: "🛂" },

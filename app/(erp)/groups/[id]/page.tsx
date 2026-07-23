@@ -113,6 +113,30 @@ export default async function GroupDetail({ params }: { params: { id: string } }
         isAdmin={isAdmin}
       />
 
+      {Array.isArray(g.hotel_details) && g.hotel_details.length > 0 && (
+        <div className="card">
+          <h2 className="mb-3 font-semibold text-slate-700">🏨 Hotel Details (agent itinerary — reference)</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
+              <thead className="bg-slate-50">
+                <tr><th className="th">City</th><th className="th">Hotel</th><th className="th">Check-in</th><th className="th">Check-out</th></tr>
+              </thead>
+              <tbody>
+                {(g.hotel_details as any[]).map((h, i) => (
+                  <tr key={i} className="border-t border-slate-100">
+                    <td className="td">{h.city}</td>
+                    <td className="td">{h.hotel}</td>
+                    <td className="td whitespace-nowrap">{dateStr(h.check_in)}</td>
+                    <td className="td whitespace-nowrap">{dateStr(h.check_out)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-slate-400">Reference itinerary only — independent of the BRN allocation below.</p>
+        </div>
+      )}
+
       {g.visa_type === "masar" && g.agent_brn_pending && <AgentBrnAdder groupId={g.id} />}
 
       <GroupAllocation

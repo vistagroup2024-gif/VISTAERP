@@ -25,6 +25,7 @@ export interface GroupInitial {
   departure_airport?: string | null;
   remarks?: string | null;
   visa_type?: string | null;
+  hotel_details?: { city: string; hotel: string; check_in: string; check_out: string }[];
 }
 
 export default function GroupForm({
@@ -62,7 +63,13 @@ export default function GroupForm({
   const [visaType, setVisaType] = useState<string>(existing?.visa_type ?? "normal");
   const [agentRows, setAgentRows] = useState<{ brn: string; city: string; hotel: string; check_in: string; check_out: string }[]>([]);
   const [masarGroupId, setMasarGroupId] = useState<string | null>(null);
+  const [hotelRows, setHotelRows] = useState<{ city: string; hotel: string; check_in: string; check_out: string }[]>(
+    Array.isArray(existing?.hotel_details) ? existing!.hotel_details : []);
   useUnsavedChanges(dirty);
+
+  function addHotelRow() { setDirty(true); setHotelRows((r) => [...r, { city: "Makkah", hotel: "", check_in: "", check_out: "" }]); }
+  function setHotelRow(i: number, k: string, v: string) { setDirty(true); setHotelRows((r) => r.map((row, j) => j === i ? { ...row, [k]: v } : row)); }
+  function removeHotelRow(i: number) { setDirty(true); setHotelRows((r) => r.filter((_, j) => j !== i)); }
 
   function addAgentRow() { setDirty(true); setAgentRows((r) => [...r, { brn: "", city: "Makkah", hotel: "", check_in: "", check_out: "" }]); }
   function setAgentRow(i: number, k: string, v: string) { setDirty(true); setAgentRows((r) => r.map((row, j) => j === i ? { ...row, [k]: v } : row)); }
@@ -124,6 +131,7 @@ export default function GroupForm({
       departure_airport: f.departure_airport,
       remarks: f.remarks.trim() || null,
       visa_type: visaType,
+      hotel_details: hotelRows.filter((h) => h.hotel.trim() || h.check_in || h.check_out),
     };
 
     const dup = (e: any) =>
@@ -270,6 +278,30 @@ export default function GroupForm({
             Total stay: <b>{nights}</b> night(s)
             {nights > 0 && <span className="text-slate-500"> · {f.pax || 0} pax = {nights * (Number(f.pax) || 0)} bed-nights required</span>}
           </div>
+        </div>
+
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold text-slate-700">🏨 Hotel Details</h2>
+              <p className="text-xs text-slate-500">Original hotel itinerary from the agent — reference only, independent of BRN allocation.</p>
+            </div>
+            <button type="button" className="btn-outline text-sm" onClick={addHotelRow}>+ Add Hotel</button>
+          </div>
+          {hotelRows.length === 0 && <p className="text-sm text-slate-400">No hotel rows yet.</p>}
+          {hotelRows.map((h, i) => (
+            <div key={i} className="grid grid-cols-2 gap-2 rounded-lg border border-slate-100 p-2 md:grid-cols-5">
+              <select className="input" value={h.city} onChange={(e) => setHotelRow(i, "city", e.target.value)}>
+                <option>Makkah</option><option>Madinah</option><option>Jeddah</option><option>Other</option>
+              </select>
+              <input className="input md:col-span-2" placeholder="Hotel name" value={h.hotel} onChange={(e) => setHotelRow(i, "hotel", e.target.value)} />
+              <input className="input" type="date" value={h.check_in} onChange={(e) => setHotelRow(i, "check_in", e.target.value)} />
+              <div className="flex gap-2">
+                <input className="input" type="date" min={h.check_in || undefined} value={h.check_out} onChange={(e) => setHotelRow(i, "check_out", e.target.value)} />
+                <button type="button" className="text-sm text-red-600 hover:underline" onClick={() => removeHotelRow(i)}>✕</button>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="card">
