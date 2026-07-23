@@ -17,7 +17,7 @@ function Kpi({ label, value, tone }: { label: string; value: string | number; to
 
 export default async function AgentDashboard() {
   const agent = await getAgent();
-  if (!agent) redirect("/agent/login");
+  if (!agent) redirect("/login");
   const supabase = createClient();
   const { data } = await supabase.rpc("b2b_dashboard", { p_token: agent.token });
   const d = (data as any) ?? {};

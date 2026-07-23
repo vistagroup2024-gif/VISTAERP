@@ -12,7 +12,7 @@ const WF: Record<string, string> = {
 
 export default async function AgentGroups() {
   const agent = await getAgent();
-  if (!agent) redirect("/agent/login");
+  if (!agent) redirect("/login");
   if (!can(agent, "visa.view_own")) {
     return <div className="rounded-xl bg-white p-6 text-slate-500 shadow-sm">You don’t have permission to view visa groups.</div>;
   }
