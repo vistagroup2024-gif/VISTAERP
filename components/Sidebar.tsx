@@ -10,6 +10,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "▣" },
   { href: "/groups", label: "Visa Groups", icon: "🕋" },
   { href: "/groups/package-updates", label: "Package Updates", icon: "🔄" },
+  { href: "/groups/package-history", label: "Package History", icon: "🗂" },
   { href: "/bookings", label: "Sales Orders", icon: "🧾" },
   { href: "/sales/catalog", label: "Service Catalog", icon: "🗂" },
   { href: "/sales/visas", label: "Visa Tracking", icon: "🛂" },
@@ -47,6 +48,7 @@ const ACCOUNTING = [
 const SETTINGS = [
   { href: "/settings/users", label: "Users & Roles", icon: "👤" },
   { href: "/settings/companies", label: "Companies", icon: "🏢" },
+  { href: "/settings/agents", label: "B2B Agents", icon: "🧑‍💼" },
 ];
 
 function NavLink({ href, label, icon, onClick }: { href: string; label: string; icon: string; onClick?: () => void }) {
