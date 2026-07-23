@@ -13,12 +13,13 @@ export default async function NewAgentGroup() {
   }
   const supabase = createClient();
   const { data: airports } = await supabase.rpc("b2b_airports", { p_token: agent.token });
+  const { data: companies } = await supabase.rpc("b2b_companies", { p_token: agent.token });
   return (
     <GroupForm
       variant="agent"
       airports={(airports as any[]) ?? []}
       agents={[]}
-      companies={[]}
+      companies={(companies as any[]) ?? []}
       agencyName={agent.agency_name}
       canAgentBrn={can(agent, "brn.add_agent")}
     />

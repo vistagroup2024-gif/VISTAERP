@@ -134,7 +134,7 @@ export default function GroupForm({
       return;
     }
 
-    if (!isAgent && !f.group_no.trim()) return setError("Group number is required");
+    if (!f.group_no.trim()) return setError("Group number is required");
     if (Number(f.pax) <= 0) return setError("Pax must be greater than zero");
     if (!f.arrival_date || !f.departure_date) return setError("Arrival and departure dates are required");
     if (f.departure_date <= f.arrival_date) return setError("Departure must be after arrival");
@@ -160,6 +160,8 @@ export default function GroupForm({
 
     // ---------- Agent variant ----------
     if (isAgent) {
+      payload.group_no = f.group_no.trim();
+      payload.group_company_id = f.group_company_id || null;
       try {
         const r = isEdit
           ? await agentPost({ action: "update", id: gidFor, payload })
@@ -248,7 +250,7 @@ export default function GroupForm({
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
             <div>
               <label className="label">Group number</label>
-              <input className="input font-mono" value={f.group_no} onChange={(e) => set("group_no", e.target.value)} disabled={isAgent} placeholder={isAgent && !f.group_no ? "(auto)" : undefined} />
+              <input className="input font-mono" value={f.group_no} onChange={(e) => set("group_no", e.target.value)} disabled={disNonHotel} placeholder="Enter group number" />
             </div>
             <div>
               <label className="label">Date</label>
@@ -262,23 +264,21 @@ export default function GroupForm({
               <label className="label">Group name</label>
               <input className="input" value={f.group_name} onChange={(e) => set("group_name", e.target.value)} placeholder="Optional" disabled={disNonHotel} />
             </div>
-            <div>
-              <label className="label">Agent</label>
-              {isAgent
-                ? <input className="input bg-slate-50" value={agencyName ?? ""} disabled readOnly title="Linked to your account" />
-                : <select className="input" value={f.agent_id} onChange={(e) => set("agent_id", e.target.value)}>
-                    <option value="">—</option>
-                    {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>}
-            </div>
+            {!isAgent && (
+              <div>
+                <label className="label">Agent</label>
+                <select className="input" value={f.agent_id} onChange={(e) => set("agent_id", e.target.value)}>
+                  <option value="">—</option>
+                  {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label className="label">Company</label>
-              {isAgent
-                ? <input className="input bg-slate-50" value="Assigned by Vista" disabled readOnly />
-                : <select className="input" value={f.group_company_id} onChange={(e) => set("group_company_id", e.target.value)}>
-                    <option value="">—</option>
-                    {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>}
+              <select className="input" value={f.group_company_id} onChange={(e) => set("group_company_id", e.target.value)} disabled={disNonHotel}>
+                <option value="">—</option>
+                {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
             </div>
           </div>
         </div>
