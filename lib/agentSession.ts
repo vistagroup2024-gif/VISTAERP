@@ -26,3 +26,10 @@ export async function getAgent(): Promise<AgentSession | null> {
 export function can(agent: AgentSession | null, key: string): boolean {
   return !!agent?.permissions?.[key];
 }
+
+// Agents only ever see three simple states — internal Vista stages are hidden.
+export function agentStatus(workflow_status?: string, visa_status?: string): "Pending" | "Under Process" | "Visa Issued" {
+  if (visa_status === "issued" || workflow_status === "visa_issued") return "Visa Issued";
+  if (!workflow_status || workflow_status === "pending") return "Pending";
+  return "Under Process";
+}
