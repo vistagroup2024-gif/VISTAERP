@@ -1,0 +1,22 @@
+-- ============================================================
+-- VISTA ERP - 035 B2B Agent portal: scoped group access + status-based editing
+-- Additive. Applied to remote DB via Supabase MCP; kept here for history.
+--
+-- All functions resolve the session token to the agent, enforce ownership
+-- (umrah_groups.agent_id = agent.agent_party_id) and check the agent's RBAC
+-- permissions — data isolation and permission enforcement at the backend, not
+-- just the UI.
+--   b2b_agent_of(token)              -> agent row (raises if invalid/inactive)
+--   b2b_airports(token)              -> airport reference list
+--   b2b_get_group(token, group)      -> one of the agent's own groups
+--   b2b_create_group(token, payload) -> requires visa.create
+--   b2b_update_group(token, id, p)   -> requires visa.edit_pending AND status = Pending
+--   b2b_update_hotel_details(token,id,hotels) -> allowed while Pending or Visa Issued
+--
+-- Agents only ever see: Pending / Under Process / Visa Issued (internal stages
+-- hidden). Editing rights: Pending = full edit, Under Process = read-only,
+-- Visa Issued = Hotel Details only.
+-- ============================================================
+
+-- Function bodies applied via MCP; see the database for current definitions.
+select 1;
