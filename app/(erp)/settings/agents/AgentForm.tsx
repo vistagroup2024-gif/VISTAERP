@@ -7,9 +7,9 @@ import { COMPANY_ID } from "@/lib/format";
 import { PERMISSION_CATALOG, ALL_PERM_KEYS } from "@/lib/permissions";
 
 export default function AgentForm({
-  companies, existing,
+  parties, existing,
 }: {
-  companies: { id: string; name: string }[];
+  parties: { id: string; name: string }[];
   existing?: any;
 }) {
   const router = useRouter();
@@ -17,8 +17,8 @@ export default function AgentForm({
   const isEdit = !!existing?.id;
 
   const [f, setF] = useState({
+    agent_party_id: existing?.agent_party_id ?? "",
     agency_name: existing?.agency_name ?? "",
-    group_company_id: existing?.group_company_id ?? companies[0]?.id ?? "",
     contact_person: existing?.contact_person ?? "",
     username: existing?.username ?? "",
     email: existing?.email ?? "",
@@ -28,6 +28,8 @@ export default function AgentForm({
     status: existing?.status ?? "active",
     credit_limit: existing?.credit_limit ?? 0,
   });
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [perms, setPerms] = useState<Record<string, boolean>>(existing?.permissions ?? {});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -37,13 +39,17 @@ export default function AgentForm({
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!f.agency_name.trim()) return setError("Agency name is required");
+    if (!f.agent_party_id) return setError("Select the agency from the Customers / Agent list");
     if (!f.username.trim()) return setError("Username is required");
+    if (!isEdit && password.length < 6) return setError("Password must be at least 6 characters");
+    if (password && password !== confirm) return setError("Passwords do not match");
+
     setSaving(true); setError(null);
+    const agencyName = parties.find((p) => p.id === f.agent_party_id)?.name ?? f.agency_name;
     const payload = {
       company_id: COMPANY_ID,
-      group_company_id: f.group_company_id || null,
-      agency_name: f.agency_name.trim(),
+      agent_party_id: f.agent_party_id,
+      agency_name: agencyName,
       contact_person: f.contact_person.trim() || null,
       username: f.username.trim(),
       email: f.email.trim() || null,
@@ -55,13 +61,21 @@ export default function AgentForm({
       permissions: perms,
     };
     const dup = (e: any) => /duplicate key|unique/i.test(e?.message ?? "") ? "This username already exists." : e.message;
+
+    let id = existing?.id;
     if (isEdit) {
       const { error } = await supabase.from("b2b_agents").update(payload).eq("id", existing.id);
-      setSaving(false); if (error) return setError(dup(error));
+      if (error) { setSaving(false); return setError(dup(error)); }
     } else {
-      const { error } = await supabase.from("b2b_agents").insert(payload);
-      setSaving(false); if (error) return setError(dup(error));
+      const { data, error } = await supabase.from("b2b_agents").insert(payload).select("id").single();
+      if (error) { setSaving(false); return setError(dup(error)); }
+      id = data!.id;
     }
+    if (password) {
+      const { error: pe } = await supabase.rpc("set_b2b_password", { p_agent: id, p_password: password });
+      if (pe) { setSaving(false); return setError(pe.message); }
+    }
+    setSaving(false);
     router.push("/settings/agents"); router.refresh();
   }
 
@@ -71,16 +85,23 @@ export default function AgentForm({
       {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
       <div className="card grid grid-cols-2 gap-4 md:grid-cols-3">
-        <div className="col-span-2 md:col-span-1"><label className="label">Agency name</label>
-          <input className="input" value={f.agency_name} onChange={(e) => setF({ ...f, agency_name: e.target.value })} required /></div>
-        <div><label className="label">Company</label>
-          <select className="input" value={f.group_company_id} onChange={(e) => setF({ ...f, group_company_id: e.target.value })}>
-            <option value="">—</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select></div>
+        <div className="col-span-2">
+          <label className="label">Agency (from Customers / Agent list)</label>
+          <input className="input" list="agent-parties" value={parties.find((p) => p.id === f.agent_party_id)?.name ?? f.agency_name}
+            onChange={(e) => {
+              const p = parties.find((x) => x.name === e.target.value);
+              setF({ ...f, agent_party_id: p?.id ?? "", agency_name: e.target.value });
+            }} placeholder="Search agency…" />
+          <datalist id="agent-parties">{parties.map((p) => <option key={p.id} value={p.name} />)}</datalist>
+        </div>
         <div><label className="label">Contact person</label>
           <input className="input" value={f.contact_person} onChange={(e) => setF({ ...f, contact_person: e.target.value })} /></div>
         <div><label className="label">Username</label>
           <input className="input font-mono" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} required /></div>
+        <div><label className="label">Password {isEdit && <span className="text-slate-400">(leave blank to keep)</span>}</label>
+          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></div>
+        <div><label className="label">Confirm password</label>
+          <input className="input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" /></div>
         <div><label className="label">Email</label>
           <input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
         <div><label className="label">Mobile</label>

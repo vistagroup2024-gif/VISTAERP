@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewAgentPage() {
   const supabase = createClient();
-  const { data: companies } = await supabase.from("group_companies").select("id, name").eq("is_active", true).order("name");
-  return <AgentForm companies={companies ?? []} />;
+  const { data: parties } = await supabase.from("parties")
+    .select("id, name").in("party_type", ["customer", "b2b_agent"]).eq("is_active", true).order("name");
+  return <AgentForm parties={parties ?? []} />;
 }
