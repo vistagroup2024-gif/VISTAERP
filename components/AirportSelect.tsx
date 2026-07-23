@@ -11,13 +11,14 @@ export interface Airport {
 }
 
 export default function AirportSelect({
-  airports, value, onChange, placeholder, saudiOnly,
+  airports, value, onChange, placeholder, saudiOnly, disabled,
 }: {
   airports: Airport[];
   value: string;
   onChange: (code: string) => void;
   placeholder?: string;
   saudiOnly?: boolean;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -52,8 +53,9 @@ export default function AirportSelect({
     <div className="relative" ref={boxRef}>
       <button
         type="button"
-        className="input flex w-full items-center justify-between text-left"
-        onClick={() => setOpen((o) => !o)}
+        disabled={disabled}
+        className="input flex w-full items-center justify-between text-left disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+        onClick={() => { if (!disabled) setOpen((o) => !o); }}
       >
         <span className={selected ? "" : "text-slate-400"}>
           {selected ? `${selected.city ?? selected.name} (${selected.code})` : placeholder ?? "Select…"}
