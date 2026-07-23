@@ -44,7 +44,6 @@ type Col = { key: keyof GroupRow; label: string; date?: boolean; plain?: boolean
 const COLS: Col[] = [
   { key: "group_date", label: "Date", date: true },
   { key: "group_no", label: "Group No" },
-  { key: "company", label: "Company" },
   { key: "group_name", label: "Name" },
   { key: "agent", label: "Agent" },
   { key: "pax", label: "Pax", plain: true },
@@ -119,15 +118,20 @@ function HeaderCell({
 
 export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdmin: boolean }) {
   const [filters, setFilters] = useState<Record<string, string[]>>({});
+  const [companies, setCompanies] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<{ key: keyof GroupRow; dir: 1 | -1 } | null>({ key: "group_date", dir: -1 });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
 
+  const companyList = useMemo(() => Array.from(new Set(rows.map((r) => r.company).filter(Boolean))).sort(), [rows]);
+
   const filtered = useMemo(() => {
-    let r = rows.filter((row) => COLS.every((c) => {
-      const f = filters[c.key as string];
-      return !f || f.length === 0 || f.includes(String(row[c.key] ?? ""));
-    }));
+    let r = rows.filter((row) =>
+      (companies.size === 0 || companies.has(row.company)) &&
+      COLS.every((c) => {
+        const f = filters[c.key as string];
+        return !f || f.length === 0 || f.includes(String(row[c.key] ?? ""));
+      }));
     if (sort) {
       const col = COLS.find((c) => c.key === sort.key);
       r = [...r].sort((a, b) => {
@@ -137,7 +141,11 @@ export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdm
       });
     }
     return r;
-  }, [rows, filters, sort]);
+  }, [rows, filters, companies, sort]);
+
+  function toggleCompany(c: string) {
+    setCompanies((s) => { const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n; });
+  }
 
   const totalPax = filtered.reduce((s, g) => s + (Number(g.pax) || 0), 0);
   const anyFilter = Object.values(filters).some((v) => v && v.length > 0);
@@ -167,6 +175,21 @@ export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdm
 
   return (
     <div className="space-y-2">
+      {companyList.length > 0 && (
+        <div className="card flex flex-wrap items-center gap-2 py-3">
+          <span className="text-sm font-medium text-slate-600">Companies:</span>
+          <button onClick={() => setCompanies(new Set())}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${companies.size === 0 ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+            All Companies
+          </button>
+          {companyList.map((c) => (
+            <button key={c} onClick={() => toggleCompany(c)}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${companies.has(c) ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+              {companies.has(c) ? "☑ " : ""}{c}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-slate-500">{filtered.length} of {rows.length} groups</span>
         {anyFilter && <button onClick={clearAll} className="btn-outline text-xs">Clear all filters</button>}
@@ -210,7 +233,6 @@ export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdm
                 <td className="td"><input type="checkbox" checked={selected.has(g.id)} onChange={() => toggleRow(g.id)} /></td>
                 <td className="td text-sm">{dateStr(g.group_date)}</td>
                 <td className="td font-mono font-medium"><Link href={`/groups/${g.id}`} className="text-brand hover:underline">{g.group_no}</Link></td>
-                <td className="td text-slate-500">{g.company || "—"}</td>
                 <td className="td">{g.group_name || "—"}</td>
                 <td className="td text-slate-500">{g.agent || "—"}</td>
                 <td className="td font-medium">{g.pax}</td>
@@ -226,9 +248,9 @@ export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdm
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
-              <td className="td" colSpan={6}>Total Pax (filtered)</td>
+              <td className="td" colSpan={5}>Total Pax (filtered)</td>
               <td className="td text-brand-dark">{totalPax}</td>
-              <td className="td" colSpan={COLS.length - 5}></td>
+              <td className="td" colSpan={COLS.length - 4}></td>
             </tr>
           </tfoot>
         </table>

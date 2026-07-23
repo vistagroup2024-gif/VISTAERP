@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
-import { Brn, Consumption, usedOnNight, cellClass } from "@/lib/brn";
+import { Brn, Consumption, usedOnNight, cellClass, maxNightlyAvailable } from "@/lib/brn";
 import CalendarControls from "./CalendarControls";
 
 export const dynamic = "force-dynamic";
@@ -33,10 +33,12 @@ export default async function CalendarPage({
     supabase.from("group_companies").select("id, name").order("name"),
   ]);
 
-  const B = (brns ?? []) as Brn[];
   const C = (cons ?? []) as Consumption[];
   const consByBrn: Record<string, Consumption[]> = {};
   C.forEach((c) => (consByBrn[c.brn_id] ||= []).push(c));
+  // Daily Calendar shows only usable inventory — hide fully-consumed BRNs
+  // (they remain in BRN History, Archived BRNs and Reports).
+  const B = ((brns ?? []) as Brn[]).filter((b) => maxNightlyAvailable(b, consByBrn[b.id] ?? []) > 0);
 
   // availability matrix: brn -> day -> available (or null if not covered that night)
   function avail(b: Brn, day: string): number | null {
