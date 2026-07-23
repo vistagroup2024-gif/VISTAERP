@@ -23,5 +23,24 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true, id: body.id });
   }
+  if (body.action === "add_agent_brn") {
+    const r = body.row;
+    const { error } = await supabase.rpc("b2b_add_agent_brn", {
+      p_token: token, p_group: body.id, p_brn: r.brn, p_city: r.city, p_hotel: r.hotel || r.brn,
+      p_check_in: r.check_in, p_check_out: r.check_out,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  }
+  if (body.action === "nusuk_complete") {
+    const { data, error } = await supabase.rpc("b2b_nusuk_complete", { p_token: token, p_group: body.id });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true, complete: data });
+  }
+  if (body.action === "masar_option") {
+    const { error } = await supabase.rpc("b2b_set_masar_option", { p_token: token, p_group: body.id, p_option: body.option });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true, id: body.id });
+  }
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }

@@ -82,12 +82,9 @@ export default function AgentGroupsTable({ rows, showPackage }: { rows: AgentRow
     { key: "group_date", label: "Date", date: true },
     { key: "group_no", label: "Group No" },
     { key: "group_name", label: "Name" },
-    { key: "agent", label: "Agent" },
     { key: "pax", label: "Pax", plain: true },
     { key: "arrival_date", label: "Arrival", date: true },
     { key: "departure_date", label: "Departure", date: true },
-    { key: "arrival_flight", label: "Flight No" },
-    { key: "hotels", label: "Hotel Details" },
     { key: "status_label", label: "Visa Status" },
     ...(showPackage ? [{ key: "package_label", label: "Package" } as Col] : []),
   ];
@@ -139,12 +136,9 @@ export default function AgentGroupsTable({ rows, showPackage }: { rows: AgentRow
                 <td className="td text-sm">{dateStr(g.group_date)}</td>
                 <td className="td font-mono font-medium"><Link href={`/agent/groups/${g.id}`} className="text-brand hover:underline">{g.group_no}</Link></td>
                 <td className="td">{g.group_name || "—"}</td>
-                <td className="td text-slate-500">{g.agent}</td>
                 <td className="td font-medium">{g.pax}</td>
                 <td className="td text-sm">{dateStr(g.arrival_date)}</td>
                 <td className="td text-sm">{dateStr(g.departure_date)}</td>
-                <td className="td text-sm">{g.arrival_flight || "—"}</td>
-                <td className="td text-sm">{g.hotels || "—"}</td>
                 <td className="td"><span className={`badge ${STATUS_CLS[g.status_label] ?? "bg-slate-100"}`}>{g.status_label}</span></td>
                 {showPackage && <td className="td text-sm text-slate-500">{g.package_label || "—"}</td>}
               </tr>
@@ -153,9 +147,9 @@ export default function AgentGroupsTable({ rows, showPackage }: { rows: AgentRow
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
-              <td className="td" colSpan={4}>Total Pilgrims (filtered)</td>
+              <td className="td" colSpan={3}>Total Pilgrims (filtered)</td>
               <td className="td text-brand-dark">{totalPax}</td>
-              <td className="td" colSpan={COLS.length - 5}></td>
+              <td className="td" colSpan={COLS.length - 4}></td>
             </tr>
           </tfoot>
         </table>

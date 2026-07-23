@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAgent, can, agentStatus } from "@/lib/agentSession";
 import { createClient } from "@/lib/supabase/server";
-import AgentGroupForm from "../AgentGroupForm";
+import GroupForm from "@/components/GroupForm";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +21,23 @@ export default async function AgentGroupDetail({ params }: { params: { id: strin
   }
   const g = group as any;
   const st = agentStatus(g.workflow_status, g.visa_status);
-  // Editing rights by status: Pending -> full edit (if permitted); Under Process
-  // -> view only; Visa Issued -> Hotel Details only.
-  const mode = st === "Pending"
-    ? (can(agent, "visa.edit_pending") ? "edit" : "view")
-    : st === "Visa Issued" ? "hotel" : "view";
+  // Pending -> full edit (if permitted); Under Process -> read-only; Visa Issued -> Hotel Details only.
+  const canEditPending = can(agent, "visa.edit_pending");
+  const lockAll = st === "Under Process" || (st === "Pending" && !canEditPending);
+  const hotelOnly = st === "Visa Issued";
 
-  return <AgentGroupForm mode={mode as any} airports={(airports as any[]) ?? []} existing={g} groupId={g.id} agencyName={agent.agency_name} />;
+  return (
+    <GroupForm
+      variant="agent"
+      airports={(airports as any[]) ?? []}
+      agents={[]}
+      companies={[]}
+      existing={g}
+      groupId={g.id}
+      agencyName={agent.agency_name}
+      lockAll={lockAll}
+      hotelOnly={hotelOnly}
+      canAgentBrn={can(agent, "brn.add_agent")}
+    />
+  );
 }

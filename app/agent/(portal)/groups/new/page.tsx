@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAgent, can } from "@/lib/agentSession";
 import { createClient } from "@/lib/supabase/server";
-import AgentGroupForm from "../AgentGroupForm";
+import GroupForm from "@/components/GroupForm";
 
 export const dynamic = "force-dynamic";
 
@@ -13,5 +13,14 @@ export default async function NewAgentGroup() {
   }
   const supabase = createClient();
   const { data: airports } = await supabase.rpc("b2b_airports", { p_token: agent.token });
-  return <AgentGroupForm mode="create" airports={(airports as any[]) ?? []} agencyName={agent.agency_name} />;
+  return (
+    <GroupForm
+      variant="agent"
+      airports={(airports as any[]) ?? []}
+      agents={[]}
+      companies={[]}
+      agencyName={agent.agency_name}
+      canAgentBrn={can(agent, "brn.add_agent")}
+    />
+  );
 }
