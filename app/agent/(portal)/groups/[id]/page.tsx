@@ -27,5 +27,5 @@ export default async function AgentGroupDetail({ params }: { params: { id: strin
     ? (can(agent, "visa.edit_pending") ? "edit" : "view")
     : st === "Visa Issued" ? "hotel" : "view";
 
-  return <AgentGroupForm mode={mode as any} airports={(airports as any[]) ?? []} existing={g} groupId={g.id} />;
+  return <AgentGroupForm mode={mode as any} airports={(airports as any[]) ?? []} existing={g} groupId={g.id} agencyName={agent.agency_name} />;
 }

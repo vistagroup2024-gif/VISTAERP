@@ -13,5 +13,5 @@ export default async function NewAgentGroup() {
   }
   const supabase = createClient();
   const { data: airports } = await supabase.rpc("b2b_airports", { p_token: agent.token });
-  return <AgentGroupForm mode="create" airports={(airports as any[]) ?? []} />;
+  return <AgentGroupForm mode="create" airports={(airports as any[]) ?? []} agencyName={agent.agency_name} />;
 }

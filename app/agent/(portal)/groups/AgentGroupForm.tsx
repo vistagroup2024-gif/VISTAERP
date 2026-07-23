@@ -7,12 +7,13 @@ type Airport = { code: string; city: string; is_saudi: boolean };
 type Mode = "create" | "edit" | "view" | "hotel";
 
 export default function AgentGroupForm({
-  mode, airports, existing, groupId,
+  mode, airports, existing, groupId, agencyName,
 }: {
   mode: Mode;
   airports: Airport[];
   existing?: any;
   groupId?: string;
+  agencyName: string;
 }) {
   const router = useRouter();
   const readOnly = mode === "view";        // under process — nothing editable
@@ -81,6 +82,11 @@ export default function AgentGroupForm({
       {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
       <div className="card grid grid-cols-2 gap-4 md:grid-cols-3">
+        <p className="col-span-2 md:col-span-3 font-semibold text-slate-700">Group Details</p>
+        <div><label className="label">Agency</label>
+          <input className="input bg-slate-50" value={agencyName} disabled readOnly title="Linked to your account" /></div>
+        {existing?.group_no && <div><label className="label">Group No</label>
+          <input className="input bg-slate-50 font-mono" value={existing.group_no} disabled readOnly /></div>}
         <div className="col-span-2 md:col-span-1"><label className="label">Group name</label>
           <input className="input" value={f.group_name} onChange={(e) => set("group_name", e.target.value)} disabled={fieldsLocked} /></div>
         <div><label className="label">Pax</label>
