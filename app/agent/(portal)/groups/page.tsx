@@ -3,14 +3,19 @@ import { redirect } from "next/navigation";
 import { getAgent, can, agentStatus } from "@/lib/agentSession";
 import { createClient } from "@/lib/supabase/server";
 import { dateStr } from "@/lib/format";
+import AgentGroupsTable, { AgentRow } from "./AgentGroupsTable";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_CLS: Record<string, string> = {
-  "Pending": "bg-yellow-100 text-yellow-800",
-  "Under Process": "bg-blue-100 text-blue-700",
-  "Visa Issued": "bg-emerald-600 text-white",
+const PKG_LABEL: Record<string, string> = {
+  complete: "Complete", update_required: "Update Required", update_available: "Ready for Update",
+  update_ready: "Ready for Nusuk", updated: "Updated",
 };
+
+function hotelsSummary(h: any): string {
+  if (!Array.isArray(h) || h.length === 0) return "";
+  return h.map((x: any) => `${x.hotel || x.city}${x.check_in ? ` (${dateStr(x.check_in)}→${dateStr(x.check_out)})` : ""}`).join("; ");
+}
 
 export default async function AgentGroups() {
   const agent = await getAgent();
@@ -20,7 +25,22 @@ export default async function AgentGroups() {
   }
   const supabase = createClient();
   const { data } = await supabase.rpc("b2b_my_groups", { p_token: agent.token });
-  const rows = (data as any[]) ?? [];
+  const showPackage = can(agent, "pkg.view_status");
+
+  const rows: AgentRow[] = ((data as any[]) ?? []).map((g) => ({
+    id: g.id,
+    group_no: g.group_no,
+    group_name: g.group_name ?? "",
+    agent: g.agent ?? "",
+    group_date: g.group_date,
+    arrival_date: g.arrival_date,
+    departure_date: g.departure_date,
+    arrival_flight: g.arrival_flight ?? "",
+    hotels: hotelsSummary(g.hotel_details),
+    pax: g.pax,
+    status_label: agentStatus(g.workflow_status, g.visa_status),
+    package_label: g.package_status ? (PKG_LABEL[g.package_status] ?? g.package_status) : "",
+  }));
 
   return (
     <div className="space-y-4">
@@ -28,35 +48,7 @@ export default async function AgentGroups() {
         <h1 className="text-2xl font-bold text-slate-800">My Visa Groups</h1>
         {can(agent, "visa.create") && <Link href="/agent/groups/new" className="btn text-sm">+ New Visa Group</Link>}
       </div>
-      <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
-        <table className="w-full min-w-[820px]">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="th">Group No</th><th className="th">Name</th><th className="th">Company</th>
-              <th className="th">Pax</th><th className="th">Arrival</th><th className="th">Departure</th>
-              <th className="th">Status</th><th className="th">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((g) => {
-              const st = agentStatus(g.workflow_status, g.visa_status);
-              return (
-                <tr key={g.id} className="border-t border-slate-100">
-                  <td className="td font-mono font-medium">{g.group_no}</td>
-                  <td className="td">{g.group_name ?? "—"}</td>
-                  <td className="td text-slate-500">{g.company ?? "—"}</td>
-                  <td className="td">{g.pax}</td>
-                  <td className="td text-sm">{dateStr(g.arrival_date)}</td>
-                  <td className="td text-sm">{dateStr(g.departure_date)}</td>
-                  <td className="td"><span className={`badge ${STATUS_CLS[st]}`}>{st}</span></td>
-                  <td className="td"><Link href={`/agent/groups/${g.id}`} className="text-brand text-sm hover:underline">Open →</Link></td>
-                </tr>
-              );
-            })}
-            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>No visa groups yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <AgentGroupsTable rows={rows} showPackage={showPackage} />
     </div>
   );
 }
