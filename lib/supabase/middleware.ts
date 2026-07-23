@@ -31,7 +31,10 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isAuthRoute = path.startsWith("/login") || path.startsWith("/signup");
-  const isPublic = path === "/" || isAuthRoute;
+  // The B2B agent portal has its own session (b2b_session cookie) and must not
+  // be gated by staff Supabase auth.
+  const isAgentPortal = path.startsWith("/agent") || path.startsWith("/api/agent");
+  const isPublic = path === "/" || isAuthRoute || isAgentPortal;
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
