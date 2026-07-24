@@ -79,6 +79,13 @@ export function buildDemandFromItems(
 // Each contiguous shortage run becomes ONE BRN, sized to that run's peak
 // aggregate shortage but never smaller than the largest single group in the
 // run (so every group fits a single BRN per the one-BRN-per-night rule).
+//
+// A "contiguous run" means calendar-consecutive shortage nights. The demand
+// array may be SPARSE (city-wise planning drops zero-demand dates), so two
+// entries that are adjacent in the array can be weeks apart on the calendar.
+// We must only merge nights that genuinely abut — otherwise a lone night on
+// 09 Aug and another on 15 Sept would wrongly collapse into one long BRN
+// carrying a month of unused inventory. Isolated demand → separate BRNs.
 export function recommendBrns(demand: DayDemand[]): BrnRecommendation[] {
   const work = demand.map((d) => d.shortage);
   const recs: BrnRecommendation[] = [];
@@ -87,7 +94,7 @@ export function recommendBrns(demand: DayDemand[]): BrnRecommendation[] {
     const i = work.findIndex((v) => v > 0);
     if (i < 0) break;
     let j = i;
-    while (j + 1 < work.length && work[j + 1] > 0) j++;
+    while (j + 1 < work.length && work[j + 1] > 0 && demand[j + 1].date === addDaysUTC(demand[j].date, 1)) j++;
     let peak = 0, maxPax = 0;
     for (let k = i; k <= j; k++) { peak = Math.max(peak, work[k]); maxPax = Math.max(maxPax, demand[k].maxGroupPax); }
     const beds = Math.max(peak, maxPax);
