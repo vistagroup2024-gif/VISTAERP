@@ -27,8 +27,8 @@ export default async function GroupsPage() {
   const [{ data: groups }, { data: roles }] = await Promise.all([
     supabase
       .from("umrah_groups")
-      .select("id, group_no, group_date, group_name, pax, arrival_date, departure_date, total_nights, brn_status, visa_status, workflow_status, package_status, agent_brn_pending, visa_type, parties:agent_id(name), group_companies:group_company_id(name)")
-      .order("group_date", { ascending: false })
+      .select("id, created_at, group_no, group_date, group_name, pax, arrival_date, departure_date, total_nights, brn_status, visa_status, workflow_status, package_status, agent_brn_pending, visa_type, parties:agent_id(name), group_companies:group_company_id(name)")
+      .order("created_at", { ascending: false })
       .limit(1000),
     supabase.from("user_roles").select("role").eq("user_id", user?.id ?? ""),
   ]);
@@ -37,6 +37,7 @@ export default async function GroupsPage() {
 
   const rows: GroupRow[] = (groups ?? []).map((g: any) => ({
     id: g.id,
+    created_at: g.created_at,
     group_no: g.group_no,
     group_date: g.group_date,
     group_name: g.group_name ?? "",

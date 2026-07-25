@@ -3,7 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
 import { money } from "@/lib/format";
 import { Brn, Consumption, nightsBetween, fmtDay } from "@/lib/brn";
-import { PendGroup, buildDemandFromItems, recommendBrns, DayDemand, BrnRecommendation, DemandItem, planByCity } from "@/lib/planning";
+import { PendGroup, buildDemandFromItems, recommendBrns, DayDemand, BrnRecommendation, DemandItem, planByCity, applyBoundaryTolerance } from "@/lib/planning";
 import PurchaseSimulator from "./PurchaseSimulator";
 
 export const dynamic = "force-dynamic";
@@ -77,17 +77,20 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
   });
 
   // New groups: full stay demand. Pending package updates: only uncovered nights.
-  const items: CItem[] = [
+  const rawItems: CItem[] = [
     ...(pendGroups ?? []).map((g: any) => ({
-      companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date,
+      companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date, departure: g.departure_date,
       nights: new Set(nightsBetween(g.arrival_date, g.departure_date)),
     })),
     ...(updGroups ?? []).map((g: any) => {
       const cov = coveredByGroup[g.id] ?? new Set<string>();
       const need = nightsBetween(g.arrival_date, g.departure_date).filter((n) => !cov.has(n));
-      return { companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date, nights: new Set(need) };
+      return { companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date, departure: g.departure_date, nights: new Set(need) };
     }).filter((it) => it.nights.size > 0),
   ];
+  // Apply the first/last-night tolerance so isolated boundary nights are not
+  // recommended for purchase (matches BRN allocation's nusuk_complete policy).
+  const items = (applyBoundaryTolerance(rawItems) as CItem[]).filter((it) => it.nights.size > 0);
 
   const avgRate = (() => {
     const rated = allB.filter((b) => Number(b.rate_per_bed) > 0);

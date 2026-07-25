@@ -6,6 +6,7 @@ import { dateStr } from "@/lib/format";
 
 export interface AgentRow {
   id: string;
+  created_at: string;
   group_no: string;
   group_name: string;
   agent: string;
@@ -90,7 +91,8 @@ export default function AgentGroupsTable({ rows, showPackage }: { rows: AgentRow
   ];
 
   const [filters, setFilters] = useState<Record<string, string[]>>({});
-  const [sort, setSort] = useState<{ key: keyof AgentRow; dir: 1 | -1 } | null>({ key: "group_date", dir: -1 });
+  // Default: newest-created first. A new group always lands at the top.
+  const [sort, setSort] = useState<{ key: keyof AgentRow; dir: 1 | -1 } | null>({ key: "created_at", dir: -1 });
 
   const filtered = useMemo(() => {
     let r = rows.filter((row) => COLS.every((c) => {

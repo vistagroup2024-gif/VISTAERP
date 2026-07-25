@@ -7,6 +7,7 @@ import GroupActions from "./GroupActions";
 
 export interface GroupRow {
   id: string;
+  created_at: string;
   group_no: string;
   group_date: string;
   group_name: string;
@@ -119,7 +120,8 @@ function HeaderCell({
 export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdmin: boolean }) {
   const [filters, setFilters] = useState<Record<string, string[]>>({});
   const [companies, setCompanies] = useState<Set<string>>(new Set());
-  const [sort, setSort] = useState<{ key: keyof GroupRow; dir: 1 | -1 } | null>({ key: "group_date", dir: -1 });
+  // Default: newest-created first. A new group always lands at the top.
+  const [sort, setSort] = useState<{ key: keyof GroupRow; dir: 1 | -1 } | null>({ key: "created_at", dir: -1 });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
 
