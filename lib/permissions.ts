@@ -15,6 +15,7 @@ export const PERMISSION_CATALOG: PermGroup[] = [
     { key: "visa.edit_pending", label: "Edit Pending Groups" },
     { key: "visa.view_status", label: "View Visa Status" },
     { key: "visa.upload_docs", label: "Upload Documents" },
+    { key: "visa.recommend", label: "Company Recommendation Tool" },
   ] },
   { module: "BRN Module", perms: [
     { key: "brn.view_own", label: "View Own BRNs" },

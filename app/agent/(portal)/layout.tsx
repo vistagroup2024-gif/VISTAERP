@@ -28,6 +28,11 @@ export default async function PortalLayout({ children }: { children: React.React
   };
 
   const nav = NAV.filter((n) => hasModule(n.module));
+  // Company Recommendation is gated on its specific permission, not the whole module.
+  if (agent.permissions?.["visa.recommend"]) {
+    const at = nav.findIndex((n) => n.href === "/agent/groups");
+    nav.splice(at >= 0 ? at + 1 : nav.length, 0, { module: "Visa Module", label: "Company Recommendation", href: "/agent/recommendation" });
+  }
   nav.push({ module: "Profile", label: "Profile", href: "/agent/profile" });
 
   return (

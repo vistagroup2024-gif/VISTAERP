@@ -29,6 +29,7 @@ export default async function AgentGroups() {
 
   const rows: AgentRow[] = ((data as any[]) ?? []).map((g) => ({
     id: g.id,
+    created_at: g.created_at,
     group_no: g.group_no,
     group_name: g.group_name ?? "",
     agent: g.agent ?? "",

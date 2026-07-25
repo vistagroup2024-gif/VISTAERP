@@ -51,7 +51,33 @@ export function buildDemand(
 // A unit of demand: a group (or a partial package) that needs `pax` beds on a
 // specific set of nights (full stay for new groups; only the uncovered nights
 // for pending package updates).
-export interface DemandItem { id: string; pax: number; nights: Set<string>; arrival?: string }
+export interface DemandItem { id: string; pax: number; nights: Set<string>; arrival?: string; departure?: string }
+
+// Operational policy (mirrors nusuk_complete): a group may leave its very first
+// night and/or its very last night uncovered when the main stay is covered.
+// So the purchase planner must NOT recommend buying a boundary night that is
+// missing on its own. We only drop a boundary night when it is an ISOLATED
+// single-night gap (the adjacent night is already covered) — a multi-night
+// boundary gap (e.g. a brand-new group whose entire stay is uncovered) is kept
+// in full, because there the "main stay" is not yet covered.
+//
+// Example: arrival 29, departure 12, allocated 30→7.
+//   uncovered = {29} ∪ {7,8,9,10,11}
+//   front gap {29} is exactly the first night, adjacent (30) covered → dropped
+//   back  gap {7..11} is multi-night → kept → recommend 7→12.
+export function applyBoundaryTolerance(items: DemandItem[]): DemandItem[] {
+  return items.map((it) => {
+    if (!it.arrival || !it.departure) return it;
+    const stay = nightsBetween(it.arrival, it.departure);
+    if (stay.length < 2) return it;                 // single-night stay: nothing to tolerate
+    const nights = new Set(it.nights);
+    const first = stay[0], second = stay[1];
+    const last = stay[stay.length - 1], prev = stay[stay.length - 2];
+    if (nights.has(first) && !nights.has(second)) nights.delete(first);
+    if (nights.has(last) && !nights.has(prev)) nights.delete(last);
+    return { ...it, nights };
+  });
+}
 
 export function buildDemandFromItems(
   days: string[], items: DemandItem[], brns: Brn[], consByBrn: Record<string, Consumption[]>
