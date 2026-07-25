@@ -23,6 +23,11 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true, id: data });
   }
+  if (body.action === "form_list") {
+    const { data, error } = await supabase.rpc("b2b_form_reservations", { p_token: token, p_company: body.company });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true, reservations: data ?? [] });
+  }
   if (body.action === "list") {
     const { data, error } = await supabase.rpc("b2b_active_reservations", { p_token: token });
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });

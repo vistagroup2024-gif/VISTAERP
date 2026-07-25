@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
+import CompanyInquiryButton from "@/components/CompanyInquiryButton";
 import GroupsTable, { GroupRow } from "./GroupsTable";
 
 export const dynamic = "force-dynamic";
@@ -58,7 +59,9 @@ export default async function GroupsPage() {
 
   return (
     <div>
-      <PageHeader title="Visa Groups" action={{ href: "/groups/new", label: "+ New Group" }} />
+      <PageHeader title="Visa Groups" action={{ href: "/groups/new", label: "+ New Group" }}>
+        <CompanyInquiryButton endpoint="/api/recommendation" canRelease />
+      </PageHeader>
       <GroupsTable rows={rows} isAdmin={isAdmin} />
     </div>
   );

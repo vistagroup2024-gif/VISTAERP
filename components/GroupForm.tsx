@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, dateStr } from "@/lib/format";
 import AirportSelect, { Airport } from "@/components/AirportSelect";
+import ReservationSelect, { ResOption } from "@/components/ReservationSelect";
 import { useUnsavedChanges, confirmDiscardIfDirty } from "@/lib/useUnsavedChanges";
 
 export interface GroupInitial {
@@ -53,6 +54,7 @@ export default function GroupForm({
   const disHotel = lockAll;                    // hotel rows
   const showVisaType = !isAgent || canAgentBrn;
   const canSave = !lockAll;
+  const recoEndpoint = isAgent ? "/api/agent/recommendation" : "/api/recommendation";
 
   const [f, setF] = useState({
     group_no: existing?.group_no ?? "",
@@ -75,7 +77,11 @@ export default function GroupForm({
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [visaType, setVisaType] = useState<string>(existing?.visa_type ?? "normal");
+  const [reservationId, setReservationId] = useState("");
+  const [reservations, setReservations] = useState<{ id: string; arrival_date: string; departure_date: string; pax: number }[]>([]);
   const [agentRows, setAgentRows] = useState<{ brn: string; city: string; hotel: string; check_in: string; check_out: string }[]>([]);
+  // Reservation link is required for NEW Normal-visa groups (not Masar, not edit).
+  const showReservation = !isEdit && !disNonHotel && visaType === "normal";
   const [masarGroupId, setMasarGroupId] = useState<string | null>(null);
   const [hotelRows, setHotelRows] = useState<{ city: string; hotel: string; check_in: string; check_out: string }[]>(
     Array.isArray(existing?.hotel_details) ? existing!.hotel_details : []);
@@ -112,6 +118,30 @@ export default function GroupForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load the current user's active, unlinked reservations for the selected
+  // company (Normal-visa create only). Selecting one links the group to it.
+  useEffect(() => {
+    setReservationId("");
+    if (!showReservation || !f.group_company_id) { setReservations([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(recoEndpoint, { method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "form_list", company: f.group_company_id }) });
+        const json = await res.json().catch(() => ({}));
+        if (!cancelled) setReservations(res.ok ? (json.reservations ?? []) : []);
+      } catch { if (!cancelled) setReservations([]); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f.group_company_id, showReservation]);
+
+  function pickReservation(id: string) {
+    setReservationId(id);
+    const r = reservations.find((x) => x.id === id);
+    if (r) { setDirty(true); setF((prev) => ({ ...prev, arrival_date: r.arrival_date, departure_date: r.departure_date, pax: r.pax })); }
+  }
+
   const nights =
     f.arrival_date && f.departure_date && f.departure_date > f.arrival_date
       ? Math.round((+new Date(f.departure_date) - +new Date(f.arrival_date)) / 86400000) : 0;
@@ -135,6 +165,7 @@ export default function GroupForm({
     }
 
     if (!f.group_no.trim()) return setError("Group number is required");
+    if (showReservation && !reservationId) return setError("Please select a reservation (create one via Company Inquiry) before saving a Normal Visa group.");
     if (Number(f.pax) <= 0) return setError("Pax must be greater than zero");
     if (!f.arrival_date || !f.departure_date) return setError("Arrival and departure dates are required");
     if (f.departure_date <= f.arrival_date) return setError("Departure must be after arrival");
@@ -162,6 +193,8 @@ export default function GroupForm({
     if (isAgent) {
       payload.group_no = f.group_no.trim();
       payload.group_company_id = f.group_company_id || null;
+      payload.visa_type = visaType;
+      payload.reservation_id = reservationId || null;
       try {
         const r = isEdit
           ? await agentPost({ action: "update", id: gidFor, payload })
@@ -199,6 +232,12 @@ export default function GroupForm({
       const { data, error } = await supabase.from("umrah_groups").insert(staffPayload).select("id").single();
       if (error) { setSaving(false); return setError(dup(error)); }
       gid = data!.id;
+      if (reservationId) {
+        try {
+          await fetch("/api/recommendation", { method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "link", reservation: reservationId, group: gid }) });
+        } catch { /* non-fatal */ }
+      }
     }
     if (visaType === "masar") {
       for (const r of agentRows) {
@@ -280,6 +319,22 @@ export default function GroupForm({
                 {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+            {showReservation && (
+              <div>
+                <label className="label">Reserved Groups <span className="text-red-500">*</span></label>
+                <ReservationSelect
+                  options={reservations.map((r): ResOption => ({
+                    id: r.id,
+                    label: `${dateStr(r.arrival_date)} → ${dateStr(r.departure_date)} · ${r.pax} pax`,
+                  }))}
+                  value={reservationId}
+                  onChange={pickReservation}
+                  placeholder={f.group_company_id ? "Select reservation" : "Select a company first"}
+                  disabled={!f.group_company_id}
+                />
+                <p className="mt-1 text-xs text-slate-400">Required for Normal Visa. Create one via Company Inquiry.</p>
+              </div>
+            )}
           </div>
         </div>
 
