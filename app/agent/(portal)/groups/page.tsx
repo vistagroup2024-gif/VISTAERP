@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAgent, can, agentStatus } from "@/lib/agentSession";
 import { createClient } from "@/lib/supabase/server";
 import { dateStr } from "@/lib/format";
+import CompanyInquiryButton from "@/components/CompanyInquiryButton";
 import AgentGroupsTable, { AgentRow } from "./AgentGroupsTable";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,10 @@ export default async function AgentGroups() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">My Visa Groups</h1>
-        {can(agent, "visa.create") && <Link href="/agent/groups/new" className="btn text-sm">+ New Visa Group</Link>}
+        <div className="flex items-center gap-2">
+          {can(agent, "visa.recommend") && <CompanyInquiryButton endpoint="/api/agent/recommendation" agentView />}
+          {can(agent, "visa.create") && <Link href="/agent/groups/new" className="btn text-sm">+ New Visa Group</Link>}
+        </div>
       </div>
       <AgentGroupsTable rows={rows} showPackage={showPackage} />
     </div>

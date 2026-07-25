@@ -33,6 +33,16 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true });
   }
+  if (body.action === "form_list") {
+    const { data, error } = await supabase.rpc("form_reservations", { p_company: body.company });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true, reservations: data ?? [] });
+  }
+  if (body.action === "link") {
+    const { error } = await supabase.rpc("link_reservation_to_group", { p_reservation: body.reservation, p_group: body.group });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  }
   if (body.action === "list") {
     const [{ data: reservations }, { data: minutes }] = await Promise.all([
       supabase.rpc("active_reservations"),

@@ -30,8 +30,8 @@ export interface Reservation {
 // `endpoint` is the POST route that proxies to the recommend/reserve/list RPCs
 // (admin vs agent differ only in auth). `canConfig` shows the expiry setting.
 export default function CompanyRecommendation({
-  endpoint, canConfig = false, canRelease = false,
-}: { endpoint: string; canConfig?: boolean; canRelease?: boolean }) {
+  endpoint, canConfig = false, canRelease = false, agentView = false,
+}: { endpoint: string; canConfig?: boolean; canRelease?: boolean; agentView?: boolean }) {
   const [arrival, setArrival] = useState("");
   const [departure, setDeparture] = useState("");
   const [pax, setPax] = useState<number>(0);
@@ -128,7 +128,14 @@ export default function CompanyRecommendation({
         <div className="card space-y-3">
           <h2 className="font-semibold text-slate-700">Recommendation</h2>
           {results.length === 0 && <p className="text-sm text-slate-400">No active companies to evaluate.</p>}
-          {top && (
+          {top && agentView && (
+            <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recommendation</p>
+              <p className="mt-1 text-xl font-bold text-slate-800">Use Company: {top.name}</p>
+              <button onClick={() => reserve(top.id)} className="btn mt-3 text-sm">Reserve {top.name}</button>
+            </div>
+          )}
+          {top && !agentView && (
             <div className={`rounded-lg border p-4 ${top.complete ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recommended company</p>
               <p className="mt-1 text-xl font-bold text-slate-800">{top.name}</p>
@@ -141,7 +148,7 @@ export default function CompanyRecommendation({
               <button onClick={() => reserve(top.id)} className="btn mt-3 text-sm">Reserve {top.name}</button>
             </div>
           )}
-          {results.length > 1 && (
+          {!agentView && results.length > 1 && (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-slate-50">
