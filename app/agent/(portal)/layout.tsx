@@ -41,7 +41,7 @@ export default async function PortalLayout({ children }: { children: React.React
           </nav>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <NotificationBell endpoint="/api/agent/notifications" groupHref={(id) => `/agent/groups/${id}`} />
+          <NotificationBell endpoint="/api/agent/notifications" groupBase="/agent/groups" />
           <span className="text-slate-500">{agent.agency_name}</span>
           <AgentLogout />
         </div>

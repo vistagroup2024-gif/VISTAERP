@@ -89,7 +89,7 @@ function SidebarContent({ name, onClose }: { name: string; onClose?: () => void 
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <NotificationBell endpoint="/api/notifications" groupHref={(id) => `/groups/${id}`} realtime />
+          <NotificationBell endpoint="/api/notifications" groupBase="/groups" realtime />
           {onClose && (
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
               ✕
@@ -139,7 +139,7 @@ export default function Sidebar({ name }: { name: string }) {
           <p className="text-base font-bold text-slate-800">Vista Group</p>
         </div>
         <div className="flex items-center gap-1">
-          <NotificationBell endpoint="/api/notifications" groupHref={(id) => `/groups/${id}`} realtime />
+          <NotificationBell endpoint="/api/notifications" groupBase="/groups" realtime />
           <button
             onClick={() => setOpen(true)}
             className="rounded-md p-2 text-slate-600 hover:bg-slate-100"

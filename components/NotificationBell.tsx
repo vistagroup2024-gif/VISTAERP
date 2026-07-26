@@ -14,12 +14,12 @@ const CAT_ICON: Record<string, string> = {
 };
 
 // Notification bell for both portals. `endpoint` proxies to the feed/mark RPCs;
-// `groupHref` builds the link to a related group; `realtime` enables live push
+// `groupBase` is the route prefix for a related group; `realtime` enables live push
 // via Supabase Realtime (staff), otherwise it polls. Desktop browser
 // notifications fire for newly arrived items once the user grants permission.
 export default function NotificationBell({
-  endpoint, groupHref, realtime = false,
-}: { endpoint: string; groupHref: (id: string) => string; realtime?: boolean }) {
+  endpoint, groupBase, realtime = false,
+}: { endpoint: string; groupBase: string; realtime?: boolean }) {
   const router = useRouter();
   const uid = useId();                                   // unique realtime channel per mount
   const [items, setItems] = useState<Notif[]>([]);
@@ -89,7 +89,7 @@ export default function NotificationBell({
   function openRecord(n: Notif) {
     mark(n.id, "read");
     setOpen(false);
-    if (n.group_id) router.push(groupHref(n.group_id));
+    if (n.group_id) router.push(`${groupBase}/${n.group_id}`);
   }
 
   const unread = items.filter((n) => !n.read).length;
