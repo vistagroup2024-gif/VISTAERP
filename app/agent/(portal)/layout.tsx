@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getAgent } from "@/lib/agentSession";
 import { PERMISSION_CATALOG } from "@/lib/permissions";
 import AgentLogout from "./AgentLogout";
+import NotificationBell from "@/components/NotificationBell";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export default async function PortalLayout({ children }: { children: React.React
           </nav>
         </div>
         <div className="flex items-center gap-3 text-sm">
+          <NotificationBell endpoint="/api/agent/notifications" groupHref={(id) => `/agent/groups/${id}`} />
           <span className="text-slate-500">{agent.agency_name}</span>
           <AgentLogout />
         </div>

@@ -19,6 +19,7 @@ export async function POST(req: Request) {
     const { data, error } = await supabase.rpc("create_company_reservation", {
       p_company: body.company, p_arrival: body.arrival, p_departure: body.departure,
       p_pax: body.pax, p_source: "admin", p_created_by: user.email ?? "staff", p_agent_id: null,
+      p_hours: body.hours ?? null,
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true, id: data });

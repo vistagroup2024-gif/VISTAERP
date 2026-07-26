@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
+import RealtimeRefresh from "@/components/RealtimeRefresh";
 import CompanyFilter from "@/components/CompanyFilter";
 import { money } from "@/lib/format";
 import { Brn, Consumption, dailyForBrn, usedOnNight, isArchived } from "@/lib/brn";
@@ -78,6 +79,7 @@ export default async function InventoryDashboard({ searchParams }: { searchParam
 
   return (
     <div>
+      <RealtimeRefresh tables={["brn_inventory", "brn_consumption", "group_brn_allocation"]} />
       <PageHeader title="BRN Inventory Dashboard" action={{ href: "/inventory/brn/new", label: "+ Add BRN" }} />
       <CompanyFilter companies={companies ?? []} value={company} />
 

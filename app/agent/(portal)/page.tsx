@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAgent, can } from "@/lib/agentSession";
 import { createClient } from "@/lib/supabase/server";
+import CompanyInquiryButton from "@/components/CompanyInquiryButton";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export default async function AgentDashboard() {
       <div className="flex flex-wrap gap-3">
         {can(agent, "visa.view_own") && <Link href="/agent/groups" className="btn">View My Visa Groups →</Link>}
         {can(agent, "visa.create") && <Link href="/agent/groups/new" className="btn-outline">+ New Visa Group</Link>}
+        {can(agent, "visa.recommend") && <CompanyInquiryButton endpoint="/api/agent/recommendation" agentView />}
       </div>
     </div>
   );
