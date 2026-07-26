@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-// Staged visa workflow: Pending -> BRN Allocated -> ERP Created -> Package Assigned -> Visa Issued.
-// Only the next valid action is shown at each stage.
-const NEXT: Record<string, { label: string; fn: string; args?: any; cls: string }> = {
-  process: { label: "Allocate BRN", fn: "allocate_group_brns", cls: "bg-brand" },
-  brn_allocated: { label: "ERP Created", fn: "advance_workflow", args: { p_to: "erp_created" }, cls: "bg-indigo-600" },
-  erp_created: { label: "Package Assigned", fn: "advance_workflow", args: { p_to: "package_assigned" }, cls: "bg-violet-600" },
-  package_assigned: { label: "Visa Issued", fn: "mark_visa_issued", cls: "bg-emerald-600" },
+// Only the next valid action per stage (after the Process gate).
+const NEXT: Record<string, { label: string; fn: string; args?: any }> = {
+  process: { label: "Allocate BRN", fn: "allocate_group_brns" },
+  brn_allocated: { label: "ERP Created", fn: "advance_workflow", args: { p_to: "erp_created" } },
+  erp_created: { label: "Package Assigned", fn: "advance_workflow", args: { p_to: "package_assigned" } },
+  package_assigned: { label: "Visa Issued", fn: "mark_visa_issued" },
 };
+
+type Item = { label: string; onClick: () => void; danger?: boolean };
 
 export default function GroupActions({
   groupId, brnStatus, visaStatus, isAdmin, workflowStatus, agentPending,
@@ -21,63 +22,70 @@ export default function GroupActions({
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
   const stage = workflowStatus || (visaStatus === "issued" ? "visa_issued" : brnStatus === "allocated" ? "brn_allocated" : "pending");
   const next = NEXT[stage];
 
-  async function run(fn: string, args: any) {
-    setBusy(true); setErr(null);
+  useEffect(() => {
+    function onDoc(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  async function run(fn: string, args?: any, confirmMsg?: string) {
+    if (confirmMsg && !confirm(confirmMsg)) return;
+    setOpen(false); setBusy(true); setErr(null);
     const { error } = await supabase.rpc(fn, { p_group: groupId, ...(args ?? {}) });
     setBusy(false);
     if (error) return setErr(error.message);
     router.refresh();
-  }
-  async function del() {
-    if (!confirm("Delete this group? Any reserved or allocated BRNs will be released automatically. This cannot be undone.")) return;
-    setBusy(true); setErr(null);
-    const { error } = await supabase.rpc("delete_group", { p_group: groupId });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    router.refresh();
-  }
-
-  if (stage === "visa_issued") {
-    return isAdmin
-      ? <Link href={`/groups/${groupId}/edit`} className="text-brand text-sm hover:underline">Edit</Link>
-      : <span className="text-slate-400" title="Locked — visa issued">🔒</span>;
   }
 
   if (agentPending) {
     return <Link href={`/groups/${groupId}`} className="badge bg-amber-100 text-amber-800 hover:underline" title="More agent BRNs pending">Agent BRNs pending</Link>;
   }
 
-  const deletable = isAdmin && stage !== "visa_issued";
+  // Build the menu for this stage.
+  const items: Item[] = [];
+  if (stage === "pending" || stage === "payment_pending") {
+    items.push({ label: "✅ Process", onClick: () => run("set_group_decision", { p_decision: "process" }) });
+    if (stage === "pending") items.push({ label: "💳 Payment", onClick: () => run("set_group_decision", { p_decision: "payment" }) });
+    items.push({ label: "⛔ Reject", onClick: () => run("set_group_decision", { p_decision: "reject" }, "Reject this visa group?"), danger: true });
+  }
+  if (next) items.push({ label: `➡️ ${next.label}`, onClick: () => run(next.fn, next.args) });
+  if (stage === "rejected" && isAdmin) items.push({ label: "↩️ Reopen", onClick: () => run("reopen_group") });
+  if (stage === "visa_issued" && isAdmin) items.push({ label: "✏️ Edit", onClick: () => { setOpen(false); router.push(`/groups/${groupId}/edit`); } });
+  items.push({ label: "🔎 Open", onClick: () => { setOpen(false); router.push(`/groups/${groupId}`); } });
+  if (isAdmin && stage !== "visa_issued") {
+    items.push({ label: "🗑 Delete", danger: true, onClick: () => run("delete_group", undefined, "Delete this group? Any reserved or allocated BRNs will be released automatically. This cannot be undone.") });
+  }
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Initial admin decision gate (before any allocation) */}
-      {(stage === "pending" || stage === "payment_pending") && (
-        <>
-          <button onClick={() => run("set_group_decision", { p_decision: "process" })} disabled={busy}
-            className="rounded bg-brand px-2 py-0.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">Process</button>
-          {stage === "pending" && (
-            <button onClick={() => run("set_group_decision", { p_decision: "payment" })} disabled={busy}
-              className="rounded bg-rose-500 px-2 py-0.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">Payment</button>
-          )}
-          <button onClick={() => { if (confirm("Reject this visa group?")) run("set_group_decision", { p_decision: "reject" }); }} disabled={busy}
-            className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">Reject</button>
-        </>
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        disabled={busy}
+        className="rounded px-2 py-1 text-lg leading-none text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+        aria-label="Actions"
+      >
+        {busy ? "…" : "⋮"}
+      </button>
+      {err && <span className="ml-1 text-xs text-red-600" title={err}>⚠</span>}
+      {open && (
+        <div className="absolute right-0 z-30 mt-1 w-48 rounded-lg border border-slate-200 bg-white py-1 text-left shadow-lg">
+          {items.map((it, i) => (
+            <button
+              key={i}
+              onClick={it.onClick}
+              className={`block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 ${it.danger ? "text-red-600" : "text-slate-700"}`}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>
       )}
-      {next && (
-        <button onClick={() => run(next.fn, next.args)} disabled={busy}
-          className={`rounded px-2 py-0.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40 ${next.cls}`}>
-          {busy ? "…" : next.label}
-        </button>
-      )}
-      {deletable && (
-        <button onClick={del} disabled={busy} className="text-xs text-red-600 hover:underline">Delete</button>
-      )}
-      {err && <span className="text-xs text-red-600" title={err}>⚠</span>}
     </div>
   );
 }

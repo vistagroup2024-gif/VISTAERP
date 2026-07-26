@@ -119,7 +119,7 @@ export default function GroupForm({
     if (isAgent) await agentPost({ action: "masar_option", id: masarGroupId, option: opt });
     else await supabase.rpc("set_masar_option", { p_group: masarGroupId, p_option: opt });
     setDirty(false);
-    router.push(basePath); router.refresh();
+    router.push(`${basePath}/${masarGroupId}`); router.refresh();
   }
 
   useEffect(() => {
@@ -172,7 +172,7 @@ export default function GroupForm({
       setSaving(true); setError(null);
       try {
         await agentPost({ action: "hotel", id: gidFor, hotels: hotelRows.filter((h) => h.hotel.trim() || h.check_in || h.check_out) });
-        setDirty(false); router.push(basePath); router.refresh();
+        setDirty(false); router.push(`${basePath}/${gidFor}`); router.refresh();
       } catch (err: any) { setError(err.message); } finally { setSaving(false); }
       return;
     }
@@ -225,7 +225,7 @@ export default function GroupForm({
           if (!c.complete) { setSaving(false); setMasarGroupId(gid); return; }
         }
         setSaving(false); setDirty(false);
-        router.push(basePath); router.refresh();
+        router.push(`${basePath}/${gid}`); router.refresh();
       } catch (err: any) { setSaving(false); setError(err.message); }
       return;
     }
@@ -267,11 +267,11 @@ export default function GroupForm({
       const { data: complete } = await supabase.rpc("nusuk_complete", { p_group: gid });
       setSaving(false);
       if (agentRows.some((r) => r.brn.trim()) && !complete) { setMasarGroupId(gid); return; }
-      setDirty(false); router.push(basePath); router.refresh();
+      setDirty(false); router.push(`${basePath}/${gid}`); router.refresh();
       return;
     }
     setSaving(false); setDirty(false);
-    router.push(basePath); router.refresh();
+    router.push(`${basePath}/${gid}`); router.refresh();
   }
 
   return (

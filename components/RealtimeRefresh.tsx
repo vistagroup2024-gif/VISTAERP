@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 // Subscribes to Supabase Realtime (Postgres changes over WebSockets) for the
 // given tables and refreshes the current route when any of them change, so
 // tables / dashboards / KPIs update live without a manual reload.
-export default function RealtimeRefresh({ tables }: { tables: string[] }) {
+export default function RealtimeRefresh({ tables, pollMs }: { tables: string[]; pollMs?: number }) {
   const router = useRouter();
   const uid = useId();                                   // unique per mount → no channel-topic clash
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -26,9 +26,17 @@ export default function RealtimeRefresh({ tables }: { tables: string[] }) {
       }
       ch.subscribe();
     } catch { /* realtime unavailable — page still works, just no live refresh */ }
-    return () => { try { if (ch) supabase.removeChannel(ch); } catch { /* ignore */ } if (timer.current) clearTimeout(timer.current); };
+    // Polling fallback: where RLS-scoped realtime can't reach the client (e.g.
+    // the agent portal on a custom session token), poll so the screen still
+    // updates without a manual reload.
+    const iv = pollMs && pollMs > 0 ? setInterval(() => router.refresh(), pollMs) : null;
+    return () => {
+      try { if (ch) supabase.removeChannel(ch); } catch { /* ignore */ }
+      if (timer.current) clearTimeout(timer.current);
+      if (iv) clearInterval(iv);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tables.join(",")]);
+  }, [tables.join(","), pollMs]);
 
   return null;
 }
