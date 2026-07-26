@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getAgent } from "@/lib/agentSession";
 import { PERMISSION_CATALOG } from "@/lib/permissions";
 import AgentLogout from "./AgentLogout";
@@ -35,7 +36,10 @@ export default async function PortalLayout({ children }: { children: React.React
     <div className="min-h-screen bg-slate-50">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
         <div className="flex items-center gap-6">
-          <span className="font-bold text-brand-dark">Vista B2B</span>
+          <span className="flex items-center gap-2 font-bold text-brand-dark">
+            <Image src="/icon.svg" alt="Vista Group" width={32} height={32} />
+            Vista B2B
+          </span>
           <nav className="flex flex-wrap gap-4 text-sm">
             {nav.map((n) => <Link key={n.href} href={n.href} className="text-slate-600 hover:text-brand">{n.label}</Link>)}
           </nav>

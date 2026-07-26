@@ -53,7 +53,7 @@ export default function LoginPage() {
       <form onSubmit={onSubmit} className="card w-full max-w-sm space-y-4">
         <div className="text-center">
           <div className="mb-3 flex justify-center">
-            <Image src="/logo.svg" alt="Vista Group" width={160} height={120} priority />
+            <Image src="/logo.svg" alt="Vista Group" width={150} height={165} priority />
           </div>
         </div>
 
