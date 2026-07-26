@@ -1,23 +1,21 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
 import { getAgent } from "@/lib/agentSession";
 import { PERMISSION_CATALOG } from "@/lib/permissions";
-import AgentLogout from "./AgentLogout";
+import AgentSidebar, { AgentNavItem } from "@/components/AgentSidebar";
 import NotificationBell from "@/components/NotificationBell";
 
 export const dynamic = "force-dynamic";
 
-// Nav is built dynamically from the agent's granted permissions. A module shows
-// only if the agent holds at least one permission within it.
-const NAV: { module: string; label: string; href: string }[] = [
-  { module: "Dashboard", label: "Dashboard", href: "/agent" },
-  { module: "Visa Module", label: "My Visa Groups", href: "/agent/groups" },
-  { module: "Hotels", label: "Hotels", href: "/agent/module/hotels" },
-  { module: "Transportation", label: "Transport", href: "/agent/module/transport" },
-  { module: "Flights", label: "Flights", href: "/agent/module/flights" },
-  { module: "Reports", label: "Reports", href: "/agent/module/reports" },
-  { module: "Financial", label: "Financial", href: "/agent/module/financial" },
+// Nav is built from the agent's granted permissions — a module appears only if
+// the agent holds at least one permission within it. Same interface as admin.
+const NAV: { module: string; label: string; href: string; icon: string }[] = [
+  { module: "Dashboard", label: "Dashboard", href: "/agent", icon: "▣" },
+  { module: "Visa Module", label: "My Visa Groups", href: "/agent/groups", icon: "🕋" },
+  { module: "Hotels", label: "Hotels", href: "/agent/module/hotels", icon: "🏨" },
+  { module: "Transportation", label: "Transport", href: "/agent/module/transport", icon: "🚌" },
+  { module: "Flights", label: "Flights", href: "/agent/module/flights", icon: "✈️" },
+  { module: "Reports", label: "Reports", href: "/agent/module/reports", icon: "📊" },
+  { module: "Financial", label: "Financial", href: "/agent/module/financial", icon: "💳" },
 ];
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -29,28 +27,20 @@ export default async function PortalLayout({ children }: { children: React.React
     return !!grp && grp.perms.some((p) => agent.permissions?.[p.key]);
   };
 
-  const nav = NAV.filter((n) => hasModule(n.module));
-  nav.push({ module: "Profile", label: "Profile", href: "/agent/profile" });
+  const nav: AgentNavItem[] = NAV.filter((n) => hasModule(n.module)).map(({ label, href, icon }) => ({ label, href, icon }));
+  nav.push({ label: "Profile", href: "/agent/profile", icon: "👤" });
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-        <div className="flex items-center gap-6">
-          <span className="flex items-center gap-2 font-bold text-brand-dark">
-            <Image src="/icon.svg" alt="Vista Group" width={32} height={32} />
-            Vista B2B
-          </span>
-          <nav className="flex flex-wrap gap-4 text-sm">
-            {nav.map((n) => <Link key={n.href} href={n.href} className="text-slate-600 hover:text-brand">{n.label}</Link>)}
-          </nav>
-        </div>
-        <div className="flex items-center gap-3 text-sm">
+    <div className="flex min-h-screen bg-slate-50">
+      <AgentSidebar agencyName={agent.agency_name} nav={nav} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Desktop top bar with notifications (mobile bell lives in the sidebar bar) */}
+        <header className="hidden items-center justify-end gap-3 border-b border-slate-200 bg-white px-6 py-2 lg:flex">
           <NotificationBell endpoint="/api/agent/notifications" groupBase="/agent/groups" />
-          <span className="text-slate-500">{agent.agency_name}</span>
-          <AgentLogout />
-        </div>
-      </header>
-      <main className="mx-auto max-w-6xl p-6">{children}</main>
+          <span className="text-sm text-slate-500">{agent.agency_name}</span>
+        </header>
+        <main className="flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-6">{children}</main>
+      </div>
     </div>
   );
 }

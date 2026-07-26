@@ -47,7 +47,7 @@ export default async function AgentGroups() {
 
   return (
     <div className="space-y-4">
-      <RealtimeRefresh tables={["umrah_groups"]} />
+      <RealtimeRefresh tables={["umrah_groups"]} pollMs={15000} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">My Visa Groups</h1>
         <div className="flex items-center gap-2">
