@@ -111,7 +111,19 @@ export default async function GroupDetail({ params }: { params: { id: string } }
         groupId={g.id}
         workflowStatus={g.workflow_status ?? (g.visa_status === "issued" ? "visa_issued" : g.brn_status === "allocated" ? "brn_allocated" : "pending")}
         isAdmin={isAdmin}
+        visaType={g.visa_type}
       />
+
+      {g.visa_type === "long_stay" && g.host_details && (
+        <div className="card">
+          <h2 className="mb-3 font-semibold text-slate-700">🧍 Host Details (Long Stay)</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 text-sm">
+            <div><p className="text-xs text-slate-400">Iqama Number</p><p className="font-medium">{(g.host_details as any).iqama || "—"}</p></div>
+            <div><p className="text-xs text-slate-400">Mobile Number</p><p className="font-medium">{(g.host_details as any).mobile || "—"}</p></div>
+            <div><p className="text-xs text-slate-400">Relation</p><p className="font-medium">{(g.host_details as any).relation || "—"}</p></div>
+          </div>
+        </div>
+      )}
 
       {Array.isArray(g.hotel_details) && g.hotel_details.length > 0 && (
         <div className="card">
@@ -139,16 +151,19 @@ export default async function GroupDetail({ params }: { params: { id: string } }
 
       {g.visa_type === "masar" && g.agent_brn_pending && <AgentBrnAdder groupId={g.id} />}
 
-      <GroupAllocation
-        groupId={g.id}
-        pax={g.pax}
-        brnStatus={g.brn_status}
-        visaStatus={g.visa_status}
-        visaIssuedAt={g.visa_issued_at}
-        isAdmin={isAdmin}
-        packageStatus={g.package_status}
-        allocations={A}
-      />
+      {g.visa_type !== "long_stay" && (
+        <GroupAllocation
+          groupId={g.id}
+          pax={g.pax}
+          brnStatus={g.brn_status}
+          visaStatus={g.visa_status}
+          visaIssuedAt={g.visa_issued_at}
+          isAdmin={isAdmin}
+          workflowStatus={g.workflow_status ?? "pending"}
+          packageStatus={g.package_status}
+          allocations={A}
+        />
+      )}
 
       {g.brn_status === "allocated" && <CopyExternalErp group={extGroup} hotels={extHotels} />}
     </div>

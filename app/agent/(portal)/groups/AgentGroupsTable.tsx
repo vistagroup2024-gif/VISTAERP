@@ -22,8 +22,11 @@ export interface AgentRow {
 
 const STATUS_CLS: Record<string, string> = {
   "Pending": "bg-yellow-100 text-yellow-800",
-  "Under Process": "bg-blue-100 text-blue-700",
+  "Payment Required": "bg-rose-100 text-rose-700",
+  "Under Processing": "bg-blue-100 text-blue-700",
+  "Package Assigned": "bg-violet-100 text-violet-700",
   "Visa Issued": "bg-emerald-600 text-white",
+  "Rejected": "bg-red-100 text-red-700",
 };
 
 type Col = { key: keyof AgentRow; label: string; date?: boolean; plain?: boolean };

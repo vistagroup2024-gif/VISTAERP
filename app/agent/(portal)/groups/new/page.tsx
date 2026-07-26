@@ -22,6 +22,7 @@ export default async function NewAgentGroup() {
       companies={(companies as any[]) ?? []}
       agencyName={agent.agency_name}
       canAgentBrn={can(agent, "brn.add_agent")}
+      canRecommend={can(agent, "visa.recommend")}
     />
   );
 }

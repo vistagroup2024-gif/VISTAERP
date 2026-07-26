@@ -14,7 +14,7 @@ interface Alloc {
 }
 
 export default function GroupAllocation({
-  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, packageStatus, allocations,
+  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, workflowStatus, packageStatus, allocations,
 }: {
   groupId: string;
   pax: number;
@@ -22,6 +22,7 @@ export default function GroupAllocation({
   visaStatus: string;
   visaIssuedAt: string | null;
   isAdmin: boolean;
+  workflowStatus: string;
   packageStatus: string | null;
   allocations: Alloc[];
 }) {
@@ -95,6 +96,11 @@ export default function GroupAllocation({
       {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
       {!allocated ? (
+        workflowStatus !== "process" ? (
+          <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Choose <b>Process</b> in the Visa Workflow above before allocating BRNs.
+          </p>
+        ) : (
         <>
           <p className="text-sm text-slate-500">
             Auto-allocation covers the full stay with one Madinah night when possible; otherwise it falls back to partial coverage (min 3 nights) and flags the package for update.
@@ -103,6 +109,7 @@ export default function GroupAllocation({
             {busy ? "Allocating…" : `⚡ Auto Allocate (${pax} pax)`}
           </button>
         </>
+        )
       ) : (
         <>
           <div className="overflow-x-auto">

@@ -27,11 +27,12 @@ export interface GroupInitial {
   remarks?: string | null;
   visa_type?: string | null;
   hotel_details?: { city: string; hotel: string; check_in: string; check_out: string }[];
+  host_details?: { iqama?: string; mobile?: string; relation?: string } | null;
 }
 
 export default function GroupForm({
   airports, agents, companies, existing,
-  variant = "staff", agencyName, lockAll = false, hotelOnly = false, canAgentBrn = false, groupId,
+  variant = "staff", agencyName, lockAll = false, hotelOnly = false, canAgentBrn = false, canRecommend = false, groupId,
 }: {
   airports: Airport[];
   agents: { id: string; name: string }[];
@@ -42,6 +43,7 @@ export default function GroupForm({
   lockAll?: boolean;
   hotelOnly?: boolean;
   canAgentBrn?: boolean;
+  canRecommend?: boolean;
   groupId?: string;
 }) {
   const router = useRouter();
@@ -52,8 +54,11 @@ export default function GroupForm({
   const gidFor = isAgent ? groupId : existing?.id;
   const disNonHotel = lockAll || hotelOnly;   // fields other than hotel details
   const disHotel = lockAll;                    // hotel rows
-  const showVisaType = !isAgent || canAgentBrn;
+  const canMasar = !isAgent || canAgentBrn;    // Masar option available?
+  const showVisaType = true;                   // Visa Type card always shown (Non Masar / Masar / Long Stay)
   const canSave = !lockAll;
+  // Reserved Groups is available for Admin always, or agents who hold Company Inquiry permission.
+  const canReserve = !isAgent || canRecommend;
   const recoEndpoint = isAgent ? "/api/agent/recommendation" : "/api/recommendation";
 
   const [f, setF] = useState({
@@ -80,8 +85,15 @@ export default function GroupForm({
   const [reservationId, setReservationId] = useState("");
   const [reservations, setReservations] = useState<{ id: string; arrival_date: string; departure_date: string; pax: number }[]>([]);
   const [agentRows, setAgentRows] = useState<{ brn: string; city: string; hotel: string; check_in: string; check_out: string }[]>([]);
-  // Reservation link is required for NEW Normal-visa groups (not Masar, not edit).
-  const showReservation = !isEdit && !disNonHotel && visaType === "normal";
+  const [host, setHost] = useState<{ iqama: string; mobile: string; relation: string }>({
+    iqama: (existing as any)?.host_details?.iqama ?? "",
+    mobile: (existing as any)?.host_details?.mobile ?? "",
+    relation: (existing as any)?.host_details?.relation ?? "",
+  });
+  const isLongStay = visaType === "long_stay";
+  // Reserved Groups is required for NEW Non-Masar groups where reservation applies
+  // (not Masar, not Long Stay, not edit, and only when reservations are in scope).
+  const showReservation = !isEdit && !disNonHotel && visaType === "normal" && canReserve;
   const [masarGroupId, setMasarGroupId] = useState<string | null>(null);
   const [hotelRows, setHotelRows] = useState<{ city: string; hotel: string; check_in: string; check_out: string }[]>(
     Array.isArray(existing?.hotel_details) ? existing!.hotel_details : []);
@@ -165,7 +177,9 @@ export default function GroupForm({
     }
 
     if (!f.group_no.trim()) return setError("Group number is required");
-    if (showReservation && !reservationId) return setError("Please select a reservation (create one via Company Inquiry) before saving a Normal Visa group.");
+    if (showReservation && !reservationId) return setError("Please select a reservation (create one via Company Inquiry) before saving a Non Masar Visa group.");
+    if (isLongStay && (!host.iqama.trim() || !host.mobile.trim() || !host.relation.trim()))
+      return setError("Host Details (Iqama, Mobile, Relation) are required for Long Stay Visa.");
     if (Number(f.pax) <= 0) return setError("Pax must be greater than zero");
     if (!f.arrival_date || !f.departure_date) return setError("Arrival and departure dates are required");
     if (f.departure_date <= f.arrival_date) return setError("Departure must be after arrival");
@@ -186,7 +200,8 @@ export default function GroupForm({
       departure_to: f.departure_to,
       departure_airport: f.departure_airport,
       remarks: f.remarks.trim() || null,
-      hotel_details: hotelRows.filter((h) => h.hotel.trim() || h.check_in || h.check_out),
+      hotel_details: isLongStay ? [] : hotelRows.filter((h) => h.hotel.trim() || h.check_in || h.check_out),
+      host_details: isLongStay ? { iqama: host.iqama.trim(), mobile: host.mobile.trim(), relation: host.relation.trim() } : null,
     };
 
     // ---------- Agent variant ----------
@@ -273,7 +288,7 @@ export default function GroupForm({
           <div className="card space-y-3">
             <h2 className="font-semibold text-slate-700">Visa Type</h2>
             <div className="flex gap-2">
-              {[["normal", "Normal Visa"], ["masar", "Masar Visa"]].map(([v, lbl]) => (
+              {([["normal", "Non Masar Visa"], ...(canMasar ? [["masar", "Masar Visa"]] : []), ["long_stay", "Long Stay Visa"]] as [string, string][]).map(([v, lbl]) => (
                 <button type="button" key={v} disabled={disNonHotel} onClick={() => { setDirty(true); setVisaType(v); }}
                   className={`rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50 ${visaType === v ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
                   {lbl}
@@ -332,7 +347,7 @@ export default function GroupForm({
                   placeholder={f.group_company_id ? "Select reservation" : "Select a company first"}
                   disabled={!f.group_company_id}
                 />
-                <p className="mt-1 text-xs text-slate-400">Required for Normal Visa. Create one via Company Inquiry.</p>
+                <p className="mt-1 text-xs text-slate-400">Required for Non Masar Visa. Create one via Company Inquiry.</p>
               </div>
             )}
           </div>
@@ -386,6 +401,30 @@ export default function GroupForm({
           </div>
         </div>
 
+        {isLongStay && (
+          <div className="card space-y-4">
+            <div>
+              <h2 className="font-semibold text-slate-700">🧍 Host Details</h2>
+              <p className="text-xs text-slate-500">Required for Long Stay Visa. No hotel details are needed.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <label className="label">Iqama Number <span className="text-red-500">*</span></label>
+                <input className="input" value={host.iqama} onChange={(e) => { setDirty(true); setHost((h) => ({ ...h, iqama: e.target.value })); }} disabled={disNonHotel} />
+              </div>
+              <div>
+                <label className="label">Mobile Number <span className="text-red-500">*</span></label>
+                <input className="input" value={host.mobile} onChange={(e) => { setDirty(true); setHost((h) => ({ ...h, mobile: e.target.value })); }} disabled={disNonHotel} />
+              </div>
+              <div>
+                <label className="label">Relation <span className="text-red-500">*</span></label>
+                <input className="input" value={host.relation} onChange={(e) => { setDirty(true); setHost((h) => ({ ...h, relation: e.target.value })); }} disabled={disNonHotel} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isLongStay && (
         <div className="card space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -409,6 +448,7 @@ export default function GroupForm({
             </div>
           ))}
         </div>
+        )}
 
         <div className="card">
           <label className="label">Remarks</label>
