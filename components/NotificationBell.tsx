@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -21,6 +21,7 @@ export default function NotificationBell({
   endpoint, groupHref, realtime = false,
 }: { endpoint: string; groupHref: (id: string) => string; realtime?: boolean }) {
   const router = useRouter();
+  const uid = useId();                                   // unique realtime channel per mount
   const [items, setItems] = useState<Notif[]>([]);
   const [open, setOpen] = useState(false);
   const seen = useRef<Set<string>>(new Set());
@@ -51,13 +52,15 @@ export default function NotificationBell({
   useEffect(() => {
     load();
     if (realtime) {
-      const supabase = createClient();
-      const ch = supabase.channel("rt-notifications")
-        .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => load())
-        .subscribe();
-      return () => { supabase.removeChannel(ch); };
+      try {
+        const supabase = createClient();
+        const ch = supabase.channel(`rt-notif-${uid}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => load())
+          .subscribe();
+        return () => { try { supabase.removeChannel(ch); } catch { /* ignore */ } };
+      } catch { /* realtime unavailable — fall through to polling */ }
     }
-    const iv = setInterval(load, 30000); // agent fallback: poll
+    const iv = setInterval(load, 30000); // fallback: poll
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [realtime]);
