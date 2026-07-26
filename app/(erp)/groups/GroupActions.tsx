@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 // Staged visa workflow: Pending -> BRN Allocated -> ERP Created -> Package Assigned -> Visa Issued.
 // Only the next valid action is shown at each stage.
 const NEXT: Record<string, { label: string; fn: string; args?: any; cls: string }> = {
-  pending: { label: "Allocate BRN", fn: "allocate_group_brns", cls: "bg-brand" },
+  process: { label: "Allocate BRN", fn: "allocate_group_brns", cls: "bg-brand" },
   brn_allocated: { label: "ERP Created", fn: "advance_workflow", args: { p_to: "erp_created" }, cls: "bg-indigo-600" },
   erp_created: { label: "Package Assigned", fn: "advance_workflow", args: { p_to: "package_assigned" }, cls: "bg-violet-600" },
   package_assigned: { label: "Visa Issued", fn: "mark_visa_issued", cls: "bg-emerald-600" },
@@ -33,7 +33,7 @@ export default function GroupActions({
     router.refresh();
   }
   async function del() {
-    if (!confirm("Delete this group? This cannot be undone.")) return;
+    if (!confirm("Delete this group? Any reserved or allocated BRNs will be released automatically. This cannot be undone.")) return;
     setBusy(true); setErr(null);
     const { error } = await supabase.rpc("delete_group", { p_group: groupId });
     setBusy(false);
@@ -51,15 +51,30 @@ export default function GroupActions({
     return <Link href={`/groups/${groupId}`} className="badge bg-amber-100 text-amber-800 hover:underline" title="More agent BRNs pending">Agent BRNs pending</Link>;
   }
 
+  const deletable = isAdmin && stage !== "visa_issued";
+
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
+      {/* Initial admin decision gate (before any allocation) */}
+      {(stage === "pending" || stage === "payment_pending") && (
+        <>
+          <button onClick={() => run("set_group_decision", { p_decision: "process" })} disabled={busy}
+            className="rounded bg-brand px-2 py-0.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">Process</button>
+          {stage === "pending" && (
+            <button onClick={() => run("set_group_decision", { p_decision: "payment" })} disabled={busy}
+              className="rounded bg-rose-500 px-2 py-0.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">Payment</button>
+          )}
+          <button onClick={() => { if (confirm("Reject this visa group?")) run("set_group_decision", { p_decision: "reject" }); }} disabled={busy}
+            className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">Reject</button>
+        </>
+      )}
       {next && (
         <button onClick={() => run(next.fn, next.args)} disabled={busy}
           className={`rounded px-2 py-0.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40 ${next.cls}`}>
           {busy ? "…" : next.label}
         </button>
       )}
-      {stage === "pending" && (
+      {deletable && (
         <button onClick={del} disabled={busy} className="text-xs text-red-600 hover:underline">Delete</button>
       )}
       {err && <span className="text-xs text-red-600" title={err}>⚠</span>}

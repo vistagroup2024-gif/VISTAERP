@@ -8,6 +8,7 @@ import GroupHeaderActions from "./GroupHeaderActions";
 import WorkflowCard from "./WorkflowCard";
 import AgentBrnAdder from "./AgentBrnAdder";
 import CopyExternalErp from "./CopyExternalErp";
+import AttachmentsPanel from "@/components/AttachmentsPanel";
 import { ExtGroup, ExtHotel } from "@/lib/externalErp";
 
 export const dynamic = "force-dynamic";
@@ -150,6 +151,8 @@ export default async function GroupDetail({ params }: { params: { id: string } }
       )}
 
       {g.visa_type === "masar" && g.agent_brn_pending && <AgentBrnAdder groupId={g.id} />}
+
+      <AttachmentsPanel endpoint="/api/attachments" groupId={g.id} canEdit={g.visa_status !== "issued"} />
 
       {g.visa_type !== "long_stay" && (
         <GroupAllocation

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID, dateStr } from "@/lib/format";
 import AirportSelect, { Airport } from "@/components/AirportSelect";
 import ReservationSelect, { ResOption } from "@/components/ReservationSelect";
+import AttachmentsPanel from "@/components/AttachmentsPanel";
 import { useUnsavedChanges, confirmDiscardIfDirty } from "@/lib/useUnsavedChanges";
 
 export interface GroupInitial {
@@ -118,7 +119,7 @@ export default function GroupForm({
     if (isAgent) await agentPost({ action: "masar_option", id: masarGroupId, option: opt });
     else await supabase.rpc("set_masar_option", { p_group: masarGroupId, p_option: opt });
     setDirty(false);
-    router.push(`${basePath}/${masarGroupId}`); router.refresh();
+    router.push(basePath); router.refresh();
   }
 
   useEffect(() => {
@@ -171,7 +172,7 @@ export default function GroupForm({
       setSaving(true); setError(null);
       try {
         await agentPost({ action: "hotel", id: gidFor, hotels: hotelRows.filter((h) => h.hotel.trim() || h.check_in || h.check_out) });
-        setDirty(false); router.push(`${basePath}/${gidFor}`); router.refresh();
+        setDirty(false); router.push(basePath); router.refresh();
       } catch (err: any) { setError(err.message); } finally { setSaving(false); }
       return;
     }
@@ -224,7 +225,7 @@ export default function GroupForm({
           if (!c.complete) { setSaving(false); setMasarGroupId(gid); return; }
         }
         setSaving(false); setDirty(false);
-        router.push(`${basePath}/${gid}`); router.refresh();
+        router.push(basePath); router.refresh();
       } catch (err: any) { setSaving(false); setError(err.message); }
       return;
     }
@@ -266,11 +267,11 @@ export default function GroupForm({
       const { data: complete } = await supabase.rpc("nusuk_complete", { p_group: gid });
       setSaving(false);
       if (agentRows.some((r) => r.brn.trim()) && !complete) { setMasarGroupId(gid); return; }
-      setDirty(false); router.push(`${basePath}/${gid}`); router.refresh();
+      setDirty(false); router.push(basePath); router.refresh();
       return;
     }
     setSaving(false); setDirty(false);
-    router.push(`${basePath}/${gid}`); router.refresh();
+    router.push(basePath); router.refresh();
   }
 
   return (
@@ -482,6 +483,16 @@ export default function GroupForm({
           <button type="button" className="btn-outline" onClick={() => { if (confirmDiscardIfDirty(dirty)) router.push(isAgent ? "/agent/groups" : "/groups"); }}>{canSave ? "Cancel" : "Back"}</button>
         </div>
       </form>
+
+      {isEdit && gidFor && (
+        <div className="mt-5">
+          <AttachmentsPanel
+            endpoint={isAgent ? "/api/agent/attachments" : "/api/attachments"}
+            groupId={gidFor}
+            canEdit={isAgent ? !lockAll && !hotelOnly : true}
+          />
+        </div>
+      )}
 
       {masarGroupId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
