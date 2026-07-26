@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
+import NotificationBell from "@/components/NotificationBell";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "▣" },
@@ -87,11 +88,14 @@ function SidebarContent({ name, onClose }: { name: string; onClose?: () => void 
             <p className="truncate text-xs text-slate-400 leading-tight">{name}</p>
           </div>
         </div>
-        {onClose && (
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
-            ✕
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          <NotificationBell endpoint="/api/notifications" groupHref={(id) => `/groups/${id}`} realtime />
+          {onClose && (
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
+              ✕
+            </button>
+          )}
+        </div>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {NAV.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
@@ -134,15 +138,18 @@ export default function Sidebar({ name }: { name: string }) {
           <Image src="/icon.svg" alt="Vista Group" width={30} height={30} />
           <p className="text-base font-bold text-slate-800">Vista Group</p>
         </div>
-        <button
-          onClick={() => setOpen(true)}
-          className="rounded-md p-2 text-slate-600 hover:bg-slate-100"
-          aria-label="Open menu"
-        >
-          <span className="block h-0.5 w-5 bg-current mb-1"></span>
-          <span className="block h-0.5 w-5 bg-current mb-1"></span>
-          <span className="block h-0.5 w-5 bg-current"></span>
-        </button>
+        <div className="flex items-center gap-1">
+          <NotificationBell endpoint="/api/notifications" groupHref={(id) => `/groups/${id}`} realtime />
+          <button
+            onClick={() => setOpen(true)}
+            className="rounded-md p-2 text-slate-600 hover:bg-slate-100"
+            aria-label="Open menu"
+          >
+            <span className="block h-0.5 w-5 bg-current mb-1"></span>
+            <span className="block h-0.5 w-5 bg-current mb-1"></span>
+            <span className="block h-0.5 w-5 bg-current"></span>
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer overlay */}

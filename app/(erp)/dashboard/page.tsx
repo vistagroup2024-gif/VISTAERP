@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { money } from "@/lib/format";
+import RealtimeRefresh from "@/components/RealtimeRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,7 @@ export default async function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <RealtimeRefresh tables={["umrah_groups", "brn_inventory", "brn_consumption", "group_brn_allocation"]} />
       <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
 
       {!hasRole && (

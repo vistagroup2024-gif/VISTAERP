@@ -41,6 +41,7 @@ export default function CompanyRecommendation({
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [minutes, setMinutes] = useState<string>("");
+  const [reserveHours, setReserveHours] = useState<number>(1);
 
   const post = useCallback(async (body: any) => {
     const res = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -76,8 +77,8 @@ export default function CompanyRecommendation({
   async function reserve(companyId: string) {
     setError(null); setMsg(null);
     try {
-      await post({ action: "reserve", company: companyId, arrival, departure, pax: Number(pax) });
-      setMsg("Company reserved. Create the Visa Group before it expires.");
+      await post({ action: "reserve", company: companyId, arrival, departure, pax: Number(pax), hours: reserveHours });
+      setMsg(`Company reserved for ${reserveHours} hour(s). Create the Visa Group before it expires.`);
       const j = await post({ action: "recommend", arrival, departure, pax: Number(pax) });
       setResults(j.results ?? []);
       await loadReservations();
@@ -126,7 +127,15 @@ export default function CompanyRecommendation({
 
       {results && (
         <div className="card space-y-3">
-          <h2 className="font-semibold text-slate-700">Recommendation</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold text-slate-700">Recommendation</h2>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              Reservation duration
+              <select className="input w-32" value={reserveHours} onChange={(e) => setReserveHours(Number(e.target.value))}>
+                {[1, 2, 3, 4, 5, 6].map((h) => <option key={h} value={h}>{h} Hour{h > 1 ? "s" : ""}{h === 6 ? " (Max)" : ""}</option>)}
+              </select>
+            </label>
+          </div>
           {results.length === 0 && <p className="text-sm text-slate-400">No active companies to evaluate.</p>}
           {top && agentView && (
             <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4">
