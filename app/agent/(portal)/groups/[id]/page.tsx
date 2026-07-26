@@ -22,10 +22,11 @@ export default async function AgentGroupDetail({ params }: { params: { id: strin
   }
   const g = group as any;
   const st = agentStatus(g.workflow_status, g.visa_status);
-  // Pending -> full edit (if permitted); Under Process -> read-only; Visa Issued -> Hotel Details only.
+  // Pending -> full edit (if permitted); Visa Issued -> Hotel Details only;
+  // any other status (Under Processing / Payment Required / Package Assigned / Rejected) -> read-only.
   const canEditPending = can(agent, "visa.edit_pending");
-  const lockAll = st === "Under Process" || (st === "Pending" && !canEditPending);
   const hotelOnly = st === "Visa Issued";
+  const lockAll = !hotelOnly && !(st === "Pending" && canEditPending);
 
   return (
     <GroupForm
@@ -39,6 +40,7 @@ export default async function AgentGroupDetail({ params }: { params: { id: strin
       lockAll={lockAll}
       hotelOnly={hotelOnly}
       canAgentBrn={can(agent, "brn.add_agent")}
+      canRecommend={can(agent, "visa.recommend")}
     />
   );
 }

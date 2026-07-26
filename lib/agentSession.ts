@@ -27,9 +27,16 @@ export function can(agent: AgentSession | null, key: string): boolean {
   return !!agent?.permissions?.[key];
 }
 
-// Agents only ever see three simple states — internal Vista stages are hidden.
-export function agentStatus(workflow_status?: string, visa_status?: string): "Pending" | "Under Process" | "Visa Issued" {
+// Agents see a simplified set of statuses — internal Vista stages (Process, BRN
+// Allocated, ERP Created) are hidden and collapsed to "Under Processing".
+export type AgentStatus =
+  | "Pending" | "Payment Required" | "Under Processing" | "Package Assigned" | "Visa Issued" | "Rejected";
+
+export function agentStatus(workflow_status?: string, visa_status?: string): AgentStatus {
   if (visa_status === "issued" || workflow_status === "visa_issued") return "Visa Issued";
+  if (workflow_status === "rejected") return "Rejected";
+  if (workflow_status === "payment_pending") return "Payment Required";
+  if (workflow_status === "package_assigned") return "Package Assigned";
   if (!workflow_status || workflow_status === "pending") return "Pending";
-  return "Under Process";
+  return "Under Processing"; // process, brn_allocated, erp_created
 }

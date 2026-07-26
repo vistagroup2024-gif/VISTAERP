@@ -16,6 +16,9 @@ const PKG_LABEL: Record<string, string> = {
 
 const WF_LABEL: Record<string, string> = {
   pending: "Pending",
+  process: "Process",
+  payment_pending: "Payment Pending",
+  rejected: "Rejected",
   brn_allocated: "BRN Allocated",
   erp_created: "ERP Created",
   package_assigned: "Package Assigned",
