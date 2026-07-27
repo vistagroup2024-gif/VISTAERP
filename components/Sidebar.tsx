@@ -33,6 +33,7 @@ const INVENTORY = [
 
 const TRANSPORT = [
   { href: "/transport", label: "Overview", icon: "🚐" },
+  { href: "/transport/operations", label: "Operations", icon: "🗓" },
   { href: "/transport/bookings", label: "Bookings", icon: "📕" },
   { href: "/transport/vehicles", label: "Vehicles", icon: "🚗" },
   { href: "/transport/routes", label: "Routes & Rates", icon: "🛣" },
