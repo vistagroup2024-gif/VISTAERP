@@ -31,6 +31,14 @@ const INVENTORY = [
   { href: "/inventory/history", label: "History", icon: "🧾" },
 ];
 
+const TRANSPORT = [
+  { href: "/transport", label: "Overview", icon: "🚐" },
+  { href: "/transport/vehicles", label: "Vehicles", icon: "🚗" },
+  { href: "/transport/routes", label: "Routes & Rates", icon: "🛣" },
+  { href: "/transport/packages", label: "Packages", icon: "🧳" },
+  { href: "/transport/drivers", label: "Drivers", icon: "🧑‍✈️" },
+];
+
 const PURCHASE = [
   { href: "/purchase/bills", label: "Supplier Bills", icon: "🧾" },
   { href: "/purchase/payments", label: "Supplier Payments", icon: "💸" },
@@ -104,6 +112,9 @@ function SidebarContent({ name, onClose }: { name: string; onClose?: () => void 
 
         <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Inventory</p>
         {INVENTORY.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
+
+        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Transport</p>
+        {TRANSPORT.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
 
         <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Purchase</p>
         {PURCHASE.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
