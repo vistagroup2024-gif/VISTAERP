@@ -39,6 +39,10 @@ const TRANSPORT = [
   { href: "/transport/routes", label: "Routes & Rates", icon: "🛣" },
   { href: "/transport/packages", label: "Packages", icon: "🧳" },
   { href: "/transport/drivers", label: "Drivers", icon: "🧑‍✈️" },
+  { href: "/transport/fleet", label: "Fleet Health", icon: "🩺" },
+  { href: "/transport/vendors", label: "Vendors", icon: "🤝" },
+  { href: "/transport/expenses", label: "Expenses", icon: "⛽" },
+  { href: "/transport/messages", label: "Confirmations", icon: "📣" },
   { href: "/transport/reports", label: "Reports", icon: "📈" },
 ];
 

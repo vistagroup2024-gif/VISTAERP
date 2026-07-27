@@ -3,15 +3,17 @@ import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import TransportBookingForm from "@/components/TransportBookingForm";
 import BookingStatusBar from "./BookingStatusBar";
+import BookingExtras from "./BookingExtras";
 import { loadBookingMasters } from "@/lib/transportMasters";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditBookingPage({ params }: { params: { id: string } }) {
   const sb = createClient();
-  const [{ data: booking }, { data: trips }, masters] = await Promise.all([
+  const [{ data: booking }, { data: trips }, { data: rating }, masters] = await Promise.all([
     sb.from("transport_bookings").select("*").eq("id", params.id).maybeSingle(),
     sb.from("transport_trips").select("*").eq("booking_id", params.id).order("seq"),
+    sb.from("transport_ratings").select("rating, feedback").eq("booking_id", params.id).maybeSingle(),
     loadBookingMasters(),
   ]);
 
@@ -28,6 +30,11 @@ export default async function EditBookingPage({ params }: { params: { id: string
         <Link href="/transport/bookings" className="btn-outline">All bookings</Link>
       </PageHeader>
       <BookingStatusBar id={b.id} status={b.status} />
+      <BookingExtras
+        booking={{ id: b.id, booking_no: b.booking_no, passenger_name: b.passenger_name, mobile: b.mobile, whatsapp: b.whatsapp, status: b.status }}
+        driverId={((trips as any[]) ?? []).find((t: any) => t.driver_id)?.driver_id ?? null}
+        rating={(rating as any) ?? null}
+      />
       <div className="mt-4">
         <TransportBookingForm existing={b} existingTrips={(trips as any[]) ?? []} {...masters} />
       </div>
