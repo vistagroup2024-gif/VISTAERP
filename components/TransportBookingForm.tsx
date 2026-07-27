@@ -21,13 +21,16 @@ const blankTrip = (): Trip => ({ route_id: "", route_label: "", vehicle_id: "", 
 
 export default function TransportBookingForm({
   existing, existingTrips, routes, vehicles, packages, rates, companies, agents,
+  variant = "admin", endpoint, basePath = "/transport/bookings",
 }: {
   existing: any | null; existingTrips: any[];
   routes: Route[]; vehicles: Vehicle[]; packages: Pkg[]; rates: Rate[]; companies: Company[]; agents: Agent[];
+  variant?: "admin" | "agent"; endpoint?: string; basePath?: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const isEdit = !!existing;
+  const isAgent = variant === "agent";
 
   const rateMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -107,12 +110,25 @@ export default function TransportBookingForm({
     setBusy(true); setErr(null);
     const header = { ...h, booking_type: type, package_id: type === "package" ? packageId : "", status, currency: "SAR" };
     const tripPayload = trips.map((t, i) => ({ ...t, seq: i + 1 }));
-    const { data, error } = await supabase.rpc("transport_save_booking", {
-      p_id: existing?.id ?? null, p_header: header, p_trips: tripPayload,
-    });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    router.push(`/transport/bookings/${data}`);
+    let newId: string | null = null;
+    if (endpoint) {
+      const res = await fetch(endpoint, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "save", id: existing?.id ?? null, header, trips: tripPayload }),
+      });
+      const json = await res.json().catch(() => ({}));
+      setBusy(false);
+      if (!res.ok) return setErr(json.error || "Save failed");
+      newId = json.id;
+    } else {
+      const { data, error } = await supabase.rpc("transport_save_booking", {
+        p_id: existing?.id ?? null, p_header: header, p_trips: tripPayload,
+      });
+      setBusy(false);
+      if (error) return setErr(error.message);
+      newId = data;
+    }
+    router.push(`${basePath}/${newId}`);
     router.refresh();
   }
 
@@ -126,14 +142,14 @@ export default function TransportBookingForm({
       <section className="card space-y-3">
         <h2 className="font-semibold text-slate-700">Passenger &amp; Booking</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <div><label className="label">Agent</label>
+          {!isAgent && <div><label className="label">Agent</label>
             <select className="input" value={h.agent_id} onChange={(e) => setH({ ...h, agent_id: e.target.value })}>
               <option value="">— direct —</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}
-            </select></div>
-          <div><label className="label">Company</label>
+            </select></div>}
+          {!isAgent && <div><label className="label">Company</label>
             <select className="input" value={h.group_company_id} onChange={(e) => setH({ ...h, group_company_id: e.target.value })}>
               <option value="">— none —</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select></div>
+            </select></div>}
           <div><label className="label">Booking date</label><input className="input" type="date" value={h.booking_date} onChange={(e) => setH({ ...h, booking_date: e.target.value })} /></div>
           <div><label className="label">Passengers</label><input className="input" type="number" min="0" value={h.pax} onChange={(e) => setH({ ...h, pax: e.target.value })} /></div>
           <div><label className="label">Primary contact</label><input className="input" value={h.passenger_name} onChange={(e) => setH({ ...h, passenger_name: e.target.value })} /></div>
