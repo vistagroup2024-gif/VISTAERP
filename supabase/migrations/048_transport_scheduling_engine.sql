@@ -1,0 +1,19 @@
+-- ============================================================
+-- VISTA ERP - 048 Transport scheduling engine
+-- Applied to remote DB via Supabase MCP; kept here for history.
+--
+-- view transport_trip_sched: adds computed timeline columns to trips
+--   sched_s      = trip_date + trip_time
+--   sched_e      = sched_s + driving time (route.driving_minutes, else 60)
+--   sched_busy_e = sched_e + rest (route.rest_minutes, else 0)  [driver free-after]
+--
+-- transport_driver_free / transport_vehicle_free : conflict tests (driver needs
+--   the rest gap; vehicle just the movement window). Only assigned, non-cancelled
+--   trips occupy a resource.
+-- transport_auto_assign(date)     : greedy earliest-first best-fit assignment.
+-- transport_assign_trip(t,drv,veh): manual assignment with the same guards.
+-- transport_unassign_trip(t)      : release a trip back to pending.
+-- transport_set_trip_status(t,s)  : advance a trip on the ops board.
+-- See the database for the current function bodies (identical to MCP 048).
+-- ============================================================
+select 1;
