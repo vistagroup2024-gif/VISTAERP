@@ -496,7 +496,10 @@ export default function GroupForm({
           <AttachmentsPanel
             endpoint={isAgent ? "/api/agent/attachments" : "/api/attachments"}
             groupId={gidFor}
-            canEdit={isAgent ? !lockAll && !hotelOnly : true}
+            // Agent: can upload until the visa is issued (incl. Under Processing),
+            // but can only delete while the group is still Pending (unlocked).
+            canUpload={isAgent ? !hotelOnly : true}
+            canDelete={isAgent ? !lockAll && !hotelOnly : true}
           />
         </div>
       )}

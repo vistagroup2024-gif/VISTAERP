@@ -8,10 +8,12 @@ const ACCEPT = ".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf";
 const MAX_BYTES = 5 * 1024 * 1024;
 
 // Attachments for a Visa Group (JPG / PNG / PDF, multiple). Stored via RPC.
-// `canEdit` allows upload/delete; when false the panel is view/download only.
+// `canUpload` shows the upload control; `canDelete` shows per-file delete.
+// These are independent so an agent can, e.g., add files while the group is
+// Under Processing but not delete previously uploaded ones.
 export default function AttachmentsPanel({
-  endpoint, groupId, canEdit,
-}: { endpoint: string; groupId: string; canEdit: boolean }) {
+  endpoint, groupId, canUpload, canDelete,
+}: { endpoint: string; groupId: string; canUpload: boolean; canDelete: boolean }) {
   const [files, setFiles] = useState<FileMeta[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -87,7 +89,7 @@ export default function AttachmentsPanel({
           <h2 className="font-semibold text-slate-700">📎 Attachments</h2>
           <p className="text-xs text-slate-500">JPG, PNG or PDF · up to 5 MB each · multiple files allowed.</p>
         </div>
-        {canEdit && (
+        {canUpload && (
           <>
             <input ref={inputRef} type="file" multiple accept={ACCEPT} onChange={onPick} className="hidden" />
             <button type="button" className="btn-outline text-sm" disabled={busy} onClick={() => inputRef.current?.click()}>
@@ -110,7 +112,7 @@ export default function AttachmentsPanel({
               <span className="flex shrink-0 items-center gap-3">
                 <button type="button" onClick={() => open(f.id, false)} className="text-brand hover:underline">View</button>
                 <button type="button" onClick={() => open(f.id, true)} className="text-slate-500 hover:underline">Download</button>
-                {canEdit && <button type="button" onClick={() => del(f.id)} className="text-red-600 hover:underline">Delete</button>}
+                {canDelete && <button type="button" onClick={() => del(f.id)} className="text-red-600 hover:underline">Delete</button>}
               </span>
             </li>
           ))}
