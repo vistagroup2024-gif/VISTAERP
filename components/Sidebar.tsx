@@ -73,7 +73,9 @@ function SidebarContent({ name, onClose }: { name: string; onClose?: () => void 
   const supabase = createClient();
 
   async function signOut() {
-    await supabase.auth.signOut();
+    // Local scope: end only THIS device's session, leaving the user's other
+    // devices signed in. (Default scope is "global" and revokes every session.)
+    await supabase.auth.signOut({ scope: "local" });
     router.push("/login");
     router.refresh();
   }

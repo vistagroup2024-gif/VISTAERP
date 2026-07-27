@@ -31,7 +31,8 @@ export default async function PortalPage() {
   async function signOut() {
     "use server";
     const sb = createClient();
-    await sb.auth.signOut();
+    // Local scope: sign out only this device, not the user's other sessions.
+    await sb.auth.signOut({ scope: "local" });
     redirect("/login");
   }
 
