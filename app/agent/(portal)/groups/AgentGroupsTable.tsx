@@ -21,12 +21,6 @@ export interface AgentRow {
   package_label: string;
 }
 
-const VISA_TYPE: Record<string, { label: string; cls: string }> = {
-  normal: { label: "Non Masar", cls: "bg-slate-100 text-slate-600" },
-  masar: { label: "Masar", cls: "bg-indigo-100 text-indigo-700" },
-  long_stay: { label: "Long Stay", cls: "bg-purple-100 text-purple-700" },
-};
-
 const STATUS_CLS: Record<string, string> = {
   "Pending": "bg-yellow-100 text-yellow-800",
   "Payment Required": "bg-rose-100 text-rose-700",
@@ -146,10 +140,7 @@ export default function AgentGroupsTable({ rows, showPackage }: { rows: AgentRow
             {filtered.map((g) => (
               <tr key={g.id} className="border-t border-slate-100">
                 <td className="td text-sm">{dateStr(g.group_date)}</td>
-                <td className="td font-mono font-medium">
-                  <Link href={`/agent/groups/${g.id}`} className="text-brand hover:underline">{g.group_no}</Link>
-                  {(() => { const v = VISA_TYPE[g.visa_type] ?? VISA_TYPE.normal; return <span className={`badge ml-2 ${v.cls}`}>{v.label}</span>; })()}
-                </td>
+                <td className="td font-mono font-medium"><Link href={`/agent/groups/${g.id}`} className="text-brand hover:underline">{g.group_no}</Link></td>
                 <td className="td">{g.group_name || "—"}</td>
                 <td className="td font-medium">{g.pax}</td>
                 <td className="td text-sm">{dateStr(g.arrival_date)}</td>
