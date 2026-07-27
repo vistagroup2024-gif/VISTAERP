@@ -41,6 +41,7 @@ export default async function AgentGroups() {
     arrival_flight: g.arrival_flight ?? "",
     hotels: hotelsSummary(g.hotel_details),
     pax: g.pax,
+    visa_type: g.visa_type ?? "normal",
     status_label: agentStatus(g.workflow_status, g.visa_status),
     package_label: g.package_status ? (PKG_LABEL[g.package_status] ?? g.package_status) : "",
   }));
