@@ -34,6 +34,12 @@ const PKG_CLS: Record<string, string> = {
   "Package Ready for Nusuk Update": "bg-amber-100 text-amber-800",
   "Package Updated": "bg-blue-100 text-blue-700",
 };
+const VISA_TYPE: Record<string, { label: string; cls: string }> = {
+  normal: { label: "Non Masar", cls: "bg-slate-100 text-slate-600" },
+  masar: { label: "Masar", cls: "bg-indigo-100 text-indigo-700" },
+  long_stay: { label: "Long Stay", cls: "bg-purple-100 text-purple-700" },
+};
+
 const VISA_CLS: Record<string, string> = {
   "Visa Issued": "bg-emerald-600 text-white",
   "Package Assigned": "bg-violet-100 text-violet-700",
@@ -241,7 +247,10 @@ export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdm
               <tr key={g.id} className="border-t border-slate-100">
                 <td className="td"><input type="checkbox" checked={selected.has(g.id)} onChange={() => toggleRow(g.id)} /></td>
                 <td className="td text-sm">{dateStr(g.group_date)}</td>
-                <td className="td font-mono font-medium"><Link href={`/groups/${g.id}`} className="text-brand hover:underline">{g.group_no}</Link></td>
+                <td className="td font-mono font-medium">
+                  <Link href={`/groups/${g.id}`} className="text-brand hover:underline">{g.group_no}</Link>
+                  {(() => { const v = VISA_TYPE[g.visa_type] ?? VISA_TYPE.normal; return <span className={`badge ml-2 ${v.cls}`}>{v.label}</span>; })()}
+                </td>
                 <td className="td">{g.group_name || "—"}</td>
                 <td className="td text-slate-500">{g.agent || "—"}</td>
                 <td className="td font-medium">{g.pax}</td>
