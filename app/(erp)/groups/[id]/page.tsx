@@ -78,7 +78,12 @@ export default async function GroupDetail({ params }: { params: { id: string } }
     <div className="max-w-4xl space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-mono">{g.group_no}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold font-mono">{g.group_no}</h1>
+            <span className={`badge ${g.visa_type === "long_stay" ? "bg-purple-100 text-purple-700" : g.visa_type === "masar" ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"}`}>
+              {g.visa_type === "long_stay" ? "Long Stay Visa" : g.visa_type === "masar" ? "Masar Visa" : "Non Masar Visa"}
+            </span>
+          </div>
           <p className="text-slate-500">{g.group_name ?? "Visa Group"} · {g.pax} pax · {g.total_nights} nights</p>
         </div>
         <GroupHeaderActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} isAdmin={isAdmin} />
