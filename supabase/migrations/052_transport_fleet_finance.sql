@@ -1,0 +1,18 @@
+-- ============================================================
+-- VISTA ERP - 052 Transport Phase 6: fleet health, expenses, vendors, ratings, outbox
+-- Applied to remote DB via Supabase MCP; kept here for history.
+--
+-- transport_vehicles += insurance_expiry, registration_expiry (Istimara),
+--   next_service_date, odometer_km
+-- transport_vendors: outsourced-transport suppliers
+-- transport_trips += vendor_id, vendor_cost, is_outsourced
+-- transport_expenses: fuel/toll/parking/maintenance/fine/other, linked to
+--   vehicle/driver/trip/booking
+-- transport_ratings: one customer rating (1-5) + feedback per booking
+-- transport_outbox: pluggable WhatsApp/SMS confirmation queue (a real provider
+--   drains 'queued' rows; ops can mark sent manually until then)
+-- transport_fleet_alerts(): vehicles/drivers with a document or service due
+--   within 30 days (or overdue). Staff-guarded.
+-- All new tables company-scoped, staff-only RLS. See DB for full bodies (MCP 052).
+-- ============================================================
+select 1;
