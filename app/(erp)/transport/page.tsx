@@ -58,10 +58,14 @@ export default async function TransportOverview() {
         ))}
       </div>
 
-      <div className="mt-8 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-        <b>Coming next:</b> Bookings (single / multiple / package) with automatic pricing, the Operations
-        dashboard &amp; daily timeline, the auto driver-scheduling engine, dispatch sheets, white-label PDF
-        vouchers, and reports. The database and permissions for these are already in place.
+      <div className="mt-8 flex flex-wrap items-center gap-3 rounded-lg border border-brand/30 bg-brand/5 p-4">
+        <span className="text-sm text-slate-700">Create and manage transport bookings (single / multiple routes or a package) with automatic pricing.</span>
+        <Link href="/transport/bookings" className="btn ml-auto text-sm">Open Bookings →</Link>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+        <b>Coming next:</b> the Operations dashboard &amp; daily timeline, the auto driver-scheduling engine,
+        dispatch sheets, white-label PDF vouchers, and reports. The database and permissions are already in place.
       </div>
     </div>
   );
