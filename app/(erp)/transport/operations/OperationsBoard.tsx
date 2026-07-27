@@ -85,8 +85,9 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
         <button onClick={() => shift(1)} className="btn-outline text-sm">→</button>
         {date !== today && <button onClick={() => go(today)} className="btn-outline text-sm">Today</button>}
         <span className="text-sm text-slate-500">{date === today ? "Today" : date}</span>
-        <button onClick={async () => { const ok = await call("transport_auto_assign", { p_date: date }); }} disabled={busy}
-          className="btn ml-auto text-sm">{busy ? "Assigning…" : "⚙ Auto Assign Drivers"}</button>
+        <Link href={`/transport/operations/dispatch?date=${date}`} className="btn-outline ml-auto text-sm">📄 Driver Sheets</Link>
+        <button onClick={async () => { await call("transport_auto_assign", { p_date: date }); }} disabled={busy}
+          className="btn text-sm">{busy ? "Assigning…" : "⚙ Auto Assign Drivers"}</button>
       </div>
       {err && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 

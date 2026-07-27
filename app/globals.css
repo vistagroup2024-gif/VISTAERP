@@ -42,3 +42,14 @@ table th,
 table td {
   text-align: center !important;
 }
+
+/* Printable documents (vouchers, driver sheets): hide the app chrome so only
+   the .print-doc area prints on a clean white page. */
+@media print {
+  aside { display: none !important; }
+  .no-print { display: none !important; }
+  main { padding: 0 !important; }
+  body { background: #fff !important; }
+  .print-doc { box-shadow: none !important; }
+  table th, table td { text-align: left !important; }
+}

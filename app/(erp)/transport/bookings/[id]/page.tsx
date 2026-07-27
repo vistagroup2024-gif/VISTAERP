@@ -23,6 +23,8 @@ export default async function EditBookingPage({ params }: { params: { id: string
   return (
     <div className="max-w-5xl">
       <PageHeader title={`Booking ${b.booking_no ?? ""}`}>
+        <Link href={`/transport/bookings/${b.id}/voucher?brand=vista`} className="btn-outline">Vista Voucher</Link>
+        <Link href={`/transport/bookings/${b.id}/voucher?brand=agent`} className="btn-outline">Agent Voucher</Link>
         <Link href="/transport/bookings" className="btn-outline">All bookings</Link>
       </PageHeader>
       <BookingStatusBar id={b.id} status={b.status} />
