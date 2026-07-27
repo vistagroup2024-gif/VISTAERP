@@ -11,65 +11,71 @@ const CARDS = [
   { href: "/transport/drivers", icon: "🧑‍✈️", title: "Drivers", desc: "Driver master, documents, shift timing." },
 ];
 
-async function count(sb: any, table: string, filter?: [string, any]) {
-  let q = sb.from(table).select("id", { count: "exact", head: true });
-  if (filter) q = q.eq(filter[0], filter[1]);
-  const { count } = await q;
-  return count ?? 0;
-}
-
 export default async function TransportOverview() {
   const sb = createClient();
-  const [vehicles, routes, packages, drivers] = await Promise.all([
-    count(sb, "transport_vehicles", ["is_active", true]),
-    count(sb, "transport_routes", ["is_active", true]),
-    count(sb, "transport_packages", ["is_active", true]),
-    count(sb, "transport_drivers", ["status", "active"]),
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [{ data: todayBookings }, { data: todayTrips }, { data: pendingConf }, { data: upcomingAirport }] = await Promise.all([
+    sb.from("transport_bookings").select("total_amount, status").eq("booking_date", today),
+    sb.from("transport_trip_sched").select("status, driver_id, vehicle_id").eq("trip_date", today),
+    sb.from("transport_bookings").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    sb.from("transport_trip_sched").select("id", { count: "exact", head: true }).gte("trip_date", today).ilike("route_name", "%airport%"),
   ]);
-  const stats: Record<string, number> = { "/transport/vehicles": vehicles, "/transport/routes": routes, "/transport/packages": packages, "/transport/drivers": drivers };
+
+  const tb = todayBookings ?? [];
+  const tt = todayTrips ?? [];
+  const kpi = {
+    bookings: tb.length,
+    revenue: tb.filter((b: any) => b.status !== "cancelled").reduce((s: number, b: any) => s + Number(b.total_amount || 0), 0),
+    inProgress: tt.filter((t: any) => ["on_route", "picked_up"].includes(t.status)).length,
+    driversWorking: new Set(tt.filter((t: any) => t.driver_id).map((t: any) => t.driver_id)).size,
+    vehiclesRunning: new Set(tt.filter((t: any) => ["on_route", "picked_up"].includes(t.status) && t.vehicle_id).map((t: any) => t.vehicle_id)).size,
+    pendingConf: (pendingConf as any) ?? 0,
+    pendingAssign: tt.filter((t: any) => !t.driver_id && t.status !== "cancelled" && t.status !== "completed").length,
+    airport: (upcomingAirport as any) ?? 0,
+  };
+
+  const KPIS = [
+    ["Today’s Bookings", kpi.bookings], ["Today’s Revenue", `${kpi.revenue.toFixed(0)} SAR`],
+    ["Trips In Progress", kpi.inProgress], ["Vehicles Running", kpi.vehiclesRunning],
+    ["Drivers Working", kpi.driversWorking], ["Pending Confirmations", kpi.pendingConf],
+    ["Pending Assignments", kpi.pendingAssign], ["Upcoming Airport Trips", kpi.airport],
+  ] as const;
 
   return (
     <div className="max-w-4xl">
-      <PageHeader title="Transport Management" />
-      <p className="mb-6 text-sm text-slate-500">
-        Manage all transportation services for Umrah pilgrims — from rate setup and packages to bookings,
-        operations, driver scheduling and dispatch. Start by building the master data below.
-      </p>
+      <PageHeader title="Transport Management">
+        <Link href="/transport/operations" className="btn-outline">Operations</Link>
+        <Link href="/transport/reports" className="btn-outline">Reports</Link>
+        <Link href="/transport/bookings/new" className="btn">+ New Booking</Link>
+      </PageHeader>
 
-      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {CARDS.map((c) => (
-          <Link key={c.href} href={c.href} className="card transition hover:shadow-md">
-            <div className="text-2xl">{c.icon}</div>
-            <div className="mt-2 text-2xl font-bold text-slate-800">{stats[c.href]}</div>
-            <div className="text-sm font-medium text-slate-600">{c.title}</div>
-          </Link>
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {KPIS.map(([label, value]) => (
+          <div key={label} className="card text-center">
+            <div className="text-2xl font-bold text-slate-800">{value}</div>
+            <div className="text-xs text-slate-500">{label}</div>
+          </div>
         ))}
       </div>
 
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Link href="/transport/operations" className="card flex items-start gap-3 transition hover:shadow-md">
+          <span className="text-xl">🗓</span><span><span className="block font-semibold text-slate-800">Operations</span><span className="block text-sm text-slate-500">Daily timeline, auto driver assignment, live tracking, dispatch sheets.</span></span>
+        </Link>
+        <Link href="/transport/bookings" className="card flex items-start gap-3 transition hover:shadow-md">
+          <span className="text-xl">📕</span><span><span className="block font-semibold text-slate-800">Bookings</span><span className="block text-sm text-slate-500">Single / multiple / package bookings with automatic pricing & vouchers.</span></span>
+        </Link>
+      </div>
+
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Master Data</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {CARDS.map((c) => (
           <Link key={c.href} href={c.href} className="card flex items-start gap-3 transition hover:shadow-md">
             <span className="text-xl">{c.icon}</span>
-            <span>
-              <span className="block font-semibold text-slate-800">{c.title}</span>
-              <span className="block text-sm text-slate-500">{c.desc}</span>
-            </span>
+            <span><span className="block font-semibold text-slate-800">{c.title}</span><span className="block text-sm text-slate-500">{c.desc}</span></span>
           </Link>
         ))}
-      </div>
-
-      <div className="mt-8 flex flex-wrap items-center gap-3 rounded-lg border border-brand/30 bg-brand/5 p-4">
-        <span className="text-sm text-slate-700">Create and manage transport bookings (single / multiple routes or a package) with automatic pricing.</span>
-        <Link href="/transport/bookings" className="btn ml-auto text-sm">Open Bookings →</Link>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-brand/30 bg-brand/5 p-4">
-        <span className="text-sm text-slate-700">Run the day: daily timeline, one-click auto driver assignment, and live trip tracking.</span>
-        <Link href="/transport/operations" className="btn ml-auto text-sm">Open Operations →</Link>
-      </div>
-
-      <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-        <b>Coming next:</b> dispatch driver sheets, white-label PDF vouchers, and reports. The database and permissions are already in place.
       </div>
     </div>
   );
