@@ -14,7 +14,7 @@ interface Alloc {
 }
 
 export default function GroupAllocation({
-  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, workflowStatus, packageStatus, allocations,
+  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, workflowStatus, brnAvailability, packageStatus, allocations,
 }: {
   groupId: string;
   pax: number;
@@ -23,6 +23,7 @@ export default function GroupAllocation({
   visaIssuedAt: string | null;
   isAdmin: boolean;
   workflowStatus: string;
+  brnAvailability?: string | null;
   packageStatus: string | null;
   allocations: Alloc[];
 }) {
@@ -102,6 +103,9 @@ export default function GroupAllocation({
           </p>
         ) : (
         <>
+          {brnAvailability === "complete" && <div className="rounded-lg bg-teal-50 px-4 py-2 text-sm font-medium text-teal-800">✅ Ready to Allocate — full BRN coverage is available.</div>}
+          {brnAvailability === "partial" && <div className="rounded-lg bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">🟡 Ready to Allocate (partial) — only partial coverage available; the package will be flagged for update.</div>}
+          {brnAvailability === "none" && <div className="rounded-lg bg-orange-50 px-4 py-2 text-sm font-medium text-orange-800">⏳ Waiting BRN — no allocatable coverage yet. Purchase inventory for this company.</div>}
           <p className="text-sm text-slate-500">
             Auto-allocation covers the full stay with one Madinah night when possible; otherwise it falls back to partial coverage (min 3 nights) and flags the package for update.
           </p>

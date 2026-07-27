@@ -276,7 +276,14 @@ export default function GroupForm({
 
   return (
     <div className="max-w-3xl">
-      <h1 className="mb-1 text-2xl font-bold">{isEdit ? (isAgent ? (existing?.group_no ?? "Visa Group") : "Edit Visa Group") : "New Visa Group"}</h1>
+      <div className="mb-1 flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-bold">{isEdit ? (isAgent ? (existing?.group_no ?? "Visa Group") : "Edit Visa Group") : "New Visa Group"}</h1>
+        {isEdit && (
+          <span className="badge bg-brand/10 text-brand-dark">
+            {visaType === "long_stay" ? "Long Stay Visa" : visaType === "masar" ? "Masar Visa" : "Non Masar Visa"}
+          </span>
+        )}
+      </div>
       <p className="mb-6 text-sm text-slate-500">
         {isEdit ? "Update group details." : "Register a group. After saving you can auto-allocate hotel BRNs for the stay."}
       </p>

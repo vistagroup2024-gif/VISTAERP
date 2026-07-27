@@ -48,10 +48,10 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
   const supabase = createClient();
   const [{ data: pendGroups }, { data: updGroups }, { data: brns }, { data: cons }, { data: companies }] = await Promise.all([
     supabase.from("umrah_groups")
-      .select("id, group_no, pax, arrival_date, departure_date, group_company_id")
+      .select("id, group_no, pax, arrival_date, departure_date, group_company_id, visa_type")
       .eq("brn_status", "pending").neq("visa_status", "issued"),
     supabase.from("umrah_groups")
-      .select("id, pax, arrival_date, departure_date, group_company_id")
+      .select("id, pax, arrival_date, departure_date, group_company_id, visa_type")
       .eq("package_status", "update_required"),
     supabase.from("brn_inventory").select("*"),
     supabase.from("brn_consumption").select("*"),
@@ -76,13 +76,15 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
     nightsBetween(a.brn_consumption.check_in, a.brn_consumption.check_out).forEach((n) => set.add(n));
   });
 
+  // Long Stay groups never use hotel BRNs — exclude from purchase planning entirely.
+  const notLongStay = (g: any) => (g.visa_type ?? "normal") !== "long_stay";
   // New groups: full stay demand. Pending package updates: only uncovered nights.
   const rawItems: CItem[] = [
-    ...(pendGroups ?? []).map((g: any) => ({
+    ...(pendGroups ?? []).filter(notLongStay).map((g: any) => ({
       companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date, departure: g.departure_date,
       nights: new Set(nightsBetween(g.arrival_date, g.departure_date)),
     })),
-    ...(updGroups ?? []).map((g: any) => {
+    ...(updGroups ?? []).filter(notLongStay).map((g: any) => {
       const cov = coveredByGroup[g.id] ?? new Set<string>();
       const need = nightsBetween(g.arrival_date, g.departure_date).filter((n) => !cov.has(n));
       return { companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date, departure: g.departure_date, nights: new Set(need) };

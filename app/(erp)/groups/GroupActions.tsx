@@ -16,8 +16,8 @@ const NEXT: Record<string, { label: string; fn: string; args?: any }> = {
 type Item = { label: string; onClick: () => void; danger?: boolean };
 
 export default function GroupActions({
-  groupId, brnStatus, visaStatus, isAdmin, workflowStatus, agentPending,
-}: { groupId: string; brnStatus: string; visaStatus: string; isAdmin: boolean; workflowStatus: string; agentPending?: boolean }) {
+  groupId, brnStatus, visaStatus, isAdmin, workflowStatus, visaType, agentPending,
+}: { groupId: string; brnStatus: string; visaStatus: string; isAdmin: boolean; workflowStatus: string; visaType?: string; agentPending?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
@@ -26,7 +26,10 @@ export default function GroupActions({
   const ref = useRef<HTMLDivElement>(null);
 
   const stage = workflowStatus || (visaStatus === "issued" ? "visa_issued" : brnStatus === "allocated" ? "brn_allocated" : "pending");
-  const next = NEXT[stage];
+  // Long Stay skips BRN allocation — from Process go straight to ERP Created.
+  const next = stage === "process" && visaType === "long_stay"
+    ? { label: "ERP Created", fn: "advance_workflow", args: { p_to: "erp_created" } }
+    : NEXT[stage];
 
   useEffect(() => {
     function onDoc(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
