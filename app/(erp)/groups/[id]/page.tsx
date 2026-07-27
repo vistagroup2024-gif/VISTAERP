@@ -162,7 +162,7 @@ export default async function GroupDetail({ params }: { params: { id: string } }
 
       {g.visa_type === "masar" && g.agent_brn_pending && <AgentBrnAdder groupId={g.id} />}
 
-      <AttachmentsPanel endpoint="/api/attachments" groupId={g.id} canEdit={g.visa_status !== "issued"} />
+      <AttachmentsPanel endpoint="/api/attachments" groupId={g.id} canUpload={g.visa_status !== "issued"} canDelete={g.visa_status !== "issued"} />
 
       {g.visa_type !== "long_stay" && (
         <GroupAllocation
