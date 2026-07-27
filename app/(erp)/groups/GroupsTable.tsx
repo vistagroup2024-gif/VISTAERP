@@ -20,6 +20,7 @@ export interface GroupRow {
   brn_status: string;
   visa_status: string;
   workflow_status: string;
+  visa_type: string;
   agent_brn_pending: boolean;
   package_status: string | null;
   visa_label: string;
@@ -39,6 +40,9 @@ const VISA_CLS: Record<string, string> = {
   "ERP Created": "bg-indigo-100 text-indigo-700",
   "BRN Allocated": "bg-green-100 text-green-700",
   "Process": "bg-blue-100 text-blue-700",
+  "Ready to Allocate": "bg-teal-100 text-teal-800",
+  "Ready to Allocate (partial)": "bg-amber-100 text-amber-800",
+  "Waiting BRN": "bg-orange-100 text-orange-700",
   "Payment Pending": "bg-rose-100 text-rose-700",
   "Rejected": "bg-red-100 text-red-700",
   "Pending": "bg-yellow-100 text-yellow-800",
@@ -246,7 +250,7 @@ export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdm
                 <td className="td">{g.total_nights}</td>
                 <td className="td"><span className={`badge ${VISA_CLS[g.visa_label] ?? "bg-slate-100"}`}>{g.visa_label}</span></td>
                 <td className="td">{g.package_status ? <span className={`badge ${PKG_CLS[g.package_label] ?? "bg-slate-100 text-slate-600"}`}>{g.package_label}</span> : <span className="text-slate-300">—</span>}</td>
-                <td className="td"><GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} workflowStatus={g.workflow_status} agentPending={g.agent_brn_pending} isAdmin={isAdmin} /></td>
+                <td className="td"><GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} workflowStatus={g.workflow_status} visaType={g.visa_type} agentPending={g.agent_brn_pending} isAdmin={isAdmin} /></td>
               </tr>
             ))}
             {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={COLS.length + 2}>No matching groups.</td></tr>}

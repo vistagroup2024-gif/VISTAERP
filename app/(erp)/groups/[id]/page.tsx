@@ -38,6 +38,11 @@ export default async function GroupDetail({ params }: { params: { id: string } }
 
   const A = (allocations ?? []) as any[];
 
+  // BRN readiness once the group is in Process (complete / partial / none).
+  const { data: brnAvail } = g.workflow_status === "process" && g.visa_type !== "long_stay"
+    ? await supabase.rpc("brn_availability", { p_group: g.id })
+    : { data: null };
+
   // Is the current user an admin? (controls reopen)
   const { data: { user } } = await supabase.auth.getUser();
   const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user?.id ?? "");
@@ -163,6 +168,7 @@ export default async function GroupDetail({ params }: { params: { id: string } }
           visaIssuedAt={g.visa_issued_at}
           isAdmin={isAdmin}
           workflowStatus={g.workflow_status ?? "pending"}
+          brnAvailability={(brnAvail as string) ?? null}
           packageStatus={g.package_status}
           allocations={A}
         />
