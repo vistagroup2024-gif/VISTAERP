@@ -7,11 +7,11 @@ import { COMPANY_ID } from "@/lib/format";
 
 interface Vehicle {
   id: string; category: string | null; name: string;
-  seating_capacity: number | null; luggage_capacity: string | null; image: string | null;
+  seating_capacity: number | null; luggage_capacity: string | null; upgrade_rank: number | null; image: string | null;
   is_active: boolean; sort_order: number;
 }
 
-const BLANK = { category: "", name: "", seating_capacity: "", luggage_capacity: "", image: "" };
+const BLANK = { category: "", name: "", seating_capacity: "", luggage_capacity: "", upgrade_rank: "", image: "" };
 
 export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
   const router = useRouter();
@@ -33,6 +33,7 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
       name: form.name.trim(),
       seating_capacity: form.seating_capacity ? Number(form.seating_capacity) : null,
       luggage_capacity: form.luggage_capacity.trim() || null,
+      upgrade_rank: form.upgrade_rank ? Number(form.upgrade_rank) : null,
       image: form.image.trim() || null,
     });
     setBusy(false);
@@ -50,7 +51,7 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
     setEditId(v.id);
     setEdit({
       category: v.category ?? "", name: v.name,
-      seating_capacity: v.seating_capacity ?? "", luggage_capacity: v.luggage_capacity ?? "", image: v.image ?? "",
+      seating_capacity: v.seating_capacity ?? "", luggage_capacity: v.luggage_capacity ?? "", upgrade_rank: v.upgrade_rank ?? "", image: v.image ?? "",
     });
   }
 
@@ -61,6 +62,7 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
       name: edit.name.trim(),
       seating_capacity: edit.seating_capacity ? Number(edit.seating_capacity) : null,
       luggage_capacity: edit.luggage_capacity.trim() || null,
+      upgrade_rank: edit.upgrade_rank ? Number(edit.upgrade_rank) : null,
       image: edit.image.trim() || null,
     }).eq("id", id);
     setBusy(false);
@@ -91,6 +93,8 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
           <input className="input" type="number" min="0" value={form.seating_capacity} onChange={(e) => setForm({ ...form, seating_capacity: e.target.value })} /></div>
         <div className="sm:col-span-1"><label className="label">Luggage</label>
           <input className="input" placeholder="e.g. 4 bags" value={form.luggage_capacity} onChange={(e) => setForm({ ...form, luggage_capacity: e.target.value })} /></div>
+        <div className="sm:col-span-1"><label className="label">Upgrade rank</label>
+          <input className="input" type="number" min="0" placeholder="Camry=1…" value={form.upgrade_rank} onChange={(e) => setForm({ ...form, upgrade_rank: e.target.value })} /></div>
         <div className="flex items-end sm:col-span-1"><button className="btn w-full" disabled={busy}>{busy ? "…" : "+ Add"}</button></div>
         <div className="sm:col-span-6"><label className="label">Image URL (optional)</label>
           <input className="input" placeholder="https://…" value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} /></div>
@@ -102,7 +106,7 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
-            <tr><th className="th">Vehicle</th><th className="th">Category</th><th className="th">Seats</th><th className="th">Luggage</th><th className="th">Status</th><th className="th">Actions</th></tr>
+            <tr><th className="th">Vehicle</th><th className="th">Category</th><th className="th">Seats</th><th className="th">Luggage</th><th className="th">Rank</th><th className="th">Status</th><th className="th">Actions</th></tr>
           </thead>
           <tbody>
             {rows.map((v) => editId === v.id ? (
@@ -111,6 +115,7 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
                 <td className="td"><input className="input" value={edit.category} onChange={(e) => setEdit({ ...edit, category: e.target.value })} /></td>
                 <td className="td"><input className="input w-16" type="number" value={edit.seating_capacity} onChange={(e) => setEdit({ ...edit, seating_capacity: e.target.value })} /></td>
                 <td className="td"><input className="input" value={edit.luggage_capacity} onChange={(e) => setEdit({ ...edit, luggage_capacity: e.target.value })} /></td>
+                <td className="td"><input className="input w-16" type="number" value={edit.upgrade_rank} onChange={(e) => setEdit({ ...edit, upgrade_rank: e.target.value })} /></td>
                 <td className="td" colSpan={2}>
                   <button onClick={() => saveEdit(v.id)} disabled={busy} className="text-sm font-medium text-brand hover:underline">Save</button>
                   <button onClick={() => setEditId(null)} className="ml-3 text-sm text-slate-500 hover:underline">Cancel</button>
@@ -122,6 +127,7 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
                 <td className="td">{v.category ?? "—"}</td>
                 <td className="td">{v.seating_capacity ?? "—"}</td>
                 <td className="td">{v.luggage_capacity ?? "—"}</td>
+                <td className="td">{v.upgrade_rank ?? "—"}</td>
                 <td className="td">
                   <button onClick={() => toggleActive(v)} className={`rounded-full px-2 py-0.5 text-xs font-medium ${v.is_active ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500"}`}>
                     {v.is_active ? "Active" : "Inactive"}

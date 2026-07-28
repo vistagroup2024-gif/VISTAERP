@@ -8,7 +8,7 @@ export default async function VehiclesPage() {
   const supabase = createClient();
   const { data: rows } = await supabase
     .from("transport_vehicles")
-    .select("id, category, name, vehicle_type, seating_capacity, luggage_capacity, image, is_active, sort_order, created_at")
+    .select("id, category, name, seating_capacity, luggage_capacity, upgrade_rank, image, is_active, sort_order, created_at")
     .order("sort_order")
     .order("name");
 
