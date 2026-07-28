@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 
 const CARDS = [
   { href: "/transport/vehicles", icon: "🚗", title: "Vehicles", desc: "Fleet master — categories, capacity, images." },
-  { href: "/transport/routes", icon: "🛣", title: "Routes & Rates", desc: "Routes with driving time, rest rules and per-vehicle rates." },
+  { href: "/transport/routes", icon: "🛣", title: "Routes", desc: "Routes with driving time and the airport flag." },
+  { href: "/transport/rates", icon: "💲", title: "Rate Master", desc: "Effective-dated agent & vendor rates with history." },
   { href: "/transport/packages", icon: "🧳", title: "Packages", desc: "Bundle multiple trips into a fixed-price package." },
   { href: "/transport/drivers", icon: "🧑‍✈️", title: "Drivers", desc: "Driver master, documents, shift timing." },
 ];

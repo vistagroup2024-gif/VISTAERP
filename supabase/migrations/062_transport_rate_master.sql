@@ -1,0 +1,13 @@
+-- ============================================================
+-- VISTA ERP - 062 Transport Rate Master
+-- Applied to remote DB via Supabase MCP; kept here for history.
+-- transport_agent_rates (per-agent, agent_id null = default/direct selling rate)
+-- and transport_vendor_rates (vendor purchase rate), both effective-dated
+-- (effective_from / effective_to) with status; staff RLS. Seeded agent rates
+-- from the legacy transport_route_rates. transport_agent_rate(company, agent,
+-- route, vehicle, date) resolves the effective selling rate (agent-specific
+-- first, else default). transport_save_booking + b2b_transport_save_booking now
+-- price each trip from the effective agent rate on the booking date.
+-- See the database for the current bodies (identical to MCP 062).
+-- ============================================================
+select 1;
