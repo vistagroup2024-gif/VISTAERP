@@ -24,3 +24,28 @@ export function staffCan(access: StaffAccess, key: string): boolean {
   if (access.unrestricted) return true;
   return !!access.permissions[key];
 }
+
+// First module a user can land on, in priority order. Used to route a restricted
+// user away from a page they can't see (e.g. the Dashboard).
+const LANDING: [string, string][] = [
+  ["dashboard.view", "/dashboard"],
+  ["visa.view", "/groups"],
+  ["brn.view", "/inventory"],
+  ["transport.bookings", "/transport"],
+  ["transport.operations", "/transport"],
+  ["transport.masters", "/transport"],
+  ["transport.vehicles", "/transport"],
+  ["transport.reports", "/transport"],
+  ["hotels.bookings", "/hotels"],
+  ["hotels.masters", "/hotels"],
+  ["sales.view", "/bookings"],
+  ["accounting.view", "/accounting/accounts"],
+  ["purchase.view", "/purchase/bills"],
+  ["users.view", "/settings/users"],
+];
+
+export function staffLanding(access: StaffAccess): string {
+  if (access.unrestricted) return "/dashboard";
+  for (const [key, path] of LANDING) if (access.permissions[key]) return path;
+  return "/dashboard";
+}

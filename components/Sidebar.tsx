@@ -174,7 +174,9 @@ function SidebarContent({ name, access, onClose }: { name: string; access?: Staf
         </div>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        <NavLink {...DASHBOARD} onClick={onClose} />
+        {(!access || access.unrestricted || access.permissions["dashboard.view"]) && (
+          <NavLink {...DASHBOARD} onClick={onClose} />
+        )}
         {visibleGroups(access).map((g) => <CollapsibleGroup key={g.label} group={g} onClose={onClose} />)}
       </nav>
       <button onClick={signOut}

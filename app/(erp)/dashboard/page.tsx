@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { money } from "@/lib/format";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
+import { getStaffAccess, staffCan, staffLanding } from "@/lib/staffSession";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +21,16 @@ export default async function Dashboard() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: roles } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", user!.id);
+  // Permission gate: send users who lack Dashboard access to their first module.
+  const access = await getStaffAccess();
+  if (!staffCan(access, "dashboard.view")) {
+    const dest = staffLanding(access);
+    if (dest !== "/dashboard") redirect(dest);
+  }
 
-  const hasRole = (roles?.length ?? 0) > 0;
+  // Genuine RLS blocker: a profile with no company_id can't see any data.
+  const { data: prof } = await supabase.from("profiles").select("company_id").eq("id", user!.id).maybeSingle();
+  const noCompany = !(prof as any)?.company_id;
 
   const [bookings, packages, hotels, invoices] = await Promise.all([
     count("bookings"),
@@ -59,12 +65,10 @@ export default async function Dashboard() {
       <RealtimeRefresh tables={["umrah_groups", "brn_inventory", "brn_consumption", "group_brn_allocation"]} />
       <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
 
-      {!hasRole && (
+      {noCompany && (
         <div className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Your account has no role assigned yet, so data is hidden by row-level
-          security. An admin must add a role in <code>user_roles</code> (e.g.
-          <code> admin</code>) and set your <code>company_id</code> in{" "}
-          <code>profiles</code>. See the README for the bootstrap SQL.
+          Your account isn’t linked to a company yet, so data is hidden by row-level security.
+          An admin must set your <code>company_id</code> in <code>profiles</code>.
         </div>
       )}
 
