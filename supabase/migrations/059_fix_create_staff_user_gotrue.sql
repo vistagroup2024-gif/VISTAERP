@@ -1,0 +1,18 @@
+-- ============================================================
+-- VISTA ERP - 059 Fix staff-user creation for GoTrue login
+-- Applied to remote DB via Supabase MCP; kept here for history.
+--
+-- Bug: users created by create_staff_user_v2 could not log in ("Invalid
+-- credentials") even with a correct password, because:
+--   1. the email identity's provider_id was the email, not the user's UUID
+--      (GoTrue resolves the account by provider_id), and
+--   2. the auth token columns (confirmation_token, recovery_token,
+--      email_change*, reauthentication_token) were left NULL — GoTrue scans
+--      them into non-nullable Go strings and fails the sign-in.
+--
+-- Fix: create_staff_user_v2 now sets provider_id = user UUID and initialises all
+-- token columns to '' (email_change_confirm_status = 0). Existing @vista.local
+-- users were repaired with a one-off UPDATE.
+-- See the database for the current function body (identical to MCP 059).
+-- ============================================================
+select 1;
