@@ -4,10 +4,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import MultiSelectFilter from "@/components/MultiSelectFilter";
 
 interface Trip {
   id: string; booking_id: string; booking_no: string | null; passenger_name: string | null; mobile: string | null;
-  route_display: string; vehicle_id: string | null; vehicle_name: string | null; requested_vehicle_name: string | null;
+  route_id: string | null; route_display: string; vehicle_id: string | null; vehicle_name: string | null; requested_vehicle_name: string | null;
   is_upgraded: boolean; driver_id: string | null; driver_name: string | null;
   trip_time: string | null; pickup_location: string | null; drop_location: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
@@ -34,7 +35,34 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
   const [assignFor, setAssignFor] = useState<string | null>(null);
   const [conflict, setConflict] = useState<{ tripId: string; driverId: string; driverName: string; reason: string } | null>(null);
   const [forceReason, setForceReason] = useState("");
+  const [fVehicle, setFVehicle] = useState<string[]>([]);
+  const [fRoute, setFRoute] = useState<string[]>([]);
+  const [fManaged, setFManaged] = useState<string[]>([]);
   const now = new Date();
+
+  // Filter options (Excel-style). "Managed By" = the assigned driver, or the
+  // Outsource queue, or Unassigned.
+  const vehicleOpts = useMemo(() => vehicles.map((v) => ({ value: v.id, label: v.name })), [vehicles]);
+  const routeOpts = useMemo(() => {
+    const seen = new Map<string, string>();
+    trips.forEach((t) => { if (t.route_id) seen.set(t.route_id, t.route_display); });
+    return Array.from(seen.entries()).map(([value, label]) => ({ value, label }));
+  }, [trips]);
+  const managedOpts = useMemo(() => ([
+    ...drivers.filter((d) => d.status === "active").map((d) => ({ value: d.id, label: d.name })),
+    { value: "__outsource", label: "Outsource queue" }, { value: "__unassigned", label: "Unassigned" },
+  ]), [drivers]);
+
+  function managedKey(t: Trip) {
+    if (t.status === "outsource_required") return "__outsource";
+    if (t.driver_id) return t.driver_id;
+    return "__unassigned";
+  }
+  const filtered = useMemo(() => trips.filter((t) =>
+    (fVehicle.length === 0 || (t.vehicle_id && fVehicle.includes(t.vehicle_id))) &&
+    (fRoute.length === 0 || (t.route_id && fRoute.includes(t.route_id))) &&
+    (fManaged.length === 0 || fManaged.includes(managedKey(t)))
+  ), [trips, fVehicle, fRoute, fManaged]);
 
   function go(d: string) { router.push(`/transport/operations?date=${d}`); }
   function shift(days: number) {
@@ -127,13 +155,26 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
         <KPI label="Vehicles" value={kpis.vehiclesAvail} />
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <MultiSelectFilter label="Vehicle" options={vehicleOpts} selected={fVehicle} onChange={setFVehicle} />
+        <MultiSelectFilter label="Route" options={routeOpts} selected={fRoute} onChange={setFRoute} />
+        <MultiSelectFilter label="Managed By" options={managedOpts} selected={fManaged} onChange={setFManaged} />
+        {(fVehicle.length || fRoute.length || fManaged.length) > 0 && (
+          <button onClick={() => { setFVehicle([]); setFRoute([]); setFManaged([]); }} className="text-sm text-slate-500 hover:underline">Clear filters</button>
+        )}
+        <span className="ml-auto text-sm text-slate-500">{filtered.length} of {trips.length} trip(s)</span>
+      </div>
+
       {/* Timeline */}
       {trips.length === 0 ? (
         <div className="card text-slate-400">No trips scheduled for this day.</div>
+      ) : filtered.length === 0 ? (
+        <div className="card text-slate-400">No trips match the current filters.</div>
       ) : (
         <div className="space-y-4">
           {SLOTS.map(([name], si) => {
-            const rows = trips.filter((t) => slotOf(t) === si);
+            const rows = filtered.filter((t) => slotOf(t) === si);
             if (!rows.length) return null;
             return (
               <div key={name}>
