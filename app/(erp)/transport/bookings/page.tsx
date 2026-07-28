@@ -8,16 +8,16 @@ export default async function BookingsPage({ searchParams }: { searchParams: { c
   const sb = createClient();
   const { data: rows } = await sb
     .from("transport_bookings")
-    .select("id, booking_no, booking_type, status, passenger_name, mobile, pax, booking_date, total_amount, currency, group_company_id, created_at")
+    .select("id, booking_no, booking_type, status, passenger_name, mobile, pax, booking_date, total_amount, currency, agent_id, created_at")
     .order("created_at", { ascending: false })
     .limit(500);
 
-  const companyIds = Array.from(new Set((rows ?? []).map((r: any) => r.group_company_id).filter(Boolean)));
-  const { data: companies } = companyIds.length
-    ? await sb.from("group_companies").select("id, name").in("id", companyIds)
+  const agentIds = Array.from(new Set((rows ?? []).map((r: any) => r.agent_id).filter(Boolean)));
+  const { data: agents } = agentIds.length
+    ? await sb.from("b2b_agents").select("id, agency_name").in("id", agentIds)
     : { data: [] as any[] };
-  const cName = new Map((companies ?? []).map((c: any) => [c.id, c.name]));
-  const enriched = (rows ?? []).map((r: any) => ({ ...r, company_name: r.group_company_id ? cName.get(r.group_company_id) ?? null : null }));
+  const aName = new Map((agents ?? []).map((a: any) => [a.id, a.agency_name]));
+  const enriched = (rows ?? []).map((r: any) => ({ ...r, agent_name: r.agent_id ? aName.get(r.agent_id) ?? null : "Direct" }));
 
   return (
     <div className="max-w-6xl">

@@ -24,11 +24,11 @@ const blankTrip = (): Trip => ({ route_id: "", route_label: "", vehicle_id: "", 
 const TYPE_LABEL: Record<string, string> = { with_ziyarat: "With Ziyarat", without_ziyarat: "Without Ziyarat" };
 
 export default function TransportBookingForm({
-  existing, existingTrips, routes, vehicles, packages, rates, packagePrices = [], companies, agents,
+  existing, existingTrips, routes, vehicles, packages, rates, packagePrices = [], agents,
   variant = "admin", endpoint, basePath = "/transport/bookings",
 }: {
   existing: any | null; existingTrips: any[];
-  routes: Route[]; vehicles: Vehicle[]; packages: Pkg[]; rates: Rate[]; packagePrices?: PkgPrice[]; companies: Company[]; agents: Agent[];
+  routes: Route[]; vehicles: Vehicle[]; packages: Pkg[]; rates: Rate[]; packagePrices?: PkgPrice[]; companies?: Company[]; agents: Agent[];
   variant?: "admin" | "agent"; endpoint?: string; basePath?: string;
 }) {
   const router = useRouter();
@@ -167,10 +167,6 @@ export default function TransportBookingForm({
           {!isAgent && <div><label className="label">Agent</label>
             <select className="input" value={h.agent_id} onChange={(e) => setH({ ...h, agent_id: e.target.value })}>
               <option value="">— direct —</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}
-            </select></div>}
-          {!isAgent && <div><label className="label">Company</label>
-            <select className="input" value={h.group_company_id} onChange={(e) => setH({ ...h, group_company_id: e.target.value })}>
-              <option value="">— none —</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select></div>}
           <div><label className="label">Haji name</label><input className="input" value={h.passenger_name} onChange={(e) => setH({ ...h, passenger_name: e.target.value })} /></div>
           <div><label className="label">Mobile</label><input className="input" value={h.mobile} onChange={(e) => setH({ ...h, mobile: e.target.value })} /></div>

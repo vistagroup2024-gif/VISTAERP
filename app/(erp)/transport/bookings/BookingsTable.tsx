@@ -6,7 +6,7 @@ import Link from "next/link";
 interface Row {
   id: string; booking_no: string | null; booking_type: string; status: string;
   passenger_name: string | null; mobile: string | null; pax: number | null; booking_date: string | null;
-  total_amount: number; currency: string; company_name: string | null;
+  total_amount: number; currency: string; agent_name: string | null;
 }
 
 const LABEL: Record<string, string> = {
@@ -28,7 +28,7 @@ export default function BookingsTable({ initial }: { initial: Row[] }) {
     if (status && r.status !== status) return false;
     if (!q) return true;
     const s = q.toLowerCase();
-    return [r.booking_no, r.passenger_name, r.mobile, r.company_name].some((x) => (x ?? "").toLowerCase().includes(s));
+    return [r.booking_no, r.passenger_name, r.mobile, r.agent_name].some((x) => (x ?? "").toLowerCase().includes(s));
   });
 
   return (
@@ -45,14 +45,14 @@ export default function BookingsTable({ initial }: { initial: Row[] }) {
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
-            <tr><th className="th">Booking #</th><th className="th">Passenger</th><th className="th">Company</th><th className="th">Type</th><th className="th">Date</th><th className="th">Pax</th><th className="th">Total</th><th className="th">Status</th></tr>
+            <tr><th className="th">Booking #</th><th className="th">Passenger</th><th className="th">Agent</th><th className="th">Type</th><th className="th">Date</th><th className="th">Pax</th><th className="th">Total</th><th className="th">Status</th></tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
                 <td className="td font-medium"><Link href={`/transport/bookings/${r.id}`} className="text-brand hover:underline">{r.booking_no ?? "—"}</Link></td>
                 <td className="td">{r.passenger_name ?? "—"}<div className="text-xs text-slate-400">{r.mobile ?? ""}</div></td>
-                <td className="td">{r.company_name ?? "—"}</td>
+                <td className="td">{r.agent_name ?? "—"}</td>
                 <td className="td">{TYPE[r.booking_type] ?? r.booking_type}</td>
                 <td className="td">{r.booking_date ?? "—"}</td>
                 <td className="td">{r.pax ?? "—"}</td>

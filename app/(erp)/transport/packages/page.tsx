@@ -6,21 +6,19 @@ export const dynamic = "force-dynamic";
 
 export default async function PackagesPage() {
   const supabase = createClient();
-  const [{ data: packages }, { data: vehicles }] = await Promise.all([
-    supabase.from("transport_packages")
-      .select("id, name, package_type, duration_days, vehicle_id, price, currency, is_active")
-      .order("name"),
-    supabase.from("transport_vehicles").select("id, name").order("name"),
-  ]);
+  const { data: packages } = await supabase
+    .from("transport_packages")
+    .select("id, name, package_type, is_active")
+    .order("name");
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-4xl">
       <PageHeader title="Transport Packages" />
       <p className="mb-4 text-sm text-slate-500">
-        Complete transport packages. The package price is <b>independent</b> of individual route rates.
-        Open a package to build its included trips.
+        Define a package name and type. Open a package to build its included trips and set its
+        <b> per-vehicle prices</b>.
       </p>
-      <PackageManager initial={(packages as any[]) ?? []} vehicles={(vehicles as any[]) ?? []} />
+      <PackageManager initial={(packages as any[]) ?? []} />
     </div>
   );
 }

@@ -6,12 +6,12 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 
 interface Vehicle {
-  id: string; category: string | null; name: string; vehicle_type: string | null;
+  id: string; category: string | null; name: string;
   seating_capacity: number | null; luggage_capacity: string | null; image: string | null;
   is_active: boolean; sort_order: number;
 }
 
-const BLANK = { category: "", name: "", vehicle_type: "", seating_capacity: "", luggage_capacity: "", image: "" };
+const BLANK = { category: "", name: "", seating_capacity: "", luggage_capacity: "", image: "" };
 
 export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
   const router = useRouter();
@@ -31,7 +31,6 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
       company_id: COMPANY_ID,
       category: form.category.trim() || null,
       name: form.name.trim(),
-      vehicle_type: form.vehicle_type.trim() || null,
       seating_capacity: form.seating_capacity ? Number(form.seating_capacity) : null,
       luggage_capacity: form.luggage_capacity.trim() || null,
       image: form.image.trim() || null,
@@ -50,7 +49,7 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
   function startEdit(v: Vehicle) {
     setEditId(v.id);
     setEdit({
-      category: v.category ?? "", name: v.name, vehicle_type: v.vehicle_type ?? "",
+      category: v.category ?? "", name: v.name,
       seating_capacity: v.seating_capacity ?? "", luggage_capacity: v.luggage_capacity ?? "", image: v.image ?? "",
     });
   }
@@ -60,7 +59,6 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
     const { error } = await supabase.from("transport_vehicles").update({
       category: edit.category.trim() || null,
       name: edit.name.trim(),
-      vehicle_type: edit.vehicle_type.trim() || null,
       seating_capacity: edit.seating_capacity ? Number(edit.seating_capacity) : null,
       luggage_capacity: edit.luggage_capacity.trim() || null,
       image: edit.image.trim() || null,
@@ -80,7 +78,7 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
   }
 
   const rows = initial.filter((v) =>
-    !q || [v.name, v.category, v.vehicle_type].some((x) => (x ?? "").toLowerCase().includes(q.toLowerCase())));
+    !q || [v.name, v.category].some((x) => (x ?? "").toLowerCase().includes(q.toLowerCase())));
 
   return (
     <div className="space-y-4">
@@ -89,8 +87,6 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
           <input className="input" placeholder="Sedan / Van / Bus" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>
         <div className="sm:col-span-1"><label className="label">Name *</label>
           <input className="input" placeholder="Camry / Hiace / GMC" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-        <div className="sm:col-span-1"><label className="label">Type</label>
-          <input className="input" placeholder="Luxury / Standard" value={form.vehicle_type} onChange={(e) => setForm({ ...form, vehicle_type: e.target.value })} /></div>
         <div className="sm:col-span-1"><label className="label">Seats</label>
           <input className="input" type="number" min="0" value={form.seating_capacity} onChange={(e) => setForm({ ...form, seating_capacity: e.target.value })} /></div>
         <div className="sm:col-span-1"><label className="label">Luggage</label>
@@ -106,14 +102,13 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
-            <tr><th className="th">Vehicle</th><th className="th">Category</th><th className="th">Type</th><th className="th">Seats</th><th className="th">Luggage</th><th className="th">Status</th><th className="th">Actions</th></tr>
+            <tr><th className="th">Vehicle</th><th className="th">Category</th><th className="th">Seats</th><th className="th">Luggage</th><th className="th">Status</th><th className="th">Actions</th></tr>
           </thead>
           <tbody>
             {rows.map((v) => editId === v.id ? (
               <tr key={v.id} className="border-t border-slate-100 bg-amber-50/40">
                 <td className="td"><input className="input" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></td>
                 <td className="td"><input className="input" value={edit.category} onChange={(e) => setEdit({ ...edit, category: e.target.value })} /></td>
-                <td className="td"><input className="input" value={edit.vehicle_type} onChange={(e) => setEdit({ ...edit, vehicle_type: e.target.value })} /></td>
                 <td className="td"><input className="input w-16" type="number" value={edit.seating_capacity} onChange={(e) => setEdit({ ...edit, seating_capacity: e.target.value })} /></td>
                 <td className="td"><input className="input" value={edit.luggage_capacity} onChange={(e) => setEdit({ ...edit, luggage_capacity: e.target.value })} /></td>
                 <td className="td" colSpan={2}>
@@ -125,7 +120,6 @@ export default function VehicleManager({ initial }: { initial: Vehicle[] }) {
               <tr key={v.id} className="border-t border-slate-100">
                 <td className="td font-medium">{v.name}</td>
                 <td className="td">{v.category ?? "—"}</td>
-                <td className="td">{v.vehicle_type ?? "—"}</td>
                 <td className="td">{v.seating_capacity ?? "—"}</td>
                 <td className="td">{v.luggage_capacity ?? "—"}</td>
                 <td className="td">
