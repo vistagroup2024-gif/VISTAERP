@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { getStaffAccess, staffCan } from "@/lib/staffSession";
+import DeleteButton from "@/components/DeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function UsersPage() {
     return <div className="card text-slate-500">You don’t have permission to view users.</div>;
   }
   const canCreate = staffCan(access, "users.create");
+  const canDelete = staffCan(access, "users.delete");
 
   const { data: users } = await supabase
     .from("staff_users")
@@ -100,9 +102,15 @@ export default async function UsersPage() {
                       : <span className="badge bg-slate-100 text-slate-500">Inactive</span>}
                   </td>
                   <td className="td text-right">
-                    <Link href={`/settings/users/${u.id}`} className="text-brand text-sm hover:underline">
-                      Edit
-                    </Link>
+                    <span className="inline-flex items-center gap-3">
+                      <Link href={`/settings/users/${u.id}`} className="text-brand text-sm hover:underline">
+                        Edit
+                      </Link>
+                      {canDelete && (
+                        <DeleteButton rpc="delete_staff_user" paramName="p_id" id={u.id}
+                          confirmText={`Delete user "${u.full_name ?? u.username}"? This permanently removes their account and cannot be undone.`} />
+                      )}
+                    </span>
                   </td>
                 </tr>
               );
