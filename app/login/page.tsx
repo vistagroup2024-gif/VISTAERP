@@ -10,6 +10,7 @@ export default function LoginPage() {
   const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -77,7 +78,15 @@ export default function LoginPage() {
         </div>
         <div>
           <label className="label">Password</label>
-          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <div className="relative">
+            <input className="input pr-10" type={showPassword ? "text" : "password"} value={password}
+              onChange={(e) => setPassword(e.target.value)} required />
+            <button type="button" onClick={() => setShowPassword((s) => !s)}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600"
+              aria-label={showPassword ? "Hide password" : "Show password"}>
+              {showPassword ? "🙈" : "👁"}
+            </button>
+          </div>
         </div>
         <button className="btn w-full" disabled={loading}>
           {loading ? "Signing in…" : "Login"}
