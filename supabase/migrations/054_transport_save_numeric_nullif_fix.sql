@@ -1,0 +1,12 @@
+-- ============================================================
+-- VISTA ERP - 054 Fix: booking-save empty-string numeric cast
+-- Applied to remote DB via Supabase MCP; kept here for history.
+--
+-- Bug: leaving Discount / Additional charges / a trip Rate blank sent "" which
+-- was cast to numeric BEFORE coalesce, raising:
+--   invalid input syntax for type numeric: ""
+-- Fix: guard every numeric cast with nullif(...,'') in both
+-- transport_save_booking and b2b_transport_save_booking (also seq casts).
+-- See the database for the current function bodies (identical to MCP 054).
+-- ============================================================
+select 1;
