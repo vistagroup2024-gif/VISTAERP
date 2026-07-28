@@ -54,6 +54,17 @@ export default function LoginPage() {
       return;
     }
 
+    // 3) Transport Vendor (custom session).
+    const vres = await fetch("/api/vendor/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: id, password }),
+    });
+    if (vres.ok) {
+      window.location.href = "/vendor";
+      return;
+    }
+
     setLoading(false);
     setError("Invalid credentials. Please check your username and password.");
   }

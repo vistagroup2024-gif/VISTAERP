@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 
-interface Vendor { id: string; name: string; contact_person: string | null; mobile: string | null; email: string | null; notes: string | null; is_active: boolean }
+interface Vendor { id: string; name: string; contact_person: string | null; mobile: string | null; email: string | null; notes: string | null; username: string | null; is_active: boolean }
 const BLANK = { name: "", contact_person: "", mobile: "", email: "", notes: "" };
 
 export default function VendorManager({ initial }: { initial: Vendor[] }) {
@@ -32,6 +32,15 @@ export default function VendorManager({ initial }: { initial: Vendor[] }) {
   function startEdit(v: Vendor) { setEditId(v.id); setEdit({ name: v.name, contact_person: v.contact_person ?? "", mobile: v.mobile ?? "", email: v.email ?? "", notes: v.notes ?? "" }); }
   async function saveEdit(id: string) { setBusy(true); const { error } = await supabase.from("transport_vendors").update(payload(edit)).eq("id", id); setBusy(false); if (error) return setErr(error.message); setEditId(null); router.refresh(); }
   async function del(v: Vendor) { if (!confirm(`Delete vendor "${v.name}"?`)) return; const { error } = await supabase.from("transport_vendors").delete().eq("id", v.id); if (error) return setErr(error.message); router.refresh(); }
+  async function setLogin(v: Vendor) {
+    const username = prompt(`Vendor portal username for "${v.name}":`, v.username ?? "");
+    if (username === null) return;
+    const password = prompt("Set password (leave blank to keep current):", "");
+    if (password === null) return;
+    const { error } = await supabase.rpc("vendor_set_credentials", { p_vendor: v.id, p_username: username.trim(), p_password: password });
+    if (error) return setErr(error.message);
+    router.refresh();
+  }
 
   return (
     <div className="space-y-4">
@@ -46,7 +55,7 @@ export default function VendorManager({ initial }: { initial: Vendor[] }) {
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50"><tr><th className="th">Vendor</th><th className="th">Contact</th><th className="th">Mobile</th><th className="th">Email</th><th className="th">Status</th><th className="th">Actions</th></tr></thead>
+          <thead className="bg-slate-50"><tr><th className="th">Vendor</th><th className="th">Contact</th><th className="th">Mobile</th><th className="th">Login</th><th className="th">Status</th><th className="th">Actions</th></tr></thead>
           <tbody>
             {initial.map((v) => editId === v.id ? (
               <tr key={v.id} className="border-t border-slate-100 bg-amber-50/40">
@@ -61,9 +70,9 @@ export default function VendorManager({ initial }: { initial: Vendor[] }) {
                 <td className="td font-medium">{v.name}</td>
                 <td className="td">{v.contact_person ?? "—"}</td>
                 <td className="td">{v.mobile ?? "—"}</td>
-                <td className="td">{v.email ?? "—"}</td>
+                <td className="td">{v.username ? <span className="font-mono text-xs">{v.username}</span> : <span className="text-slate-400">—</span>}</td>
                 <td className="td"><button onClick={() => toggle(v)} className={`rounded-full px-2 py-0.5 text-xs font-medium ${v.is_active ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500"}`}>{v.is_active ? "Active" : "Inactive"}</button></td>
-                <td className="td whitespace-nowrap"><button onClick={() => startEdit(v)} className="text-sm text-brand hover:underline">Edit</button><button onClick={() => del(v)} className="ml-3 text-sm text-red-600 hover:underline">Delete</button></td>
+                <td className="td whitespace-nowrap"><button onClick={() => setLogin(v)} className="text-sm text-brand hover:underline">Set login</button><button onClick={() => startEdit(v)} className="ml-3 text-sm text-brand hover:underline">Edit</button><button onClick={() => del(v)} className="ml-3 text-sm text-red-600 hover:underline">Delete</button></td>
               </tr>
             ))}
             {initial.length === 0 && <tr><td className="td text-slate-400" colSpan={6}>No vendors yet.</td></tr>}

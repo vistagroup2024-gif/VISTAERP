@@ -9,7 +9,7 @@ import MultiSelectFilter from "@/components/MultiSelectFilter";
 interface Trip {
   id: string; booking_id: string; booking_no: string | null; passenger_name: string | null; mobile: string | null;
   route_id: string | null; route_display: string; vehicle_id: string | null; vehicle_name: string | null; requested_vehicle_name: string | null;
-  is_upgraded: boolean; driver_id: string | null; driver_name: string | null;
+  is_upgraded: boolean; driver_id: string | null; driver_name: string | null; vendor_id: string | null; vendor_name: string | null;
   trip_time: string | null; pickup_location: string | null; drop_location: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
 }
@@ -20,13 +20,15 @@ const SLOTS: [string, number, number][] = [["Morning", 0, 12], ["Afternoon", 12,
 const STATUS_COLOR: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700", assigned: "bg-indigo-100 text-indigo-700", on_route: "bg-cyan-100 text-cyan-700",
   picked_up: "bg-teal-100 text-teal-700", completed: "bg-green-100 text-green-700", cancelled: "bg-red-100 text-red-700",
-  outsource_required: "bg-orange-100 text-orange-700",
+  outsource_required: "bg-orange-100 text-orange-700", outsourced: "bg-purple-100 text-purple-700",
 };
 const NEXT_TRIP: Record<string, string> = { assigned: "on_route", on_route: "picked_up", picked_up: "completed" };
 const NEXT_LABEL: Record<string, string> = { on_route: "Start (On Route)", picked_up: "Picked Up", completed: "Complete" };
 
-export default function OperationsBoard({ date, today, trips, drivers, vehicles }: {
-  date: string; today: string; trips: Trip[]; drivers: Driver[]; vehicles: Vehicle[];
+interface Vendor { id: string; name: string }
+
+export default function OperationsBoard({ date, today, trips, drivers, vehicles, vendors }: {
+  date: string; today: string; trips: Trip[]; drivers: Driver[]; vehicles: Vehicle[]; vendors: Vendor[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -197,6 +199,10 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
                       <div className="text-sm">
                         {t.driver_name
                           ? <span className="font-medium text-slate-700">🧑‍✈️ {t.driver_name}</span>
+                          : t.vendor_name
+                          ? <span className="font-medium text-purple-700">🏢 {t.vendor_name}</span>
+                          : t.status === "outsource_required"
+                          ? <span className="text-orange-600">outsource</span>
                           : <span className="text-amber-600">unassigned</span>}
                       </div>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[t.status] ?? "bg-slate-200"}`}>{t.status.replace("_", " ")}</span>
@@ -212,6 +218,13 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
                           ) : (
                             <button onClick={() => setAssignFor(t.id)} className="text-sm text-brand hover:underline">{t.driver_id ? "Reassign" : "Assign"}</button>
                           )
+                        )}
+                        {(t.status === "outsource_required" || t.status === "outsourced") && vendors.length > 0 && (
+                          <select className="input max-w-[10rem] text-sm" value={t.vendor_id ?? ""}
+                            onChange={(e) => { if (e.target.value) call("transport_assign_vendor", { p_trip: t.id, p_vendor: e.target.value }); }}>
+                            <option value="">Assign vendor…</option>
+                            {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                          </select>
                         )}
                         {t.driver_id && t.status !== "completed" && t.status !== "cancelled" && (
                           <button onClick={() => call("transport_unassign_trip", { p_trip: t.id })} className="text-sm text-slate-500 hover:underline">Unassign</button>
