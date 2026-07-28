@@ -8,7 +8,10 @@ import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 
 interface Item { href: string; label: string; icon?: string }
-interface Group { label: string; icon: string; items: Item[] }
+// `perm` (any-of) gates the whole module. Omit to always show.
+interface Group { label: string; icon: string; items: Item[]; perm?: string[] }
+
+export interface StaffNavAccess { unrestricted: boolean; permissions: Record<string, boolean> }
 
 // Standalone top link (no parent).
 const DASHBOARD: Item = { href: "/dashboard", label: "Dashboard", icon: "▣" };
@@ -25,8 +28,8 @@ const GROUPS: Group[] = [
     { href: "/inventory/consume", label: "Consume Inventory" },
     { href: "/inventory/planning", label: "Purchase Planning" },
     { href: "/inventory/history", label: "History" },
-  ] },
-  { label: "Sales", icon: "🧾", items: [
+  ], perm: ["visa.view", "brn.view", "brn.planning"] },
+  { label: "Sales", icon: "🧾", perm: ["sales.view"], items: [
     { href: "/bookings", label: "Sales Orders" },
     { href: "/sales/catalog", label: "Service Catalog" },
     { href: "/sales/visas", label: "Visa Tracking" },
@@ -34,11 +37,11 @@ const GROUPS: Group[] = [
     { href: "/invoices", label: "Invoices" },
     { href: "/parties", label: "Customers / Agents" },
   ] },
-  { label: "Hotels", icon: "🏨", items: [
+  { label: "Hotels", icon: "🏨", perm: ["hotels.masters", "hotels.bookings", "hotels.suppliers"], items: [
     { href: "/hotels", label: "Hotels" },
     { href: "/allotments", label: "Allotments" },
   ] },
-  { label: "Transport", icon: "🚐", items: [
+  { label: "Transport", icon: "🚐", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports"], items: [
     { href: "/transport", label: "Overview" },
     { href: "/transport/operations", label: "Operations" },
     { href: "/transport/bookings", label: "Bookings" },
@@ -52,11 +55,11 @@ const GROUPS: Group[] = [
     { href: "/transport/messages", label: "Confirmations" },
     { href: "/transport/reports", label: "Reports" },
   ] },
-  { label: "Purchase", icon: "🛒", items: [
+  { label: "Purchase", icon: "🛒", perm: ["purchase.view"], items: [
     { href: "/purchase/bills", label: "Supplier Bills" },
     { href: "/purchase/payments", label: "Supplier Payments" },
   ] },
-  { label: "Accounting", icon: "📚", items: [
+  { label: "Accounting", icon: "📚", perm: ["accounting.view"], items: [
     { href: "/accounting/accounts", label: "Chart of Accounts" },
     { href: "/accounting/journal", label: "Journal" },
     { href: "/accounting/receipts", label: "Receipts" },
@@ -64,12 +67,12 @@ const GROUPS: Group[] = [
     { href: "/accounting/profit-loss", label: "Profit & Loss" },
     { href: "/accounting/balance-sheet", label: "Balance Sheet" },
   ] },
-  { label: "Users", icon: "👤", items: [
+  { label: "Users", icon: "👤", perm: ["users.view", "users.manage_roles"], items: [
     { href: "/settings/users", label: "Staff Users" },
     { href: "/settings/agents", label: "B2B Agents" },
     { href: "/settings/roles", label: "Roles & Permissions" },
   ] },
-  { label: "Settings", icon: "⚙️", items: [
+  { label: "Settings", icon: "⚙️", perm: ["system.companies", "system.config", "system.masters"], items: [
     { href: "/settings/companies", label: "Companies" },
   ] },
 ];
@@ -136,7 +139,12 @@ function CollapsibleGroup({ group, onClose }: { group: Group; onClose?: () => vo
   );
 }
 
-function SidebarContent({ name, onClose }: { name: string; onClose?: () => void }) {
+function visibleGroups(access?: StaffNavAccess) {
+  if (!access || access.unrestricted) return GROUPS;
+  return GROUPS.filter((g) => !g.perm || g.perm.some((k) => access.permissions[k]));
+}
+
+function SidebarContent({ name, access, onClose }: { name: string; access?: StaffNavAccess; onClose?: () => void }) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -167,7 +175,7 @@ function SidebarContent({ name, onClose }: { name: string; onClose?: () => void 
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         <NavLink {...DASHBOARD} onClick={onClose} />
-        {GROUPS.map((g) => <CollapsibleGroup key={g.label} group={g} onClose={onClose} />)}
+        {visibleGroups(access).map((g) => <CollapsibleGroup key={g.label} group={g} onClose={onClose} />)}
       </nav>
       <button onClick={signOut}
         className="m-3 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
@@ -177,14 +185,14 @@ function SidebarContent({ name, onClose }: { name: string; onClose?: () => void 
   );
 }
 
-export default function Sidebar({ name }: { name: string }) {
+export default function Sidebar({ name, access }: { name: string; access?: StaffNavAccess }) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       {/* Desktop sidebar */}
       <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
-        <SidebarContent name={name} />
+        <SidebarContent name={name} access={access} />
       </aside>
 
       {/* Mobile top bar */}
@@ -208,7 +216,7 @@ export default function Sidebar({ name }: { name: string }) {
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-xl">
-            <SidebarContent name={name} onClose={() => setOpen(false)} />
+            <SidebarContent name={name} access={access} onClose={() => setOpen(false)} />
           </aside>
         </div>
       )}

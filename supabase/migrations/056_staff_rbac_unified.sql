@@ -1,0 +1,15 @@
+-- ============================================================
+-- VISTA ERP - 056 Unified internal-staff RBAC
+-- Applied to remote DB via Supabase MCP; kept here for history.
+--
+-- profiles += email, department, designation, permissions jsonb (same model as
+--   b2b_agents.permissions). staff_users view extended with these + phone.
+-- is_admin(), staff_access() -> {is_admin, permissions} for menu/page/action gating.
+-- create_staff_user_v2(...) : create staff user with profile fields + roles + permissions.
+-- update_staff_user(...)    : edit profile fields + roles + permissions + active.
+-- reset_staff_password(id, pw): admin password reset.
+-- All management RPCs are guarded by has_role('admin'). Roles (user_roles) remain
+-- the data/RLS layer; permissions drive menus, pages and actions in the app.
+-- See the database for the current function bodies (identical to MCP 056).
+-- ============================================================
+select 1;

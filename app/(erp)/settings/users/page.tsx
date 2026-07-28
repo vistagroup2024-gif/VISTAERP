@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
+import { getStaffAccess, staffCan } from "@/lib/staffSession";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +30,15 @@ const ROLE_COLOR: Record<string, string> = {
 export default async function UsersPage() {
   const supabase = createClient();
 
+  const access = await getStaffAccess();
+  if (!staffCan(access, "users.view")) {
+    return <div className="card text-slate-500">You don’t have permission to view users.</div>;
+  }
+  const canCreate = staffCan(access, "users.create");
+
   const { data: users } = await supabase
     .from("staff_users")
-    .select("id, full_name, username, is_active, created_at")
+    .select("id, full_name, username, is_active, created_at, department, designation")
     .order("created_at");
 
   const { data: allRoles } = await supabase
@@ -46,7 +53,7 @@ export default async function UsersPage() {
 
   return (
     <div>
-      <PageHeader title="Users & Roles" action={{ href: "/settings/users/new", label: "+ New User" }} />
+      <PageHeader title="Staff Users" action={canCreate ? { href: "/settings/users/new", label: "+ New User" } : undefined} />
       <p className="mb-4 text-sm text-slate-500">
         Manage staff accounts and permission roles. Login ID is the username — no email needed.
       </p>
@@ -56,6 +63,7 @@ export default async function UsersPage() {
             <tr>
               <th className="th">Full Name</th>
               <th className="th">Login ID</th>
+              <th className="th">Department</th>
               <th className="th">Roles</th>
               <th className="th">Status</th>
               <th className="th"></th>
@@ -71,6 +79,10 @@ export default async function UsersPage() {
                     <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-sm text-slate-700">
                       {u.username}
                     </span>
+                  </td>
+                  <td className="td">
+                    {u.department ?? "—"}
+                    {u.designation && <div className="text-xs text-slate-400">{u.designation}</div>}
                   </td>
                   <td className="td">
                     <div className="flex flex-wrap gap-1">
@@ -96,7 +108,7 @@ export default async function UsersPage() {
               );
             })}
             {(users ?? []).length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={5}>No users found.</td></tr>
+              <tr><td className="td text-slate-400" colSpan={6}>No users found.</td></tr>
             )}
           </tbody>
         </table>
