@@ -28,9 +28,12 @@ export default function WorkflowCard({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const idx = STAGES.findIndex((s) => s.key === workflowStatus);
-  // Long Stay visas skip BRN allocation — go straight from Process to ERP Created.
-  const next = workflowStatus === "process" && visaType === "long_stay"
+  // Long Stay and Masar visas skip BRN allocation — the BRNs are already known
+  // (agent-provided for Masar), so Process goes straight to ERP Created.
+  const skipBrn = visaType === "long_stay" || visaType === "masar";
+  const stages = skipBrn ? STAGES.filter((s) => s.key !== "brn_allocated") : STAGES;
+  const idx = stages.findIndex((s) => s.key === workflowStatus);
+  const next = workflowStatus === "process" && skipBrn
     ? { label: "ERP Created", fn: "advance_workflow", args: { p_to: "erp_created" } }
     : NEXT[workflowStatus];
 
@@ -80,7 +83,7 @@ export default function WorkflowCard({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1">
-        {STAGES.map((s, i) => (
+        {stages.map((s, i) => (
           <div key={s.key} className="flex items-center">
             <span className={`rounded-full px-3 py-1 text-xs font-medium ${
               i < idx ? "bg-green-100 text-green-700"
@@ -88,7 +91,7 @@ export default function WorkflowCard({
               : "bg-slate-100 text-slate-400"}`}>
               {i < idx ? "✓ " : ""}{s.label}
             </span>
-            {i < STAGES.length - 1 && <span className="px-1 text-slate-300">→</span>}
+            {i < stages.length - 1 && <span className="px-1 text-slate-300">→</span>}
           </div>
         ))}
       </div>

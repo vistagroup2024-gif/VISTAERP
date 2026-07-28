@@ -1,0 +1,18 @@
+-- ============================================================
+-- VISTA ERP - 055 Masar visa workflow: skip BRN allocation + agent BRN lock
+-- Applied to remote DB via Supabase MCP; kept here for history.
+--
+-- Masar workflow (BRNs come from the agent, so there is no admin allocation step):
+--   Pending -> Process -> ERP Created -> Package Assigned -> Visa Issued
+--
+-- Changes:
+-- 1) advance_workflow: allow Process -> ERP Created when visa_type is 'masar'
+--    (previously only 'long_stay'). Non-Masar/Non-Long-Stay unchanged.
+-- 2) b2b_add_agent_brn: the agent may add/edit BRNs until the group reaches
+--    Package Assigned (was: only while Pending); it no longer auto-advances the
+--    workflow to brn_allocated, so the group stays Pending for the admin
+--    Process/Payment/Reject decision gate.
+-- 3) add_agent_brn (staff): same — records the BRN without skipping the gate.
+-- See the database for the current function bodies (identical to MCP 055).
+-- ============================================================
+select 1;
