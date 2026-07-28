@@ -12,19 +12,39 @@ export default function OutboxTable({ initial }: { initial: Msg[] }) {
   const supabase = createClient();
   const [status, setStatus] = useState("");
 
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
   async function mark(id: string, s: string) {
     await supabase.from("transport_outbox").update({ status: s, sent_at: s === "sent" ? new Date().toISOString() : null }).eq("id", id);
     router.refresh();
   }
   async function del(id: string) { await supabase.from("transport_outbox").delete().eq("id", id); router.refresh(); }
 
+  async function apiSend(body: any) {
+    setBusy(true); setNote(null);
+    const res = await fetch("/api/transport/whatsapp/send", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const json = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { setNote(json.error || "Send failed"); return; }
+    setNote(`Sent ${json.sent}, failed ${json.failed}.`);
+    router.refresh();
+  }
+
   const rows = status ? initial.filter((m) => m.status === status) : initial;
+  const queuedWa = initial.filter((m) => m.status === "queued" && m.channel === "whatsapp").length;
 
   return (
     <div className="space-y-3">
-      <select className="input max-w-[10rem]" value={status} onChange={(e) => setStatus(e.target.value)}>
-        <option value="">All</option><option value="queued">Queued</option><option value="sent">Sent</option><option value="failed">Failed</option>
-      </select>
+      <div className="flex flex-wrap items-center gap-2">
+        <select className="input max-w-[10rem]" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">All</option><option value="queued">Queued</option><option value="sent">Sent</option><option value="failed">Failed</option>
+        </select>
+        <button onClick={() => apiSend({ action: "send_queued" })} disabled={busy || queuedWa === 0} className="btn text-sm">
+          {busy ? "Sending…" : `Send all queued WhatsApp (${queuedWa})`}
+        </button>
+        {note && <span className="text-sm text-slate-600">{note}</span>}
+      </div>
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50"><tr><th className="th">When</th><th className="th">Channel</th><th className="th">To</th><th className="th">Message</th><th className="th">Status</th><th className="th">Actions</th></tr></thead>
@@ -37,8 +57,8 @@ export default function OutboxTable({ initial }: { initial: Msg[] }) {
                 <td className="td max-w-sm whitespace-pre-wrap text-left text-xs text-slate-600">{m.body}</td>
                 <td className="td"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COLOR[m.status] ?? "bg-slate-200"}`}>{m.status}</span></td>
                 <td className="td whitespace-nowrap">
-                  {m.status !== "sent" && <button onClick={() => mark(m.id, "sent")} className="text-sm text-green-700 hover:underline">Mark sent</button>}
-                  {m.status === "queued" && <button onClick={() => mark(m.id, "failed")} className="ml-2 text-sm text-red-600 hover:underline">Failed</button>}
+                  {m.status !== "sent" && m.channel === "whatsapp" && <button onClick={() => apiSend({ id: m.id })} disabled={busy} className="text-sm font-medium text-brand hover:underline">Send now</button>}
+                  {m.status !== "sent" && <button onClick={() => mark(m.id, "sent")} className="ml-2 text-sm text-green-700 hover:underline">Mark sent</button>}
                   <button onClick={() => del(m.id)} className="ml-2 text-sm text-slate-400 hover:underline">Delete</button>
                 </td>
               </tr>
