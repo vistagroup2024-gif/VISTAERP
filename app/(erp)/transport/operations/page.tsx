@@ -18,7 +18,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
   const bookingIds = Array.from(new Set((trips ?? []).map((t: any) => t.booking_id)));
   const [{ data: bookings }, { data: drivers }, { data: vehicles }] = await Promise.all([
     bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, status").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
-    sb.from("transport_drivers").select("id, name, vehicle_id, status, shift_start, shift_end").order("name"),
+    sb.from("transport_drivers").select("id, name, vehicle_id, status").order("name"),
     sb.from("transport_vehicles").select("id, name, is_active").order("name"),
   ]);
   const { data: vendors } = await sb.from("transport_vendors").select("id, name").eq("is_active", true).order("name");
