@@ -32,6 +32,8 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [assignFor, setAssignFor] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<{ tripId: string; driverId: string; driverName: string; reason: string } | null>(null);
+  const [forceReason, setForceReason] = useState("");
   const now = new Date();
 
   function go(d: string) { router.push(`/transport/operations?date=${d}`); }
@@ -47,6 +49,26 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
     if (error) { setErr(error.message); return false; }
     router.refresh();
     return true;
+  }
+
+  // Manual assign: check for conflicts first; if any, open the Force-Assign dialog.
+  async function tryAssign(tripId: string, driverId: string, driverName: string) {
+    setBusy(true); setErr(null);
+    const { data, error } = await supabase.rpc("transport_assign_check", { p_trip: tripId, p_driver: driverId });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    if ((data as any)?.ok) {
+      const ok = await call("transport_assign_trip", { p_trip: tripId, p_driver: driverId });
+      if (ok) setAssignFor(null);
+    } else {
+      setConflict({ tripId, driverId, driverName, reason: (data as any)?.reason ?? "Scheduling conflict." });
+      setForceReason("");
+    }
+  }
+  async function forceAssign() {
+    if (!conflict) return;
+    const ok = await call("transport_assign_trip", { p_trip: conflict.tripId, p_driver: conflict.driverId, p_force: true, p_reason: forceReason.trim() || null });
+    if (ok) { setConflict(null); setAssignFor(null); }
   }
 
   const isDelayed = (t: Trip) => t.sched_s && new Date(t.sched_s) < now && ["pending", "assigned"].includes(t.status);
@@ -142,7 +164,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
                         {t.status !== "cancelled" && t.status !== "completed" && (
                           assignFor === t.id ? (
                             <select className="input max-w-[11rem] text-sm" defaultValue=""
-                              onChange={async (e) => { if (e.target.value) { const ok = await call("transport_assign_trip", { p_trip: t.id, p_driver: e.target.value, p_vehicle: null }); if (ok) setAssignFor(null); } }}>
+                              onChange={(e) => { if (e.target.value) { const d = drivers.find((x) => x.id === e.target.value); tryAssign(t.id, e.target.value, d?.name ?? "driver"); } }}>
                               <option value="">Choose driver…</option>
                               {drivers.filter((d) => d.status === "active").map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
@@ -164,6 +186,25 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
               </div>
             );
           })}
+        </div>
+      )}
+
+      {conflict && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-slate-800">⚠ Assignment Conflict</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Assigning <b>{conflict.driverName}</b> to this trip has a conflict:
+            </p>
+            <div className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{conflict.reason}</div>
+            <label className="label mt-3">Reason for override (optional)</label>
+            <textarea className="input" rows={2} value={forceReason} onChange={(e) => setForceReason(e.target.value)} placeholder="Why is this override necessary?" />
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setConflict(null)} className="btn-outline text-sm">Cancel Assignment</button>
+              <button onClick={forceAssign} disabled={busy} className="btn text-sm bg-red-600 hover:bg-red-700">Force Assign</button>
+            </div>
+            <p className="mt-2 text-xs text-slate-400">Force assignments are recorded in the audit log with your name, the time and reason.</p>
+          </div>
         </div>
       )}
     </div>

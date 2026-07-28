@@ -1,0 +1,11 @@
+-- ============================================================
+-- VISTA ERP - 065 Transport manual force-assign (#4)
+-- Applied to remote DB via Supabase MCP; kept here for history.
+-- transport_assign_check(trip, driver): dry-run -> {ok} or {ok:false, reason}
+--   (no vehicle, downgrade, overlapping trip, or 10h-rest violation).
+-- transport_assign_trip(trip, driver, vehicle default null, force default false,
+--   reason default null): raises on conflict unless force; a forced assignment is
+--   written to audit_log ('transport_force_assign') with user, time, conflict and
+--   reason. (Old 3-arg signature dropped; defaults keep prior callers working.)
+-- ============================================================
+select 1;
