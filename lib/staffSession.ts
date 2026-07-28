@@ -47,5 +47,5 @@ const LANDING: [string, string][] = [
 export function staffLanding(access: StaffAccess): string {
   if (access.unrestricted) return "/dashboard";
   for (const [key, path] of LANDING) if (access.permissions[key]) return path;
-  return "/dashboard";
+  return "/no-access";
 }
