@@ -26,8 +26,9 @@ export default function GroupActions({
   const ref = useRef<HTMLDivElement>(null);
 
   const stage = workflowStatus || (visaStatus === "issued" ? "visa_issued" : brnStatus === "allocated" ? "brn_allocated" : "pending");
-  // Long Stay skips BRN allocation — from Process go straight to ERP Created.
-  const next = stage === "process" && visaType === "long_stay"
+  // Long Stay and Masar skip BRN allocation — from Process go straight to ERP Created.
+  const skipBrn = visaType === "long_stay" || visaType === "masar";
+  const next = stage === "process" && skipBrn
     ? { label: "ERP Created", fn: "advance_workflow", args: { p_to: "erp_created" } }
     : NEXT[stage];
 

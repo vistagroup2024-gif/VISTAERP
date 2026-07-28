@@ -4,82 +4,135 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 
-const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: "▣" },
-  { href: "/groups", label: "Visa Groups", icon: "🕋" },
-  { href: "/groups/package-updates", label: "Package Updates", icon: "🔄" },
-  { href: "/bookings", label: "Sales Orders", icon: "🧾" },
-  { href: "/sales/catalog", label: "Service Catalog", icon: "🗂" },
-  { href: "/sales/visas", label: "Visa Tracking", icon: "🛂" },
-  { href: "/packages", label: "Packages", icon: "📦" },
-  { href: "/hotels", label: "Hotels", icon: "🏨" },
-  { href: "/allotments", label: "Allotments", icon: "🛏" },
-  { href: "/invoices", label: "Invoices", icon: "💳" },
-  { href: "/parties", label: "Customers / Agents", icon: "👥" },
+interface Item { href: string; label: string; icon?: string }
+interface Group { label: string; icon: string; items: Item[] }
+
+// Standalone top link (no parent).
+const DASHBOARD: Item = { href: "/dashboard", label: "Dashboard", icon: "▣" };
+
+// Hierarchical navigation. Each module is a collapsible parent menu.
+const GROUPS: Group[] = [
+  { label: "Visa", icon: "🕋", items: [
+    { href: "/groups", label: "Visa Groups" },
+    { href: "/groups/package-updates", label: "Package Updates" },
+    { href: "/inventory", label: "BRN Dashboard" },
+    { href: "/inventory/brn", label: "BRN List" },
+    { href: "/inventory/archived", label: "Archived BRNs" },
+    { href: "/inventory/calendar", label: "Daily Calendar" },
+    { href: "/inventory/consume", label: "Consume Inventory" },
+    { href: "/inventory/planning", label: "Purchase Planning" },
+    { href: "/inventory/history", label: "History" },
+  ] },
+  { label: "Sales", icon: "🧾", items: [
+    { href: "/bookings", label: "Sales Orders" },
+    { href: "/sales/catalog", label: "Service Catalog" },
+    { href: "/sales/visas", label: "Visa Tracking" },
+    { href: "/packages", label: "Packages" },
+    { href: "/invoices", label: "Invoices" },
+    { href: "/parties", label: "Customers / Agents" },
+  ] },
+  { label: "Hotels", icon: "🏨", items: [
+    { href: "/hotels", label: "Hotels" },
+    { href: "/allotments", label: "Allotments" },
+  ] },
+  { label: "Transport", icon: "🚐", items: [
+    { href: "/transport", label: "Overview" },
+    { href: "/transport/operations", label: "Operations" },
+    { href: "/transport/bookings", label: "Bookings" },
+    { href: "/transport/vehicles", label: "Vehicles" },
+    { href: "/transport/routes", label: "Routes & Rates" },
+    { href: "/transport/packages", label: "Packages" },
+    { href: "/transport/drivers", label: "Drivers" },
+    { href: "/transport/fleet", label: "Fleet Health" },
+    { href: "/transport/vendors", label: "Vendors" },
+    { href: "/transport/expenses", label: "Expenses" },
+    { href: "/transport/messages", label: "Confirmations" },
+    { href: "/transport/reports", label: "Reports" },
+  ] },
+  { label: "Purchase", icon: "🛒", items: [
+    { href: "/purchase/bills", label: "Supplier Bills" },
+    { href: "/purchase/payments", label: "Supplier Payments" },
+  ] },
+  { label: "Accounting", icon: "📚", items: [
+    { href: "/accounting/accounts", label: "Chart of Accounts" },
+    { href: "/accounting/journal", label: "Journal" },
+    { href: "/accounting/receipts", label: "Receipts" },
+    { href: "/accounting/trial-balance", label: "Trial Balance" },
+    { href: "/accounting/profit-loss", label: "Profit & Loss" },
+    { href: "/accounting/balance-sheet", label: "Balance Sheet" },
+  ] },
+  { label: "Users", icon: "👤", items: [
+    { href: "/settings/users", label: "Staff Users" },
+    { href: "/settings/agents", label: "B2B Agents" },
+    { href: "/settings/roles", label: "Roles & Permissions" },
+  ] },
+  { label: "Settings", icon: "⚙️", items: [
+    { href: "/settings/companies", label: "Companies" },
+  ] },
 ];
 
-const INVENTORY = [
-  { href: "/inventory", label: "BRN Dashboard", icon: "📊" },
-  { href: "/inventory/planning", label: "Purchase Planning", icon: "🛒" },
-  { href: "/inventory/brn", label: "BRN List", icon: "📋" },
-  { href: "/inventory/archived", label: "Archived BRNs", icon: "🗄" },
-  { href: "/inventory/calendar", label: "Daily Calendar", icon: "📅" },
-  { href: "/inventory/consume", label: "Consume Inventory", icon: "➖" },
-  { href: "/inventory/history", label: "History", icon: "🧾" },
-];
+function isActive(path: string, href: string) {
+  return path === href || path.startsWith(href + "/");
+}
 
-const TRANSPORT = [
-  { href: "/transport", label: "Overview", icon: "🚐" },
-  { href: "/transport/operations", label: "Operations", icon: "🗓" },
-  { href: "/transport/bookings", label: "Bookings", icon: "📕" },
-  { href: "/transport/vehicles", label: "Vehicles", icon: "🚗" },
-  { href: "/transport/routes", label: "Routes & Rates", icon: "🛣" },
-  { href: "/transport/packages", label: "Packages", icon: "🧳" },
-  { href: "/transport/drivers", label: "Drivers", icon: "🧑‍✈️" },
-  { href: "/transport/fleet", label: "Fleet Health", icon: "🩺" },
-  { href: "/transport/vendors", label: "Vendors", icon: "🤝" },
-  { href: "/transport/expenses", label: "Expenses", icon: "⛽" },
-  { href: "/transport/messages", label: "Confirmations", icon: "📣" },
-  { href: "/transport/reports", label: "Reports", icon: "📈" },
-];
-
-const PURCHASE = [
-  { href: "/purchase/bills", label: "Supplier Bills", icon: "🧾" },
-  { href: "/purchase/payments", label: "Supplier Payments", icon: "💸" },
-];
-
-const ACCOUNTING = [
-  { href: "/accounting/accounts", label: "Chart of Accounts", icon: "📚" },
-  { href: "/accounting/journal", label: "Journal", icon: "📓" },
-  { href: "/accounting/receipts", label: "Receipts", icon: "💵" },
-  { href: "/accounting/trial-balance", label: "Trial Balance", icon: "⚖️" },
-  { href: "/accounting/profit-loss", label: "Profit & Loss", icon: "📈" },
-  { href: "/accounting/balance-sheet", label: "Balance Sheet", icon: "🧮" },
-];
-
-const SETTINGS = [
-  { href: "/settings/users", label: "Users & Roles", icon: "👤" },
-  { href: "/settings/companies", label: "Companies", icon: "🏢" },
-  { href: "/settings/agents", label: "B2B Agents", icon: "🧑‍💼" },
-];
-
-function NavLink({ href, label, icon, onClick }: { href: string; label: string; icon: string; onClick?: () => void }) {
+function NavLink({ href, label, icon, onClick }: Item & { onClick?: () => void }) {
   const path = usePathname();
-  const active = path === href || path.startsWith(href + "/");
+  const active = isActive(path, href);
   return (
-    <Link
-      href={href}
-      onClick={onClick}
+    <Link href={href} onClick={onClick}
       className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${
         active ? "bg-brand text-white" : "text-slate-600 hover:bg-slate-100"
-      }`}
-    >
-      <span>{icon}</span>
+      }`}>
+      {icon && <span>{icon}</span>}
       {label}
     </Link>
+  );
+}
+
+function CollapsibleGroup({ group, onClose }: { group: Group; onClose?: () => void }) {
+  const path = usePathname();
+  // A child on the current route decides both the initial expand and the parent
+  // highlight. `hasActive` is deterministic on server + client (usePathname),
+  // so there is no hydration mismatch; sessionStorage is applied after mount.
+  const hasActive = group.items.some((i) => isActive(path, i.href));
+  const [open, setOpen] = useState(hasActive);
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("nav:" + group.label);
+    if (stored !== null) setOpen(stored === "1");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-expand when navigating into this group.
+  useEffect(() => { if (hasActive) setOpen(true); }, [hasActive]);
+
+  function toggle() {
+    setOpen((o) => {
+      const n = !o;
+      try { sessionStorage.setItem("nav:" + group.label, n ? "1" : "0"); } catch {}
+      return n;
+    });
+  }
+
+  return (
+    <div>
+      <button onClick={toggle}
+        className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold ${
+          hasActive ? "text-brand-dark" : "text-slate-700 hover:bg-slate-100"
+        }`}>
+        <span>{group.icon}</span>
+        <span className="flex-1 text-left">{group.label}</span>
+        <span className={`text-xs text-slate-400 transition-transform ${open ? "rotate-90" : ""}`}>▶</span>
+      </button>
+      {open && (
+        <div className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2">
+          {group.items.map((i) => <NavLink key={i.href} {...i} onClick={onClose} />)}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -108,34 +161,16 @@ function SidebarContent({ name, onClose }: { name: string; onClose?: () => void 
         <div className="flex items-center gap-1">
           <NotificationBell endpoint="/api/notifications" groupBase="/groups" realtime />
           {onClose && (
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
-              ✕
-            </button>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
           )}
         </div>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {NAV.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
-
-        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Inventory</p>
-        {INVENTORY.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
-
-        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Transport</p>
-        {TRANSPORT.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
-
-        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Purchase</p>
-        {PURCHASE.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
-
-        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Accounting</p>
-        {ACCOUNTING.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
-
-        <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Settings</p>
-        {SETTINGS.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
+        <NavLink {...DASHBOARD} onClick={onClose} />
+        {GROUPS.map((g) => <CollapsibleGroup key={g.label} group={g} onClose={onClose} />)}
       </nav>
-      <button
-        onClick={signOut}
-        className="m-3 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-      >
+      <button onClick={signOut}
+        className="m-3 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
         Sign out
       </button>
     </div>
@@ -160,11 +195,7 @@ export default function Sidebar({ name }: { name: string }) {
         </div>
         <div className="flex items-center gap-1">
           <NotificationBell endpoint="/api/notifications" groupBase="/groups" realtime />
-          <button
-            onClick={() => setOpen(true)}
-            className="rounded-md p-2 text-slate-600 hover:bg-slate-100"
-            aria-label="Open menu"
-          >
+          <button onClick={() => setOpen(true)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Open menu">
             <span className="block h-0.5 w-5 bg-current mb-1"></span>
             <span className="block h-0.5 w-5 bg-current mb-1"></span>
             <span className="block h-0.5 w-5 bg-current"></span>

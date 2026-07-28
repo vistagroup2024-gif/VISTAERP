@@ -26,7 +26,13 @@ export default async function AgentGroupDetail({ params }: { params: { id: strin
   // any other status (Under Processing / Payment Required / Package Assigned / Rejected) -> read-only.
   const canEditPending = can(agent, "visa.edit_pending");
   const hotelOnly = st === "Visa Issued";
-  const lockAll = !hotelOnly && !(st === "Pending" && canEditPending);
+  // Masar groups carry agent-provided BRNs: the agent may keep editing them until
+  // the admin marks the group Package Assigned (then everything locks). Non-Masar
+  // groups keep the original rule (editable only while Pending).
+  const masarEditable =
+    g.visa_type === "masar" && canEditPending &&
+    !["package_assigned", "visa_issued", "rejected"].includes(g.workflow_status);
+  const lockAll = !hotelOnly && !((st === "Pending" && canEditPending) || masarEditable);
 
   return (
     <GroupForm
