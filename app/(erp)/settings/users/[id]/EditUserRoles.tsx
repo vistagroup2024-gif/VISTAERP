@@ -5,32 +5,21 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import StaffPermissionPicker from "@/components/StaffPermissionPicker";
 
-const ALL_ROLES = [
-  { value: "admin", label: "Admin", desc: "Full system access" },
-  { value: "accounting", label: "Accountant", desc: "GL, AR, AP, P&L, Balance Sheet" },
-  { value: "sales", label: "Sales", desc: "Orders, invoices, service catalog" },
-  { value: "purchase", label: "Purchase", desc: "Supplier bills and payments" },
-  { value: "hr", label: "HR", desc: "Employee records" },
-  { value: "inventory", label: "Inventory", desc: "Stock management" },
-  { value: "hotel_ops", label: "Hotel Ops", desc: "Hotels, allotments, rooms" },
-];
-
 interface Props {
   userId: string; fullName: string; isActive: boolean;
   email: string; phone: string; department: string; designation: string;
-  currentPerms: Record<string, boolean>; currentRoles: string[];
+  currentPerms: Record<string, boolean>; currentRoles?: string[];
 }
 
 export default function EditUserRoles({
   userId, fullName: initialName, isActive: initialActive, email: iEmail, phone: iPhone,
-  department: iDept, designation: iDesig, currentPerms, currentRoles,
+  department: iDept, designation: iDesig, currentPerms,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
 
   const [f, setF] = useState({ fullName: initialName, email: iEmail, phone: iPhone, department: iDept, designation: iDesig });
   const [isActive, setIsActive] = useState(initialActive);
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoles);
   const [perms, setPerms] = useState<Record<string, boolean>>(currentPerms ?? {});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,17 +28,13 @@ export default function EditUserRoles({
   const [newPass, setNewPass] = useState("");
   const [pwMsg, setPwMsg] = useState<string | null>(null);
 
-  function toggleRole(role: string) {
-    setSelectedRoles((prev) => prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]);
-  }
-
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true); setError(null); setSuccess(false);
     const { error: err } = await supabase.rpc("update_staff_user", {
       p_id: userId, p_full_name: f.fullName, p_email: f.email, p_phone: f.phone,
       p_department: f.department, p_designation: f.designation, p_is_active: isActive,
-      p_roles: selectedRoles, p_permissions: perms,
+      p_roles: [], p_permissions: perms,
     });
     setSaving(false);
     if (err) return setError(err.message);
@@ -82,19 +67,6 @@ export default function EditUserRoles({
         <div className="flex items-center gap-3">
           <input id="active" type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
           <label htmlFor="active" className="text-sm font-medium text-slate-700">Account active (can log in)</label>
-        </div>
-      </div>
-
-      <div className="card space-y-3">
-        <h2 className="font-semibold text-slate-700">Base Roles</h2>
-        <p className="text-xs text-slate-400">Roles grant underlying data access. Fine-grained menu/action control is set in Permissions below.</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {ALL_ROLES.map((r) => (
-            <label key={r.value} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-2.5 transition ${selectedRoles.includes(r.value) ? "border-brand bg-brand/5" : "border-slate-200 hover:bg-slate-50"}`}>
-              <input type="checkbox" className="mt-0.5" checked={selectedRoles.includes(r.value)} onChange={() => toggleRole(r.value)} />
-              <div><p className="text-sm font-medium">{r.label}</p><p className="text-xs text-slate-400">{r.desc}</p></div>
-            </label>
-          ))}
         </div>
       </div>
 

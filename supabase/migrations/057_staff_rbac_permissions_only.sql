@@ -1,0 +1,14 @@
+-- ============================================================
+-- VISTA ERP - 057 Staff RBAC: permissions-only + pgcrypto fix
+-- Applied to remote DB via Supabase MCP; kept here for history.
+--
+-- 1) is_staff(): any Vista profile is staff (all Supabase auth users are internal
+--    staff; B2B agents use a separate table). Access no longer needs a role.
+-- 2) create_staff_user_v2 / reset_staff_password: search_path includes
+--    'extensions' so pgcrypto crypt()/gen_salt() resolve (fixes
+--    "function gen_salt(unknown) does not exist" when creating users).
+-- 3) update_staff_user no longer manages user_roles — permissions govern
+--    everything and an ordinary profile edit never strips the admin role.
+-- See the database for the current function bodies (identical to MCP 057).
+-- ============================================================
+select 1;

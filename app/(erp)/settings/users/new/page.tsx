@@ -5,16 +5,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import StaffPermissionPicker from "@/components/StaffPermissionPicker";
 
-const ALL_ROLES = [
-  { value: "admin",      label: "Admin",       desc: "Full system access" },
-  { value: "accounting", label: "Accountant",  desc: "GL, AR, AP, P&L, Balance Sheet" },
-  { value: "sales",      label: "Sales",       desc: "Orders, invoices, service catalog" },
-  { value: "purchase",   label: "Purchase",    desc: "Supplier bills and payments" },
-  { value: "hr",         label: "HR",          desc: "Employee records (future)" },
-  { value: "inventory",  label: "Inventory",   desc: "Stock management (future)" },
-  { value: "hotel_ops",  label: "Hotel Ops",   desc: "Hotels, allotments, rooms" },
-];
-
 export default function NewUserPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -23,23 +13,15 @@ export default function NewUserPage() {
     username: "", password: "", confirm: "", full_name: "",
     email: "", phone: "", department: "", designation: "",
   });
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [perms, setPerms] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  function toggleRole(role: string) {
-    setSelectedRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
-    );
-  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!form.username.trim()) return setError("Username is required");
     if (form.password.length < 6) return setError("Password must be at least 6 characters");
     if (form.password !== form.confirm) return setError("Passwords do not match");
-    if (selectedRoles.length === 0) return setError("Select at least one base role (grants data access)");
 
     setSaving(true);
     setError(null);
@@ -52,7 +34,7 @@ export default function NewUserPage() {
       p_phone: form.phone.trim(),
       p_department: form.department.trim(),
       p_designation: form.designation.trim(),
-      p_roles: selectedRoles,
+      p_roles: [],
       p_permissions: perms,
     });
 
@@ -121,32 +103,6 @@ export default function NewUserPage() {
           <h2 className="font-semibold text-slate-700">Permissions</h2>
           <p className="text-xs text-slate-400">Grant access to each module and action. Leave everything unchecked to give full access (restrictions apply only once at least one box is ticked).</p>
           <StaffPermissionPicker value={perms} onChange={setPerms} />
-        </div>
-
-        <div className="card space-y-3">
-          <h2 className="font-semibold text-slate-700">Assign Roles</h2>
-          <p className="text-xs text-slate-400">Select one or more roles. Each role grants access to its module.</p>
-          {ALL_ROLES.map((r) => (
-            <label
-              key={r.value}
-              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
-                selectedRoles.includes(r.value)
-                  ? "border-brand bg-brand/5"
-                  : "border-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={selectedRoles.includes(r.value)}
-                onChange={() => toggleRole(r.value)}
-              />
-              <div>
-                <p className="font-medium text-sm">{r.label}</p>
-                <p className="text-xs text-slate-400">{r.desc}</p>
-              </div>
-            </label>
-          ))}
         </div>
 
         <div className="flex gap-2">
