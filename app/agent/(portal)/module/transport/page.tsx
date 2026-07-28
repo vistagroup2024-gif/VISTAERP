@@ -15,7 +15,7 @@ const COLOR: Record<string, string> = {
   completed: "bg-green-100 text-green-700", cancelled: "bg-red-100 text-red-700",
 };
 
-export default async function AgentTransportList() {
+export default async function AgentTransportList({ searchParams }: { searchParams: { created?: string } }) {
   const agent = await getAgent();
   if (!agent) redirect("/login");
   if (!can(agent, "transport.view") && !can(agent, "transport.request")) {
@@ -31,6 +31,9 @@ export default async function AgentTransportList() {
         <h1 className="text-2xl font-bold text-slate-800">Transport Bookings</h1>
         {can(agent, "transport.request") && <Link href="/agent/module/transport/new" className="btn">+ New Booking</Link>}
       </div>
+      {searchParams.created && (
+        <div className="mb-4 rounded-md bg-green-50 px-4 py-2 text-sm text-green-700">✓ Booking created successfully.</div>
+      )}
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">

@@ -21,7 +21,7 @@ export default async function AgentNewTransport() {
       <TransportBookingForm
         existing={null} existingTrips={[]}
         routes={m.routes ?? []} vehicles={m.vehicles ?? []} packages={m.packages ?? []} rates={m.rates ?? []}
-        companies={[]} agents={[]}
+        packagePrices={m.packagePrices ?? []} companies={[]} agents={[]}
         variant="agent" endpoint="/api/agent/transport" basePath="/agent/module/transport"
       />
     </div>
