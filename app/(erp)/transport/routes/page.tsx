@@ -8,15 +8,15 @@ export default async function RoutesPage() {
   const supabase = createClient();
   const { data: rows } = await supabase
     .from("transport_routes")
-    .select("id, name, from_location, to_location, distance_km, driving_minutes, rest_minutes, is_airport, is_active, created_at")
+    .select("id, name, distance_km, driving_minutes, is_airport, is_active, created_at")
     .order("name");
 
   return (
     <div className="max-w-5xl">
       <PageHeader title="Routes" />
       <p className="mb-4 text-sm text-slate-500">
-        Every transport route. <b>Driving time</b> and <b>rest requirement</b> feed the automatic driver
-        scheduling engine. Open a route to set its per-vehicle rates.
+        Every transport route. <b>Driving time</b> feeds the automatic driver scheduling engine.
+        Rates are managed separately in the <b>Rate Master</b>.
       </p>
       <RouteManager initial={(rows as any[]) ?? []} />
     </div>
