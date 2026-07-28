@@ -20,15 +20,25 @@ export default function BookingExtras({ booking, driverId, rating }: { booking: 
 
   const defaultBody = `Dear ${booking.passenger_name ?? "Guest"}, your Vista Group transport booking ${booking.booking_no ?? ""} is confirmed. Our driver will contact you before pickup. Thank you.`;
 
-  async function queue() {
+  async function queue(send: boolean) {
     setBusy(true); setErr(null); setMsg(null);
     const to = channel === "whatsapp" ? (booking.whatsapp || booking.mobile) : booking.mobile;
-    const { error } = await supabase.from("transport_outbox").insert({
+    const { data, error } = await supabase.from("transport_outbox").insert({
       company_id: COMPANY_ID, booking_id: booking.id, channel, to_addr: to, body: defaultBody, status: "queued",
-    });
+    }).select("id").single();
+    if (error) { setBusy(false); return setErr(error.message); }
+
+    if (send && channel === "whatsapp") {
+      const res = await fetch("/api/transport/whatsapp/send", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: data.id }) });
+      const json = await res.json().catch(() => ({}));
+      setBusy(false);
+      if (!res.ok) { setErr(json.error || "Send failed — message left in the outbox."); return; }
+      setMsg(json.sent ? `Sent to ${to} via WhatsApp.` : `Not sent (${json.failed} failed) — see Confirmations outbox.`);
+      router.refresh();
+      return;
+    }
     setBusy(false);
-    if (error) return setErr(error.message);
-    setMsg(`Confirmation queued for ${to ?? "—"} via ${channel}.`);
+    setMsg(`Confirmation queued for ${to ?? "—"} via ${channel}. Open Confirmations to send.`);
   }
 
   async function saveRating() {
@@ -51,7 +61,8 @@ export default function BookingExtras({ booking, driverId, rating }: { booking: 
           <select className="input max-w-[10rem]" value={channel} onChange={(e) => setChannel(e.target.value)}>
             <option value="whatsapp">WhatsApp</option><option value="sms">SMS</option>
           </select>
-          <button onClick={queue} disabled={busy} className="btn text-sm">Queue confirmation</button>
+          {channel === "whatsapp" && <button onClick={() => queue(true)} disabled={busy} className="btn text-sm">{busy ? "Sending…" : "Send now"}</button>}
+          <button onClick={() => queue(false)} disabled={busy} className="btn-outline text-sm">Queue</button>
         </div>
         <p className="text-xs text-slate-500">{defaultBody}</p>
       </div>
