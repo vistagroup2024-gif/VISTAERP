@@ -1,0 +1,12 @@
+-- ============================================================
+-- VISTA ERP - 066 Transport Vendor Portal (#11)
+-- Applied to remote DB via Supabase MCP; kept here for history.
+-- transport_vendors += username/password_hash. transport_vendor_sessions.
+-- login_vendor / logout_vendor / vendor_of (token session, like the B2B agent).
+-- vendor_set_credentials (admin). vendor_trips(token) -> {available, mine}.
+-- vendor_accept_trip(token, trip): first-come conditional update (status
+--   'outsource_required' + vendor null -> 'outsourced' for this vendor) so a
+--   trip can never be accepted twice. transport_assign_vendor (ops manual).
+-- Trip status 'outsourced' added to the setter.
+-- ============================================================
+select 1;

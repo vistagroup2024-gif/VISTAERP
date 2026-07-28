@@ -99,10 +99,11 @@ export async function updateSession(request: NextRequest) {
   }
 
   const isAuthRoute = path.startsWith("/login");
-  // The B2B agent portal has its own session (b2b_session cookie) and must not
-  // be gated by staff Supabase auth.
+  // The B2B agent and Transport vendor portals have their own sessions and must
+  // not be gated by staff Supabase auth.
   const isAgentPortal = path.startsWith("/agent") || path.startsWith("/api/agent");
-  const isPublic = isAuthRoute || isAgentPortal;
+  const isVendorPortal = path.startsWith("/vendor") || path.startsWith("/api/vendor");
+  const isPublic = isAuthRoute || isAgentPortal || isVendorPortal;
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
@@ -119,7 +120,7 @@ export async function updateSession(request: NextRequest) {
   // Permission enforcement for staff pages: a restricted user can only open the
   // modules they're granted. Skips API/agent/auth routes and the /no-access page.
   // Admins and not-yet-restricted accounts (no permissions set) pass everything.
-  if (user && !isAgentPortal && !isAuthRoute && !path.startsWith("/api") && path !== "/no-access") {
+  if (user && !isAgentPortal && !isVendorPortal && !isAuthRoute && !path.startsWith("/api") && path !== "/no-access") {
     const required = requiredPerms(path);
     if (required) {
       const { data } = await supabase.rpc("staff_access");
