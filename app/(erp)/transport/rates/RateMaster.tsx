@@ -17,7 +17,8 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const [tab, setTab] = useState<"agent" | "vendor">("agent");
+  const [tab, setTab] = useState<"agent" | "vendor" | "bulk">("agent");
+  const todayS = today();
   const rName = useMemo(() => new Map(routes.map((r) => [r.id, r.name])), [routes]);
   const vName = useMemo(() => new Map(vehicles.map((v) => [v.id, v.name])), [vehicles]);
   const aName = useMemo(() => new Map(agents.map((a) => [a.id, a.agency_name])), [agents]);
@@ -27,6 +28,54 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   const [vf, setVf] = useState({ vendor_id: "", route_id: "", vehicle_id: "", effective_from: today(), effective_to: "", purchase_rate: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Bulk update state.
+  const [bKind, setBKind] = useState<"vendor" | "agent_default" | "agent_custom">("agent_default");
+  const [bVendor, setBVendor] = useState("");
+  const [bAgent, setBAgent] = useState("");
+  const [bVehicle, setBVehicle] = useState("");
+  const [bDate, setBDate] = useState(today());
+  const [bNew, setBNew] = useState<Record<string, string>>({});
+  const [bMsg, setBMsg] = useState<string | null>(null);
+
+  const byFromDesc = (a: any, b: any) => (a.effective_from < b.effective_from ? 1 : -1);
+  const effective = (r: any) => r.status === "active" && r.effective_from <= todayS && (!r.effective_to || r.effective_to >= todayS);
+
+  function currentAgentRate(routeId: string, vehicleId: string, agentId: string | null) {
+    const pool = agentRates.filter((r) => effective(r) && r.route_id === routeId && r.vehicle_id === vehicleId);
+    let cand = agentId ? pool.filter((r) => r.agent_id === agentId).sort(byFromDesc) : [];
+    if (cand.length === 0) cand = pool.filter((r) => r.agent_id === null).sort(byFromDesc);
+    return cand[0]?.selling_rate ?? null;
+  }
+  function currentVendorRate(routeId: string, vehicleId: string, vendorId: string) {
+    const cand = vendorRates.filter((r) => effective(r) && r.route_id === routeId && r.vehicle_id === vehicleId && r.vendor_id === vendorId).sort(byFromDesc);
+    return cand[0]?.purchase_rate ?? null;
+  }
+
+  async function saveBulk() {
+    if (!bVehicle) { setErr("Select a vehicle."); return; }
+    if (bKind === "vendor" && !bVendor) { setErr("Select a vendor."); return; }
+    if (bKind === "agent_custom" && !bAgent) { setErr("Select an agent."); return; }
+    const entries = routes.filter((r) => bNew[r.id] !== undefined && bNew[r.id] !== "");
+    if (entries.length === 0) { setErr("Enter at least one new rate."); return; }
+    setBusy(true); setErr(null); setBMsg(null);
+    let error;
+    if (bKind === "vendor") {
+      ({ error } = await supabase.from("transport_vendor_rates").insert(entries.map((r) => ({
+        company_id: COMPANY_ID, vendor_id: bVendor, route_id: r.id, vehicle_id: bVehicle,
+        effective_from: bDate, purchase_rate: Number(bNew[r.id]),
+      }))));
+    } else {
+      ({ error } = await supabase.from("transport_agent_rates").insert(entries.map((r) => ({
+        company_id: COMPANY_ID, agent_id: bKind === "agent_custom" ? bAgent : null, route_id: r.id, vehicle_id: bVehicle,
+        effective_from: bDate, selling_rate: Number(bNew[r.id]),
+      }))));
+    }
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setBNew({}); setBMsg(`Saved ${entries.length} new rate(s) effective ${bDate}.`);
+    router.refresh();
+  }
 
   async function addAgentRate(e: React.FormEvent) {
     e.preventDefault();
@@ -71,9 +120,9 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
-        {(["agent", "vendor"] as const).map((k) => (
+        {(["agent", "vendor", "bulk"] as const).map((k) => (
           <button key={k} onClick={() => setTab(k)} className={`rounded-md px-3 py-1.5 text-sm font-medium ${tab === k ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>
-            {k === "agent" ? "Agent Rates (Selling)" : "Vendor Rates (Purchase)"}
+            {k === "agent" ? "Agent Rates (Selling)" : k === "vendor" ? "Vendor Rates (Purchase)" : "⚡ Bulk Update"}
           </button>
         ))}
       </div>
@@ -114,7 +163,7 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
             </table>
           </div>
         </>
-      ) : (
+      ) : tab === "vendor" ? (
         <>
           <form onSubmit={addVendorRate} className="card grid grid-cols-1 gap-3 sm:grid-cols-7">
             <div><label className="label">Vendor *</label><select className="input" value={vf.vendor_id} onChange={(e) => setVf({ ...vf, vendor_id: e.target.value })}><option value="">—</option>{vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
@@ -144,6 +193,52 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
                 {vendorRates.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>No vendor rates yet.</td></tr>}
               </tbody>
             </table>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="card grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <div><label className="label">Rate set</label>
+              <select className="input" value={bKind} onChange={(e) => setBKind(e.target.value as any)}>
+                <option value="agent_default">Agent — Default (all standard agents)</option>
+                <option value="agent_custom">Agent — Specific (override)</option>
+                <option value="vendor">Vendor (purchase)</option>
+              </select></div>
+            {bKind === "vendor" && <div><label className="label">Vendor *</label>
+              <select className="input" value={bVendor} onChange={(e) => setBVendor(e.target.value)}><option value="">—</option>{vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>}
+            {bKind === "agent_custom" && <div><label className="label">Agent *</label>
+              <select className="input" value={bAgent} onChange={(e) => setBAgent(e.target.value)}><option value="">—</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}</select></div>}
+            <div><label className="label">Vehicle *</label>
+              <select className="input" value={bVehicle} onChange={(e) => setBVehicle(e.target.value)}><option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+            <div><label className="label">Effective from</label><input className="input" type="date" value={bDate} onChange={(e) => setBDate(e.target.value)} /></div>
+          </div>
+
+          <p className="text-xs text-slate-500">Enter only the routes that change. Blank rows keep their existing rate. Saving creates a new effective-dated set — history is preserved.</p>
+
+          <div className="card overflow-x-auto p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50"><tr><th className="th">Route</th><th className="th">Current rate</th><th className="th">New rate</th></tr></thead>
+              <tbody>
+                {bVehicle ? routes.map((r) => {
+                  const cur = bKind === "vendor"
+                    ? currentVendorRate(r.id, bVehicle, bVendor)
+                    : currentAgentRate(r.id, bVehicle, bKind === "agent_custom" ? bAgent : null);
+                  return (
+                    <tr key={r.id} className="border-t border-slate-100">
+                      <td className="td font-medium">{r.name}</td>
+                      <td className="td text-slate-500">{cur != null ? Number(cur).toFixed(2) : "—"}</td>
+                      <td className="td"><input className="input max-w-[9rem]" type="number" min="0" step="0.01" placeholder="—"
+                        value={bNew[r.id] ?? ""} onChange={(e) => setBNew({ ...bNew, [r.id]: e.target.value })} /></td>
+                    </tr>
+                  );
+                }) : <tr><td className="td text-slate-400" colSpan={3}>Select a vehicle to load routes.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button onClick={saveBulk} disabled={busy} className="btn">{busy ? "Saving…" : "Save new rate set"}</button>
+            {bMsg && <span className="text-sm text-green-700">{bMsg}</span>}
           </div>
         </>
       )}

@@ -117,6 +117,13 @@ export default function TransportBookingForm({
     return trips.reduce((s, t) => s + (t.route_id && t.vehicle_id ? (rateMap.get(`${t.route_id}|${t.vehicle_id}`) ?? 0) : 0), 0);
   }, [type, packageId, pkgVehicleId, pkgPriceMap, trips, rateMap]);
 
+  // Per-trip fare (operational visibility). For packages the booking total is the
+  // package price, but each trip still shows its route+vehicle fare.
+  const fareFor = (t: Trip) => {
+    const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
+    return t.route_id && veh ? (rateMap.get(`${t.route_id}|${veh}`) ?? 0) : 0;
+  };
+
   async function save(status: string) {
     // Validate mandatory flight numbers on airport routes.
     for (const t of trips) {
@@ -242,7 +249,8 @@ export default function TransportBookingForm({
                   {airport && (
                     <div className="sm:col-span-2"><label className="label">Flight No *</label><input className="input" value={t.flight_no} placeholder="SV-701" onChange={(e) => setTrip(i, { flight_no: e.target.value })} /></div>
                   )}
-                  <div className={airport ? "sm:col-span-8" : "sm:col-span-10"}><label className="label">Remarks</label><input className="input" value={t.remarks} onChange={(e) => setTrip(i, { remarks: e.target.value })} /></div>
+                  <div className="sm:col-span-2"><label className="label">Trip fare</label><input className="input bg-slate-50" value={fareFor(t).toFixed(2)} readOnly /></div>
+                  <div className={airport ? "sm:col-span-6" : "sm:col-span-8"}><label className="label">Remarks</label><input className="input" value={t.remarks} onChange={(e) => setTrip(i, { remarks: e.target.value })} /></div>
                   {type === "multiple" && (
                     <div className="flex items-end sm:col-span-2">
                       <button type="button" onClick={() => setTrips((ts) => ts.filter((_, idx) => idx !== i))} className="text-sm text-red-600 hover:underline">Remove</button>
@@ -268,7 +276,7 @@ export default function TransportBookingForm({
       </section>
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn" disabled={busy} onClick={() => save(isAgent ? "pending" : "pending")}>
+        <button type="button" className="btn" disabled={busy} onClick={() => save(isAgent ? "pending" : "confirmed")}>
           {busy ? "Saving…" : isEdit ? "Save changes" : "Create booking"}
         </button>
         <button type="button" className="btn-outline" disabled={busy} onClick={() => save("draft")}>Save as draft</button>

@@ -1,0 +1,12 @@
+-- ============================================================
+-- VISTA ERP - 067 Transport: unassign vehicle reset + per-trip fare
+-- Applied to remote DB via Supabase MCP; kept here for history.
+-- #1 transport_unassign_trip now restores vehicle_id to the original
+--    requested_vehicle_id and clears is_upgraded, so temporary upgrades never
+--    permanently change the booking's requested vehicle.
+-- #4 Save RPCs (admin + agent) store the per-trip fare (effective agent rate for
+--    the trip's route+vehicle) on every trip, including package trips, for
+--    operational visibility. Booking total is still the package price for packages.
+-- See the database for the current bodies (identical to MCP 067).
+-- ============================================================
+select 1;
