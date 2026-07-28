@@ -1,0 +1,19 @@
+-- ============================================================
+-- VISTA ERP - 064 Transport assignment engine v2
+-- Applied to remote DB via Supabase MCP; kept here for history.
+--
+-- #2 Driver+Vehicle unit: availability is tracked per driver (each driver owns a
+--    dedicated vehicle), so there is no separate vehicle-conflict check.
+-- #3 10-hour continuous rest: enforced as a 14-hour working-window per driver per
+--    day (14h work => >=10h continuous rest within the 24h) in transport_driver_free.
+-- #1 Vehicle upgrade ladder: transport_vehicles.upgrade_rank (Camry=1, Starex=2,
+--    Staria=3, Luxury Staria=4). transport_vehicle_ok() allows exact match or an
+--    upgrade (driver rank >= requested rank); never a downgrade.
+-- #10 Internal-first: auto-assign tries internal drivers (exact vehicle, then least
+--    upgrade, then least loaded); trips with no eligible internal unit are set to
+--    status 'outsource_required'. transport_trips += requested_vehicle_id, is_upgraded.
+-- transport_trip_sched recomputed (no per-trip rest). transport_assign_trip enforces
+-- the same guards (force override arrives in Phase D).
+-- See the database for the current bodies (identical to MCP 064).
+-- ============================================================
+select 1;

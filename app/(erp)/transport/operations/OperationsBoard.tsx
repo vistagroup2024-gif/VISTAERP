@@ -7,7 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 
 interface Trip {
   id: string; booking_id: string; booking_no: string | null; passenger_name: string | null; mobile: string | null;
-  route_display: string; vehicle_id: string | null; vehicle_name: string | null; driver_id: string | null; driver_name: string | null;
+  route_display: string; vehicle_id: string | null; vehicle_name: string | null; requested_vehicle_name: string | null;
+  is_upgraded: boolean; driver_id: string | null; driver_name: string | null;
   trip_time: string | null; pickup_location: string | null; drop_location: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
 }
@@ -18,6 +19,7 @@ const SLOTS: [string, number, number][] = [["Morning", 0, 12], ["Afternoon", 12,
 const STATUS_COLOR: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700", assigned: "bg-indigo-100 text-indigo-700", on_route: "bg-cyan-100 text-cyan-700",
   picked_up: "bg-teal-100 text-teal-700", completed: "bg-green-100 text-green-700", cancelled: "bg-red-100 text-red-700",
+  outsource_required: "bg-orange-100 text-orange-700",
 };
 const NEXT_TRIP: Record<string, string> = { assigned: "on_route", on_route: "picked_up", picked_up: "completed" };
 const NEXT_LABEL: Record<string, string> = { on_route: "Start (On Route)", picked_up: "Picked Up", completed: "Complete" };
@@ -53,11 +55,11 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
     const live = trips.filter((t) => t.status !== "cancelled");
     return {
       total: live.length,
-      pending: live.filter((t) => !t.driver_id && t.status !== "completed").length,
+      pending: live.filter((t) => !t.driver_id && !["completed", "outsource_required"].includes(t.status)).length,
       inProgress: live.filter((t) => ["on_route", "picked_up"].includes(t.status)).length,
       delayed: live.filter(isDelayed).length,
+      outsource: live.filter((t) => t.status === "outsource_required").length,
       completed: trips.filter((t) => t.status === "completed").length,
-      cancelled: trips.filter((t) => t.status === "cancelled").length,
       driversAvail: drivers.filter((d) => d.status === "active").length,
       vehiclesAvail: vehicles.filter((v) => v.is_active).length,
     };
@@ -97,8 +99,8 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
         <KPI label="Pending Assign" value={kpis.pending} tone={kpis.pending ? "text-amber-600" : ""} />
         <KPI label="In Progress" value={kpis.inProgress} tone="text-cyan-600" />
         <KPI label="Delayed" value={kpis.delayed} tone={kpis.delayed ? "text-red-600" : ""} />
+        <KPI label="Outsource Req." value={kpis.outsource} tone={kpis.outsource ? "text-orange-600" : ""} />
         <KPI label="Completed" value={kpis.completed} tone="text-green-600" />
-        <KPI label="Cancelled" value={kpis.cancelled} />
         <KPI label="Drivers" value={kpis.driversAvail} />
         <KPI label="Vehicles" value={kpis.vehiclesAvail} />
       </div>
@@ -123,7 +125,12 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles 
                         <div className="text-xs text-slate-500">{t.passenger_name ?? "—"} · {t.route_display}</div>
                         <div className="text-xs text-slate-400">{[t.pickup_location, t.drop_location].filter(Boolean).join(" → ") || ""}</div>
                       </div>
-                      <div className="text-sm text-slate-600">{t.vehicle_name ?? <span className="text-slate-400">no vehicle</span>}</div>
+                      <div className="text-sm text-slate-600">
+                        {t.vehicle_name ?? t.requested_vehicle_name ?? <span className="text-slate-400">no vehicle</span>}
+                        {t.is_upgraded && t.requested_vehicle_name && (
+                          <span className="ml-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700" title={`Upgraded from ${t.requested_vehicle_name}`}>⬆ upgraded</span>
+                        )}
+                      </div>
                       <div className="text-sm">
                         {t.driver_name
                           ? <span className="font-medium text-slate-700">🧑‍✈️ {t.driver_name}</span>

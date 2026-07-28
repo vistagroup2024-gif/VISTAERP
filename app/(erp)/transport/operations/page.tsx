@@ -11,7 +11,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
 
   const { data: trips } = await sb
     .from("transport_trip_sched")
-    .select("id, booking_id, seq, route_id, route_label, route_name, vehicle_id, driver_id, trip_time, pickup_location, drop_location, status, sched_s, sched_e, drive_min")
+    .select("id, booking_id, seq, route_id, route_label, route_name, vehicle_id, requested_vehicle_id, is_upgraded, driver_id, trip_time, pickup_location, drop_location, status, sched_s, sched_e, drive_min")
     .eq("trip_date", date)
     .order("trip_time");
 
@@ -35,6 +35,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       mobile: b?.mobile ?? null,
       route_display: t.route_name ?? t.route_label ?? "—",
       vehicle_name: t.vehicle_id ? vMap.get(t.vehicle_id)?.name ?? null : null,
+      requested_vehicle_name: t.requested_vehicle_id ? vMap.get(t.requested_vehicle_id)?.name ?? null : null,
       driver_name: t.driver_id ? dMap.get(t.driver_id)?.name ?? null : null,
     };
   });
