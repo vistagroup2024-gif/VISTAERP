@@ -13,7 +13,7 @@ interface Trip {
   trip_time: string | null; pickup_location: string | null; drop_location: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
 }
-interface Driver { id: string; name: string; vehicle_id: string | null; status: string; shift_start: string | null; shift_end: string | null }
+interface Driver { id: string; name: string; vehicle_id: string | null; status: string }
 interface Vehicle { id: string; name: string; is_active: boolean }
 
 const SLOTS: [string, number, number][] = [["Morning", 0, 12], ["Afternoon", 12, 17], ["Evening", 17, 21], ["Night", 21, 24]];
