@@ -8,7 +8,7 @@ export default async function RoutesPage() {
   const supabase = createClient();
   const { data: rows } = await supabase
     .from("transport_routes")
-    .select("id, name, from_location, to_location, distance_km, driving_minutes, rest_minutes, is_active, created_at")
+    .select("id, name, from_location, to_location, distance_km, driving_minutes, rest_minutes, is_airport, is_active, created_at")
     .order("name");
 
   return (

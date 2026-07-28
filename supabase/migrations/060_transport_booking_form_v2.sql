@@ -1,0 +1,12 @@
+-- ============================================================
+-- VISTA ERP - 060 Transport booking form v2
+-- Applied to remote DB via Supabase MCP; kept here for history.
+-- transport_bookings += adults, children; transport_trips += flight_no;
+-- transport_routes += is_airport (existing airport-named routes flagged).
+-- New transport_package_prices (per-vehicle package pricing), seeded from the
+-- legacy flat package price. transport_save_booking + b2b_transport_save_booking
+-- updated: pax = adults+children; package price resolved by (package, vehicle);
+-- trips carry flight_no and inherit the package vehicle.
+-- See the database for the current bodies (identical to MCP 060).
+-- ============================================================
+select 1;

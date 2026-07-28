@@ -8,10 +8,10 @@ import { COMPANY_ID } from "@/lib/format";
 
 interface Route {
   id: string; name: string; from_location: string | null; to_location: string | null;
-  distance_km: number | null; driving_minutes: number | null; rest_minutes: number; is_active: boolean;
+  distance_km: number | null; driving_minutes: number | null; rest_minutes: number; is_airport: boolean; is_active: boolean;
 }
 
-const BLANK = { name: "", from_location: "", to_location: "", distance_km: "", driving_minutes: "", rest_minutes: "" };
+const BLANK = { name: "", from_location: "", to_location: "", distance_km: "", driving_minutes: "", rest_minutes: "", is_airport: false };
 
 function hm(mins: number | null) {
   if (mins == null) return "—";
@@ -39,7 +39,7 @@ export default function RouteManager({ initial }: { initial: Route[] }) {
       company_id: COMPANY_ID, name: form.name.trim(),
       from_location: form.from_location.trim() || null, to_location: form.to_location.trim() || null,
       distance_km: num(form.distance_km), driving_minutes: num(form.driving_minutes),
-      rest_minutes: num(form.rest_minutes) ?? 0,
+      rest_minutes: num(form.rest_minutes) ?? 0, is_airport: form.is_airport,
     });
     setBusy(false);
     if (error) return setErr(error.message);
@@ -57,6 +57,7 @@ export default function RouteManager({ initial }: { initial: Route[] }) {
     setEdit({
       name: r.name, from_location: r.from_location ?? "", to_location: r.to_location ?? "",
       distance_km: r.distance_km ?? "", driving_minutes: r.driving_minutes ?? "", rest_minutes: r.rest_minutes ?? 0,
+      is_airport: r.is_airport,
     });
   }
 
@@ -65,7 +66,7 @@ export default function RouteManager({ initial }: { initial: Route[] }) {
     const { error } = await supabase.from("transport_routes").update({
       name: edit.name.trim(), from_location: edit.from_location.trim() || null, to_location: edit.to_location.trim() || null,
       distance_km: num(String(edit.distance_km)), driving_minutes: num(String(edit.driving_minutes)),
-      rest_minutes: num(String(edit.rest_minutes)) ?? 0,
+      rest_minutes: num(String(edit.rest_minutes)) ?? 0, is_airport: !!edit.is_airport,
     }).eq("id", id);
     setBusy(false);
     if (error) return setErr(error.message);
@@ -99,6 +100,10 @@ export default function RouteManager({ initial }: { initial: Route[] }) {
           <input className="input" type="number" min="0" value={form.driving_minutes} onChange={(e) => setForm({ ...form, driving_minutes: e.target.value })} /></div>
         <div className="sm:col-span-1"><label className="label">Rest (min)</label>
           <input className="input" type="number" min="0" value={form.rest_minutes} onChange={(e) => setForm({ ...form, rest_minutes: e.target.value })} /></div>
+        <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-7">
+          <input type="checkbox" checked={form.is_airport} onChange={(e) => setForm({ ...form, is_airport: e.target.checked })} />
+          ✈ Airport route (pickup / drop-off) — bookings will require a Flight Number
+        </label>
         <div className="flex items-end sm:col-span-7"><button className="btn" disabled={busy}>{busy ? "…" : "+ Add route"}</button></div>
         {err && <p className="text-sm text-red-600 sm:col-span-7">{err}</p>}
       </form>
@@ -113,7 +118,12 @@ export default function RouteManager({ initial }: { initial: Route[] }) {
           <tbody>
             {rows.map((r) => editId === r.id ? (
               <tr key={r.id} className="border-t border-slate-100 bg-amber-50/40">
-                <td className="td"><input className="input" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></td>
+                <td className="td">
+                  <input className="input" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+                  <label className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                    <input type="checkbox" checked={!!edit.is_airport} onChange={(e) => setEdit({ ...edit, is_airport: e.target.checked })} /> ✈ Airport
+                  </label>
+                </td>
                 <td className="td"><div className="flex gap-1">
                   <input className="input" value={edit.from_location} onChange={(e) => setEdit({ ...edit, from_location: e.target.value })} />
                   <input className="input" value={edit.to_location} onChange={(e) => setEdit({ ...edit, to_location: e.target.value })} /></div></td>
@@ -127,7 +137,10 @@ export default function RouteManager({ initial }: { initial: Route[] }) {
               </tr>
             ) : (
               <tr key={r.id} className="border-t border-slate-100">
-                <td className="td font-medium"><Link href={`/transport/routes/${r.id}`} className="text-brand hover:underline">{r.name}</Link></td>
+                <td className="td font-medium">
+                  <Link href={`/transport/routes/${r.id}`} className="text-brand hover:underline">{r.name}</Link>
+                  {r.is_airport && <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">✈ Airport</span>}
+                </td>
                 <td className="td">{(r.from_location || r.to_location) ? `${r.from_location ?? "—"} → ${r.to_location ?? "—"}` : "—"}</td>
                 <td className="td">{r.distance_km != null ? `${r.distance_km} km` : "—"}</td>
                 <td className="td">{hm(r.driving_minutes)}</td>
