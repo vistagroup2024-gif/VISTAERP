@@ -2,11 +2,15 @@ import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import OperationsBoard from "./OperationsBoard";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
+import { getStaffAccess, staffCan } from "@/lib/staffSession";
 
 export const dynamic = "force-dynamic";
 
 export default async function OperationsPage({ searchParams }: { searchParams: { date?: string } }) {
   const sb = createClient();
+  const access = await getStaffAccess();
+  const canEdit = staffCan(access, "transport.bookings");
+  const canAssign = staffCan(access, "transport.operations") || staffCan(access, "transport.driver_assign");
   const today = new Date().toISOString().slice(0, 10);
   const date = searchParams.date || today;
 
@@ -68,6 +72,8 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
         vehicles={(vehicles ?? []) as any[]}
         vendors={(vendors ?? []) as any[]}
         agents={(agents ?? []) as any[]}
+        canEdit={canEdit}
+        canAssign={canAssign}
       />
     </div>
   );
