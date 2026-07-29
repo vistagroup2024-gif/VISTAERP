@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import OutboxTable from "./OutboxTable";
+import WhatsAppDiag from "./WhatsAppDiag";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function MessagesPage() {
         WhatsApp / SMS booking confirmations queued from bookings. This is the delivery queue: connect a
         WhatsApp Business API or SMS gateway to auto-send <b>queued</b> messages; until then, mark them sent manually.
       </p>
+      <WhatsAppDiag />
       <OutboxTable initial={(data as any[]) ?? []} />
     </div>
   );
