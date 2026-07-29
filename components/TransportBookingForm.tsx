@@ -15,12 +15,12 @@ interface Company { id: string; name: string }
 interface Agent { id: string; agency_name: string }
 
 interface Trip {
-  route_id: string; route_label: string; vehicle_id: string; trip_date: string; trip_time: string;
+  id: string; route_id: string; route_label: string; vehicle_id: string; trip_date: string; trip_time: string;
   pickup_location: string; drop_location: string; flight_no: string; remarks: string;
 }
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
-const blankTrip = (): Trip => ({ route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "" });
+const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "" });
 const TYPE_LABEL: Record<string, string> = { with_ziyarat: "With Ziyarat", without_ziyarat: "Without Ziyarat" };
 
 export default function TransportBookingForm({
@@ -67,7 +67,7 @@ export default function TransportBookingForm({
   const [trips, setTrips] = useState<Trip[]>(
     existingTrips.length
       ? existingTrips.map((t) => ({
-          route_id: t.route_id ?? "", route_label: t.route_label ?? "", vehicle_id: t.vehicle_id ?? "",
+          id: t.id ?? "", route_id: t.route_id ?? "", route_label: t.route_label ?? "", vehicle_id: t.vehicle_id ?? "",
           trip_date: t.trip_date ?? "", trip_time: t.trip_time?.slice(0, 5) ?? "", pickup_location: t.pickup_location ?? "",
           drop_location: t.drop_location ?? "", flight_no: t.flight_no ?? "", remarks: t.remarks ?? "",
         }))
