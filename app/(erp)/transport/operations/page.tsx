@@ -12,40 +12,52 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
 
   const { data: trips } = await sb
     .from("transport_trip_sched")
-    .select("id, booking_id, seq, route_id, route_label, route_name, vehicle_id, requested_vehicle_id, is_upgraded, driver_id, vendor_id, trip_time, pickup_location, drop_location, status, sched_s, sched_e, drive_min")
+    .select("id, booking_id, seq, route_id, route_label, route_name, vehicle_id, requested_vehicle_id, is_upgraded, is_outsourced, driver_id, vendor_id, trip_time, pickup_location, drop_location, flight_no, status, sched_s, sched_e, drive_min")
     .eq("trip_date", date)
     .order("trip_time");
 
   const bookingIds = Array.from(new Set((trips ?? []).map((t: any) => t.booking_id)));
   const [{ data: bookings }, { data: drivers }, { data: vehicles }] = await Promise.all([
-    bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, status").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
+    bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, pax, booking_type, agent_id, status").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
     sb.from("transport_drivers").select("id, name, vehicle_id, status").order("name"),
-    sb.from("transport_vehicles").select("id, name, is_active").order("name"),
+    sb.from("transport_vehicles").select("id, name, category, is_active").order("name"),
   ]);
-  const { data: vendors } = await sb.from("transport_vendors").select("id, name").eq("is_active", true).order("name");
+  const agentIds = Array.from(new Set((bookings ?? []).map((b: any) => b.agent_id).filter(Boolean)));
+  const [{ data: vendors }, { data: agents }] = await Promise.all([
+    sb.from("transport_vendors").select("id, name").eq("is_active", true).order("name"),
+    agentIds.length ? sb.from("b2b_agents").select("id, agency_name").in("id", agentIds) : Promise.resolve({ data: [] as any[] }),
+  ]);
 
   const bMap = new Map((bookings ?? []).map((b: any) => [b.id, b]));
   const dMap = new Map((drivers ?? []).map((d: any) => [d.id, d]));
   const vMap = new Map((vehicles ?? []).map((v: any) => [v.id, v]));
   const venMap = new Map((vendors ?? []).map((v: any) => [v.id, v.name]));
+  const aMap = new Map((agents ?? []).map((a: any) => [a.id, a.agency_name]));
 
   const enriched = (trips ?? []).map((t: any) => {
     const b = bMap.get(t.booking_id);
+    const veh = t.vehicle_id ? vMap.get(t.vehicle_id) : null;
+    const reqVeh = t.requested_vehicle_id ? vMap.get(t.requested_vehicle_id) : null;
     return {
       ...t,
       booking_no: b?.booking_no ?? null,
       passenger_name: b?.passenger_name ?? null,
       mobile: b?.mobile ?? null,
+      pax: b?.pax ?? null,
+      booking_type: b?.booking_type ?? null,
+      agent_id: b?.agent_id ?? null,
+      agent_name: b?.agent_id ? aMap.get(b.agent_id) ?? null : "Direct",
       route_display: t.route_name ?? t.route_label ?? "—",
-      vehicle_name: t.vehicle_id ? vMap.get(t.vehicle_id)?.name ?? null : null,
-      requested_vehicle_name: t.requested_vehicle_id ? vMap.get(t.requested_vehicle_id)?.name ?? null : null,
+      vehicle_name: veh?.name ?? null,
+      vehicle_category: veh?.category ?? reqVeh?.category ?? null,
+      requested_vehicle_name: reqVeh?.name ?? null,
       driver_name: t.driver_id ? dMap.get(t.driver_id)?.name ?? null : null,
       vendor_name: t.vendor_id ? venMap.get(t.vendor_id) ?? null : null,
     };
   });
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-[1400px]">
       <RealtimeRefresh tables={["transport_trips", "transport_bookings"]} pollMs={20000} />
       <PageHeader title="Operations" />
       <OperationsBoard
@@ -55,6 +67,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
         drivers={(drivers ?? []) as any[]}
         vehicles={(vehicles ?? []) as any[]}
         vendors={(vendors ?? []) as any[]}
+        agents={(agents ?? []) as any[]}
       />
     </div>
   );
