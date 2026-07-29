@@ -7,11 +7,8 @@ export const dynamic = "force-dynamic";
 export default async function EditUserPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const { data: profile } = await supabase
-    .from("staff_users")
-    .select("id, full_name, username, is_active, email, phone, department, designation, permissions")
-    .eq("id", params.id)
-    .single();
+  const { data: rows } = await supabase.rpc("staff_users_list", { p_id: params.id });
+  const profile = (rows as any[])?.[0] ?? null;
 
   if (!profile) notFound();
 
