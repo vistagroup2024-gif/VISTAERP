@@ -38,10 +38,7 @@ export default async function UsersPage() {
   const canCreate = staffCan(access, "users.create");
   const canDelete = staffCan(access, "users.delete");
 
-  const { data: users } = await supabase
-    .from("staff_users")
-    .select("id, full_name, username, is_active, created_at, department, designation")
-    .order("created_at");
+  const { data: users } = await supabase.rpc("staff_users_list");
 
   const { data: allRoles } = await supabase
     .from("user_roles")
