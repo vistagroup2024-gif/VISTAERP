@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -44,14 +44,56 @@ const NEXT_TRIP: Record<string, string> = { assigned: "on_route", on_route: "pic
 const NEXT_LABEL: Record<string, string> = { on_route: "Start", picked_up: "Picked Up", completed: "Complete" };
 const REST_MS = 10 * 3600 * 1000;
 
-export default function OperationsBoard({ date, today, trips, drivers, vehicles, vendors, agents }: {
+interface MenuItem { label: string; onClick: () => void; danger?: boolean }
+
+// Three-dot row action menu. Positioned with fixed coordinates so it is not
+// clipped by the table's horizontal-scroll container.
+function RowMenu({ items }: { items: MenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      const target = e.target as Node;
+      if (btnRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  function toggle() {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 208) });
+    setOpen((o) => !o);
+  }
+  return (
+    <>
+      <button ref={btnRef} onClick={toggle} aria-label="Actions" className="rounded px-1.5 text-lg leading-none text-slate-500 hover:bg-slate-100">⋮</button>
+      {open && pos && (
+        <div ref={menuRef} className="fixed z-50 w-52 rounded-lg border border-slate-200 bg-white py-1 shadow-lg" style={{ top: pos.top, left: pos.left }}>
+          {items.length === 0 && <div className="px-3 py-1.5 text-sm text-slate-400">No actions available</div>}
+          {items.map((it, i) => (
+            <button key={i} onClick={() => { setOpen(false); it.onClick(); }}
+              className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50 ${it.danger ? "text-red-600" : "text-slate-700"}`}>{it.label}</button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+export default function OperationsBoard({ date, today, trips, drivers, vehicles, vendors, agents, canEdit, canAssign }: {
   date: string; today: string; trips: Trip[]; drivers: Driver[]; vehicles: Vehicle[]; vendors: Vendor[]; agents: Agent[];
+  canEdit: boolean; canAssign: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [assignFor, setAssignFor] = useState<string | null>(null);
+  const [vendorFor, setVendorFor] = useState<string | null>(null);
   const [conflict, setConflict] = useState<{ tripId: string; driverId: string; driverName: string; reason: string } | null>(null);
   const [forceReason, setForceReason] = useState("");
 
@@ -206,6 +248,20 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (ok) { setConflict(null); setAssignFor(null); }
   }
 
+  // Build the authorized action list for a row's three-dot menu.
+  function rowActions(t: Trip): MenuItem[] {
+    const open = t.status !== "cancelled" && t.status !== "completed";
+    const items: MenuItem[] = [{ label: "View Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) }];
+    if (canEdit) items.push({ label: "Edit Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) });
+    if (canAssign && open) items.push({ label: t.driver_id ? "Reassign Driver" : "Assign Driver", onClick: () => { setVendorFor(null); setAssignFor(t.id); } });
+    if (canAssign && open && isOutsourced(t) && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
+    if (canAssign && t.driver_id && open) items.push({ label: "Unassign Driver", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
+    if (canAssign && NEXT_TRIP[t.status]) items.push({ label: `Mark ${NEXT_LABEL[NEXT_TRIP[t.status]]}`, onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: NEXT_TRIP[t.status] }) });
+    if (canAssign && ["assigned", "on_route"].includes(t.status)) items.push({ label: "Mark Completed", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: "completed" }) });
+    if (canAssign && open) items.push({ label: "Cancel Trip", danger: true, onClick: () => { if (confirm("Cancel this trip?")) call("transport_set_trip_status", { p_trip: t.id, p_status: "cancelled" }); } });
+    return items;
+  }
+
   const KPI = ({ label, value, tone = "" }: { label: string; value: number; tone?: string }) => (
     <div className="card text-center">
       <div className={`text-2xl font-bold ${value && tone ? tone : "text-slate-800"}`}>{value}</div>
@@ -321,30 +377,26 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap items-center justify-end gap-2">
-                        <Link href={`/transport/bookings/${t.booking_id}`} className="text-sm text-slate-600 hover:underline">View</Link>
-                        {t.status !== "cancelled" && t.status !== "completed" && (
-                          assignFor === t.id ? (
+                        {assignFor === t.id ? (
+                          <>
                             <select className="input max-w-[11rem] text-sm" defaultValue=""
                               onChange={(e) => { if (e.target.value) { const d = drivers.find((x) => x.id === e.target.value); tryAssign(t.id, e.target.value, d?.name ?? "driver"); } }}>
                               <option value="">Choose driver…</option>
                               {drivers.filter((d) => d.status === "active").map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
-                          ) : (
-                            <button onClick={() => setAssignFor(t.id)} className="text-sm text-brand hover:underline">{t.driver_id ? "Reassign" : "Assign"}</button>
-                          )
-                        )}
-                        {isOutsourced(t) && vendors.length > 0 && (
-                          <select className="input max-w-[10rem] text-sm" value={t.vendor_id ?? ""}
-                            onChange={(e) => { if (e.target.value) call("transport_assign_vendor", { p_trip: t.id, p_vendor: e.target.value }); }}>
-                            <option value="">Vendor…</option>
-                            {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                          </select>
-                        )}
-                        {t.driver_id && t.status !== "completed" && t.status !== "cancelled" && (
-                          <button onClick={() => call("transport_unassign_trip", { p_trip: t.id })} className="text-sm text-slate-500 hover:underline">Unassign</button>
-                        )}
-                        {NEXT_TRIP[t.status] && (
-                          <button onClick={() => call("transport_set_trip_status", { p_trip: t.id, p_status: NEXT_TRIP[t.status] })} className="btn text-xs">{NEXT_LABEL[NEXT_TRIP[t.status]]}</button>
+                            <button onClick={() => setAssignFor(null)} className="text-xs text-slate-400 hover:underline">✕</button>
+                          </>
+                        ) : vendorFor === t.id ? (
+                          <>
+                            <select className="input max-w-[10rem] text-sm" value={t.vendor_id ?? ""}
+                              onChange={(e) => { if (e.target.value) { call("transport_assign_vendor", { p_trip: t.id, p_vendor: e.target.value }); setVendorFor(null); } }}>
+                              <option value="">Choose vendor…</option>
+                              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                            </select>
+                            <button onClick={() => setVendorFor(null)} className="text-xs text-slate-400 hover:underline">✕</button>
+                          </>
+                        ) : (
+                          <RowMenu items={rowActions(t)} />
                         )}
                       </div>
                     </td>
