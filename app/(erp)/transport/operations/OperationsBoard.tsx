@@ -66,7 +66,12 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   const [fStatus, setFStatus] = useState<string[]>([]);
   const [fromTime, setFromTime] = useState("");
   const [toTime, setToTime] = useState("");
+  const [showAgent, setShowAgent] = useState(false);
   const now = new Date();
+
+  // The Agent column is hidden by default; it appears when the user filters by
+  // Agent or explicitly toggles it on. Keeps the dispatch view clean.
+  const agentColumn = showAgent || fAgent.length > 0;
 
   const tomorrow = useMemo(() => {
     const d = new Date(today + "T00:00:00"); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10);
@@ -169,7 +174,9 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   }, [trips, drivers, vehicles]);
 
   // ---- Actions -------------------------------------------------------------
-  function go(d: string) { router.push(`/transport/operations?date=${d}`); }
+  // Navigate by changing the ?date= query. router.refresh() forces the server
+  // component to refetch so trips/KPIs update immediately for the new day.
+  function go(d: string) { router.push(`/transport/operations?date=${d}`); router.refresh(); }
   function shift(days: number) { const dt = new Date(date + "T00:00:00"); dt.setDate(dt.getDate() + days); go(dt.toISOString().slice(0, 10)); }
 
   async function call(fn: string, args: any) {
@@ -260,7 +267,10 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
           <input type="time" className="input max-w-[7rem]" value={toTime} onChange={(e) => setToTime(e.target.value)} />
         </div>
         {filtersActive > 0 && <button onClick={clearFilters} className="text-sm text-slate-500 hover:underline">Clear filters</button>}
-        <span className="ml-auto text-sm text-slate-500">{filtered.length} of {trips.length} trip(s)</span>
+        <label className="ml-auto flex items-center gap-1 text-sm text-slate-500">
+          <input type="checkbox" checked={showAgent} onChange={(e) => setShowAgent(e.target.checked)} /> Show agent
+        </label>
+        <span className="text-sm text-slate-500">{filtered.length} of {trips.length} trip(s)</span>
       </div>
 
       {/* Dispatcher table */}
@@ -274,15 +284,10 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-3 py-2">Time</th>
-                <th className="px-3 py-2">Booking</th>
-                <th className="px-3 py-2">Passenger</th>
-                <th className="px-3 py-2">Pax</th>
-                <th className="px-3 py-2">Agent</th>
+                {agentColumn && <th className="px-3 py-2">Agent</th>}
                 <th className="px-3 py-2">Route</th>
                 <th className="px-3 py-2">Vehicle</th>
                 <th className="px-3 py-2">Driver / Managed By</th>
-                <th className="px-3 py-2">Pickup → Drop</th>
-                <th className="px-3 py-2">Flight</th>
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
@@ -293,12 +298,9 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                 return (
                   <tr key={t.id} className={`border-t border-slate-100 align-top hover:bg-slate-50 ${delayed ? "bg-rose-50/40" : ""}`}>
                     <td className="px-3 py-2 font-semibold text-slate-700">{t.trip_time?.slice(0, 5) ?? "—"}</td>
-                    <td className="px-3 py-2"><Link href={`/transport/bookings/${t.booking_id}`} className="font-medium text-brand hover:underline">{t.booking_no ?? "—"}</Link>
+                    {agentColumn && <td className="px-3 py-2">{t.agent_name ?? "—"}</td>}
+                    <td className="px-3 py-2">{t.route_display}
                       {t.booking_type && <div className="text-[11px] text-slate-400">{t.booking_type.replace(/_/g, " ")}</div>}</td>
-                    <td className="px-3 py-2">{t.passenger_name ?? "—"}{t.mobile && <div className="text-[11px] text-slate-400">{t.mobile}</div>}</td>
-                    <td className="px-3 py-2 text-center">{t.pax ?? "—"}</td>
-                    <td className="px-3 py-2">{t.agent_name ?? "—"}</td>
-                    <td className="px-3 py-2">{t.route_display}</td>
                     <td className="px-3 py-2">
                       <div className="text-slate-700">{t.vehicle_name ?? t.requested_vehicle_name ?? <span className="text-slate-400">—</span>}</div>
                       {t.requested_vehicle_name && t.vehicle_name && t.requested_vehicle_name !== t.vehicle_name && (
@@ -313,14 +315,13 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                         : <span className="text-amber-600">unassigned</span>}
                       {isOutsourced(t) && t.driver_name == null && <span className="ml-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">outsourced</span>}
                     </td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{[t.pickup_location, t.drop_location].filter(Boolean).join(" → ") || "—"}</td>
-                    <td className="px-3 py-2 text-xs">{t.flight_no ?? "—"}</td>
                     <td className="px-3 py-2">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_META[t.status]?.chip ?? "bg-slate-200 text-slate-600"}`}>{STATUS_META[t.status]?.label ?? t.status.replace(/_/g, " ")}</span>
                       {delayed && <span className="ml-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">delayed</span>}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Link href={`/transport/bookings/${t.booking_id}`} className="text-sm text-slate-600 hover:underline">View</Link>
                         {t.status !== "cancelled" && t.status !== "completed" && (
                           assignFor === t.id ? (
                             <select className="input max-w-[11rem] text-sm" defaultValue=""
