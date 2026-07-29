@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAgent, can } from "@/lib/agentSession";
 import { createClient } from "@/lib/supabase/server";
+import RealtimeRefresh from "@/components/RealtimeRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function AgentTransportList({ searchParams }: { searchParam
 
   return (
     <div className="max-w-4xl">
+      <RealtimeRefresh tables={["transport_bookings"]} pollMs={20000} />
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Transport Bookings</h1>
         {can(agent, "transport.request") && <Link href="/agent/module/transport/new" className="btn">+ New Booking</Link>}
