@@ -55,6 +55,14 @@ function landingFor(perms: Record<string, boolean>): string {
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // The B2B agent and Transport vendor portals (and their APIs) run on their own
+  // cookie sessions and never need staff Supabase auth. Short-circuit here so we
+  // skip the auth-server round-trip for every navigation inside those portals.
+  const p0 = request.nextUrl.pathname;
+  if (p0.startsWith("/agent") || p0.startsWith("/api/agent") || p0.startsWith("/vendor") || p0.startsWith("/api/vendor")) {
+    return response;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

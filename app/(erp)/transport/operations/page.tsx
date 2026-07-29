@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import OperationsBoard from "./OperationsBoard";
+import RealtimeRefresh from "@/components/RealtimeRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
 
   return (
     <div className="max-w-6xl">
+      <RealtimeRefresh tables={["transport_trips", "transport_bookings"]} pollMs={20000} />
       <PageHeader title="Operations" />
       <OperationsBoard
         date={date}
