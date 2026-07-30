@@ -16,14 +16,14 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
 
   const { data: trips } = await sb
     .from("transport_trip_sched")
-    .select("id, booking_id, seq, route_id, route_label, route_name, vehicle_id, requested_vehicle_id, is_upgraded, is_outsourced, driver_id, vendor_id, trip_time, pickup_location, drop_location, flight_no, status, sched_s, sched_e, drive_min, hajj_terminal, passenger_visa_type")
+    .select("id, booking_id, seq, route_id, route_label, route_name, vehicle_id, requested_vehicle_id, is_upgraded, is_outsourced, driver_id, vendor_id, trip_date, trip_time, pickup_location, drop_location, flight_no, status, sched_s, sched_e, drive_min, hajj_terminal, passenger_visa_type")
     .eq("trip_date", date)
     .order("trip_time");
 
   const bookingIds = Array.from(new Set((trips ?? []).map((t: any) => t.booking_id)));
   const [{ data: bookings }, { data: drivers }, { data: vehicles }] = await Promise.all([
     bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, pax, booking_type, agent_id, status").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
-    sb.from("transport_drivers").select("id, name, mobile, vehicle_id, status").order("name"),
+    sb.from("transport_drivers").select("id, name, mobile, license_no, vehicle_id, status").order("name"),
     sb.from("transport_vehicles").select("id, name, category, vehicle_type, is_active").order("name"),
   ]);
   const agentIds = Array.from(new Set((bookings ?? []).map((b: any) => b.agent_id).filter(Boolean)));
@@ -58,6 +58,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       requested_vehicle_name: reqVeh?.name ?? null,
       driver_name: t.driver_id ? dMap.get(t.driver_id)?.name ?? null : null,
       driver_mobile: t.driver_id ? dMap.get(t.driver_id)?.mobile ?? null : null,
+      driver_reg: t.driver_id ? dMap.get(t.driver_id)?.license_no ?? null : null,
       hajj_terminal: t.hajj_terminal ?? false,
       vendor_name: t.vendor_id ? venMap.get(t.vendor_id) ?? null : null,
     };
