@@ -4,31 +4,35 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import CountrySelect from "@/components/CountrySelect";
+import AttachmentsPanel from "@/components/AttachmentsPanel";
 
-interface Route { id: string; name: string; is_airport?: boolean }
-interface Vehicle { id: string; name: string }
+interface Route { id: string; name: string; is_airport?: boolean; from_location?: string | null; to_location?: string | null }
+interface Vehicle { id: string; name: string; seating_capacity?: number | null }
 interface PkgLeg { seq: number; route_id: string | null; label: string | null; vehicle_id: string | null }
 interface Pkg { id: string; name: string; price: number; package_type: string; legs: PkgLeg[] }
 interface Rate { route_id: string; vehicle_id: string; sell_rate: number }
 interface PkgPrice { package_id: string; vehicle_id: string; price: number }
+interface ExtraCharge { route_id: string; vehicle_id: string; desc: string | null; amount: number }
 interface Company { id: string; name: string }
 interface Agent { id: string; agency_name: string }
 
 interface Trip {
   id: string; route_id: string; route_label: string; vehicle_id: string; trip_date: string; trip_time: string;
   pickup_location: string; drop_location: string; flight_no: string; remarks: string;
+  hajj_terminal: boolean; passenger_visa_type: string; status?: string;
 }
 
+const VISA_TYPES: [string, string][] = [["umrah", "Umrah Visa"], ["visit", "Visit Visa"], ["other", "Other"]];
 const todayStr = () => new Date().toISOString().slice(0, 10);
-const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "" });
+const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "", hajj_terminal: false, passenger_visa_type: "" });
 const TYPE_LABEL: Record<string, string> = { with_ziyarat: "With Ziyarat", without_ziyarat: "Without Ziyarat" };
 
 export default function TransportBookingForm({
-  existing, existingTrips, routes, vehicles, packages, rates, packagePrices = [], agents,
+  existing, existingTrips, routes, vehicles, packages, rates, packagePrices = [], extraCharges = [], agents,
   variant = "admin", endpoint, basePath = "/transport/bookings",
 }: {
   existing: any | null; existingTrips: any[];
-  routes: Route[]; vehicles: Vehicle[]; packages: Pkg[]; rates: Rate[]; packagePrices?: PkgPrice[]; companies?: Company[]; agents: Agent[];
+  routes: Route[]; vehicles: Vehicle[]; packages: Pkg[]; rates: Rate[]; packagePrices?: PkgPrice[]; extraCharges?: ExtraCharge[]; companies?: Company[]; agents: Agent[];
   variant?: "admin" | "agent"; endpoint?: string; basePath?: string;
 }) {
   const router = useRouter();
@@ -47,11 +51,33 @@ export default function TransportBookingForm({
     return m;
   }, [packagePrices]);
   const routeById = useMemo(() => new Map(routes.map((r) => [r.id, r])), [routes]);
+  const vehicleById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
+  const extraMap = useMemo(() => {
+    const m = new Map<string, ExtraCharge>();
+    extraCharges.forEach((e) => m.set(`${e.route_id}|${e.vehicle_id}`, e));
+    return m;
+  }, [extraCharges]);
   const routeName = (id: string) => routeById.get(id)?.name ?? "";
   const isAirportRoute = (t: Trip) => {
     const r = t.route_id ? routeById.get(t.route_id) : undefined;
     const label = (r?.name ?? t.route_label ?? "").toLowerCase();
     return !!r?.is_airport || label.includes("airport");
+  };
+  // Pickup happens AT the airport (i.e. an airport arrival) when the route's
+  // origin is an airport. Jeddah airport pickups additionally offer Hajj Terminal.
+  const isAirportArrival = (t: Trip) => {
+    const r = t.route_id ? routeById.get(t.route_id) : undefined;
+    const from = (r?.from_location ?? "").toLowerCase();
+    return from.includes("airport");
+  };
+  const isJeddahAirportPickup = (t: Trip) => {
+    const r = t.route_id ? routeById.get(t.route_id) : undefined;
+    const from = (r?.from_location ?? "").toLowerCase();
+    return from.includes("airport") && from.includes("jeddah");
+  };
+  const hajjChargeFor = (t: Trip) => {
+    const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
+    return t.route_id && veh ? (extraMap.get(`${t.route_id}|${veh}`)?.amount ?? 0) : 0;
   };
 
   const [type, setType] = useState<string>(existing?.booking_type ?? "single");
@@ -60,7 +86,7 @@ export default function TransportBookingForm({
   const [h, setH] = useState({
     agent_id: existing?.agent_id ?? "", group_company_id: existing?.group_company_id ?? "",
     booking_date: existing?.booking_date ?? todayStr(),
-    adults: existing?.adults?.toString() ?? "", children: existing?.children?.toString() ?? "",
+    pax: existing?.pax?.toString() ?? "", nusuk_group_no: existing?.nusuk_group_no ?? "",
     passenger_name: existing?.passenger_name ?? "", mobile: existing?.mobile ?? "",
     whatsapp: existing?.whatsapp ?? "", nationality: existing?.nationality ?? "", remarks: existing?.remarks ?? "",
   });
@@ -70,13 +96,14 @@ export default function TransportBookingForm({
           id: t.id ?? "", route_id: t.route_id ?? "", route_label: t.route_label ?? "", vehicle_id: t.vehicle_id ?? "",
           trip_date: t.trip_date ?? "", trip_time: t.trip_time?.slice(0, 5) ?? "", pickup_location: t.pickup_location ?? "",
           drop_location: t.drop_location ?? "", flight_no: t.flight_no ?? "", remarks: t.remarks ?? "",
+          hajj_terminal: !!t.hajj_terminal, passenger_visa_type: t.passenger_visa_type ?? "", status: t.status ?? "",
         }))
       : [blankTrip()]
   );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const totalPax = (Number(h.adults) || 0) + (Number(h.children) || 0);
+  const totalPax = Number(h.pax) || 0;
 
   function setTrip(i: number, patch: Partial<Trip>) {
     setTrips((ts) => ts.map((t, idx) => {
@@ -113,9 +140,13 @@ export default function TransportBookingForm({
   // Total booking amount (auto): package price for the chosen vehicle, else the
   // sum of each trip's route+vehicle rate.
   const total = useMemo(() => {
-    if (type === "package") return packageId && pkgVehicleId ? (pkgPriceMap.get(`${packageId}|${pkgVehicleId}`) ?? 0) : 0;
-    return trips.reduce((s, t) => s + (t.route_id && t.vehicle_id ? (rateMap.get(`${t.route_id}|${t.vehicle_id}`) ?? 0) : 0), 0);
-  }, [type, packageId, pkgVehicleId, pkgPriceMap, trips, rateMap]);
+    const base = type === "package"
+      ? (packageId && pkgVehicleId ? (pkgPriceMap.get(`${packageId}|${pkgVehicleId}`) ?? 0) : 0)
+      : trips.reduce((s, t) => s + (t.route_id && t.vehicle_id ? (rateMap.get(`${t.route_id}|${t.vehicle_id}`) ?? 0) : 0), 0);
+    // Hajj Terminal / route extra charges apply per trip when ticked.
+    const extras = trips.reduce((s, t) => s + (t.hajj_terminal ? hajjChargeFor(t) : 0), 0);
+    return base + extras;
+  }, [type, packageId, pkgVehicleId, pkgPriceMap, trips, rateMap, extraMap]);
 
   // Per-trip fare (operational visibility). For packages the booking total is the
   // package price, but each trip still shows its route+vehicle fare.
@@ -125,9 +156,19 @@ export default function TransportBookingForm({
   };
 
   async function save(status: string) {
-    // Validate mandatory flight numbers on airport routes.
+    // Total passengers is mandatory.
+    if (!totalPax || totalPax < 1) { setErr("Total Passengers is required and must be at least 1."); return; }
     for (const t of trips) {
+      // Mandatory flight numbers on airport routes.
       if (isAirportRoute(t) && !t.flight_no.trim()) { setErr("Flight Number is required for airport pickup / drop-off trips."); return; }
+      // Passenger Visa Type is mandatory for Jeddah airport arrivals.
+      if (isJeddahAirportPickup(t) && !t.passenger_visa_type) { setErr("Passenger Visa Type is required for Jeddah Airport arrival trips."); return; }
+      // Vehicle capacity must fit the passenger count.
+      const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
+      const cap = veh ? vehicleById.get(veh)?.seating_capacity : null;
+      if (cap != null && totalPax > cap) {
+        setErr(`Selected vehicle seats ${cap}, but there are ${totalPax} passengers. Choose a larger vehicle.`); return;
+      }
     }
     if (type === "package" && (!packageId || !pkgVehicleId)) { setErr("Select a package and a vehicle."); return; }
 
@@ -178,9 +219,8 @@ export default function TransportBookingForm({
           <div><label className="label">Haji name</label><input className="input" value={h.passenger_name} onChange={(e) => setH({ ...h, passenger_name: e.target.value })} /></div>
           <div><label className="label">Mobile</label><input className="input" value={h.mobile} onChange={(e) => setH({ ...h, mobile: e.target.value })} /></div>
           <div><label className="label">WhatsApp</label><input className="input" value={h.whatsapp} onChange={(e) => setH({ ...h, whatsapp: e.target.value })} /></div>
-          <div><label className="label">Adults</label><input className="input" type="number" min="0" value={h.adults} onChange={(e) => setH({ ...h, adults: e.target.value })} /></div>
-          <div><label className="label">Children</label><input className="input" type="number" min="0" value={h.children} onChange={(e) => setH({ ...h, children: e.target.value })} /></div>
-          <div><label className="label">Total passengers</label><input className="input bg-slate-50" value={totalPax} readOnly /></div>
+          <div><label className="label">Total passengers *</label><input className="input" type="number" min="1" value={h.pax} onChange={(e) => setH({ ...h, pax: e.target.value })} /></div>
+          <div><label className="label">Nusuk Group Number</label><input className="input" value={h.nusuk_group_no} onChange={(e) => setH({ ...h, nusuk_group_no: e.target.value })} placeholder="optional" /></div>
           <div className="sm:col-span-2"><label className="label">Nationality</label>
             <CountrySelect value={h.nationality} onChange={(v) => setH({ ...h, nationality: v })} /></div>
         </div>
@@ -225,6 +265,9 @@ export default function TransportBookingForm({
           <div className="space-y-2">
             {trips.map((t, i) => {
               const airport = isAirportRoute(t);
+              const done = t.status === "completed";
+              const showVisa = isAirportArrival(t);
+              const showHajj = isJeddahAirportPickup(t);
               return (
                 <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-12">
                   <div className="sm:col-span-3"><label className="label">Route</label>
@@ -242,16 +285,29 @@ export default function TransportBookingForm({
                         <option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                       </select></div>
                   )}
-                  <div className="sm:col-span-2"><label className="label">Date</label><input className="input" type="date" value={t.trip_date} onChange={(e) => setTrip(i, { trip_date: e.target.value })} /></div>
-                  <div className="sm:col-span-1"><label className="label">Time</label><input className="input" type="time" value={t.trip_time} onChange={(e) => setTrip(i, { trip_time: e.target.value })} /></div>
+                  <div className="sm:col-span-2"><label className="label">Date</label><input className={`input ${done ? "bg-slate-100" : ""}`} type="date" value={t.trip_date} disabled={done} title={done ? "Completed trips cannot have their date or time changed." : undefined} onChange={(e) => setTrip(i, { trip_date: e.target.value })} /></div>
+                  <div className="sm:col-span-1"><label className="label">Time</label><input className={`input ${done ? "bg-slate-100" : ""}`} type="time" value={t.trip_time} disabled={done} title={done ? "Completed trips cannot have their date or time changed." : undefined} onChange={(e) => setTrip(i, { trip_time: e.target.value })} /></div>
                   <div className="sm:col-span-2"><label className="label">Pickup</label><input className="input" value={t.pickup_location} onChange={(e) => setTrip(i, { pickup_location: e.target.value })} /></div>
                   <div className="sm:col-span-2"><label className="label">Drop</label><input className="input" value={t.drop_location} onChange={(e) => setTrip(i, { drop_location: e.target.value })} /></div>
                   {airport && (
                     <div className="sm:col-span-2"><label className="label">Flight No *</label><input className="input" value={t.flight_no} placeholder="SV-701" onChange={(e) => setTrip(i, { flight_no: e.target.value })} /></div>
                   )}
-                  <div className="sm:col-span-2"><label className="label">Trip fare</label><input className="input bg-slate-50" value={fareFor(t).toFixed(2)} readOnly /></div>
-                  <div className={airport ? "sm:col-span-6" : "sm:col-span-8"}><label className="label">Remarks</label><input className="input" value={t.remarks} onChange={(e) => setTrip(i, { remarks: e.target.value })} /></div>
-                  {type === "multiple" && (
+                  {showVisa && (
+                    <div className="sm:col-span-2"><label className="label">Passenger Visa Type *</label>
+                      <select className="input" value={t.passenger_visa_type} onChange={(e) => setTrip(i, { passenger_visa_type: e.target.value })}>
+                        <option value="">— select —</option>{VISA_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      </select></div>
+                  )}
+                  <div className="sm:col-span-2"><label className="label">Trip fare</label><input className="input bg-slate-50" value={(fareFor(t) + (t.hajj_terminal ? hajjChargeFor(t) : 0)).toFixed(2)} readOnly /></div>
+                  <div className="sm:col-span-4"><label className="label">Remarks</label><input className="input" value={t.remarks} onChange={(e) => setTrip(i, { remarks: e.target.value })} /></div>
+                  {showHajj && (
+                    <label className="flex items-center gap-2 sm:col-span-3 sm:mt-6 text-sm text-slate-600">
+                      <input type="checkbox" checked={t.hajj_terminal} onChange={(e) => setTrip(i, { hajj_terminal: e.target.checked })} />
+                      Hajj Terminal{hajjChargeFor(t) > 0 && <span className="text-xs text-slate-400">(+{hajjChargeFor(t).toFixed(2)} SAR)</span>}
+                    </label>
+                  )}
+                  {done && <p className="sm:col-span-12 text-xs text-slate-400">This trip is completed — its date and time are locked.</p>}
+                  {type === "multiple" && !done && (
                     <div className="flex items-end sm:col-span-2">
                       <button type="button" onClick={() => setTrips((ts) => ts.filter((_, idx) => idx !== i))} className="text-sm text-red-600 hover:underline">Remove</button>
                     </div>
@@ -272,8 +328,14 @@ export default function TransportBookingForm({
           <h2 className="font-semibold text-slate-700">Total Booking Amount</h2>
           <span className="text-2xl font-bold text-brand-dark">{total.toFixed(2)} SAR</span>
         </div>
-        <p className="mt-1 text-xs text-slate-400">Calculated automatically from the selected route/package and vehicle.</p>
+        <p className="mt-1 text-xs text-slate-400">Calculated automatically from the selected route/package and vehicle, including any route extra charges (e.g. Hajj Terminal).</p>
       </section>
+
+      {/* Attachments — staff, existing bookings only */}
+      {!isAgent && isEdit && existing?.id && (
+        <AttachmentsPanel endpoint="/api/transport/attachments" groupId={existing.id} canUpload canDelete
+          accept=".pdf,.jpg,.jpeg,.png,.docx,image/jpeg,image/png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+      )}
 
       <div className="flex flex-wrap gap-2">
         <button type="button" className="btn" disabled={busy} onClick={() => save(isAgent ? "pending" : "confirmed")}>

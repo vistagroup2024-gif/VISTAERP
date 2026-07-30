@@ -9,15 +9,37 @@ interface Ref { id: string; name: string }
 interface AgentRef { id: string; agency_name: string }
 interface AgentRate { id: string; agent_id: string | null; route_id: string; vehicle_id: string; effective_from: string; effective_to: string | null; selling_rate: number; status: string }
 interface VendorRate { id: string; vendor_id: string; route_id: string; vehicle_id: string; effective_from: string; effective_to: string | null; purchase_rate: number; status: string }
+interface RouteRate { id: string; route_id: string; vehicle_id: string; extra_charge_enabled: boolean; extra_charge_desc: string | null; extra_charge_amount: number }
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function RateMaster({ routes, vehicles, agents, vendors, agentRates, vendorRates }: {
-  routes: Ref[]; vehicles: Ref[]; agents: AgentRef[]; vendors: Ref[]; agentRates: AgentRate[]; vendorRates: VendorRate[];
+export default function RateMaster({ routes, vehicles, agents, vendors, agentRates, vendorRates, routeRates = [] }: {
+  routes: Ref[]; vehicles: Ref[]; agents: AgentRef[]; vendors: Ref[]; agentRates: AgentRate[]; vendorRates: VendorRate[]; routeRates?: RouteRate[];
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const [tab, setTab] = useState<"agent" | "vendor" | "bulk">("agent");
+  const [tab, setTab] = useState<"agent" | "vendor" | "bulk" | "extras">("agent");
+
+  // Route extra-charge form (e.g. Hajj Terminal), stored on transport_route_rates.
+  const [xf, setXf] = useState({ route_id: "", vehicle_id: "", extra_charge_desc: "", extra_charge_amount: "" });
+  async function saveExtra(e: React.FormEvent) {
+    e.preventDefault();
+    if (!xf.route_id || !xf.vehicle_id || !xf.extra_charge_amount) { setErr("Route, vehicle and amount are required."); return; }
+    setBusy(true); setErr(null);
+    const existing = routeRates.find((r) => r.route_id === xf.route_id && r.vehicle_id === xf.vehicle_id);
+    const patch = { extra_charge_enabled: true, extra_charge_desc: xf.extra_charge_desc.trim() || "Hajj Terminal", extra_charge_amount: Number(xf.extra_charge_amount) };
+    const { error } = existing
+      ? await supabase.from("transport_route_rates").update(patch).eq("id", existing.id)
+      : await supabase.from("transport_route_rates").insert({ company_id: COMPANY_ID, route_id: xf.route_id, vehicle_id: xf.vehicle_id, sell_rate: 0, ...patch });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setXf({ route_id: "", vehicle_id: "", extra_charge_desc: "", extra_charge_amount: "" });
+    router.refresh();
+  }
+  async function disableExtra(id: string) {
+    await supabase.from("transport_route_rates").update({ extra_charge_enabled: false }).eq("id", id);
+    router.refresh();
+  }
   const todayS = today();
   const rName = useMemo(() => new Map(routes.map((r) => [r.id, r.name])), [routes]);
   const vName = useMemo(() => new Map(vehicles.map((v) => [v.id, v.name])), [vehicles]);
@@ -120,9 +142,9 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
-        {(["agent", "vendor", "bulk"] as const).map((k) => (
+        {(["agent", "vendor", "bulk", "extras"] as const).map((k) => (
           <button key={k} onClick={() => setTab(k)} className={`rounded-md px-3 py-1.5 text-sm font-medium ${tab === k ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>
-            {k === "agent" ? "Agent Rates (Selling)" : k === "vendor" ? "Vendor Rates (Purchase)" : "⚡ Bulk Update"}
+            {k === "agent" ? "Agent Rates (Selling)" : k === "vendor" ? "Vendor Rates (Purchase)" : k === "bulk" ? "⚡ Bulk Update" : "Route Extras"}
           </button>
         ))}
       </div>
@@ -195,7 +217,7 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
             </table>
           </div>
         </>
-      ) : (
+      ) : tab === "bulk" ? (
         <>
           <div className="card grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div><label className="label">Rate set</label>
@@ -239,6 +261,34 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
           <div className="flex items-center gap-3">
             <button onClick={saveBulk} disabled={busy} className="btn">{busy ? "Saving…" : "Save new rate set"}</button>
             {bMsg && <span className="text-sm text-green-700">{bMsg}</span>}
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-slate-500">Optional extra charges applied to a route + vehicle only when required (e.g. the <b>Hajj Terminal</b> surcharge for Jeddah Airport pickups). Booking staff tick “Hajj Terminal” on the trip to apply it.</p>
+          <form onSubmit={saveExtra} className="card grid grid-cols-1 gap-3 sm:grid-cols-5">
+            <div><label className="label">Route *</label><select className="input" value={xf.route_id} onChange={(e) => setXf({ ...xf, route_id: e.target.value })}><option value="">—</option>{routes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
+            <div><label className="label">Vehicle *</label><select className="input" value={xf.vehicle_id} onChange={(e) => setXf({ ...xf, vehicle_id: e.target.value })}><option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+            <div><label className="label">Description</label><input className="input" placeholder="Hajj Terminal" value={xf.extra_charge_desc} onChange={(e) => setXf({ ...xf, extra_charge_desc: e.target.value })} /></div>
+            <div><label className="label">Amount (SAR) *</label><input className="input" type="number" min="0" step="0.01" value={xf.extra_charge_amount} onChange={(e) => setXf({ ...xf, extra_charge_amount: e.target.value })} /></div>
+            <div className="flex items-end"><button className="btn w-full" disabled={busy}>{busy ? "…" : "Save extra"}</button></div>
+          </form>
+          <div className="card overflow-x-auto p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50"><tr><th className="th">Route</th><th className="th">Vehicle</th><th className="th">Description</th><th className="th">Amount</th><th className="th"></th></tr></thead>
+              <tbody>
+                {routeRates.filter((r) => r.extra_charge_enabled).map((r) => (
+                  <tr key={r.id} className="border-t border-slate-100">
+                    <td className="td">{rName.get(r.route_id) ?? "—"}</td>
+                    <td className="td">{vName.get(r.vehicle_id) ?? "—"}</td>
+                    <td className="td">{r.extra_charge_desc ?? "—"}</td>
+                    <td className="td">{Number(r.extra_charge_amount).toFixed(2)}</td>
+                    <td className="td"><button onClick={() => disableExtra(r.id)} className="text-sm text-red-600 hover:underline">Remove</button></td>
+                  </tr>
+                ))}
+                {routeRates.filter((r) => r.extra_charge_enabled).length === 0 && <tr><td className="td text-slate-400" colSpan={5}>No route extra charges configured.</td></tr>}
+              </tbody>
+            </table>
           </div>
         </>
       )}

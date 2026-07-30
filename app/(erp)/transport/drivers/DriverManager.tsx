@@ -9,12 +9,12 @@ interface Vehicle { id: string; name: string }
 interface Driver {
   id: string; name: string; iqama: string | null; license_no: string | null; mobile: string | null;
   vehicle_id: string | null; languages: string[]; status: string; emergency_contact: string | null;
-  iqama_expiry: string | null; license_expiry: string | null;
+  iqama_expiry: string | null; license_expiry: string | null; nusuk_registered?: boolean;
 }
 
 const BLANK = {
   name: "", iqama: "", license_no: "", mobile: "", vehicle_id: "", languages: "", status: "active",
-  emergency_contact: "", iqama_expiry: "", license_expiry: "",
+  emergency_contact: "", iqama_expiry: "", license_expiry: "", nusuk_registered: false,
 };
 
 const STATUS: Record<string, string> = { active: "bg-green-100 text-green-700", inactive: "bg-slate-200 text-slate-500", on_leave: "bg-amber-100 text-amber-700" };
@@ -43,6 +43,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       languages: f.languages ? String(f.languages).split(",").map((s: string) => s.trim()).filter(Boolean) : [],
       status: f.status, emergency_contact: f.emergency_contact.trim() || null,
       iqama_expiry: f.iqama_expiry || null, license_expiry: f.license_expiry || null,
+      nusuk_registered: !!f.nusuk_registered,
     };
   }
 
@@ -63,6 +64,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       name: d.name, iqama: d.iqama ?? "", license_no: d.license_no ?? "", mobile: d.mobile ?? "",
       vehicle_id: d.vehicle_id ?? "", languages: (d.languages ?? []).join(", "), status: d.status,
       emergency_contact: d.emergency_contact ?? "", iqama_expiry: d.iqama_expiry ?? "", license_expiry: d.license_expiry ?? "",
+      nusuk_registered: !!d.nusuk_registered,
     });
   }
 
@@ -104,6 +106,10 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       <div><label className="label">Emergency contact</label><input className="input" value={f.emergency_contact} onChange={(e) => set({ ...f, emergency_contact: e.target.value })} /></div>
       <div><label className="label">Iqama expiry</label><input className="input" type="date" value={f.iqama_expiry} onChange={(e) => set({ ...f, iqama_expiry: e.target.value })} /></div>
       <div><label className="label">License expiry</label><input className="input" type="date" value={f.license_expiry} onChange={(e) => set({ ...f, license_expiry: e.target.value })} /></div>
+      <div><label className="label">Nusuk Registered</label>
+        <select className="input" value={f.nusuk_registered ? "yes" : "no"} onChange={(e) => set({ ...f, nusuk_registered: e.target.value === "yes" })}>
+          <option value="no">No</option><option value="yes">Yes</option>
+        </select></div>
     </div>
   );
 
@@ -137,6 +143,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
             <div className={`text-sm ${expiringSoon(d.license_expiry) ? "font-medium text-red-600" : "text-slate-600"}`}>Lic exp: {d.license_expiry ?? "—"}</div>
             <div className="text-sm text-slate-600">{(d.languages ?? []).join(", ") || "—"}</div>
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[d.status] ?? "bg-slate-200"}`}>{d.status.replace("_", " ")}</span>
+            {d.nusuk_registered && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Nusuk ✓</span>}
             <div className="ml-auto whitespace-nowrap">
               <button onClick={() => startEdit(d)} className="text-sm text-brand hover:underline">Edit</button>
               <button onClick={() => del(d)} className="ml-3 text-sm text-red-600 hover:underline">Delete</button>

@@ -18,7 +18,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
 
   const [{ data: booking }, { data: trips }] = await Promise.all([
     sb.from("transport_bookings").select("*").eq("id", params.id).maybeSingle(),
-    sb.from("transport_trip_sched").select("seq, route_name, route_label, trip_date, trip_time, pickup_location, drop_location, vehicle_id").eq("booking_id", params.id).order("seq"),
+    sb.from("transport_trip_sched").select("seq, route_name, route_label, trip_date, trip_time, pickup_location, drop_location, vehicle_id, hajj_terminal").eq("booking_id", params.id).order("seq"),
   ]);
   if (!booking) return <div className="card text-slate-500">Booking not found. <Link href="/transport/bookings" className="text-brand hover:underline">Back</Link></div>;
   const b = booking as any;
@@ -87,7 +87,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
               {(trips ?? []).map((t: any, i: number) => (
                 <tr key={i} className="border-b border-slate-100">
                   <td className="py-1.5">{t.seq ?? i + 1}</td>
-                  <td className="py-1.5 font-medium text-slate-800">{t.route_name ?? t.route_label ?? "—"}</td>
+                  <td className="py-1.5 font-medium text-slate-800">{t.route_name ?? t.route_label ?? "—"}{t.hajj_terminal && <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Hajj Terminal</span>}</td>
                   <td className="py-1.5">{t.trip_date ?? "—"}</td>
                   <td className="py-1.5">{t.trip_time?.slice(0, 5) ?? "—"}</td>
                   <td className="py-1.5">{t.pickup_location ?? "—"}</td>
