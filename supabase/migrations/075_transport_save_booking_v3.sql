@@ -1,0 +1,6 @@
+-- 075_transport_save_booking_v3
+-- Trip sync + save with: completed date/time lock, capacity validation at
+-- booking, Hajj-terminal extra charge into totals, and persistence of the new
+-- trip fields (hajj_terminal, passenger_visa_type, extra_charge) and booking
+-- nusuk_group_no. See the database for the authoritative bodies of
+-- transport_sync_trips, transport_save_booking and b2b_transport_save_booking.

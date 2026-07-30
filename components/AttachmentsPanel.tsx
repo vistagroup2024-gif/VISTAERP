@@ -4,16 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 interface FileMeta { id: string; name: string; mime: string | null; size: number | null; source: string | null; created_at: string; }
 
-const ACCEPT = ".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf";
-const MAX_BYTES = 5 * 1024 * 1024;
+const DEFAULT_ACCEPT = ".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf";
+const MAX_BYTES = 6 * 1024 * 1024;
 
 // Attachments for a Visa Group (JPG / PNG / PDF, multiple). Stored via RPC.
 // `canUpload` shows the upload control; `canDelete` shows per-file delete.
 // These are independent so an agent can, e.g., add files while the group is
 // Under Processing but not delete previously uploaded ones.
 export default function AttachmentsPanel({
-  endpoint, groupId, canUpload, canDelete,
-}: { endpoint: string; groupId: string; canUpload: boolean; canDelete: boolean }) {
+  endpoint, groupId, canUpload, canDelete, accept = DEFAULT_ACCEPT,
+}: { endpoint: string; groupId: string; canUpload: boolean; canDelete: boolean; accept?: string }) {
   const [files, setFiles] = useState<FileMeta[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -87,11 +87,11 @@ export default function AttachmentsPanel({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="font-semibold text-slate-700">📎 Attachments</h2>
-          <p className="text-xs text-slate-500">JPG, PNG or PDF · up to 5 MB each · multiple files allowed.</p>
+          <p className="text-xs text-slate-500">PDF, JPG, PNG or DOCX · up to 6 MB each · multiple files allowed.</p>
         </div>
         {canUpload && (
           <>
-            <input ref={inputRef} type="file" multiple accept={ACCEPT} onChange={onPick} className="hidden" />
+            <input ref={inputRef} type="file" multiple accept={accept} onChange={onPick} className="hidden" />
             <button type="button" className="btn-outline text-sm" disabled={busy} onClick={() => inputRef.current?.click()}>
               {busy ? "Uploading…" : "+ Upload files"}
             </button>

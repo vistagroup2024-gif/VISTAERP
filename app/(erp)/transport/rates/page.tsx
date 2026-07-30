@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function RateMasterPage() {
   const sb = createClient();
-  const [{ data: routes }, { data: vehicles }, { data: agents }, { data: vendors }, { data: agentRates }, { data: vendorRates }] =
+  const [{ data: routes }, { data: vehicles }, { data: agents }, { data: vendors }, { data: agentRates }, { data: vendorRates }, { data: routeRates }] =
     await Promise.all([
       sb.from("transport_routes").select("id, name").eq("is_active", true).order("name"),
       sb.from("transport_vehicles").select("id, name").eq("is_active", true).order("sort_order").order("name"),
@@ -14,6 +14,7 @@ export default async function RateMasterPage() {
       sb.from("transport_vendors").select("id, name").eq("is_active", true).order("name"),
       sb.from("transport_agent_rates").select("id, agent_id, route_id, vehicle_id, effective_from, effective_to, selling_rate, status").order("effective_from", { ascending: false }),
       sb.from("transport_vendor_rates").select("id, vendor_id, route_id, vehicle_id, effective_from, effective_to, purchase_rate, status").order("effective_from", { ascending: false }),
+      sb.from("transport_route_rates").select("id, route_id, vehicle_id, extra_charge_enabled, extra_charge_desc, extra_charge_amount"),
     ]);
 
   return (
@@ -30,6 +31,7 @@ export default async function RateMasterPage() {
         vendors={(vendors as any[]) ?? []}
         agentRates={(agentRates as any[]) ?? []}
         vendorRates={(vendorRates as any[]) ?? []}
+        routeRates={(routeRates as any[]) ?? []}
       />
     </div>
   );

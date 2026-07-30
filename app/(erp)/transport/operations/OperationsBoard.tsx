@@ -12,6 +12,7 @@ interface Trip {
   route_id: string | null; route_display: string; vehicle_id: string | null; vehicle_name: string | null;
   vehicle_category: string | null; requested_vehicle_id: string | null; requested_vehicle_name: string | null;
   is_upgraded: boolean; is_outsourced: boolean; driver_id: string | null; driver_name: string | null;
+  driver_mobile: string | null; vehicle_type: string | null; hajj_terminal: boolean;
   vendor_id: string | null; vendor_name: string | null; trip_time: string | null;
   pickup_location: string | null; drop_location: string | null; flight_no: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
@@ -248,11 +249,24 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (ok) { setConflict(null); setAssignFor(null); }
   }
 
+  // Copy a driver's details as a shareable text block (WhatsApp etc.).
+  function copyDriver(t: Trip) {
+    const text = [
+      `Driver Name: ${t.driver_name ?? "—"}`,
+      `Mobile Number: ${t.driver_mobile ?? "—"}`,
+      `Vehicle Type: ${t.vehicle_type ?? t.vehicle_name ?? "—"}`,
+      `Vehicle Number: ${t.vehicle_name ?? "—"}`,
+    ].join("\n");
+    navigator.clipboard?.writeText(text).then(() => setErr("Driver details copied to clipboard."),
+      () => setErr("Could not copy — clipboard blocked."));
+  }
+
   // Build the authorized action list for a row's three-dot menu.
   function rowActions(t: Trip): MenuItem[] {
     const open = t.status !== "cancelled" && t.status !== "completed";
     const items: MenuItem[] = [{ label: "View Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) }];
     if (canEdit) items.push({ label: "Edit Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) });
+    if (t.driver_id) items.push({ label: "Copy Driver Details", onClick: () => copyDriver(t) });
     if (canAssign && open) items.push({ label: t.driver_id ? "Reassign Driver" : "Assign Driver", onClick: () => { setVendorFor(null); setAssignFor(t.id); } });
     if (canAssign && open && isOutsourced(t) && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
     if (canAssign && t.driver_id && open) items.push({ label: "Unassign Driver", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
@@ -356,6 +370,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                     <td className="px-3 py-2 font-semibold text-slate-700">{t.trip_time?.slice(0, 5) ?? "—"}</td>
                     {agentColumn && <td className="px-3 py-2">{t.agent_name ?? "—"}</td>}
                     <td className="px-3 py-2">{t.route_display}
+                      {t.hajj_terminal && <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Hajj Terminal</span>}
                       {t.booking_type && <div className="text-[11px] text-slate-400">{t.booking_type.replace(/_/g, " ")}</div>}</td>
                     <td className="px-3 py-2">
                       <div className="text-slate-700">{t.vehicle_name ?? t.requested_vehicle_name ?? <span className="text-slate-400">—</span>}</div>
