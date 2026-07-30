@@ -1,0 +1,11 @@
+-- 077_deadhead_name_endpoints
+-- Deadhead/repositioning was silently skipped whenever a route's
+-- from_location/to_location were NULL (true for almost every route — only the
+-- route NAME "Origin - Destination" is reliably populated). Added
+-- transport_route_origin/transport_route_dest to derive endpoints from the name
+-- (with column fallback), reworked transport_deadhead_min to match the return
+-- route by canonical "From - To" name, and rebuilt transport_driver_reason to
+-- use derived endpoints so the deadhead and Nusuk-airport checks actually fire.
+-- Example now correctly blocked: 21:00 Makkah->Jeddah Airport (ends 22:10) then
+-- 22:30 Makkah->Madinah needs 90 min back Jeddah Airport->Makkah, only 20 min.
+-- See the database for the authoritative function bodies.
