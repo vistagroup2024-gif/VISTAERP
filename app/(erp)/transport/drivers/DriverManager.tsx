@@ -92,7 +92,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
       <div><label className="label">Name *</label><input className="input" value={f.name} onChange={(e) => set({ ...f, name: e.target.value })} required /></div>
       <div><label className="label">Iqama</label><input className="input" value={f.iqama} onChange={(e) => set({ ...f, iqama: e.target.value })} /></div>
-      <div><label className="label">License No.</label><input className="input" value={f.license_no} onChange={(e) => set({ ...f, license_no: e.target.value })} /></div>
+      <div><label className="label">Registration No.</label><input className="input" placeholder="ABC-9334" value={f.license_no} onChange={(e) => set({ ...f, license_no: e.target.value })} /></div>
       <div><label className="label">Mobile</label><input className="input" value={f.mobile} onChange={(e) => set({ ...f, mobile: e.target.value })} /></div>
       <div><label className="label">Vehicle</label>
         <select className="input" value={f.vehicle_id} onChange={(e) => set({ ...f, vehicle_id: e.target.value })}>
@@ -105,7 +105,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
         </select></div>
       <div><label className="label">Emergency contact</label><input className="input" value={f.emergency_contact} onChange={(e) => set({ ...f, emergency_contact: e.target.value })} /></div>
       <div><label className="label">Iqama expiry</label><input className="input" type="date" value={f.iqama_expiry} onChange={(e) => set({ ...f, iqama_expiry: e.target.value })} /></div>
-      <div><label className="label">License expiry</label><input className="input" type="date" value={f.license_expiry} onChange={(e) => set({ ...f, license_expiry: e.target.value })} /></div>
+      <div><label className="label">Registration expiry</label><input className="input" type="date" value={f.license_expiry} onChange={(e) => set({ ...f, license_expiry: e.target.value })} /></div>
       <div><label className="label">Nusuk Registered</label>
         <select className="input" value={f.nusuk_registered ? "yes" : "no"} onChange={(e) => set({ ...f, nusuk_registered: e.target.value === "yes" })}>
           <option value="no">No</option><option value="yes">Yes</option>
@@ -140,7 +140,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
             </div>
             <div className="text-sm text-slate-600">Iqama: {d.iqama ?? "—"}</div>
             <div className={`text-sm ${expiringSoon(d.iqama_expiry) ? "font-medium text-red-600" : "text-slate-600"}`}>Iqama exp: {d.iqama_expiry ?? "—"}</div>
-            <div className={`text-sm ${expiringSoon(d.license_expiry) ? "font-medium text-red-600" : "text-slate-600"}`}>Lic exp: {d.license_expiry ?? "—"}</div>
+            <div className={`text-sm ${expiringSoon(d.license_expiry) ? "font-medium text-red-600" : "text-slate-600"}`}>Reg exp: {d.license_expiry ?? "—"}</div>
             <div className="text-sm text-slate-600">{(d.languages ?? []).join(", ") || "—"}</div>
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[d.status] ?? "bg-slate-200"}`}>{d.status.replace("_", " ")}</span>
             {d.nusuk_registered && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Nusuk ✓</span>}

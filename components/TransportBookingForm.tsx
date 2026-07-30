@@ -93,7 +93,10 @@ export default function TransportBookingForm({
   const [trips, setTrips] = useState<Trip[]>(
     existingTrips.length
       ? existingTrips.map((t) => ({
-          id: t.id ?? "", route_id: t.route_id ?? "", route_label: t.route_label ?? "", vehicle_id: t.vehicle_id ?? "",
+          id: t.id ?? "", route_id: t.route_id ?? "", route_label: t.route_label ?? "",
+          // Always edit the ORIGINAL booked vehicle, never an operational upgrade
+          // (assigning a larger car in Operations must not rewrite the booking).
+          vehicle_id: t.requested_vehicle_id ?? t.vehicle_id ?? "",
           trip_date: t.trip_date ?? "", trip_time: t.trip_time?.slice(0, 5) ?? "", pickup_location: t.pickup_location ?? "",
           drop_location: t.drop_location ?? "", flight_no: t.flight_no ?? "", remarks: t.remarks ?? "",
           hajj_terminal: !!t.hajj_terminal, passenger_visa_type: t.passenger_visa_type ?? "", status: t.status ?? "",

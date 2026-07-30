@@ -12,7 +12,8 @@ interface Trip {
   route_id: string | null; route_display: string; vehicle_id: string | null; vehicle_name: string | null;
   vehicle_category: string | null; requested_vehicle_id: string | null; requested_vehicle_name: string | null;
   is_upgraded: boolean; is_outsourced: boolean; driver_id: string | null; driver_name: string | null;
-  driver_mobile: string | null; vehicle_type: string | null; hajj_terminal: boolean;
+  driver_mobile: string | null; driver_reg: string | null; vehicle_type: string | null; hajj_terminal: boolean;
+  trip_date: string | null;
   vendor_id: string | null; vendor_name: string | null; trip_time: string | null;
   pickup_location: string | null; drop_location: string | null; flight_no: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
@@ -85,6 +86,15 @@ function RowMenu({ items }: { items: MenuItem[] }) {
   );
 }
 
+// Add days to an ISO date (YYYY-MM-DD) using UTC arithmetic so the result never
+// shifts across a day boundary in the viewer's local timezone (e.g. UTC+3).
+function addDays(iso: string, n: number) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
+
 export default function OperationsBoard({ date, today, trips, drivers, vehicles, vendors, agents, canEdit, canAssign }: {
   date: string; today: string; trips: Trip[]; drivers: Driver[]; vehicles: Vehicle[]; vendors: Vendor[]; agents: Agent[];
   canEdit: boolean; canAssign: boolean;
@@ -116,9 +126,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // Agent or explicitly toggles it on. Keeps the dispatch view clean.
   const agentColumn = showAgent || fAgent.length > 0;
 
-  const tomorrow = useMemo(() => {
-    const d = new Date(today + "T00:00:00"); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10);
-  }, [today]);
+  const tomorrow = useMemo(() => addDays(today, 1), [today]);
 
   // ---- Derived helpers -----------------------------------------------------
   const isDelayed = (t: Trip) => !!t.sched_s && new Date(t.sched_s) < now && ["pending", "assigned"].includes(t.status);
@@ -220,7 +228,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // Navigate by changing the ?date= query. router.refresh() forces the server
   // component to refetch so trips/KPIs update immediately for the new day.
   function go(d: string) { router.push(`/transport/operations?date=${d}`); router.refresh(); }
-  function shift(days: number) { const dt = new Date(date + "T00:00:00"); dt.setDate(dt.getDate() + days); go(dt.toISOString().slice(0, 10)); }
+  function shift(days: number) { go(addDays(date, days)); }
 
   async function call(fn: string, args: any) {
     setBusy(true); setErr(null);
@@ -252,10 +260,15 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // Copy a driver's details as a shareable text block (WhatsApp etc.).
   function copyDriver(t: Trip) {
     const text = [
-      `Driver Name: ${t.driver_name ?? "—"}`,
-      `Mobile Number: ${t.driver_mobile ?? "—"}`,
-      `Vehicle Type: ${t.vehicle_type ?? t.vehicle_name ?? "—"}`,
-      `Vehicle Number: ${t.vehicle_name ?? "—"}`,
+      `Haji Name : ${t.passenger_name ?? "—"}`,
+      `Route : ${t.route_display}`,
+      `Trip Date : ${t.trip_date ?? "—"}`,
+      ``,
+      `*Driver Details*`,
+      `Name : ${t.driver_name ?? "—"}`,
+      `Number : ${t.driver_mobile ?? "—"}`,
+      `Vehicle : ${t.vehicle_type ?? t.vehicle_name ?? "—"}`,
+      `Car Reg No : ${t.driver_reg ?? "—"}`,
     ].join("\n");
     navigator.clipboard?.writeText(text).then(() => setErr("Driver details copied to clipboard."),
       () => setErr("Could not copy — clipboard blocked."));
