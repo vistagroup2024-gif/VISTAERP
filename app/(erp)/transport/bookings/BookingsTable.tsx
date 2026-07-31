@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface Row {
   id: string; booking_no: string | null; booking_type: string; status: string;
@@ -21,8 +23,20 @@ const COLOR: Record<string, string> = {
 const TYPE: Record<string, string> = { single: "Single", multiple: "Multiple", package: "Package" };
 
 export default function BookingsTable({ initial }: { initial: Row[] }) {
+  const router = useRouter();
+  const supabase = createClient();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function del(r: Row) {
+    if (!confirm(`Delete booking ${r.booking_no ?? ""}${r.passenger_name ? ` (${r.passenger_name})` : ""}?\n\nThis permanently removes the booking and its trips and cannot be undone.`)) return;
+    setBusyId(r.id);
+    const { error } = await supabase.rpc("delete_transport_booking", { p_id: r.id });
+    setBusyId(null);
+    if (error) { alert(error.message); return; }
+    router.refresh();
+  }
 
   const rows = initial.filter((r) => {
     if (status && r.status !== status) return false;
@@ -45,7 +59,7 @@ export default function BookingsTable({ initial }: { initial: Row[] }) {
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
-            <tr><th className="th">Booking Date</th><th className="th">Agent</th><th className="th">Haji Name</th><th className="th">Pax</th><th className="th">Type</th><th className="th">Total Amount</th><th className="th">Status</th></tr>
+            <tr><th className="th">Booking Date</th><th className="th">Agent</th><th className="th">Haji Name</th><th className="th">Pax</th><th className="th">Type</th><th className="th">Total Amount</th><th className="th">Status</th><th className="th text-right">Actions</th></tr>
           </thead>
           <tbody>
             {rows.map((r) => (
@@ -60,9 +74,13 @@ export default function BookingsTable({ initial }: { initial: Row[] }) {
                 <td className="td">{TYPE[r.booking_type] ?? r.booking_type}</td>
                 <td className="td">{Number(r.total_amount).toFixed(2)} {r.currency}</td>
                 <td className="td"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COLOR[r.status] ?? "bg-slate-200"}`}>{LABEL[r.status] ?? r.status}</span></td>
+                <td className="td text-right whitespace-nowrap">
+                  <Link href={`/transport/bookings/${r.id}`} className="text-sm text-brand hover:underline">Edit</Link>
+                  <button onClick={() => del(r)} disabled={busyId === r.id} className="ml-3 text-sm text-red-600 hover:underline disabled:opacity-50">{busyId === r.id ? "Deleting…" : "Delete"}</button>
+                </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={7}>No bookings found.</td></tr>}
+            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>No bookings found.</td></tr>}
           </tbody>
         </table>
       </div>
