@@ -45,22 +45,24 @@ export default function BookingsTable({ initial }: { initial: Row[] }) {
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
-            <tr><th className="th">Booking #</th><th className="th">Passenger</th><th className="th">Agent</th><th className="th">Type</th><th className="th">Date</th><th className="th">Pax</th><th className="th">Total</th><th className="th">Status</th></tr>
+            <tr><th className="th">Booking Date</th><th className="th">Agent</th><th className="th">Haji Name</th><th className="th">Pax</th><th className="th">Type</th><th className="th">Total Amount</th><th className="th">Status</th></tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="td font-medium"><Link href={`/transport/bookings/${r.id}`} className="text-brand hover:underline">{r.booking_no ?? "—"}</Link></td>
-                <td className="td">{r.passenger_name ?? "—"}<div className="text-xs text-slate-400">{r.mobile ?? ""}</div></td>
-                <td className="td">{r.agent_name ?? "—"}</td>
-                <td className="td">{TYPE[r.booking_type] ?? r.booking_type}</td>
                 <td className="td">{r.booking_date ?? "—"}</td>
+                <td className="td">{r.agent_name ?? "—"}</td>
+                <td className="td font-medium">
+                  <Link href={`/transport/bookings/${r.id}`} className="text-brand hover:underline">{r.passenger_name ?? r.booking_no ?? "—"}</Link>
+                  <div className="text-xs text-slate-400">{[r.booking_no, r.mobile].filter(Boolean).join(" · ")}</div>
+                </td>
                 <td className="td">{r.pax ?? "—"}</td>
+                <td className="td">{TYPE[r.booking_type] ?? r.booking_type}</td>
                 <td className="td">{Number(r.total_amount).toFixed(2)} {r.currency}</td>
                 <td className="td"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COLOR[r.status] ?? "bg-slate-200"}`}>{LABEL[r.status] ?? r.status}</span></td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>No bookings found.</td></tr>}
+            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={7}>No bookings found.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 import PrintButton from "@/components/PrintButton";
+import DeleteVoucherButton from "./DeleteVoucherButton";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,10 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
         <Link href={`/transport/bookings/${b.id}`} className="btn-outline text-sm">← Back to booking</Link>
         <Link href={`/transport/bookings/${b.id}/voucher?brand=vista`} className={`text-sm ${brand === "vista" ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Vista</Link>
         <Link href={`/transport/bookings/${b.id}/voucher?brand=agent`} className={`text-sm ${brand === "agent" ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Agent</Link>
-        <span className="ml-auto"><PrintButton /></span>
+        <span className="ml-auto flex items-center gap-2">
+          {b.status === "cancelled" && <DeleteVoucherButton bookingId={b.id} bookingNo={b.booking_no ?? b.id} />}
+          <PrintButton />
+        </span>
       </div>
 
       <div className="print-doc rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
