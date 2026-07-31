@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import TransportBookingForm from "@/components/TransportBookingForm";
 import BookingStatusBar from "./BookingStatusBar";
+import DeleteBookingButton from "./DeleteBookingButton";
 import BookingExtras from "./BookingExtras";
 import { loadBookingMasters } from "@/lib/transportMasters";
 
@@ -28,6 +29,7 @@ export default async function EditBookingPage({ params }: { params: { id: string
         <Link href={`/transport/bookings/${b.id}/voucher?brand=vista`} className="btn-outline">Vista Voucher</Link>
         <Link href={`/transport/bookings/${b.id}/voucher?brand=agent`} className="btn-outline">Agent Voucher</Link>
         <Link href="/transport/bookings" className="btn-outline">All bookings</Link>
+        <DeleteBookingButton bookingId={b.id} bookingNo={b.booking_no ?? b.id} />
       </PageHeader>
       <BookingStatusBar id={b.id} status={b.status} />
       <BookingExtras
