@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
+import { guardStaffPage } from "@/lib/staffSession";
 import { Brn, Consumption, usedOnNight, cellClass, maxNightlyAvailable } from "@/lib/brn";
 import CalendarControls from "./CalendarControls";
 
@@ -11,6 +12,7 @@ function pad(n: number) { return String(n).padStart(2, "0"); }
 export default async function CalendarPage({
   searchParams,
 }: { searchParams: { month?: string; year?: string; city?: string; company?: string } }) {
+  await guardStaffPage("brn.view");
   const now = new Date();
   const month = Number(searchParams.month ?? now.getUTCMonth() + 1); // 1-12
   const year = Number(searchParams.year ?? now.getUTCFullYear());

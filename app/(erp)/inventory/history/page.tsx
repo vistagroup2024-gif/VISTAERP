@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import { dateStr } from "@/lib/format";
 import { totalNights } from "@/lib/brn";
@@ -7,6 +8,7 @@ import ReleaseButton from "./ReleaseButton";
 export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
+  await guardStaffPage("brn.view");
   const supabase = createClient();
   const { data: rows } = await supabase
     .from("brn_consumption")

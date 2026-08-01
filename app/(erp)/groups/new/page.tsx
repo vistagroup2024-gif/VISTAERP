@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
+import { guardStaffPage } from "@/lib/staffSession";
 import GroupForm from "@/components/GroupForm";
 import { Airport } from "@/components/AirportSelect";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewGroupPage() {
+  await guardStaffPage("visa.create");
   const supabase = createClient();
   const [{ data: airports }, { data: agents }, { data: companies }] = await Promise.all([
     supabase.from("airports").select("*").order("is_saudi", { ascending: false }).order("city"),

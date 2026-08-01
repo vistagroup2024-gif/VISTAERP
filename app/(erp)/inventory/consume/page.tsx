@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import ConsumeForm from "./ConsumeForm";
+import { guardStaffPage } from "@/lib/staffSession";
 import { Brn } from "@/lib/brn";
 
 export const dynamic = "force-dynamic";
 
 export default async function ConsumePage({ searchParams }: { searchParams: { brn?: string } }) {
+  await guardStaffPage(["brn.add", "brn.edit"]);
   const supabase = createClient();
   const [{ data: brns }, { data: cons }] = await Promise.all([
     supabase.from("brn_inventory").select("*").order("hotel_name"),

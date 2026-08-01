@@ -15,9 +15,14 @@ const NEXT: Record<string, { label: string; fn: string; args?: any }> = {
 
 type Item = { label: string; onClick: () => void; danger?: boolean };
 
+interface GroupPerms {
+  isAdmin: boolean; canProcess: boolean; canErp: boolean; canPkg: boolean; canIssue: boolean; canDelete: boolean; canCreate: boolean;
+}
+
 export default function GroupActions({
-  groupId, brnStatus, visaStatus, isAdmin, workflowStatus, visaType, agentPending,
-}: { groupId: string; brnStatus: string; visaStatus: string; isAdmin: boolean; workflowStatus: string; visaType?: string; agentPending?: boolean }) {
+  groupId, brnStatus, visaStatus, perms, workflowStatus, visaType, agentPending,
+}: { groupId: string; brnStatus: string; visaStatus: string; perms: GroupPerms; workflowStatus: string; visaType?: string; agentPending?: boolean }) {
+  const isAdmin = perms.isAdmin;
   const router = useRouter();
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
@@ -51,18 +56,26 @@ export default function GroupActions({
     return <Link href={`/groups/${groupId}`} className="badge bg-amber-100 text-amber-800 hover:underline" title="More agent BRNs pending">Agent BRNs pending</Link>;
   }
 
-  // Build the menu for this stage.
+  // Which permission the "next" workflow step requires.
+  const nextPerm = stage === "brn_allocated" ? perms.canErp
+    : stage === "erp_created" ? perms.canPkg
+    : stage === "package_assigned" ? perms.canIssue
+    : perms.canProcess; // process → Allocate BRN (or skip-BRN → ERP handled below)
+  const canNext = stage === "process" && skipBrn ? perms.canErp : nextPerm;
+
+  // Build the menu for this stage. Workflow-changing actions require the
+  // matching permission; view-only staff see just "Open".
   const items: Item[] = [];
-  if (stage === "pending" || stage === "payment_pending") {
+  if ((stage === "pending" || stage === "payment_pending") && perms.canProcess) {
     items.push({ label: "✅ Process", onClick: () => run("set_group_decision", { p_decision: "process" }) });
     if (stage === "pending") items.push({ label: "💳 Payment", onClick: () => run("set_group_decision", { p_decision: "payment" }) });
     items.push({ label: "⛔ Reject", onClick: () => run("set_group_decision", { p_decision: "reject" }, "Reject this visa group?"), danger: true });
   }
-  if (next) items.push({ label: `➡️ ${next.label}`, onClick: () => run(next.fn, next.args) });
+  if (next && canNext) items.push({ label: `➡️ ${next.label}`, onClick: () => run(next.fn, next.args) });
   if (stage === "rejected" && isAdmin) items.push({ label: "↩️ Reopen", onClick: () => run("reopen_group") });
   if (stage === "visa_issued" && isAdmin) items.push({ label: "✏️ Edit", onClick: () => { setOpen(false); router.push(`/groups/${groupId}/edit`); } });
   items.push({ label: "🔎 Open", onClick: () => { setOpen(false); router.push(`/groups/${groupId}`); } });
-  if (isAdmin && stage !== "visa_issued") {
+  if (perms.canDelete && stage !== "visa_issued") {
     items.push({ label: "🗑 Delete", danger: true, onClick: () => run("delete_group", undefined, "Delete this group? Any reserved or allocated BRNs will be released automatically. This cannot be undone.") });
   }
 

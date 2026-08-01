@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
 import { money } from "@/lib/format";
@@ -44,6 +45,7 @@ function planFor(id: string, name: string, items: CItem[], brns: Brn[], consByBr
 }
 
 export default async function PlanningPage({ searchParams }: { searchParams: { company?: string } }) {
+  await guardStaffPage("brn.planning");
   const company = searchParams.company ?? "";
   const supabase = createClient();
   const [{ data: pendGroups }, { data: updGroups }, { data: brns }, { data: cons }, { data: companies }] = await Promise.all([

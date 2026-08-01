@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { guardStaffPage } from "@/lib/staffSession";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
@@ -18,6 +19,7 @@ function Kpi({ label, value, tone }: { label: string; value: string | number; to
 }
 
 export default async function PackageUpdatesPage({ searchParams }: { searchParams: { company?: string; tab?: string } }) {
+  await guardStaffPage("visa.package_update");
   const company = searchParams.company ?? "";
   const tab = searchParams.tab === "history" ? "history" : "pending";
   const today = new Date().toISOString().slice(0, 10);

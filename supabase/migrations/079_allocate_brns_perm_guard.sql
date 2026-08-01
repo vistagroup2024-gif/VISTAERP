@@ -1,0 +1,2 @@
+-- 079_allocate_brns_perm_guard
+-- allocate_group_brns now requires staff_has_perm('visa.allocate_brn').

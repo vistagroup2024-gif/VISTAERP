@@ -124,7 +124,11 @@ function HeaderCell({
   );
 }
 
-export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdmin: boolean }) {
+export interface GroupPerms {
+  isAdmin: boolean; canProcess: boolean; canErp: boolean; canPkg: boolean; canIssue: boolean; canDelete: boolean; canCreate: boolean;
+}
+
+export default function GroupsTable({ rows, perms }: { rows: GroupRow[]; perms: GroupPerms }) {
   const [filters, setFilters] = useState<Record<string, string[]>>({});
   const [companies, setCompanies] = useState<Set<string>>(new Set());
   // Default: newest-created first. A new group always lands at the top.
@@ -250,7 +254,7 @@ export default function GroupsTable({ rows, isAdmin }: { rows: GroupRow[]; isAdm
                 <td className="td">{g.total_nights}</td>
                 <td className="td"><span className={`badge ${VISA_CLS[g.visa_label] ?? "bg-slate-100"}`}>{g.visa_label}</span></td>
                 <td className="td">{g.package_status ? <span className={`badge ${PKG_CLS[g.package_label] ?? "bg-slate-100 text-slate-600"}`}>{g.package_label}</span> : <span className="text-slate-300">—</span>}</td>
-                <td className="td"><GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} workflowStatus={g.workflow_status} visaType={g.visa_type} agentPending={g.agent_brn_pending} isAdmin={isAdmin} /></td>
+                <td className="td"><GroupActions groupId={g.id} brnStatus={g.brn_status} visaStatus={g.visa_status} workflowStatus={g.workflow_status} visaType={g.visa_type} agentPending={g.agent_brn_pending} perms={perms} /></td>
               </tr>
             ))}
             {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={COLS.length + 2}>No matching groups.</td></tr>}

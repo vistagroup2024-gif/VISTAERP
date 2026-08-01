@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { guardStaffPage } from "@/lib/staffSession";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
@@ -8,6 +9,7 @@ import { Brn, Consumption, isArchived, dailyForBrn } from "@/lib/brn";
 export const dynamic = "force-dynamic";
 
 export default async function ArchivedBrnsPage({ searchParams }: { searchParams: { company?: string } }) {
+  await guardStaffPage("brn.view");
   const company = searchParams.company ?? "";
   const supabase = createClient();
   const [{ data: brns }, { data: cons }, { data: companies }] = await Promise.all([

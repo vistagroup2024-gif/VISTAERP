@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { guardStaffPage } from "@/lib/staffSession";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
@@ -30,6 +31,7 @@ function availableTodayForCity(B: Brn[], consByBrn: Record<string, Consumption[]
 }
 
 export default async function InventoryDashboard({ searchParams }: { searchParams: { company?: string } }) {
+  await guardStaffPage("brn.view");
   const company = searchParams.company ?? "";
   const supabase = createClient();
   const today = new Date().toISOString().slice(0, 10);

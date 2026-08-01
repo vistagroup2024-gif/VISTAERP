@@ -2,10 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import GroupForm from "@/components/GroupForm";
 import { Airport } from "@/components/AirportSelect";
+import { guardStaffPage } from "@/lib/staffSession";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditGroupPage({ params }: { params: { id: string } }) {
+  await guardStaffPage("visa.edit");
   const supabase = createClient();
   const [{ data: g }, { data: airports }, { data: agents }, { data: companies }] = await Promise.all([
     supabase.from("umrah_groups").select("*").eq("id", params.id).single(),
