@@ -1,0 +1,7 @@
+-- 085_transport_rates_keyed_on_parties
+-- Agent-specific transport rates are now keyed on the Customer/Agent master
+-- (parties), consistent with bookings/lists/reports. transport_agent_rates.agent_id
+-- holds a parties.id (or NULL = default). transport_save_booking and
+-- b2b_transport_save_booking pass the party id to transport_agent_rate /
+-- transport_sync_trips directly (no more b2b-login translation). No data
+-- migration needed — all existing rate rows are default (agent_id NULL).

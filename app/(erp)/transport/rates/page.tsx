@@ -10,7 +10,9 @@ export default async function RateMasterPage() {
     await Promise.all([
       sb.from("transport_routes").select("id, name").eq("is_active", true).order("name"),
       sb.from("transport_vehicles").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-      sb.from("b2b_agents").select("id, agency_name").order("agency_name"),
+      // Customer/Agent master (parties) — agent-specific rates are keyed here,
+      // consistent with the rest of transport (not the B2B login list).
+      sb.from("parties").select("id, name").in("party_type", ["customer", "b2b_agent"]).eq("is_active", true).order("name"),
       sb.from("transport_vendors").select("id, name").eq("is_active", true).order("name"),
       sb.from("transport_agent_rates").select("id, agent_id, route_id, vehicle_id, effective_from, effective_to, selling_rate, status").order("effective_from", { ascending: false }),
       sb.from("transport_vendor_rates").select("id, vendor_id, route_id, vehicle_id, effective_from, effective_to, purchase_rate, status").order("effective_from", { ascending: false }),
@@ -27,7 +29,7 @@ export default async function RateMasterPage() {
       <RateMaster
         routes={(routes as any[]) ?? []}
         vehicles={(vehicles as any[]) ?? []}
-        agents={(agents as any[]) ?? []}
+        agents={((agents as any[]) ?? []).map((a) => ({ id: a.id, agency_name: a.name }))}
         vendors={(vendors as any[]) ?? []}
         agentRates={(agentRates as any[]) ?? []}
         vendorRates={(vendorRates as any[]) ?? []}
