@@ -16,12 +16,12 @@ const INSTRUCTIONS = [
 // Vista company details shown on the Vista-branded voucher. Edit these values
 // to match your official details (name, phone/WhatsApp, email, address).
 const VISTA = {
-  name: "VISTA GROUP",
+  name: "Vista Group",
   tagline: "Umrah & Ziyarah Transport Services",
   contact: "Vista Operations",
-  mobile: "+966 12 000 0000",
-  email: "ops@vista-group.co",
-  address: "Makkah · Madinah · Jeddah, Saudi Arabia",
+  mobile: "+966 53 004 8282",
+  email: "sales@vista-group.co",
+  address: "Khalidiya, Madinah",
   logo: "/logo.svg",
 };
 
