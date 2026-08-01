@@ -59,7 +59,9 @@ export async function updateSession(request: NextRequest) {
   // cookie sessions and never need staff Supabase auth. Short-circuit here so we
   // skip the auth-server round-trip for every navigation inside those portals.
   const p0 = request.nextUrl.pathname;
-  if (p0.startsWith("/agent") || p0.startsWith("/api/agent") || p0.startsWith("/vendor") || p0.startsWith("/api/vendor")) {
+  if (p0.startsWith("/agent") || p0.startsWith("/api/agent") || p0.startsWith("/vendor") || p0.startsWith("/api/vendor")
+      || p0.startsWith("/v/")) {
+    // /v/ is the public, login-free transport voucher (shared via QR).
     return response;
   }
 
