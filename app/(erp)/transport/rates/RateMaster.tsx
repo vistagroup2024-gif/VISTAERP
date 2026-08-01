@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
@@ -58,10 +58,13 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   // Agent — Specific bulk update supports selecting many agents at once, so a
   // differentiated rate set can be applied to several agents in one save.
   const [bAgents, setBAgents] = useState<string[]>([]);
-  const [bVehicle, setBVehicle] = useState("");
+  // Multiple vehicles can be edited side-by-side; new rates are keyed by
+  // `${routeId}|${vehicleId}` so every route×vehicle cell is independent.
+  const [bVehicles, setBVehicles] = useState<string[]>([]);
   const [bDate, setBDate] = useState(today());
   const [bNew, setBNew] = useState<Record<string, string>>({});
   const [bMsg, setBMsg] = useState<string | null>(null);
+  const cellKey = (routeId: string, vehId: string) => `${routeId}|${vehId}`;
 
   const byFromDesc = (a: any, b: any) => (a.effective_from < b.effective_from ? 1 : -1);
   const effective = (r: any) => r.status === "active" && r.effective_from <= todayS && (!r.effective_to || r.effective_to >= todayS);
@@ -78,24 +81,29 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   }
 
   async function saveBulk() {
-    if (!bVehicle) { setErr("Select a vehicle."); return; }
+    if (bVehicles.length === 0) { setErr("Select at least one vehicle."); return; }
     if (bKind === "vendor" && !bVendor) { setErr("Select a vendor."); return; }
     if (bKind === "agent_custom" && bAgents.length === 0) { setErr("Select at least one agent."); return; }
-    const entries = routes.filter((r) => bNew[r.id] !== undefined && bNew[r.id] !== "");
+    // Each filled route×vehicle cell becomes one new rate row.
+    const entries: { routeId: string; vehId: string; rate: number }[] = [];
+    routes.forEach((r) => bVehicles.forEach((vId) => {
+      const v = bNew[cellKey(r.id, vId)];
+      if (v !== undefined && v !== "") entries.push({ routeId: r.id, vehId: vId, rate: Number(v) });
+    }));
     if (entries.length === 0) { setErr("Enter at least one new rate."); return; }
     setBusy(true); setErr(null); setBMsg(null);
     let error;
     if (bKind === "vendor") {
-      ({ error } = await supabase.from("transport_vendor_rates").insert(entries.map((r) => ({
-        company_id: COMPANY_ID, vendor_id: bVendor, route_id: r.id, vehicle_id: bVehicle,
-        effective_from: bDate, purchase_rate: Number(bNew[r.id]),
+      ({ error } = await supabase.from("transport_vendor_rates").insert(entries.map((e) => ({
+        company_id: COMPANY_ID, vendor_id: bVendor, route_id: e.routeId, vehicle_id: e.vehId,
+        effective_from: bDate, purchase_rate: e.rate,
       }))));
     } else {
       // Default → one null-agent set. Specific → one set per selected agent.
       const targets: (string | null)[] = bKind === "agent_custom" ? bAgents : [null];
-      const rows = targets.flatMap((ag) => entries.map((r) => ({
-        company_id: COMPANY_ID, agent_id: ag, route_id: r.id, vehicle_id: bVehicle,
-        effective_from: bDate, selling_rate: Number(bNew[r.id]),
+      const rows = targets.flatMap((ag) => entries.map((e) => ({
+        company_id: COMPANY_ID, agent_id: ag, route_id: e.routeId, vehicle_id: e.vehId,
+        effective_from: bDate, selling_rate: e.rate,
       })));
       ({ error } = await supabase.from("transport_agent_rates").insert(rows));
     }
@@ -235,8 +243,8 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
               </select></div>
             {bKind === "vendor" && <div><label className="label">Vendor *</label>
               <select className="input" value={bVendor} onChange={(e) => setBVendor(e.target.value)}><option value="">—</option>{vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>}
-            <div><label className="label">Vehicle *</label>
-              <select className="input" value={bVehicle} onChange={(e) => setBVehicle(e.target.value)}><option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+            <div><label className="label">Vehicles *</label>
+              <MultiSelectFilter label="Select vehicles" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} selected={bVehicles} onChange={setBVehicles} /></div>
             <div><label className="label">Effective from</label><input className="input" type="date" value={bDate} onChange={(e) => setBDate(e.target.value)} /></div>
           </div>
 
@@ -255,24 +263,48 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
           <p className="text-xs text-slate-500">Enter only the routes that change. Blank rows keep their existing rate. Saving creates a new effective-dated set — history is preserved.</p>
 
           <div className="card overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50"><tr><th className="th">Route</th><th className="th">Current rate</th><th className="th">New rate</th></tr></thead>
-              <tbody>
-                {bVehicle ? routes.map((r) => {
-                  const cur = bKind === "vendor"
-                    ? currentVendorRate(r.id, bVehicle, bVendor)
-                    : currentAgentRate(r.id, bVehicle, bKind === "agent_custom" && bAgents.length === 1 ? bAgents[0] : null);
-                  return (
+            {bVehicles.length === 0 ? (
+              <div className="td text-slate-400">Select one or more vehicles to load routes.</div>
+            ) : (
+              <table className="text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="th sticky left-0 z-10 bg-slate-50" rowSpan={2}>Route</th>
+                    {bVehicles.map((vId) => (
+                      <th key={vId} className="th border-l border-slate-200 text-center" colSpan={2}>{vName.get(vId) ?? "—"}</th>
+                    ))}
+                  </tr>
+                  <tr>
+                    {bVehicles.map((vId) => (
+                      <Fragment key={vId}>
+                        <th className="th border-l border-slate-200 text-[11px] font-normal text-slate-400">Cur</th>
+                        <th className="th text-[11px] font-normal text-slate-400">New</th>
+                      </Fragment>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {routes.map((r) => (
                     <tr key={r.id} className="border-t border-slate-100">
-                      <td className="td font-medium">{r.name}</td>
-                      <td className="td text-slate-500">{cur != null ? Number(cur).toFixed(2) : "—"}</td>
-                      <td className="td"><input className="input max-w-[9rem]" type="number" min="0" step="0.01" placeholder="—"
-                        value={bNew[r.id] ?? ""} onChange={(e) => setBNew({ ...bNew, [r.id]: e.target.value })} /></td>
+                      <td className="td sticky left-0 z-10 bg-white font-medium">{r.name}</td>
+                      {bVehicles.map((vId) => {
+                        const cur = bKind === "vendor"
+                          ? currentVendorRate(r.id, vId, bVendor)
+                          : currentAgentRate(r.id, vId, bKind === "agent_custom" && bAgents.length === 1 ? bAgents[0] : null);
+                        const k = cellKey(r.id, vId);
+                        return (
+                          <Fragment key={vId}>
+                            <td className="td border-l border-slate-100 text-right text-slate-400">{cur != null ? Number(cur).toFixed(0) : "—"}</td>
+                            <td className="td"><input className="input w-20 px-2 py-1 text-sm" type="number" min="0" step="0.01" placeholder="—"
+                              value={bNew[k] ?? ""} onChange={(e) => setBNew({ ...bNew, [k]: e.target.value })} /></td>
+                          </Fragment>
+                        );
+                      })}
                     </tr>
-                  );
-                }) : <tr><td className="td text-slate-400" colSpan={3}>Select a vehicle to load routes.</td></tr>}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
