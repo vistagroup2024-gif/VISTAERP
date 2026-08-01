@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Row {
   id: string; booking_no: string | null; booking_type: string; status: string;
@@ -21,6 +22,7 @@ const COLOR: Record<string, string> = {
 const TYPE: Record<string, string> = { single: "Single", multiple: "Multiple", package: "Package" };
 
 export default function BookingsTable({ initial }: { initial: Row[] }) {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
 
@@ -49,11 +51,12 @@ export default function BookingsTable({ initial }: { initial: Row[] }) {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
+              <tr key={r.id} onClick={() => router.push(`/transport/bookings/${r.id}`)}
+                className="cursor-pointer border-t border-slate-100 hover:bg-slate-50">
                 <td className="td">{r.booking_date ?? "—"}</td>
                 <td className="td">{r.agent_name ?? "—"}</td>
                 <td className="td font-medium">
-                  <Link href={`/transport/bookings/${r.id}`} className="text-brand hover:underline">{r.passenger_name ?? r.booking_no ?? "—"}</Link>
+                  <Link href={`/transport/bookings/${r.id}`} onClick={(e) => e.stopPropagation()} className="text-brand hover:underline">{r.passenger_name ?? r.booking_no ?? "—"}</Link>
                   <div className="text-xs text-slate-400">{[r.booking_no, r.mobile].filter(Boolean).join(" · ")}</div>
                 </td>
                 <td className="td">{r.pax ?? "—"}</td>
