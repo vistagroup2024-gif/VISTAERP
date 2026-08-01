@@ -54,7 +54,10 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   // Bulk update state.
   const [bKind, setBKind] = useState<"vendor" | "agent_default" | "agent_custom">("agent_default");
   const [bVendor, setBVendor] = useState("");
-  const [bAgent, setBAgent] = useState("");
+  // Agent — Specific bulk update supports selecting many agents at once, so a
+  // differentiated rate set can be applied to several agents in one save.
+  const [bAgents, setBAgents] = useState<string[]>([]);
+  const toggleBAgent = (id: string) => setBAgents((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   const [bVehicle, setBVehicle] = useState("");
   const [bDate, setBDate] = useState(today());
   const [bNew, setBNew] = useState<Record<string, string>>({});
@@ -77,7 +80,7 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   async function saveBulk() {
     if (!bVehicle) { setErr("Select a vehicle."); return; }
     if (bKind === "vendor" && !bVendor) { setErr("Select a vendor."); return; }
-    if (bKind === "agent_custom" && !bAgent) { setErr("Select an agent."); return; }
+    if (bKind === "agent_custom" && bAgents.length === 0) { setErr("Select at least one agent."); return; }
     const entries = routes.filter((r) => bNew[r.id] !== undefined && bNew[r.id] !== "");
     if (entries.length === 0) { setErr("Enter at least one new rate."); return; }
     setBusy(true); setErr(null); setBMsg(null);
@@ -88,14 +91,18 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
         effective_from: bDate, purchase_rate: Number(bNew[r.id]),
       }))));
     } else {
-      ({ error } = await supabase.from("transport_agent_rates").insert(entries.map((r) => ({
-        company_id: COMPANY_ID, agent_id: bKind === "agent_custom" ? bAgent : null, route_id: r.id, vehicle_id: bVehicle,
+      // Default → one null-agent set. Specific → one set per selected agent.
+      const targets: (string | null)[] = bKind === "agent_custom" ? bAgents : [null];
+      const rows = targets.flatMap((ag) => entries.map((r) => ({
+        company_id: COMPANY_ID, agent_id: ag, route_id: r.id, vehicle_id: bVehicle,
         effective_from: bDate, selling_rate: Number(bNew[r.id]),
-      }))));
+      })));
+      ({ error } = await supabase.from("transport_agent_rates").insert(rows));
     }
     setBusy(false);
     if (error) return setErr(error.message);
-    setBNew({}); setBMsg(`Saved ${entries.length} new rate(s) effective ${bDate}.`);
+    const agentNote = bKind === "agent_custom" ? ` for ${bAgents.length} agent(s)` : "";
+    setBNew({}); setBMsg(`Saved ${entries.length} new rate(s)${agentNote} effective ${bDate}.`);
     router.refresh();
   }
 
@@ -228,12 +235,32 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
               </select></div>
             {bKind === "vendor" && <div><label className="label">Vendor *</label>
               <select className="input" value={bVendor} onChange={(e) => setBVendor(e.target.value)}><option value="">—</option>{vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>}
-            {bKind === "agent_custom" && <div><label className="label">Agent *</label>
-              <select className="input" value={bAgent} onChange={(e) => setBAgent(e.target.value)}><option value="">—</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}</select></div>}
             <div><label className="label">Vehicle *</label>
               <select className="input" value={bVehicle} onChange={(e) => setBVehicle(e.target.value)}><option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
             <div><label className="label">Effective from</label><input className="input" type="date" value={bDate} onChange={(e) => setBDate(e.target.value)} /></div>
           </div>
+
+          {bKind === "agent_custom" && (
+            <div className="card space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="label mb-0">Agents * <span className="font-normal text-slate-400">({bAgents.length} selected)</span></label>
+                <div className="flex gap-3 text-xs">
+                  <button type="button" className="text-brand hover:underline" onClick={() => setBAgents(agents.map((a) => a.id))}>Select all</button>
+                  <button type="button" className="text-slate-500 hover:underline" onClick={() => setBAgents([])}>Clear</button>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">Tick every agent that shares this differentiated rate — the same rates are applied to all of them in one save.</p>
+              <div className="grid max-h-56 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                {agents.map((a) => (
+                  <label key={a.id} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${bAgents.includes(a.id) ? "border-brand bg-brand/5" : "border-slate-200"}`}>
+                    <input type="checkbox" checked={bAgents.includes(a.id)} onChange={() => toggleBAgent(a.id)} />
+                    <span className="truncate">{a.agency_name}</span>
+                  </label>
+                ))}
+                {agents.length === 0 && <span className="text-sm text-slate-400">No agents available.</span>}
+              </div>
+            </div>
+          )}
 
           <p className="text-xs text-slate-500">Enter only the routes that change. Blank rows keep their existing rate. Saving creates a new effective-dated set — history is preserved.</p>
 
@@ -244,7 +271,7 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
                 {bVehicle ? routes.map((r) => {
                   const cur = bKind === "vendor"
                     ? currentVendorRate(r.id, bVehicle, bVendor)
-                    : currentAgentRate(r.id, bVehicle, bKind === "agent_custom" ? bAgent : null);
+                    : currentAgentRate(r.id, bVehicle, bKind === "agent_custom" && bAgents.length === 1 ? bAgents[0] : null);
                   return (
                     <tr key={r.id} className="border-t border-slate-100">
                       <td className="td font-medium">{r.name}</td>
