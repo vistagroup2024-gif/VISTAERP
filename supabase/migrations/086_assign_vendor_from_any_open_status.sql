@@ -1,0 +1,4 @@
+-- 086_assign_vendor_from_any_open_status
+-- "Assign Vendor" is now a manual option in operations alongside "Assign Driver"
+-- (not only for already-outsourced trips). transport_assign_vendor can outsource
+-- any open trip, releasing an in-house driver if one was assigned.
