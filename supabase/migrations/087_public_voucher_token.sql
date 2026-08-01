@@ -1,0 +1,4 @@
+-- 087_public_voucher_token
+-- Public shareable transport voucher: transport_bookings.public_token (random,
+-- unique) + public_transport_voucher(token) SECURITY DEFINER RPC returning
+-- read-only voucher data, granted to anon. Served login-free at /v/[token].
