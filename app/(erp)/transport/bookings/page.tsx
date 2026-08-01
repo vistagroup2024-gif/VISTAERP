@@ -15,9 +15,9 @@ export default async function BookingsPage({ searchParams }: { searchParams: { c
 
   const agentIds = Array.from(new Set((rows ?? []).map((r: any) => r.agent_id).filter(Boolean)));
   const { data: agents } = agentIds.length
-    ? await sb.from("b2b_agents").select("id, agency_name").in("id", agentIds)
+    ? await sb.from("parties").select("id, name").in("id", agentIds)
     : { data: [] as any[] };
-  const aName = new Map((agents ?? []).map((a: any) => [a.id, a.agency_name]));
+  const aName = new Map((agents ?? []).map((a: any) => [a.id, a.name]));
   const enriched = (rows ?? []).map((r: any) => ({ ...r, agent_name: r.agent_id ? aName.get(r.agent_id) ?? null : "Direct" }));
 
   return (

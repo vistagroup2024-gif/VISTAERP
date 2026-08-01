@@ -29,14 +29,14 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
   const agentIds = Array.from(new Set((bookings ?? []).map((b: any) => b.agent_id).filter(Boolean)));
   const [{ data: vendors }, { data: agents }] = await Promise.all([
     sb.from("transport_vendors").select("id, name").eq("is_active", true).order("name"),
-    agentIds.length ? sb.from("b2b_agents").select("id, agency_name").in("id", agentIds) : Promise.resolve({ data: [] as any[] }),
+    agentIds.length ? sb.from("parties").select("id, name").in("id", agentIds) : Promise.resolve({ data: [] as any[] }),
   ]);
 
   const bMap = new Map((bookings ?? []).map((b: any) => [b.id, b]));
   const dMap = new Map((drivers ?? []).map((d: any) => [d.id, d]));
   const vMap = new Map((vehicles ?? []).map((v: any) => [v.id, v]));
   const venMap = new Map((vendors ?? []).map((v: any) => [v.id, v.name]));
-  const aMap = new Map((agents ?? []).map((a: any) => [a.id, a.agency_name]));
+  const aMap = new Map((agents ?? []).map((a: any) => [a.id, a.name]));
 
   const enriched = (trips ?? []).map((t: any) => {
     const b = bMap.get(t.booking_id);
@@ -75,7 +75,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
         drivers={(drivers ?? []) as any[]}
         vehicles={(vehicles ?? []) as any[]}
         vendors={(vendors ?? []) as any[]}
-        agents={(agents ?? []) as any[]}
+        agents={((agents ?? []) as any[]).map((a) => ({ id: a.id, agency_name: a.name }))}
         canEdit={canEdit}
         canAssign={canAssign}
       />

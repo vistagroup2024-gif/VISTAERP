@@ -1,0 +1,8 @@
+-- 082_transport_agent_from_parties
+-- Transport "agent" now references the Customer/Agent master (parties) instead
+-- of B2B portal login accounts (b2b_agents). transport_bookings.agent_id holds
+-- a parties.id. Updated RPCs: transport_save_booking (maps party -> b2b login
+-- via agent_party_id for agent-specific rate, else default; stores party id),
+-- b2b_transport_save_booking (stores agent's linked party; rate still keyed on
+-- login), b2b_transport_my_bookings / b2b_transport_get_booking (filter by the
+-- agent's linked party). See DB for full bodies.
