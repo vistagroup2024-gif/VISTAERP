@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 import PrintButton from "@/components/PrintButton";
@@ -60,7 +61,12 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
     }
   }
 
-  const qr = await QRCode.toDataURL(`VISTA-TRP:${b.booking_no ?? b.id}`, { margin: 1, width: 160 });
+  // Encode a link to this (Vista-branded) voucher so scanning opens it directly.
+  const h = headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
+  const proto = h.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
+  const voucherUrl = host ? `${proto}://${host}/transport/bookings/${b.id}/voucher?brand=vista` : `/transport/bookings/${b.id}/voucher?brand=vista`;
+  const qr = await QRCode.toDataURL(voucherUrl, { margin: 1, width: 160 });
 
   const provider = brand === "agent" && agent
     ? { name: agent.agency_name, tagline: null as string | null, contact: agent.contact_person, mobile: agent.mobile, email: agent.email, address: agent.address, logo: agent.logo, note: agent.voucher_note }
