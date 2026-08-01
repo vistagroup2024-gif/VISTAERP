@@ -56,7 +56,7 @@ export default function BookingsTable({ initial }: { initial: Row[] }) {
                 <td className="td">{r.booking_date ?? "—"}</td>
                 <td className="td">{r.agent_name ?? "—"}</td>
                 <td className="td font-medium">
-                  <Link href={`/transport/bookings/${r.id}`} onClick={(e) => e.stopPropagation()} className="text-brand hover:underline">{r.passenger_name ?? r.booking_no ?? "—"}</Link>
+                  <Link href={`/transport/bookings/${r.id}`} onClick={(e) => e.stopPropagation()} className="text-brand hover:underline">{r.passenger_name || r.booking_no || "(open)"}</Link>
                   <div className="text-xs text-slate-400">{[r.booking_no, r.mobile].filter(Boolean).join(" · ")}</div>
                 </td>
                 <td className="td">{r.pax ?? "—"}</td>
