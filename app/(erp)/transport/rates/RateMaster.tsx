@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import MultiSelectFilter from "@/components/MultiSelectFilter";
 
 interface Ref { id: string; name: string }
 interface AgentRef { id: string; agency_name: string }
@@ -57,7 +58,6 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   // Agent — Specific bulk update supports selecting many agents at once, so a
   // differentiated rate set can be applied to several agents in one save.
   const [bAgents, setBAgents] = useState<string[]>([]);
-  const toggleBAgent = (id: string) => setBAgents((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   const [bVehicle, setBVehicle] = useState("");
   const [bDate, setBDate] = useState(today());
   const [bNew, setBNew] = useState<Record<string, string>>({});
@@ -241,24 +241,14 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
           </div>
 
           {bKind === "agent_custom" && (
-            <div className="card space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="label mb-0">Agents * <span className="font-normal text-slate-400">({bAgents.length} selected)</span></label>
-                <div className="flex gap-3 text-xs">
-                  <button type="button" className="text-brand hover:underline" onClick={() => setBAgents(agents.map((a) => a.id))}>Select all</button>
-                  <button type="button" className="text-slate-500 hover:underline" onClick={() => setBAgents([])}>Clear</button>
-                </div>
+            <div className="card flex flex-wrap items-center gap-3">
+              <div>
+                <label className="label">Agents *</label>
+                <MultiSelectFilter label="Select agents" options={agents.map((a) => ({ value: a.id, label: a.agency_name }))} selected={bAgents} onChange={setBAgents} />
               </div>
-              <p className="text-xs text-slate-500">Tick every agent that shares this differentiated rate — the same rates are applied to all of them in one save.</p>
-              <div className="grid max-h-56 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-                {agents.map((a) => (
-                  <label key={a.id} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${bAgents.includes(a.id) ? "border-brand bg-brand/5" : "border-slate-200"}`}>
-                    <input type="checkbox" checked={bAgents.includes(a.id)} onChange={() => toggleBAgent(a.id)} />
-                    <span className="truncate">{a.agency_name}</span>
-                  </label>
-                ))}
-                {agents.length === 0 && <span className="text-sm text-slate-400">No agents available.</span>}
-              </div>
+              <span className="mt-5 text-sm text-slate-500">
+                {bAgents.length === 0 ? "No agents selected" : `${bAgents.length} selected: ${bAgents.map((id) => aName.get(id)).filter(Boolean).join(", ")}`}
+              </span>
             </div>
           )}
 
