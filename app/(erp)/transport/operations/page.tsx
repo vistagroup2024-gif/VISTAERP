@@ -21,14 +21,19 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
     .order("trip_time");
 
   const bookingIds = Array.from(new Set((trips ?? []).map((t: any) => t.booking_id)));
-  const [{ data: bookings }, { data: drivers }, { data: vehicles }] = await Promise.all([
+  const tripIds = (trips ?? []).map((t: any) => t.id);
+  // The scheduling view doesn't carry the outsourced-driver details; read them
+  // from the base table so they can be shown/copied like an internal driver.
+  const [{ data: bookings }, { data: drivers }, { data: vehicles }, { data: outsourceRows }] = await Promise.all([
     bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, pax, booking_type, agent_id, status").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
     sb.from("transport_drivers").select("id, name, mobile, license_no, vehicle_id, status").order("name"),
     sb.from("transport_vehicles").select("id, name, category, vehicle_type, is_active").order("name"),
+    tripIds.length ? sb.from("transport_trips").select("id, outsource_driver_name, outsource_driver_mobile").in("id", tripIds) : Promise.resolve({ data: [] as any[] }),
   ]);
+  const odMap = new Map((outsourceRows ?? []).map((o: any) => [o.id, o]));
   const agentIds = Array.from(new Set((bookings ?? []).map((b: any) => b.agent_id).filter(Boolean)));
   const [{ data: vendors }, { data: agents }] = await Promise.all([
-    sb.from("transport_vendors").select("id, name").eq("is_active", true).order("name"),
+    sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile").eq("is_active", true).order("name"),
     agentIds.length ? sb.from("parties").select("id, name").in("id", agentIds) : Promise.resolve({ data: [] as any[] }),
   ]);
 
@@ -61,6 +66,8 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       driver_reg: t.driver_id ? dMap.get(t.driver_id)?.license_no ?? null : null,
       hajj_terminal: t.hajj_terminal ?? false,
       vendor_name: t.vendor_id ? venMap.get(t.vendor_id) ?? null : null,
+      outsource_driver_name: odMap.get(t.id)?.outsource_driver_name ?? null,
+      outsource_driver_mobile: odMap.get(t.id)?.outsource_driver_mobile ?? null,
     };
   });
 

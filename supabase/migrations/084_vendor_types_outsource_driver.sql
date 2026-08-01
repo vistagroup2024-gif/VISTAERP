@@ -1,0 +1,7 @@
+-- 084_vendor_types_outsource_driver
+-- transport_vendors.vendor_type: 'vendor' (supplier who sends a driver) vs
+-- 'vendor_driver' (the vendor is the driver). transport_trips gains
+-- outsource_driver_name/outsource_driver_mobile to record the specific driver a
+-- vendor put on a trip. transport_assign_vendor now takes optional driver
+-- name/mobile (used for supplier vendors) and auto-fills from the vendor's own
+-- details for a vendor_driver; vendor_accept_trip does the same on portal accept.
