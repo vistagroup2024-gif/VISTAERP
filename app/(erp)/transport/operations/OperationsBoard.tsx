@@ -306,7 +306,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (canEdit) items.push({ label: "Edit Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) });
     if (t.driver_id || t.outsource_driver_name) items.push({ label: "Copy Driver Details", onClick: () => copyDriver(t) });
     if (canAssign && open) items.push({ label: t.driver_id ? "Reassign Driver" : "Assign Driver", onClick: () => { setVendorFor(null); setAssignFor(t.id); } });
-    if (canAssign && open && isOutsourced(t) && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
+    if (canAssign && open && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
     if (canAssign && t.driver_id && open) items.push({ label: "Unassign Driver", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
     if (canAssign && NEXT_TRIP[t.status]) items.push({ label: `Mark ${NEXT_LABEL[NEXT_TRIP[t.status]]}`, onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: NEXT_TRIP[t.status] }) });
     if (canAssign && ["assigned", "on_route"].includes(t.status)) items.push({ label: "Mark Completed", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: "completed" }) });
