@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function VendorsPage() {
   const sb = createClient();
-  const { data } = await sb.from("transport_vendors").select("id, name, contact_person, mobile, email, notes, username, is_active").order("name");
+  const { data } = await sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile, email, notes, username, is_active").order("name");
   return (
     <div className="max-w-4xl">
       <PageHeader title="Transport Vendors" />

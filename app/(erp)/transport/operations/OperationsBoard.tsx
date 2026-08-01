@@ -15,12 +15,13 @@ interface Trip {
   driver_mobile: string | null; driver_reg: string | null; vehicle_type: string | null; hajj_terminal: boolean;
   trip_date: string | null;
   vendor_id: string | null; vendor_name: string | null; trip_time: string | null;
+  outsource_driver_name: string | null; outsource_driver_mobile: string | null;
   pickup_location: string | null; drop_location: string | null; flight_no: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
 }
 interface Driver { id: string; name: string; vehicle_id: string | null; status: string }
 interface Vehicle { id: string; name: string; category: string | null; is_active: boolean }
-interface Vendor { id: string; name: string }
+interface Vendor { id: string; name: string; vendor_type?: string; contact_person?: string | null; mobile?: string | null }
 interface Agent { id: string; agency_name: string }
 
 // Dispatcher status vocabulary. `delayed` and `outsourced` are derived and can
@@ -105,6 +106,8 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   const [err, setErr] = useState<string | null>(null);
   const [assignFor, setAssignFor] = useState<string | null>(null);
   const [vendorFor, setVendorFor] = useState<string | null>(null);
+  // Driver-details modal shown when outsourcing to a supplier vendor.
+  const [vendorModal, setVendorModal] = useState<{ tripId: string; vendorId: string; vendorName: string; driverName: string; driverMobile: string } | null>(null);
   const [conflict, setConflict] = useState<{ tripId: string; driverId: string; driverName: string; reason: string } | null>(null);
   const [forceReason, setForceReason] = useState("");
 
@@ -257,7 +260,28 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (ok) { setConflict(null); setAssignFor(null); }
   }
 
-  // Copy a driver's details as a shareable text block (WhatsApp etc.).
+  // Outsource a trip to a vendor. Vendor-drivers are the driver themselves, so
+  // assign immediately; supplier vendors need the specific driver's name/number.
+  function pickVendor(t: Trip, vendorId: string) {
+    const ven = vendors.find((v) => v.id === vendorId);
+    setVendorFor(null);
+    if (ven?.vendor_type === "vendor_driver") {
+      call("transport_assign_vendor", { p_trip: t.id, p_vendor: vendorId });
+    } else {
+      setVendorModal({ tripId: t.id, vendorId, vendorName: ven?.name ?? "vendor", driverName: "", driverMobile: "" });
+    }
+  }
+  async function submitVendor() {
+    if (!vendorModal) return;
+    const ok = await call("transport_assign_vendor", {
+      p_trip: vendorModal.tripId, p_vendor: vendorModal.vendorId,
+      p_driver_name: vendorModal.driverName.trim() || null, p_driver_mobile: vendorModal.driverMobile.trim() || null,
+    });
+    if (ok) setVendorModal(null);
+  }
+
+  // Copy a driver's details as a shareable text block (WhatsApp etc.). Falls
+  // back to the outsourced driver's details when the trip is with a vendor.
   function copyDriver(t: Trip) {
     const text = [
       `Haji Name : ${t.passenger_name ?? "—"}`,
@@ -265,10 +289,11 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       `Trip Date : ${t.trip_date ?? "—"}`,
       ``,
       `*Driver Details*`,
-      `Name : ${t.driver_name ?? "—"}`,
-      `Number : ${t.driver_mobile ?? "—"}`,
+      `Name : ${t.driver_name ?? t.outsource_driver_name ?? "—"}`,
+      `Number : ${t.driver_mobile ?? t.outsource_driver_mobile ?? "—"}`,
       `Vehicle : ${t.vehicle_type ?? t.vehicle_name ?? "—"}`,
       `Car Reg No : ${t.driver_reg ?? "—"}`,
+      ...(t.vendor_name ? [`Vendor : ${t.vendor_name}`] : []),
     ].join("\n");
     navigator.clipboard?.writeText(text).then(() => setErr("Driver details copied to clipboard."),
       () => setErr("Could not copy — clipboard blocked."));
@@ -279,7 +304,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     const open = t.status !== "cancelled" && t.status !== "completed";
     const items: MenuItem[] = [{ label: "View Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) }];
     if (canEdit) items.push({ label: "Edit Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) });
-    if (t.driver_id) items.push({ label: "Copy Driver Details", onClick: () => copyDriver(t) });
+    if (t.driver_id || t.outsource_driver_name) items.push({ label: "Copy Driver Details", onClick: () => copyDriver(t) });
     if (canAssign && open) items.push({ label: t.driver_id ? "Reassign Driver" : "Assign Driver", onClick: () => { setVendorFor(null); setAssignFor(t.id); } });
     if (canAssign && open && isOutsourced(t) && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
     if (canAssign && t.driver_id && open) items.push({ label: "Unassign Driver", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
@@ -398,6 +423,9 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                         : isOutsourced(t) ? <span className="text-orange-600">outsource</span>
                         : <span className="text-amber-600">unassigned</span>}
                       {isOutsourced(t) && t.driver_name == null && <span className="ml-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">outsourced</span>}
+                      {t.outsource_driver_name && !t.driver_name && (
+                        <div className="text-[11px] text-slate-500">🧑‍✈️ {t.outsource_driver_name}{t.outsource_driver_mobile ? ` · ${t.outsource_driver_mobile}` : ""}</div>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_META[t.status]?.chip ?? "bg-slate-200 text-slate-600"}`}>{STATUS_META[t.status]?.label ?? t.status.replace(/_/g, " ")}</span>
@@ -416,10 +444,10 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                           </>
                         ) : vendorFor === t.id ? (
                           <>
-                            <select className="input max-w-[10rem] text-sm" value={t.vendor_id ?? ""}
-                              onChange={(e) => { if (e.target.value) { call("transport_assign_vendor", { p_trip: t.id, p_vendor: e.target.value }); setVendorFor(null); } }}>
+                            <select className="input max-w-[12rem] text-sm" value={t.vendor_id ?? ""}
+                              onChange={(e) => { if (e.target.value) pickVendor(t, e.target.value); }}>
                               <option value="">Choose vendor…</option>
-                              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}{v.vendor_type === "vendor_driver" ? " (driver)" : ""}</option>)}
                             </select>
                             <button onClick={() => setVendorFor(null)} className="text-xs text-slate-400 hover:underline">✕</button>
                           </>
@@ -433,6 +461,23 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {vendorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-slate-800">🏢 Outsource to {vendorModal.vendorName}</h3>
+            <p className="mt-1 text-sm text-slate-600">Enter the driver this vendor is sending. These details are copied onto the trip so they can be shared with the passenger.</p>
+            <label className="label mt-3">Driver name</label>
+            <input className="input" value={vendorModal.driverName} onChange={(e) => setVendorModal({ ...vendorModal, driverName: e.target.value })} placeholder="Driver full name" autoFocus />
+            <label className="label mt-3">Driver mobile</label>
+            <input className="input" value={vendorModal.driverMobile} onChange={(e) => setVendorModal({ ...vendorModal, driverMobile: e.target.value })} placeholder="+966 5x xxx xxxx" />
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setVendorModal(null)} className="btn-outline text-sm">Cancel</button>
+              <button onClick={submitVendor} disabled={busy} className="btn text-sm">{busy ? "Saving…" : "Assign Vendor"}</button>
+            </div>
+          </div>
         </div>
       )}
 
