@@ -28,10 +28,24 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
   const { data: vehicles } = vehicleIds.length ? await sb.from("transport_vehicles").select("id, name").in("id", vehicleIds) : { data: [] as any[] };
   const vName = new Map((vehicles ?? []).map((v: any) => [v.id, v.name]));
 
+  // agent_id references the Customer/Agent master (parties). For agent-branded
+  // vouchers, use the party's name and, when the agent also has a B2B portal
+  // login, its branding (logo, voucher note, contact) via agent_party_id.
   let agent: any = null;
   if (brand === "agent" && b.agent_id) {
-    const { data } = await sb.from("b2b_agents").select("agency_name, contact_person, email, mobile, address, logo, voucher_note").eq("id", b.agent_id).maybeSingle();
-    agent = data;
+    const { data: party } = await sb.from("parties").select("name, phone").eq("id", b.agent_id).maybeSingle();
+    const { data: login } = await sb.from("b2b_agents").select("agency_name, contact_person, email, mobile, address, logo, voucher_note").eq("agent_party_id", b.agent_id).maybeSingle();
+    if (party || login) {
+      agent = {
+        agency_name: party?.name ?? login?.agency_name,
+        contact_person: login?.contact_person ?? null,
+        email: login?.email ?? null,
+        mobile: login?.mobile ?? party?.phone ?? null,
+        address: login?.address ?? null,
+        logo: login?.logo ?? null,
+        voucher_note: login?.voucher_note ?? null,
+      };
+    }
   }
 
   const qr = await QRCode.toDataURL(`VISTA-TRP:${b.booking_no ?? b.id}`, { margin: 1, width: 160 });

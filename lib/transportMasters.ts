@@ -16,7 +16,9 @@ export async function loadBookingMasters() {
         .is("agent_id", null).eq("status", "active").lte("effective_from", today)
         .order("effective_from", { ascending: false }),
       sb.from("transport_package_prices").select("package_id, vehicle_id, price"),
-      sb.from("b2b_agents").select("id, agency_name").order("agency_name"),
+      // Customer/Agent master (parties) — not the B2B portal login list. Both
+      // customers and agents can be billed for transport.
+      sb.from("parties").select("id, name").in("party_type", ["customer", "b2b_agent"]).eq("is_active", true).order("name"),
       // Route + vehicle extra charges (e.g. Hajj Terminal) for the live total.
       sb.from("transport_route_rates").select("route_id, vehicle_id, extra_charge_desc, extra_charge_amount")
         .eq("extra_charge_enabled", true),
@@ -47,7 +49,8 @@ export async function loadBookingMasters() {
     rates,
     packagePrices: pkgPrices ?? [],
     companies: [] as any[],
-    agents: agents ?? [],
+    // Normalize to { id, agency_name } so the booking form stays unchanged.
+    agents: (agents ?? []).map((p: any) => ({ id: p.id, agency_name: p.name })),
     extraCharges,
   };
 }

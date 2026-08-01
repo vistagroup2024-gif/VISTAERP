@@ -1,0 +1,3 @@
+-- 083_transport_reports_agent_from_parties
+-- transport_reports 'by_agent' now joins parties (Customer/Agent master) on
+-- bk.agent_id instead of b2b_agents.
