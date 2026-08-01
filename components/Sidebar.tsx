@@ -7,7 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 
-interface Item { href: string; label: string; icon?: string }
+// `perm` (any-of) on an Item gates that link individually. Omit to always show.
+interface Item { href: string; label: string; icon?: string; perm?: string[] }
 // `perm` (any-of) gates the whole module. Omit to always show.
 interface Group { label: string; icon: string; items: Item[]; perm?: string[] }
 
@@ -18,17 +19,19 @@ const DASHBOARD: Item = { href: "/dashboard", label: "Dashboard", icon: "▣" };
 
 // Hierarchical navigation. Each module is a collapsible parent menu.
 const GROUPS: Group[] = [
-  { label: "Visa", icon: "🕋", items: [
-    { href: "/groups", label: "Visa Groups" },
-    { href: "/groups/package-updates", label: "Package Updates" },
-    { href: "/inventory", label: "BRN Dashboard" },
-    { href: "/inventory/brn", label: "BRN List" },
-    { href: "/inventory/archived", label: "Archived BRNs" },
-    { href: "/inventory/calendar", label: "Daily Calendar" },
-    { href: "/inventory/consume", label: "Consume Inventory" },
-    { href: "/inventory/planning", label: "Purchase Planning" },
-    { href: "/inventory/history", label: "History" },
-  ], perm: ["visa.view", "brn.view", "brn.planning"] },
+  { label: "Visa", icon: "🕋", perm: ["visa.view", "visa.package_update"], items: [
+    { href: "/groups", label: "Visa Groups", perm: ["visa.view"] },
+    { href: "/groups/package-updates", label: "Package Updates", perm: ["visa.package_update"] },
+  ] },
+  { label: "BRN Inventory", icon: "📦", perm: ["brn.view", "brn.planning"], items: [
+    { href: "/inventory", label: "BRN Dashboard", perm: ["brn.view"] },
+    { href: "/inventory/brn", label: "BRN List", perm: ["brn.view"] },
+    { href: "/inventory/archived", label: "Archived BRNs", perm: ["brn.view"] },
+    { href: "/inventory/calendar", label: "Daily Calendar", perm: ["brn.view"] },
+    { href: "/inventory/consume", label: "Consume Inventory", perm: ["brn.add", "brn.edit"] },
+    { href: "/inventory/planning", label: "Purchase Planning", perm: ["brn.planning"] },
+    { href: "/inventory/history", label: "History", perm: ["brn.view"] },
+  ] },
   { label: "Sales", icon: "🧾", perm: ["sales.view"], items: [
     { href: "/bookings", label: "Sales Orders" },
     { href: "/sales/catalog", label: "Service Catalog" },
@@ -142,7 +145,10 @@ function CollapsibleGroup({ group, onClose }: { group: Group; onClose?: () => vo
 
 function visibleGroups(access?: StaffNavAccess) {
   if (!access || access.unrestricted) return GROUPS;
-  return GROUPS.filter((g) => !g.perm || g.perm.some((k) => access.permissions[k]));
+  return GROUPS
+    // Hide links the user has no permission for, then drop now-empty groups.
+    .map((g) => ({ ...g, items: g.items.filter((i) => !i.perm || i.perm.some((k) => access.permissions[k])) }))
+    .filter((g) => (!g.perm || g.perm.some((k) => access.permissions[k])) && g.items.length > 0);
 }
 
 function SidebarContent({ name, access, onClose }: { name: string; access?: StaffNavAccess; onClose?: () => void }) {

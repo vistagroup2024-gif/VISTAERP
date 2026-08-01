@@ -3,6 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import CompanyInquiryButton from "@/components/CompanyInquiryButton";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import GroupsTable, { GroupRow } from "./GroupsTable";
+import { guardStaffPage, staffCan } from "@/lib/staffSession";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ const WF_LABEL: Record<string, string> = {
 };
 
 export default async function GroupsPage() {
+  const access = await guardStaffPage("visa.view");
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -39,7 +41,17 @@ export default async function GroupsPage() {
     supabase.rpc("brn_availability_map"),
   ]);
 
-  const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
+  const isAdmin = access.isAdmin || (roles ?? []).some((r: any) => r.role === "admin");
+  // Per-action rights (admins / unrestricted accounts pass everything).
+  const perms = {
+    isAdmin,
+    canProcess: staffCan(access, "visa.allocate_brn"),
+    canErp: staffCan(access, "visa.erp_create"),
+    canPkg: staffCan(access, "visa.package_update"),
+    canIssue: staffCan(access, "visa.mark_issued"),
+    canDelete: isAdmin || staffCan(access, "visa.delete"),
+    canCreate: staffCan(access, "visa.create"),
+  };
   const avail = (availMap as Record<string, string>) ?? {};
   // Once a group is in "Process", show its BRN readiness instead of the generic stage.
   const AVAIL_LABEL: Record<string, string> = {
@@ -73,10 +85,10 @@ export default async function GroupsPage() {
   return (
     <div>
       <RealtimeRefresh tables={["umrah_groups", "group_brn_allocation"]} />
-      <PageHeader title="Visa Groups" action={{ href: "/groups/new", label: "+ New Group" }}>
-        <CompanyInquiryButton endpoint="/api/recommendation" canRelease />
+      <PageHeader title="Visa Groups" action={perms.canCreate ? { href: "/groups/new", label: "+ New Group" } : undefined}>
+        {(isAdmin || perms.canProcess) && <CompanyInquiryButton endpoint="/api/recommendation" canRelease />}
       </PageHeader>
-      <GroupsTable rows={rows} isAdmin={isAdmin} />
+      <GroupsTable rows={rows} perms={perms} />
     </div>
   );
 }

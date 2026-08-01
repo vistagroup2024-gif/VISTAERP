@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { guardStaffPage } from "@/lib/staffSession";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { dateStr } from "@/lib/format";
@@ -23,6 +24,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default async function GroupDetail({ params }: { params: { id: string } }) {
+  await guardStaffPage("visa.view");
   const supabase = createClient();
   const { data: g } = await supabase
     .from("umrah_groups")

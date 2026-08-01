@@ -1,0 +1,5 @@
+-- 078_staff_perm_guards_visa
+-- Add staff_has_perm() (server mirror of client staffCan: admin OR no granular
+-- map == unrestricted, else exact key) and guard the visa-workflow mutating
+-- RPCs so view-only staff cannot Process / advance / issue. See DB for bodies:
+-- staff_has_perm, set_group_decision, mark_visa_issued, advance_workflow.

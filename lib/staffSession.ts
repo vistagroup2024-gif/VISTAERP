@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export interface StaffAccess {
   isAdmin: boolean;
@@ -43,6 +44,15 @@ const LANDING: [string, string][] = [
   ["purchase.view", "/purchase/bills"],
   ["users.view", "/settings/users"],
 ];
+
+// Server-page guard: loads access and redirects users lacking `key` to their
+// landing page, so a page can't be reached by URL even if the nav hides it.
+export async function guardStaffPage(key: string | string[]): Promise<StaffAccess> {
+  const access = await getStaffAccess();
+  const keys = Array.isArray(key) ? key : [key];
+  if (!keys.some((k) => staffCan(access, k))) redirect(staffLanding(access));
+  return access;
+}
 
 export function staffLanding(access: StaffAccess): string {
   if (access.unrestricted) return "/dashboard";

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import { Brn, Consumption, dailyForBrn, totalNights, isArchived, maxNightlyAvailable } from "@/lib/brn";
 import BrnTable, { BrnRow } from "./BrnTable";
@@ -6,6 +7,7 @@ import BrnTable, { BrnRow } from "./BrnTable";
 export const dynamic = "force-dynamic";
 
 export default async function BrnListPage() {
+  await guardStaffPage("brn.view");
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const [{ data: brns }, { data: cons }, { data: roles }] = await Promise.all([

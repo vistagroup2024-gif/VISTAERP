@@ -1,0 +1,2 @@
+-- 080_delete_group_perm_guard
+-- delete_group now requires staff_has_perm('visa.delete').
