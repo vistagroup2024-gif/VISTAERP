@@ -16,7 +16,9 @@ export async function loadBookingMasters() {
       sb.from("transport_agent_rates").select("agent_id, route_id, vehicle_id, selling_rate, effective_to")
         .eq("status", "active").lte("effective_from", today)
         .order("effective_from", { ascending: false }),
-      sb.from("transport_package_prices").select("package_id, vehicle_id, price"),
+      // Standard (agent_id null) + agent-specific package prices; the form picks
+      // the selected agent's price, else the standard one.
+      sb.from("transport_package_prices").select("package_id, vehicle_id, price, agent_id"),
       // Customer/Agent master (parties) — not the B2B portal login list. Both
       // customers and agents can be billed for transport.
       sb.from("parties").select("id, name").in("party_type", ["customer", "b2b_agent"]).eq("is_active", true).order("name"),

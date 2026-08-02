@@ -11,7 +11,7 @@ interface Vehicle { id: string; name: string; seating_capacity?: number | null }
 interface PkgLeg { seq: number; route_id: string | null; label: string | null; vehicle_id: string | null }
 interface Pkg { id: string; name: string; price: number; package_type: string; legs: PkgLeg[] }
 interface Rate { agent_id: string | null; route_id: string; vehicle_id: string; sell_rate: number }
-interface PkgPrice { package_id: string; vehicle_id: string; price: number }
+interface PkgPrice { package_id: string; vehicle_id: string; price: number; agent_id?: string | null }
 interface ExtraCharge { route_id: string; vehicle_id: string; desc: string | null; amount: number }
 interface Company { id: string; name: string }
 interface Agent { id: string; agency_name: string }
@@ -40,11 +40,6 @@ export default function TransportBookingForm({
   const isEdit = !!existing;
   const isAgent = variant === "agent";
 
-  const pkgPriceMap = useMemo(() => {
-    const m = new Map<string, number>();
-    packagePrices.forEach((p) => m.set(`${p.package_id}|${p.vehicle_id}`, Number(p.price)));
-    return m;
-  }, [packagePrices]);
   const routeById = useMemo(() => new Map(routes.map((r) => [r.id, r])), [routes]);
   const vehicleById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   const extraMap = useMemo(() => {
@@ -97,6 +92,15 @@ export default function TransportBookingForm({
     if (h.agent_id) rates.forEach((r) => { if (r.agent_id === h.agent_id) m.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)); });
     return m;
   }, [rates, h.agent_id]);
+
+  // Package price per package|vehicle for the selected agent (agent-specific
+  // override, else standard / pre-resolved portal price).
+  const pkgPriceMap = useMemo(() => {
+    const m = new Map<string, number>();
+    packagePrices.forEach((p) => { if ((p.agent_id ?? null) === null) m.set(`${p.package_id}|${p.vehicle_id}`, Number(p.price)); });
+    if (h.agent_id) packagePrices.forEach((p) => { if (p.agent_id === h.agent_id) m.set(`${p.package_id}|${p.vehicle_id}`, Number(p.price)); });
+    return m;
+  }, [packagePrices, h.agent_id]);
 
   // Staff-only manual discount (SAR) off the calculated total.
   const [discount, setDiscount] = useState<string>(existing?.discount ? String(existing.discount) : "");
