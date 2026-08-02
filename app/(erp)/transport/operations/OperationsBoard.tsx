@@ -8,7 +8,7 @@ import MultiSelectFilter from "@/components/MultiSelectFilter";
 
 interface Trip {
   id: string; booking_id: string; booking_no: string | null; passenger_name: string | null; mobile: string | null;
-  pax: number | null; booking_type: string | null; agent_id: string | null; agent_name: string | null;
+  pax: number | null; booking_type: string | null; agent_id: string | null; agent_name: string | null; whatsapp: string | null;
   route_id: string | null; route_display: string; vehicle_id: string | null; vehicle_name: string | null;
   vehicle_category: string | null; requested_vehicle_id: string | null; requested_vehicle_name: string | null;
   is_upgraded: boolean; is_outsourced: boolean; driver_id: string | null; driver_name: string | null;
@@ -299,23 +299,50 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       () => setErr("Could not copy — clipboard blocked."));
   }
 
-  // Copy trip details for sharing. Agent bookings are on credit, so payment
-  // shows "NO CASH" with no amount; direct/cash customers show the amount.
+  // Format a yyyy-mm-dd date as e.g. "3rd Aug 2026" (no Date parsing → TZ-safe).
+  function prettyDate(s: string | null): string {
+    if (!s) return "—";
+    const [y, m, d] = s.split("-").map(Number);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    if (!y || !m || !d) return s;
+    const ord = d % 10 === 1 && d % 100 !== 11 ? "st" : d % 10 === 2 && d % 100 !== 12 ? "nd" : d % 10 === 3 && d % 100 !== 13 ? "rd" : "th";
+    return `${d}${ord} ${months[m - 1]} ${y}`;
+  }
+
+  // Copy trip details for sharing (WhatsApp-formatted, *bold* payment), split
+  // into Passenger / Trip / Payment. Agent bookings show NO CASH; direct
+  // customers show the payment method and amount.
   function copyTrip(t: Trip) {
     const isAgent = !!t.agent_id;
     const payLabel: Record<string, string> = { cash: "Cash", card: "Card", bank_transfer: "Bank Transfer" };
     const method = payLabel[t.payment_method ?? "cash"] ?? "Cash";
-    const text = [
-      `Trip Date : ${t.trip_date ?? "—"}`,
-      `Passenger : ${t.passenger_name ?? "—"}`,
-      `Contact : ${t.mobile ?? "—"}`,
-      `Route : ${t.route_display}`,
+
+    const passenger = [
+      `*Passenger Details*`,
+      `Name : ${t.passenger_name ?? "—"}`,
+      t.mobile ? `Mobile : ${t.mobile}` : null,
+      t.whatsapp ? `WhatsApp : ${t.whatsapp}` : null,
+      (!t.mobile && !t.whatsapp) ? `Contact : —` : null,
       `No. of Passengers : ${t.pax ?? "—"}`,
-      `Vehicle : ${t.vehicle_type ?? t.vehicle_name ?? "—"}`,
+    ].filter(Boolean);
+
+    const trip = [
+      `*Trip Details*`,
+      `Date : ${prettyDate(t.trip_date)}`,
+      `Time : ${t.trip_time?.slice(0, 5) ?? "—"}`,
+      `Route : ${t.route_display}`,
+      t.flight_no ? `Flight : ${t.flight_no}` : null,
+      `Vehicle : ${t.vehicle_name ?? "—"}`,
       `Pickup : ${t.pickup_location ?? "—"}`,
       `Drop-off : ${t.drop_location ?? "—"}`,
-      isAgent ? `Payment : NO CASH` : `Payment : ${method} — ${Number(t.sell_rate ?? 0).toFixed(2)} SAR`,
-    ].join("\n");
+    ].filter(Boolean);
+
+    const payment = [
+      `*Payment*`,
+      isAgent ? `*NO CASH*` : `Method : *${method}*\nAmount : ${Number(t.sell_rate ?? 0).toFixed(2)} SAR`,
+    ];
+
+    const text = [passenger.join("\n"), trip.join("\n"), payment.join("\n")].join("\n\n");
     navigator.clipboard?.writeText(text).then(() => setErr("Trip details copied to clipboard."),
       () => setErr("Could not copy — clipboard blocked."));
   }
