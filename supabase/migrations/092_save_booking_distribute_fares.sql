@@ -1,0 +1,4 @@
+-- 092_save_booking_distribute_fares
+-- transport_save_booking and b2b_transport_save_booking call
+-- distribute_package_fares after syncing trips, so every trip carries its
+-- internal distributed fare while the booking total stays the package price.
