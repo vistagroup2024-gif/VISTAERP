@@ -90,7 +90,10 @@ export default function TransportBookingForm({
   // default), mirroring the server so the live total matches what is saved.
   const rateMap = useMemo(() => {
     const m = new Map<string, number>();
-    rates.forEach((r) => { if (r.agent_id === null) m.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)); });
+    // Default / pre-resolved rows (no agent_id, e.g. the agent portal already
+    // resolves the agent's rate server-side) form the base.
+    rates.forEach((r) => { if ((r.agent_id ?? null) === null) m.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)); });
+    // Then the selected agent's specific rows override, matching the server.
     if (h.agent_id) rates.forEach((r) => { if (r.agent_id === h.agent_id) m.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)); });
     return m;
   }, [rates, h.agent_id]);

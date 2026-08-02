@@ -1,0 +1,4 @@
+-- 088_b2b_masters_rate_on_party
+-- b2b_transport_masters now resolves the live rate on the agent's Customer/Agent
+-- party (coalesce(agent_party_id, id)), matching b2b_transport_save_booking, so
+-- the portal's shown total equals the saved total.
