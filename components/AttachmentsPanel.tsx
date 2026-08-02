@@ -17,6 +17,7 @@ export default function AttachmentsPanel({
   const [files, setFiles] = useState<FileMeta[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const post = useCallback(async (body: any) => {
@@ -42,19 +43,29 @@ export default function AttachmentsPanel({
     });
   }
 
-  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const list = Array.from(e.target.files ?? []);
-    if (inputRef.current) inputRef.current.value = "";
+  async function uploadFiles(list: File[]) {
     if (!list.length) return;
     setBusy(true); setErr(null);
     try {
       for (const file of list) {
-        if (file.size > MAX_BYTES) { setErr(`${file.name} is larger than 5 MB.`); continue; }
+        if (file.size > MAX_BYTES) { setErr(`${file.name} is larger than 6 MB.`); continue; }
         const data = await toBase64(file);
         await post({ action: "add", group: groupId, name: file.name, mime: file.type, size: file.size, data });
       }
       await load();
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const list = Array.from(e.target.files ?? []);
+    if (inputRef.current) inputRef.current.value = "";
+    await uploadFiles(list);
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault(); setDragOver(false);
+    if (!canUpload || busy) return;
+    uploadFiles(Array.from(e.dataTransfer.files ?? []));
   }
 
   async function open(id: string, download: boolean) {
@@ -89,15 +100,23 @@ export default function AttachmentsPanel({
           <h2 className="font-semibold text-slate-700">📎 Attachments</h2>
           <p className="text-xs text-slate-500">PDF, JPG, PNG or DOCX · up to 6 MB each · multiple files allowed.</p>
         </div>
-        {canUpload && (
-          <>
-            <input ref={inputRef} type="file" multiple accept={accept} onChange={onPick} className="hidden" />
-            <button type="button" className="btn-outline text-sm" disabled={busy} onClick={() => inputRef.current?.click()}>
-              {busy ? "Uploading…" : "+ Upload files"}
-            </button>
-          </>
-        )}
+        {canUpload && <input ref={inputRef} type="file" multiple accept={accept} onChange={onPick} className="hidden" />}
       </div>
+      {canUpload && (
+        <div
+          onClick={() => !busy && inputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-6 text-center transition ${dragOver ? "border-brand bg-brand/5" : "border-slate-300 hover:border-brand/60 hover:bg-slate-50"}`}
+        >
+          <div className="text-2xl">{busy ? "⏳" : "📎"}</div>
+          <div className="mt-1 text-sm font-medium text-slate-600">
+            {busy ? "Uploading…" : dragOver ? "Drop files to upload" : "Drag & drop files here, or click to browse"}
+          </div>
+          <div className="text-xs text-slate-400">PDF, JPG, PNG or DOCX · up to 6 MB each</div>
+        </div>
+      )}
       {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
       {files.length === 0 ? (
         <p className="text-sm text-slate-400">No attachments yet.</p>

@@ -10,10 +10,11 @@ export async function loadBookingMasters() {
       sb.from("transport_vehicles").select("id, name, seating_capacity").eq("is_active", true).order("sort_order").order("name"),
       sb.from("transport_packages").select("id, name, price, package_type").eq("is_active", true).order("name"),
       sb.from("transport_package_legs").select("package_id, seq, route_id, label, vehicle_id").order("seq"),
-      // Currently-effective default selling rates (agent-agnostic) for the live
-      // total display. The server resolves the authoritative agent+date rate on save.
-      sb.from("transport_agent_rates").select("route_id, vehicle_id, selling_rate, effective_to")
-        .is("agent_id", null).eq("status", "active").lte("effective_from", today)
+      // Currently-effective selling rates — both default (agent_id null) and
+      // agent-specific — so the live total in the form matches what the server
+      // will resolve on save for the selected agent.
+      sb.from("transport_agent_rates").select("agent_id, route_id, vehicle_id, selling_rate, effective_to")
+        .eq("status", "active").lte("effective_from", today)
         .order("effective_from", { ascending: false }),
       sb.from("transport_package_prices").select("package_id, vehicle_id, price"),
       // Customer/Agent master (parties) — not the B2B portal login list. Both
@@ -31,12 +32,14 @@ export async function loadBookingMasters() {
     legsByPkg.set(l.package_id, arr);
   });
 
-  // Dedup to the latest effective rate per route+vehicle (still open on today).
+  // Dedup to the latest effective rate per agent+route+vehicle (still open
+  // today). Keeps both default (agent_id null) and agent-specific rows; the form
+  // picks the agent-specific one when present, else the default.
   const rateSeen = new Set<string>();
   const rates = (agentRates ?? [])
     .filter((r: any) => !r.effective_to || r.effective_to >= today)
-    .filter((r: any) => { const k = `${r.route_id}|${r.vehicle_id}`; if (rateSeen.has(k)) return false; rateSeen.add(k); return true; })
-    .map((r: any) => ({ route_id: r.route_id, vehicle_id: r.vehicle_id, sell_rate: r.selling_rate }));
+    .filter((r: any) => { const k = `${r.agent_id ?? ""}|${r.route_id}|${r.vehicle_id}`; if (rateSeen.has(k)) return false; rateSeen.add(k); return true; })
+    .map((r: any) => ({ agent_id: r.agent_id ?? null, route_id: r.route_id, vehicle_id: r.vehicle_id, sell_rate: r.selling_rate }));
 
   const extraCharges = (extras ?? []).map((e: any) => ({
     route_id: e.route_id, vehicle_id: e.vehicle_id, desc: e.extra_charge_desc, amount: Number(e.extra_charge_amount),
