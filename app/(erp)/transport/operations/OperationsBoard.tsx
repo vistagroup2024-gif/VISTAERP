@@ -15,7 +15,7 @@ interface Trip {
   driver_mobile: string | null; driver_reg: string | null; vehicle_type: string | null; hajj_terminal: boolean;
   trip_date: string | null;
   vendor_id: string | null; vendor_name: string | null; trip_time: string | null;
-  outsource_driver_name: string | null; outsource_driver_mobile: string | null; sell_rate: number | null;
+  outsource_driver_name: string | null; outsource_driver_mobile: string | null; sell_rate: number | null; payment_method: string | null;
   pickup_location: string | null; drop_location: string | null; flight_no: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
 }
@@ -303,6 +303,8 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // shows "NO CASH" with no amount; direct/cash customers show the amount.
   function copyTrip(t: Trip) {
     const isAgent = !!t.agent_id;
+    const payLabel: Record<string, string> = { cash: "Cash", card: "Card", bank_transfer: "Bank Transfer" };
+    const method = payLabel[t.payment_method ?? "cash"] ?? "Cash";
     const text = [
       `Trip Date : ${t.trip_date ?? "—"}`,
       `Passenger : ${t.passenger_name ?? "—"}`,
@@ -312,7 +314,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       `Vehicle : ${t.vehicle_type ?? t.vehicle_name ?? "—"}`,
       `Pickup : ${t.pickup_location ?? "—"}`,
       `Drop-off : ${t.drop_location ?? "—"}`,
-      isAgent ? `Payment : NO CASH` : `Payment : Cash — ${Number(t.sell_rate ?? 0).toFixed(2)} SAR`,
+      isAgent ? `Payment : NO CASH` : `Payment : ${method} — ${Number(t.sell_rate ?? 0).toFixed(2)} SAR`,
     ].join("\n");
     navigator.clipboard?.writeText(text).then(() => setErr("Trip details copied to clipboard."),
       () => setErr("Could not copy — clipboard blocked."));

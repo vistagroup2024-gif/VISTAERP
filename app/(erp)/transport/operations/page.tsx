@@ -25,7 +25,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
   // The scheduling view doesn't carry the outsourced-driver details; read them
   // from the base table so they can be shown/copied like an internal driver.
   const [{ data: bookings }, { data: drivers }, { data: vehicles }, { data: outsourceRows }] = await Promise.all([
-    bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, pax, booking_type, agent_id, status").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
+    bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, pax, booking_type, agent_id, status, payment_method").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
     sb.from("transport_drivers").select("id, name, mobile, license_no, vehicle_id, status").order("name"),
     sb.from("transport_vehicles").select("id, name, category, vehicle_type, is_active").order("name"),
     tripIds.length ? sb.from("transport_trips").select("id, outsource_driver_name, outsource_driver_mobile, sell_rate").in("id", tripIds) : Promise.resolve({ data: [] as any[] }),
@@ -56,6 +56,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       booking_type: b?.booking_type ?? null,
       agent_id: b?.agent_id ?? null,
       agent_name: b?.agent_id ? aMap.get(b.agent_id) ?? null : "Direct",
+      payment_method: b?.payment_method ?? null,
       route_display: t.route_name ?? t.route_label ?? "—",
       vehicle_name: veh?.name ?? null,
       vehicle_type: veh?.vehicle_type ?? veh?.category ?? null,
