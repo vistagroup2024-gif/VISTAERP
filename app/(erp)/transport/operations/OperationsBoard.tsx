@@ -332,7 +332,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       `Time : ${t.trip_time?.slice(0, 5) ?? "—"}`,
       `Route : ${t.route_display}`,
       t.flight_no ? `Flight : ${t.flight_no}` : null,
-      `Vehicle : ${t.vehicle_name ?? "—"}`,
+      `Vehicle : ${t.requested_vehicle_name ?? t.vehicle_name ?? "—"}`,
       `Pickup : ${t.pickup_location ?? "—"}`,
       `Drop-off : ${t.drop_location ?? "—"}`,
     ].filter(Boolean);
@@ -474,6 +474,9 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                       {isOutsourced(t) && t.driver_name == null && <span className="ml-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">outsourced</span>}
                       {t.outsource_driver_name && !t.driver_name && (
                         <div className="text-[11px] text-slate-500">🧑‍✈️ {t.outsource_driver_name}{t.outsource_driver_mobile ? ` · ${t.outsource_driver_mobile}` : ""}</div>
+                      )}
+                      {isOutsourced(t) && t.sell_rate != null && (
+                        <div className="mt-0.5 text-[11px] font-medium text-slate-600">Trip fare: {Number(t.sell_rate).toFixed(2)} SAR</div>
                       )}
                     </td>
                     <td className="px-3 py-2">
