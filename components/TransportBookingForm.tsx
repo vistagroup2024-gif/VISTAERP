@@ -79,6 +79,7 @@ export default function TransportBookingForm({
     pax: existing?.pax?.toString() ?? "", nusuk_group_no: existing?.nusuk_group_no ?? "",
     passenger_name: existing?.passenger_name ?? "", mobile: existing?.mobile ?? "",
     whatsapp: existing?.whatsapp ?? "", nationality: existing?.nationality ?? "", remarks: existing?.remarks ?? "",
+    payment_method: existing?.payment_method ?? "cash",
   });
 
   // Rate per route|vehicle for the SELECTED agent (agent-specific overrides the
@@ -254,6 +255,10 @@ export default function TransportBookingForm({
           {!isAgent && <div><label className="label">Agent</label>
             <select className="input" value={h.agent_id} onChange={(e) => setH({ ...h, agent_id: e.target.value })}>
               <option value="">— direct —</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}
+            </select></div>}
+          {!isAgent && !h.agent_id && <div><label className="label">Payment method</label>
+            <select className="input" value={h.payment_method} onChange={(e) => setH({ ...h, payment_method: e.target.value })}>
+              <option value="cash">Cash</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option>
             </select></div>}
           <div><label className="label">Haji name</label><input className="input" value={h.passenger_name} onChange={(e) => setH({ ...h, passenger_name: e.target.value })} /></div>
           <div><label className="label">Mobile</label><input className="input" value={h.mobile} onChange={(e) => setH({ ...h, mobile: e.target.value })} /></div>

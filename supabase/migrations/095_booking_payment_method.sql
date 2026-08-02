@@ -1,0 +1,4 @@
+-- 095_booking_payment_method
+-- transport_bookings.payment_method (cash/card/bank_transfer) for direct
+-- customers; agent bookings stay NULL (NO CASH). transport_save_booking stores
+-- it for no-agent bookings and ignores it for agent bookings.
