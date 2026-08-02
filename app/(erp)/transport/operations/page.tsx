@@ -28,7 +28,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
     bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, whatsapp, pax, booking_type, agent_id, status, payment_method").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
     sb.from("transport_drivers").select("id, name, mobile, license_no, vehicle_id, status").order("name"),
     sb.from("transport_vehicles").select("id, name, category, vehicle_type, is_active").order("name"),
-    tripIds.length ? sb.from("transport_trips").select("id, outsource_driver_name, outsource_driver_mobile, sell_rate").in("id", tripIds) : Promise.resolve({ data: [] as any[] }),
+    tripIds.length ? sb.from("transport_trips").select("id, outsource_driver_name, outsource_driver_mobile, sell_rate, vendor_cost").in("id", tripIds) : Promise.resolve({ data: [] as any[] }),
   ]);
   const odMap = new Map((outsourceRows ?? []).map((o: any) => [o.id, o]));
   const agentIds = Array.from(new Set((bookings ?? []).map((b: any) => b.agent_id).filter(Boolean)));
@@ -71,6 +71,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       outsource_driver_name: odMap.get(t.id)?.outsource_driver_name ?? null,
       outsource_driver_mobile: odMap.get(t.id)?.outsource_driver_mobile ?? null,
       sell_rate: odMap.get(t.id)?.sell_rate ?? null,
+      vendor_cost: odMap.get(t.id)?.vendor_cost ?? null,
     };
   });
 
