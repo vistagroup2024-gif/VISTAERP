@@ -1,0 +1,3 @@
+-- 089_transport_booking_discount
+-- transport_save_booking applies an optional staff discount: net = sell - discount
+-- (clamped to [0, sell]), total = net + extras. discount comes from the header.
