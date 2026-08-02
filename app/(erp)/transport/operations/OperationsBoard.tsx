@@ -15,7 +15,7 @@ interface Trip {
   driver_mobile: string | null; driver_reg: string | null; vehicle_type: string | null; hajj_terminal: boolean;
   trip_date: string | null;
   vendor_id: string | null; vendor_name: string | null; trip_time: string | null;
-  outsource_driver_name: string | null; outsource_driver_mobile: string | null;
+  outsource_driver_name: string | null; outsource_driver_mobile: string | null; sell_rate: number | null;
   pickup_location: string | null; drop_location: string | null; flight_no: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
 }
@@ -299,11 +299,31 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       () => setErr("Could not copy — clipboard blocked."));
   }
 
+  // Copy trip details for sharing. Agent bookings are on credit, so payment
+  // shows "NO CASH" with no amount; direct/cash customers show the amount.
+  function copyTrip(t: Trip) {
+    const isAgent = !!t.agent_id;
+    const text = [
+      `Trip Date : ${t.trip_date ?? "—"}`,
+      `Passenger : ${t.passenger_name ?? "—"}`,
+      `Contact : ${t.mobile ?? "—"}`,
+      `Route : ${t.route_display}`,
+      `No. of Passengers : ${t.pax ?? "—"}`,
+      `Vehicle : ${t.vehicle_type ?? t.vehicle_name ?? "—"}`,
+      `Pickup : ${t.pickup_location ?? "—"}`,
+      `Drop-off : ${t.drop_location ?? "—"}`,
+      isAgent ? `Payment : NO CASH` : `Payment : Cash — ${Number(t.sell_rate ?? 0).toFixed(2)} SAR`,
+    ].join("\n");
+    navigator.clipboard?.writeText(text).then(() => setErr("Trip details copied to clipboard."),
+      () => setErr("Could not copy — clipboard blocked."));
+  }
+
   // Build the authorized action list for a row's three-dot menu.
   function rowActions(t: Trip): MenuItem[] {
     const open = t.status !== "cancelled" && t.status !== "completed";
     const items: MenuItem[] = [{ label: "View Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) }];
     if (canEdit) items.push({ label: "Edit Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) });
+    items.push({ label: "Copy Trip Details", onClick: () => copyTrip(t) });
     if (t.driver_id || t.outsource_driver_name) items.push({ label: "Copy Driver Details", onClick: () => copyDriver(t) });
     if (canAssign && open) items.push({ label: t.driver_id ? "Reassign Driver" : "Assign Driver", onClick: () => { setVendorFor(null); setAssignFor(t.id); } });
     if (canAssign && open && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
