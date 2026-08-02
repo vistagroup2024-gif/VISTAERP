@@ -53,18 +53,20 @@ export default function TransportBookingForm({
     const label = (r?.name ?? t.route_label ?? "").toLowerCase();
     return !!r?.is_airport || label.includes("airport");
   };
+  // The origin of a route: its from_location if set, else the part of the route
+  // name before the dash (e.g. "Madinah Airport - Madinah Hotel" → "madinah airport").
+  const routeOrigin = (t: Trip) => {
+    const r = t.route_id ? routeById.get(t.route_id) : undefined;
+    const from = (r?.from_location ?? "").trim();
+    if (from && from !== "--") return from.toLowerCase();
+    const name = (r?.name ?? t.route_label ?? "");
+    return (name.split(/\s*[-–—→]\s*| to /i)[0] ?? "").toLowerCase();
+  };
   // Pickup happens AT the airport (i.e. an airport arrival) when the route's
-  // origin is an airport. Jeddah airport pickups additionally offer Hajj Terminal.
-  const isAirportArrival = (t: Trip) => {
-    const r = t.route_id ? routeById.get(t.route_id) : undefined;
-    const from = (r?.from_location ?? "").toLowerCase();
-    return from.includes("airport");
-  };
-  const isJeddahAirportPickup = (t: Trip) => {
-    const r = t.route_id ? routeById.get(t.route_id) : undefined;
-    const from = (r?.from_location ?? "").toLowerCase();
-    return from.includes("airport") && from.includes("jeddah");
-  };
+  // origin is an airport — any airport (Jeddah, Madinah, …).
+  const isAirportArrival = (t: Trip) => routeOrigin(t).includes("airport");
+  // Jeddah airport pickups additionally offer Hajj Terminal.
+  const isJeddahAirportPickup = (t: Trip) => { const o = routeOrigin(t); return o.includes("airport") && o.includes("jeddah"); };
   const hajjChargeFor = (t: Trip) => {
     const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
     return t.route_id && veh ? (extraMap.get(`${t.route_id}|${veh}`)?.amount ?? 0) : 0;
@@ -201,7 +203,7 @@ export default function TransportBookingForm({
       // Mandatory flight numbers on airport routes.
       if (isAirportRoute(t) && !t.flight_no.trim()) { setErr("Flight Number is required for airport pickup / drop-off trips."); return; }
       // Passenger Visa Type is mandatory for Jeddah airport arrivals.
-      if (isJeddahAirportPickup(t) && !t.passenger_visa_type) { setErr("Passenger Visa Type is required for Jeddah Airport arrival trips."); return; }
+      if (isAirportArrival(t) && !t.passenger_visa_type) { setErr("Passenger Visa Type is required for airport arrival trips."); return; }
       // Vehicle capacity must fit the passenger count.
       const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
       const cap = veh ? vehicleById.get(veh)?.seating_capacity : null;
