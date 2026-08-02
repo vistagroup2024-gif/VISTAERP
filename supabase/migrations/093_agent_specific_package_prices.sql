@@ -1,0 +1,5 @@
+-- 093_agent_specific_package_prices
+-- transport_package_prices.agent_id (NULL = standard) + unique index on
+-- (package, vehicle, coalesce(agent, sentinel)). transport_package_price(company,
+-- agent, package, vehicle) resolves agent-specific first then standard;
+-- set_package_price(package, vehicle, agent, price) upserts/clears a price.

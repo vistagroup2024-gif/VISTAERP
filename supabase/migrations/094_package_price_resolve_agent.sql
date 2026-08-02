@@ -1,0 +1,4 @@
+-- 094_package_price_resolve_agent
+-- transport_save_booking, b2b_transport_save_booking and b2b_transport_masters
+-- resolve the package price via transport_package_price() for the booking's
+-- agent party (agent-specific override, else standard).
