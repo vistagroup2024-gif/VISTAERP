@@ -10,7 +10,7 @@ interface Route { id: string; name: string; is_airport?: boolean; from_location?
 interface Vehicle { id: string; name: string; seating_capacity?: number | null }
 interface PkgLeg { seq: number; route_id: string | null; label: string | null; vehicle_id: string | null }
 interface Pkg { id: string; name: string; price: number; package_type: string; legs: PkgLeg[] }
-interface Rate { route_id: string; vehicle_id: string; sell_rate: number }
+interface Rate { agent_id: string | null; route_id: string; vehicle_id: string; sell_rate: number }
 interface PkgPrice { package_id: string; vehicle_id: string; price: number }
 interface ExtraCharge { route_id: string; vehicle_id: string; desc: string | null; amount: number }
 interface Company { id: string; name: string }
@@ -40,11 +40,6 @@ export default function TransportBookingForm({
   const isEdit = !!existing;
   const isAgent = variant === "agent";
 
-  const rateMap = useMemo(() => {
-    const m = new Map<string, number>();
-    rates.forEach((r) => m.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)));
-    return m;
-  }, [rates]);
   const pkgPriceMap = useMemo(() => {
     const m = new Map<string, number>();
     packagePrices.forEach((p) => m.set(`${p.package_id}|${p.vehicle_id}`, Number(p.price)));
@@ -90,6 +85,15 @@ export default function TransportBookingForm({
     passenger_name: existing?.passenger_name ?? "", mobile: existing?.mobile ?? "",
     whatsapp: existing?.whatsapp ?? "", nationality: existing?.nationality ?? "", remarks: existing?.remarks ?? "",
   });
+
+  // Rate per route|vehicle for the SELECTED agent (agent-specific overrides the
+  // default), mirroring the server so the live total matches what is saved.
+  const rateMap = useMemo(() => {
+    const m = new Map<string, number>();
+    rates.forEach((r) => { if (r.agent_id === null) m.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)); });
+    if (h.agent_id) rates.forEach((r) => { if (r.agent_id === h.agent_id) m.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)); });
+    return m;
+  }, [rates, h.agent_id]);
   const [trips, setTrips] = useState<Trip[]>(
     existingTrips.length
       ? existingTrips.map((t) => ({
