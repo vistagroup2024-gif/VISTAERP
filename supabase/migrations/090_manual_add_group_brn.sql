@@ -1,0 +1,6 @@
+-- 090_manual_add_group_brn
+-- Manual BRN allocation for visa groups. list_group_available_brns(group)
+-- returns the group's company BRNs with per-BRN max nightly availability;
+-- add_group_brn(group, brn, check_in, check_out, beds) consumes that BRN for the
+-- chosen nights and allocates it, then recomputes coverage — so staff can
+-- complete a partially auto-allocated group (e.g. add the extra Madinah night).
