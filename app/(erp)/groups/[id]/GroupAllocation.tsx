@@ -34,6 +34,13 @@ export default function GroupAllocation({
   const [copied, setCopied] = useState(false);
   const [replaceFor, setReplaceFor] = useState<string | null>(null);
   const [options, setOptions] = useState<any[]>([]);
+  // Manual BRN add.
+  const [manualOpen, setManualOpen] = useState(false);
+  const [avail, setAvail] = useState<any[]>([]);
+  const [mBrn, setMBrn] = useState("");
+  const [mFrom, setMFrom] = useState("");
+  const [mTo, setMTo] = useState("");
+  const [mBeds, setMBeds] = useState(String(pax));
 
   const allocated = brnStatus === "allocated";
   const issued = visaStatus === "issued";
@@ -69,11 +76,68 @@ export default function GroupAllocation({
     router.refresh();
   }
 
+  async function openManual() {
+    setBusy(true); setError(null);
+    const { data, error } = await supabase.rpc("list_group_available_brns", { p_group: groupId });
+    setBusy(false);
+    if (error) return setError(error.message);
+    setAvail((data ?? []).filter((o: any) => o.available > 0));
+    setManualOpen(true);
+  }
+  function pickManualBrn(id: string) {
+    setMBrn(id);
+    const b = avail.find((x) => x.id === id);
+    if (b) { setMFrom(b.check_in); setMTo(b.check_out); }
+  }
+  async function addManual() {
+    if (!mBrn || !mFrom || !mTo) { setError("Select a BRN and the check-in / check-out dates."); return; }
+    setBusy(true); setError(null);
+    const { error } = await supabase.rpc("add_group_brn", { p_group: groupId, p_brn: mBrn, p_check_in: mFrom, p_check_out: mTo, p_beds: Number(mBeds) || pax });
+    setBusy(false);
+    if (error) return setError(error.message);
+    setManualOpen(false); setMBrn(""); setMFrom(""); setMTo(""); setAvail([]);
+    router.refresh();
+  }
+
   function copyBrns() {
     navigator.clipboard.writeText(Array.from(new Set(brnList)).join("\n"));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
+
+  // Manual add-BRN panel — available while processing or allocated (not issued).
+  const manualPanel = !issued ? (
+    <div className="border-t border-slate-100 pt-4">
+      {!manualOpen ? (
+        <button className="btn-outline text-sm" disabled={busy} onClick={openManual}>➕ Add BRN manually</button>
+      ) : (
+        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-700">Add a BRN from available inventory</p>
+            <button className="text-sm text-slate-500 hover:underline" onClick={() => { setManualOpen(false); setAvail([]); setMBrn(""); }}>Cancel</button>
+          </div>
+          {avail.length === 0 ? (
+            <p className="text-sm text-slate-500">No BRN inventory with availability for this company.</p>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="lg:col-span-2"><label className="label">BRN</label>
+                  <select className="input" value={mBrn} onChange={(e) => pickManualBrn(e.target.value)}>
+                    <option value="">Choose a BRN…</option>
+                    {avail.map((o) => <option key={o.id} value={o.id}>{o.brn} · {o.hotel_name} · {o.city} ({dateStr(o.check_in)}–{dateStr(o.check_out)}, {o.available} beds)</option>)}
+                  </select></div>
+                <div><label className="label">Check-in</label><input type="date" className="input" value={mFrom} onChange={(e) => setMFrom(e.target.value)} /></div>
+                <div><label className="label">Check-out</label><input type="date" className="input" value={mTo} onChange={(e) => setMTo(e.target.value)} /></div>
+                <div><label className="label">Beds</label><input type="number" min="1" className="input" value={mBeds} onChange={(e) => setMBeds(e.target.value)} /></div>
+                <div className="flex items-end lg:col-span-5"><button className="btn" disabled={busy || !mBrn} onClick={addManual}>{busy ? "Adding…" : "Add BRN"}</button></div>
+              </div>
+              <p className="text-xs text-slate-500">Pick the exact nights — check-out is the morning after the last night (e.g. one Madinah night 12→13 Aug). Availability is validated on the tightest night.</p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  ) : null;
 
   return (
     <div className="card space-y-4">
@@ -112,6 +176,7 @@ export default function GroupAllocation({
           <button className="btn" onClick={() => rpc("allocate_group_brns", { p_group: groupId })} disabled={busy}>
             {busy ? "Allocating…" : `⚡ Auto Allocate (${pax} pax)`}
           </button>
+          {manualPanel}
         </>
         )
       ) : (
@@ -225,6 +290,8 @@ export default function GroupAllocation({
             </div>
             <pre className="whitespace-pre-wrap font-mono text-sm text-slate-800">{Array.from(new Set(brnList)).join("\n")}</pre>
           </div>
+
+          {manualPanel}
 
           {!issued ? (
             <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
