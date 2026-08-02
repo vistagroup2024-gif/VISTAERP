@@ -97,6 +97,9 @@ export default function TransportBookingForm({
     if (h.agent_id) rates.forEach((r) => { if (r.agent_id === h.agent_id) m.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)); });
     return m;
   }, [rates, h.agent_id]);
+
+  // Staff-only manual discount (SAR) off the calculated total.
+  const [discount, setDiscount] = useState<string>(existing?.discount ? String(existing.discount) : "");
   const [trips, setTrips] = useState<Trip[]>(
     existingTrips.length
       ? existingTrips.map((t) => ({
@@ -158,6 +161,9 @@ export default function TransportBookingForm({
     return base + extras;
   }, [type, packageId, pkgVehicleId, pkgPriceMap, trips, rateMap, extraMap]);
 
+  const discountVal = isAgent ? 0 : Math.min(Math.max(Number(discount) || 0, 0), total);
+  const netTotal = Math.max(0, total - discountVal);
+
   // Per-trip fare (operational visibility). For packages the booking total is the
   // package price, but each trip still shows its route+vehicle fare.
   const fareFor = (t: Trip) => {
@@ -185,6 +191,7 @@ export default function TransportBookingForm({
     setBusy(true); setErr(null);
     const header: any = {
       ...h, booking_type: type, status, currency: "SAR",
+      discount: discountVal,
       package_id: type === "package" ? packageId : "",
       package_vehicle_id: type === "package" ? pkgVehicleId : "",
     };
@@ -332,13 +339,30 @@ export default function TransportBookingForm({
         )}
       </section>
 
-      {/* Pricing — total only */}
+      {/* Pricing */}
       <section className="card">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-slate-700">Total Booking Amount</h2>
-          <span className="text-2xl font-bold text-brand-dark">{total.toFixed(2)} SAR</span>
-        </div>
-        <p className="mt-1 text-xs text-slate-400">Calculated automatically from the selected route/package and vehicle, including any route extra charges (e.g. Hajj Terminal).</p>
+        {isAgent ? (
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-slate-700">Total Booking Amount</h2>
+            <span className="text-2xl font-bold text-brand-dark">{total.toFixed(2)} SAR</span>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-sm text-slate-600">
+              <span>Subtotal</span><span className="font-medium">{total.toFixed(2)} SAR</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <label className="text-slate-600">Discount (SAR)</label>
+              <input className="input max-w-[9rem] text-right" type="number" min="0" step="0.01" max={total || undefined}
+                placeholder="0.00" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+            </div>
+            <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2">
+              <h2 className="font-semibold text-slate-700">Total Booking Amount</h2>
+              <span className="text-2xl font-bold text-brand-dark">{netTotal.toFixed(2)} SAR</span>
+            </div>
+          </div>
+        )}
+        <p className="mt-1 text-xs text-slate-400">Subtotal is calculated automatically from the selected route/package and vehicle, including any route extra charges (e.g. Hajj Terminal).{!isAgent && " Enter a discount to reduce the total."}</p>
       </section>
 
       {/* Attachments — staff, existing bookings only */}
