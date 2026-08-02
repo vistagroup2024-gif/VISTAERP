@@ -164,6 +164,24 @@ export default function TransportBookingForm({
   const discountVal = isAgent ? 0 : Math.min(Math.max(Number(discount) || 0, 0), total);
   const netTotal = Math.max(0, total - discountVal);
 
+  // Live package fare distribution (admin only): spread the package price across
+  // trips by the same discount %, adjusting the last trip for rounding — mirrors
+  // the server so the admin sees the internal per-trip fare before saving.
+  const pkgDist = useMemo(() => {
+    const map = new Map<number, { normal: number; final: number; pct: number }>();
+    if (type !== "package" || !pkgVehicleId) return map;
+    const pkgPrice = packageId ? (pkgPriceMap.get(`${packageId}|${pkgVehicleId}`) ?? 0) : 0;
+    const normals = trips.map((t) => (t.route_id ? (rateMap.get(`${t.route_id}|${pkgVehicleId}`) ?? 0) : 0));
+    const normalTotal = normals.reduce((s, n) => s + n, 0);
+    const pct = normalTotal > 0 ? (normalTotal - pkgPrice) / normalTotal * 100 : 0;
+    const factor = normalTotal > 0 ? pkgPrice / normalTotal : 0;
+    const finals = normals.map((n) => Math.round(n * factor * 100) / 100);
+    const drift = Math.round((pkgPrice - finals.reduce((s, f) => s + f, 0)) * 100) / 100;
+    if (finals.length) finals[finals.length - 1] = Math.round((finals[finals.length - 1] + drift) * 100) / 100;
+    normals.forEach((n, i) => map.set(i, { normal: n, final: finals[i], pct }));
+    return map;
+  }, [type, packageId, pkgVehicleId, pkgPriceMap, rateMap, trips]);
+
   // Per-trip fare (operational visibility). For packages the booking total is the
   // package price, but each trip still shows its route+vehicle fare.
   const fareFor = (t: Trip) => {
@@ -315,7 +333,17 @@ export default function TransportBookingForm({
                         <option value="">— select —</option>{VISA_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                       </select></div>
                   )}
-                  <div className="sm:col-span-2"><label className="label">Trip fare</label><input className="input bg-slate-50" value={(fareFor(t) + (t.hajj_terminal ? hajjChargeFor(t) : 0)).toFixed(2)} readOnly /></div>
+                  {/* Trip fare is internal — hidden from agents. For packages
+                      admins see the distributed fare (+ original & discount %). */}
+                  {!isAgent && (
+                    <div className="sm:col-span-2"><label className="label">Trip fare</label>
+                      <input className="input bg-slate-50" readOnly
+                        value={((type === "package" ? (pkgDist.get(i)?.final ?? 0) : fareFor(t)) + (t.hajj_terminal ? hajjChargeFor(t) : 0)).toFixed(2)} />
+                      {type === "package" && (pkgDist.get(i)?.pct ?? 0) > 0 && (
+                        <p className="text-[11px] text-slate-400">was {pkgDist.get(i)!.normal.toFixed(2)} · −{pkgDist.get(i)!.pct.toFixed(3)}%</p>
+                      )}
+                    </div>
+                  )}
                   <div className="sm:col-span-4"><label className="label">Remarks</label><input className="input" value={t.remarks} onChange={(e) => setTrip(i, { remarks: e.target.value })} /></div>
                   {showHajj && (
                     <label className="flex items-center gap-2 sm:col-span-3 sm:mt-6 text-sm text-slate-600">

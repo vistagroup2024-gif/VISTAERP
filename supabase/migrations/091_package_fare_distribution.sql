@@ -1,0 +1,5 @@
+-- 091_package_fare_distribution
+-- transport_trips.normal_rate (original route-master fare) +
+-- distribute_package_fares(booking, is_package, price): for package bookings,
+-- spreads the package price across trips by the same discount %, adjusting the
+-- last trip for rounding so trip fares sum exactly to the package price.
