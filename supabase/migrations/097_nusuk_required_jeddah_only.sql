@@ -1,0 +1,5 @@
+-- 097_nusuk_required_jeddah_only
+-- transport_driver_reason: the Nusuk-registered-driver requirement now applies
+-- only to Umrah-visa JEDDAH airport arrivals (r_from contains 'jeddah' AND
+-- 'airport'). Madinah airport Umrah arrivals and visit/tourist visas anywhere
+-- may use non-Nusuk drivers.
