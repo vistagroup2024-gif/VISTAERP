@@ -1,0 +1,3 @@
+-- 096_assign_vendor_cost
+-- transport_assign_vendor takes an optional p_vendor_cost stored on the trip
+-- (transport_trips.vendor_cost) so we record what we pay the vendor per trip.

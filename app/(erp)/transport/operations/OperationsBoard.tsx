@@ -15,7 +15,7 @@ interface Trip {
   driver_mobile: string | null; driver_reg: string | null; vehicle_type: string | null; hajj_terminal: boolean;
   trip_date: string | null;
   vendor_id: string | null; vendor_name: string | null; trip_time: string | null;
-  outsource_driver_name: string | null; outsource_driver_mobile: string | null; sell_rate: number | null; payment_method: string | null;
+  outsource_driver_name: string | null; outsource_driver_mobile: string | null; sell_rate: number | null; payment_method: string | null; vendor_cost: number | null;
   pickup_location: string | null; drop_location: string | null; flight_no: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
 }
@@ -107,7 +107,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   const [assignFor, setAssignFor] = useState<string | null>(null);
   const [vendorFor, setVendorFor] = useState<string | null>(null);
   // Driver-details modal shown when outsourcing to a supplier vendor.
-  const [vendorModal, setVendorModal] = useState<{ tripId: string; vendorId: string; vendorName: string; driverName: string; driverMobile: string } | null>(null);
+  const [vendorModal, setVendorModal] = useState<{ tripId: string; vendorId: string; vendorName: string; isDriver: boolean; fare: number | null; driverName: string; driverMobile: string; vendorCost: string } | null>(null);
   const [conflict, setConflict] = useState<{ tripId: string; driverId: string; driverName: string; reason: string } | null>(null);
   const [forceReason, setForceReason] = useState("");
 
@@ -265,17 +265,20 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   function pickVendor(t: Trip, vendorId: string) {
     const ven = vendors.find((v) => v.id === vendorId);
     setVendorFor(null);
-    if (ven?.vendor_type === "vendor_driver") {
-      call("transport_assign_vendor", { p_trip: t.id, p_vendor: vendorId });
-    } else {
-      setVendorModal({ tripId: t.id, vendorId, vendorName: ven?.name ?? "vendor", driverName: "", driverMobile: "" });
-    }
+    // Always open the modal so the vendor cost can be entered; supplier vendors
+    // also capture the driver's name/number (vendor-drivers are auto-filled).
+    setVendorModal({
+      tripId: t.id, vendorId, vendorName: ven?.name ?? "vendor",
+      isDriver: ven?.vendor_type === "vendor_driver",
+      fare: t.sell_rate, driverName: "", driverMobile: "", vendorCost: t.vendor_cost != null ? String(t.vendor_cost) : "",
+    });
   }
   async function submitVendor() {
     if (!vendorModal) return;
     const ok = await call("transport_assign_vendor", {
       p_trip: vendorModal.tripId, p_vendor: vendorModal.vendorId,
       p_driver_name: vendorModal.driverName.trim() || null, p_driver_mobile: vendorModal.driverMobile.trim() || null,
+      p_vendor_cost: vendorModal.vendorCost.trim() === "" ? null : Number(vendorModal.vendorCost),
     });
     if (ok) setVendorModal(null);
   }
@@ -475,8 +478,11 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                       {t.outsource_driver_name && !t.driver_name && (
                         <div className="text-[11px] text-slate-500">🧑‍✈️ {t.outsource_driver_name}{t.outsource_driver_mobile ? ` · ${t.outsource_driver_mobile}` : ""}</div>
                       )}
-                      {isOutsourced(t) && t.sell_rate != null && (
-                        <div className="mt-0.5 text-[11px] font-medium text-slate-600">Trip fare: {Number(t.sell_rate).toFixed(2)} SAR</div>
+                      {isOutsourced(t) && (t.sell_rate != null || t.vendor_cost != null) && (
+                        <div className="mt-0.5 text-[11px] font-medium text-slate-600">
+                          {t.sell_rate != null && <>Trip fare: {Number(t.sell_rate).toFixed(2)} SAR</>}
+                          {t.vendor_cost != null && <span className="text-purple-700"> · Vendor: {Number(t.vendor_cost).toFixed(2)} SAR</span>}
+                        </div>
                       )}
                     </td>
                     <td className="px-3 py-2">
@@ -520,11 +526,19 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-800">🏢 Outsource to {vendorModal.vendorName}</h3>
-            <p className="mt-1 text-sm text-slate-600">Enter the driver this vendor is sending. These details are copied onto the trip so they can be shared with the passenger.</p>
-            <label className="label mt-3">Driver name</label>
-            <input className="input" value={vendorModal.driverName} onChange={(e) => setVendorModal({ ...vendorModal, driverName: e.target.value })} placeholder="Driver full name" autoFocus />
-            <label className="label mt-3">Driver mobile</label>
-            <input className="input" value={vendorModal.driverMobile} onChange={(e) => setVendorModal({ ...vendorModal, driverMobile: e.target.value })} placeholder="+966 5x xxx xxxx" />
+            {vendorModal.fare != null && <p className="mt-1 text-sm text-slate-500">Trip fare (our selling price): <b>{Number(vendorModal.fare).toFixed(2)} SAR</b> — negotiate the vendor cost below.</p>}
+            {vendorModal.isDriver ? (
+              <p className="mt-1 text-sm text-slate-600">This vendor is the driver — their own name &amp; number are used.</p>
+            ) : (
+              <>
+                <label className="label mt-3">Driver name</label>
+                <input className="input" value={vendorModal.driverName} onChange={(e) => setVendorModal({ ...vendorModal, driverName: e.target.value })} placeholder="Driver full name" autoFocus />
+                <label className="label mt-3">Driver mobile</label>
+                <input className="input" value={vendorModal.driverMobile} onChange={(e) => setVendorModal({ ...vendorModal, driverMobile: e.target.value })} placeholder="+966 5x xxx xxxx" />
+              </>
+            )}
+            <label className="label mt-3">Vendor cost (what we pay the vendor)</label>
+            <input className="input" type="number" min="0" step="0.01" value={vendorModal.vendorCost} onChange={(e) => setVendorModal({ ...vendorModal, vendorCost: e.target.value })} placeholder="e.g. 230.00" />
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setVendorModal(null)} className="btn-outline text-sm">Cancel</button>
               <button onClick={submitVendor} disabled={busy} className="btn text-sm">{busy ? "Saving…" : "Assign Vendor"}</button>
