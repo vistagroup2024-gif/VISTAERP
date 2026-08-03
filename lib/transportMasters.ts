@@ -10,11 +10,11 @@ export async function loadBookingMasters() {
       sb.from("transport_vehicles").select("id, name, seating_capacity").eq("is_active", true).order("sort_order").order("name"),
       sb.from("transport_packages").select("id, name, price, package_type").eq("is_active", true).order("name"),
       sb.from("transport_package_legs").select("package_id, seq, route_id, label, vehicle_id").order("seq"),
-      // Currently-effective selling rates — both default (agent_id null) and
-      // agent-specific — so the live total in the form matches what the server
-      // will resolve on save for the selected agent.
-      sb.from("transport_agent_rates").select("agent_id, route_id, vehicle_id, selling_rate, effective_to")
-        .eq("status", "active").lte("effective_from", today)
+      // All active selling rates with their effective window — the form resolves
+      // the rate for the selected agent AND the booking date (supports back-dated
+      // bookings), matching what the server saves.
+      sb.from("transport_agent_rates").select("agent_id, route_id, vehicle_id, selling_rate, effective_from, effective_to")
+        .eq("status", "active")
         .order("effective_from", { ascending: false }),
       // Standard (agent_id null) + agent-specific package prices; the form picks
       // the selected agent's price, else the standard one.
@@ -34,14 +34,12 @@ export async function loadBookingMasters() {
     legsByPkg.set(l.package_id, arr);
   });
 
-  // Dedup to the latest effective rate per agent+route+vehicle (still open
-  // today). Keeps both default (agent_id null) and agent-specific rows; the form
-  // picks the agent-specific one when present, else the default.
-  const rateSeen = new Set<string>();
-  const rates = (agentRates ?? [])
-    .filter((r: any) => !r.effective_to || r.effective_to >= today)
-    .filter((r: any) => { const k = `${r.agent_id ?? ""}|${r.route_id}|${r.vehicle_id}`; if (rateSeen.has(k)) return false; rateSeen.add(k); return true; })
-    .map((r: any) => ({ agent_id: r.agent_id ?? null, route_id: r.route_id, vehicle_id: r.vehicle_id, sell_rate: r.selling_rate }));
+  // Keep every active rate row (agent-specific + default) with its effective
+  // window; the form resolves the right one per agent + booking date.
+  const rates = (agentRates ?? []).map((r: any) => ({
+    agent_id: r.agent_id ?? null, route_id: r.route_id, vehicle_id: r.vehicle_id,
+    sell_rate: r.selling_rate, effective_from: r.effective_from ?? null, effective_to: r.effective_to ?? null,
+  }));
 
   const extraCharges = (extras ?? []).map((e: any) => ({
     route_id: e.route_id, vehicle_id: e.vehicle_id, desc: e.extra_charge_desc, amount: Number(e.extra_charge_amount),

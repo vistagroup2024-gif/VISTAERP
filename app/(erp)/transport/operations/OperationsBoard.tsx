@@ -108,6 +108,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   const [vendorFor, setVendorFor] = useState<string | null>(null);
   // Driver-details modal shown when outsourcing to a supplier vendor.
   const [vendorModal, setVendorModal] = useState<{ tripId: string; vendorId: string; vendorName: string; isDriver: boolean; fare: number | null; driverName: string; driverMobile: string; vendorCost: string } | null>(null);
+  const [tripView, setTripView] = useState<Trip | null>(null);
   const [conflict, setConflict] = useState<{ tripId: string; driverId: string; driverName: string; reason: string } | null>(null);
   const [forceReason, setForceReason] = useState("");
 
@@ -353,7 +354,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // Build the authorized action list for a row's three-dot menu.
   function rowActions(t: Trip): MenuItem[] {
     const open = t.status !== "cancelled" && t.status !== "completed";
-    const items: MenuItem[] = [{ label: "View Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) }];
+    const items: MenuItem[] = [{ label: "View Trip Details", onClick: () => setTripView(t) }];
     if (canEdit) items.push({ label: "Edit Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) });
     items.push({ label: "Copy Trip Details", onClick: () => copyTrip(t) });
     if (t.driver_id || t.outsource_driver_name) items.push({ label: "Copy Driver Details", onClick: () => copyDriver(t) });
@@ -361,7 +362,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (canAssign && open && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
     if (canAssign && t.driver_id && open) items.push({ label: "Unassign Driver", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
     if (canAssign && NEXT_TRIP[t.status]) items.push({ label: `Mark ${NEXT_LABEL[NEXT_TRIP[t.status]]}`, onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: NEXT_TRIP[t.status] }) });
-    if (canAssign && ["assigned", "on_route"].includes(t.status)) items.push({ label: "Mark Completed", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: "completed" }) });
+    if (canAssign && ["assigned", "on_route", "outsourced"].includes(t.status)) items.push({ label: "Mark Completed", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: "completed" }) });
     if (canAssign && open) items.push({ label: "Cancel Trip", danger: true, onClick: () => { if (confirm("Cancel this trip?")) call("transport_set_trip_status", { p_trip: t.id, p_status: "cancelled" }); } });
     return items;
   }
@@ -521,6 +522,51 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
           </table>
         </div>
       )}
+
+      {tripView && (() => {
+        const t = tripView;
+        const payLabel: Record<string, string> = { cash: "Cash", card: "Card", bank_transfer: "Bank Transfer" };
+        const rows: [string, any][] = [
+          ["Passenger", t.passenger_name ?? "—"],
+          ["Mobile", t.mobile ?? "—"],
+          ["WhatsApp", t.whatsapp ?? "—"],
+          ["No. of Passengers", t.pax ?? "—"],
+          ["Date", t.trip_date ?? "—"],
+          ["Time", t.trip_time?.slice(0, 5) ?? "—"],
+          ["Route", t.route_display],
+          ...(t.flight_no ? [["Flight", t.flight_no] as [string, any]] : []),
+          ["Vehicle (booked)", t.requested_vehicle_name ?? t.vehicle_name ?? "—"],
+          ["Pickup", t.pickup_location ?? "—"],
+          ["Drop-off", t.drop_location ?? "—"],
+          ["Driver / Vendor", t.driver_name ?? (t.vendor_name ? `${t.vendor_name}${t.outsource_driver_name ? ` · ${t.outsource_driver_name}` : ""}` : "—")],
+          ["Status", STATUS_META[t.status]?.label ?? t.status],
+          ["Payment", t.agent_id ? "NO CASH" : `${payLabel[t.payment_method ?? "cash"] ?? "Cash"} — ${Number(t.sell_rate ?? 0).toFixed(2)} SAR`],
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTripView(null)}>
+            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-800">Trip Details</h3>
+                <button onClick={() => setTripView(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+              </div>
+              <table className="w-full text-sm">
+                <tbody>
+                  {rows.map(([k, v], i) => (
+                    <tr key={i} className="border-t border-slate-100">
+                      <td className="py-1.5 pr-3 text-slate-400">{k}</td>
+                      <td className="py-1.5 font-medium text-slate-800">{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="mt-4 flex justify-end gap-2">
+                <button onClick={() => copyTrip(t)} className="btn-outline text-sm">📋 Copy</button>
+                <button onClick={() => setTripView(null)} className="btn text-sm">Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {vendorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
