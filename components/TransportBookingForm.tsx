@@ -10,7 +10,7 @@ interface Route { id: string; name: string; is_airport?: boolean; from_location?
 interface Vehicle { id: string; name: string; seating_capacity?: number | null }
 interface PkgLeg { seq: number; route_id: string | null; label: string | null; vehicle_id: string | null }
 interface Pkg { id: string; name: string; price: number; package_type: string; legs: PkgLeg[] }
-interface Rate { agent_id: string | null; route_id: string; vehicle_id: string; sell_rate: number }
+interface Rate { agent_id: string | null; route_id: string; vehicle_id: string; sell_rate: number; effective_from?: string | null; effective_to?: string | null }
 interface PkgPrice { package_id: string; vehicle_id: string; price: number; agent_id?: string | null }
 interface ExtraCharge { route_id: string; vehicle_id: string; desc: string | null; amount: number }
 interface Company { id: string; name: string }
@@ -74,7 +74,13 @@ export default function TransportBookingForm({
 
   const [type, setType] = useState<string>(existing?.booking_type ?? "single");
   const [packageId, setPackageId] = useState<string>(existing?.package_id ?? "");
-  const [pkgVehicleId, setPkgVehicleId] = useState<string>("");
+  // Restore the package's vehicle when editing a package booking, so the price
+  // and per-trip fares resolve (all package legs share one vehicle).
+  const [pkgVehicleId, setPkgVehicleId] = useState<string>(
+    existing?.booking_type === "package" && existingTrips[0]
+      ? (existingTrips[0].requested_vehicle_id ?? existingTrips[0].vehicle_id ?? "")
+      : ""
+  );
   const [h, setH] = useState({
     agent_id: existing?.agent_id ?? "", group_company_id: existing?.group_company_id ?? "",
     booking_date: existing?.booking_date ?? todayStr(),
@@ -87,14 +93,27 @@ export default function TransportBookingForm({
   // Rate per route|vehicle for the SELECTED agent (agent-specific overrides the
   // default), mirroring the server so the live total matches what is saved.
   const rateMap = useMemo(() => {
+    const bdate = h.booking_date || todayStr();
+    const effective = (r: Rate) => (!r.effective_from || r.effective_from <= bdate) && (!r.effective_to || r.effective_to >= bdate);
+    // For each route|vehicle pick the best row: agent-specific beats default,
+    // then the latest effective_from — mirroring the server's date resolution.
+    const best = new Map<string, { from: string; rate: number; agentMatch: boolean }>();
+    rates.forEach((r) => {
+      if (!effective(r)) return;
+      const agentMatch = !!h.agent_id && r.agent_id === h.agent_id;
+      const isDefault = (r.agent_id ?? null) === null;
+      if (!agentMatch && !isDefault) return;
+      const k = `${r.route_id}|${r.vehicle_id}`;
+      const from = r.effective_from ?? "0000-00-00";
+      const cur = best.get(k);
+      if (!cur || (agentMatch && !cur.agentMatch) || (agentMatch === cur.agentMatch && from > cur.from)) {
+        best.set(k, { from, rate: Number(r.sell_rate), agentMatch });
+      }
+    });
     const m = new Map<string, number>();
-    // Default / pre-resolved rows (no agent_id, e.g. the agent portal already
-    // resolves the agent's rate server-side) form the base.
-    rates.forEach((r) => { if ((r.agent_id ?? null) === null) m.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)); });
-    // Then the selected agent's specific rows override, matching the server.
-    if (h.agent_id) rates.forEach((r) => { if (r.agent_id === h.agent_id) m.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)); });
+    best.forEach((v, k) => m.set(k, v.rate));
     return m;
-  }, [rates, h.agent_id]);
+  }, [rates, h.agent_id, h.booking_date]);
 
   // Package price per package|vehicle for the selected agent (agent-specific
   // override, else standard / pre-resolved portal price).
