@@ -112,7 +112,7 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="bg-brand text-left text-[11px] font-semibold uppercase tracking-wide text-white" style={exact}>
                 <th className="px-3 py-2.5">#</th>
                 <th className="px-3 py-2.5">Date</th>
                 <th className="px-3 py-2.5">Time</th>
@@ -125,7 +125,7 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
             </thead>
             <tbody>
               {trips.map((t, i) => (
-                <tr key={i} className="border-t border-slate-100 align-top">
+                <tr key={i} className={`border-t border-slate-100 align-top ${i % 2 ? "bg-brand/5" : "bg-white"}`} style={exact}>
                   <td className="px-3 py-2.5 text-slate-500">{i + 1}</td>
                   <td className="px-3 py-2.5 whitespace-nowrap">{fmtDate(t.trip_date)}</td>
                   <td className="px-3 py-2.5 whitespace-nowrap">{fmtTime(t.trip_time)}</td>
