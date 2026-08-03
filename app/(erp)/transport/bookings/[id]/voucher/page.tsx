@@ -80,7 +80,10 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
     return { from: airportRe.test(parts[0] ?? ""), to: airportRe.test(parts[parts.length - 1] ?? "") };
   };
   const arrTrip = (trips ?? []).find((t: any) => airportRe.test(t.pickup_location ?? "") || routeEnds(t.route_name ?? t.route_label).from);
-  const depTrip = (trips ?? []).find((t: any) => airportRe.test(t.drop_location ?? "") || t.hajj_terminal || routeEnds(t.route_name ?? t.route_label).to);
+  // NB: do NOT use hajj_terminal to detect a departure — the Hajj Terminal flag
+  // sits on the arrival trip too (arrival INTO the Hajj terminal), which would
+  // otherwise mislabel the arrival flight as the departure flight.
+  const depTrip = (trips ?? []).find((t: any) => airportRe.test(t.drop_location ?? "") || routeEnds(t.route_name ?? t.route_label).to);
   const arrivalFlight = arrTrip ? (b.arrival_flight || arrTrip.flight_no || null) : null;
   const departureFlight = depTrip ? (b.departure_flight || depTrip.flight_no || null) : null;
   const docBooking = { ...b, arrival_flight: arrivalFlight, departure_flight: departureFlight };
