@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import PrintButton from "@/components/PrintButton";
 import DeleteVoucherButton from "./DeleteVoucherButton";
 import VoucherDocument from "@/components/VoucherDocument";
-import { VISTA, VOUCHER_INSTRUCTIONS as INSTRUCTIONS } from "@/lib/voucherBrand";
+import { VISTA } from "@/lib/voucherBrand";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
 
   const [{ data: booking }, { data: trips }] = await Promise.all([
     sb.from("transport_bookings").select("*").eq("id", params.id).maybeSingle(),
-    sb.from("transport_trip_sched").select("seq, route_name, route_label, trip_date, trip_time, pickup_location, drop_location, vehicle_id, hajj_terminal").eq("booking_id", params.id).order("seq"),
+    sb.from("transport_trip_sched").select("seq, route_name, route_label, trip_date, trip_time, pickup_location, drop_location, vehicle_id, hajj_terminal, sell_rate, extra_charge").eq("booking_id", params.id).order("seq"),
   ]);
   if (!booking) return <div className="card text-slate-500">Booking not found. <Link href="/transport/bookings" className="text-brand hover:underline">Back</Link></div>;
   const b = booking as any;
@@ -60,6 +60,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
     seq: t.seq, route: t.route_name ?? t.route_label, trip_date: t.trip_date, trip_time: t.trip_time,
     pickup_location: t.pickup_location, drop_location: t.drop_location,
     vehicle: t.vehicle_id ? vName.get(t.vehicle_id) ?? null : null, hajj_terminal: t.hajj_terminal,
+    fare: (Number(t.sell_rate) || 0) + (Number(t.extra_charge) || 0),
   }));
 
   return (
@@ -74,7 +75,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
         </span>
       </div>
 
-      <VoucherDocument provider={provider} booking={b} trips={docTrips} qr={qr} instructions={INSTRUCTIONS} />
+      <VoucherDocument provider={provider} booking={b} trips={docTrips} qr={qr} showFares />
     </div>
   );
 }
