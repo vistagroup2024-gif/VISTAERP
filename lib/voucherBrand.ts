@@ -3,10 +3,13 @@
 // your official details.
 export const VISTA = {
   name: "Vista Group",
-  tagline: "Umrah & Ziyarah Transport Services",
+  tagline: "Umrah | Transportation | Toursim",
   contact: "Vista Operations",
   mobile: "+966 53 004 8282",
   email: "sales@vista-group.co",
   address: "Khalidiya, Madinah",
-  logo: "/logo.svg",
+  // Full vertical lockup (pin mark + "VISTA GROUP" wordmark + tagline). Rendered
+  // as-is in the voucher header, so no separate company-name text is shown.
+  logo: "/logo-full.svg",
+  logoLockup: true,
 };

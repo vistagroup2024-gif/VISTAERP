@@ -9,6 +9,9 @@ import React from "react";
 export interface VoucherProvider {
   name: string; tagline?: string | null; contact?: string | null; mobile?: string | null;
   email?: string | null; address?: string | null; logo?: string | null; note?: string | null;
+  // When true the logo is a full lockup that already includes the company name,
+  // so the header renders it alone (no separate name text beside it).
+  logoLockup?: boolean;
 }
 export interface VoucherTrip {
   seq?: number | null; route?: string | null; trip_date?: string | null; trip_time?: string | null;
@@ -73,10 +76,15 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-6 border-b-2 border-brand px-8 pb-5 pt-7">
         <div className="flex items-center gap-3">
-          {provider.logo ? (
-            <img src={provider.logo} alt={provider.name} className="h-14 w-auto object-contain" style={exact} />
-          ) : null}
-          <div className="text-2xl font-bold tracking-tight text-slate-900">{provider.name}</div>
+          {provider.logoLockup && provider.logo ? (
+            // Full lockup already contains the company name.
+            <img src={provider.logo} alt={provider.name} className="h-24 w-auto object-contain" style={exact} />
+          ) : (
+            <>
+              {provider.logo ? <img src={provider.logo} alt={provider.name} className="h-14 w-auto object-contain" style={exact} /> : null}
+              <div className="text-2xl font-bold tracking-tight text-slate-900">{provider.name}</div>
+            </>
+          )}
         </div>
         <div className="text-right">
           <div className="text-lg font-bold uppercase tracking-[0.18em] text-brand" style={exact}>Transport Voucher</div>
