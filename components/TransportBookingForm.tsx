@@ -20,11 +20,14 @@ interface Trip {
   id: string; route_id: string; route_label: string; vehicle_id: string; trip_date: string; trip_time: string;
   pickup_location: string; drop_location: string; flight_no: string; remarks: string;
   hajj_terminal: boolean; passenger_visa_type: string; status?: string;
+  // Staff-editable per-trip fare override (base sell_rate, excl. Hajj extra).
+  // Empty string = use the auto route+vehicle rate.
+  fare: string;
 }
 
 const VISA_TYPES: [string, string][] = [["umrah", "Umrah Visa"], ["visit", "Visit Visa"], ["other", "Other"]];
 const todayStr = () => new Date().toISOString().slice(0, 10);
-const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "", hajj_terminal: false, passenger_visa_type: "" });
+const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "", hajj_terminal: false, passenger_visa_type: "", fare: "" });
 const TYPE_LABEL: Record<string, string> = { with_ziyarat: "With Ziyarat", without_ziyarat: "Without Ziyarat" };
 
 export default function TransportBookingForm({
@@ -124,6 +127,14 @@ export default function TransportBookingForm({
     return m;
   }, [packagePrices, h.agent_id]);
 
+  // Auto route+vehicle rate for a trip (excludes any Hajj Terminal extra).
+  const baseRate = (t: Trip) => {
+    const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
+    return t.route_id && veh ? (rateMap.get(`${t.route_id}|${veh}`) ?? 0) : 0;
+  };
+  // Effective per-trip base fare: the staff override when entered, else auto.
+  const overriddenRate = (t: Trip) => (t.fare.trim() !== "" ? Math.max(0, Number(t.fare) || 0) : baseRate(t));
+
   // Staff-only manual discount (SAR) off the calculated total.
   const [discount, setDiscount] = useState<string>(existing?.discount ? String(existing.discount) : "");
   const [trips, setTrips] = useState<Trip[]>(
@@ -136,6 +147,9 @@ export default function TransportBookingForm({
           trip_date: t.trip_date ?? "", trip_time: t.trip_time?.slice(0, 5) ?? "", pickup_location: t.pickup_location ?? "",
           drop_location: t.drop_location ?? "", flight_no: t.flight_no ?? "", remarks: t.remarks ?? "",
           hajj_terminal: !!t.hajj_terminal, passenger_visa_type: t.passenger_visa_type ?? "", status: t.status ?? "",
+          // Preserve the previously saved fare (package trips are priced at
+          // package level, so their sell_rate is 0 → leave blank / auto).
+          fare: t.sell_rate != null && Number(t.sell_rate) > 0 ? String(Number(t.sell_rate)) : "",
         }))
       : [blankTrip()]
   );
@@ -181,7 +195,7 @@ export default function TransportBookingForm({
   const total = useMemo(() => {
     const base = type === "package"
       ? (packageId && pkgVehicleId ? (pkgPriceMap.get(`${packageId}|${pkgVehicleId}`) ?? 0) : 0)
-      : trips.reduce((s, t) => s + (t.route_id && t.vehicle_id ? (rateMap.get(`${t.route_id}|${t.vehicle_id}`) ?? 0) : 0), 0);
+      : trips.reduce((s, t) => s + overriddenRate(t), 0);
     // Hajj Terminal / route extra charges apply per trip when ticked.
     const extras = trips.reduce((s, t) => s + (t.hajj_terminal ? hajjChargeFor(t) : 0), 0);
     return base + extras;
@@ -208,13 +222,6 @@ export default function TransportBookingForm({
     return map;
   }, [type, packageId, pkgVehicleId, pkgPriceMap, rateMap, trips]);
 
-  // Per-trip fare (operational visibility). For packages the booking total is the
-  // package price, but each trip still shows its route+vehicle fare.
-  const fareFor = (t: Trip) => {
-    const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
-    return t.route_id && veh ? (rateMap.get(`${t.route_id}|${veh}`) ?? 0) : 0;
-  };
-
   async function save(status: string) {
     // Total passengers is mandatory.
     if (!totalPax || totalPax < 1) { setErr("Total Passengers is required and must be at least 1."); return; }
@@ -239,11 +246,15 @@ export default function TransportBookingForm({
       package_id: type === "package" ? packageId : "",
       package_vehicle_id: type === "package" ? pkgVehicleId : "",
     };
-    const tripPayload = trips.map((t, i) => ({
-      ...t, seq: i + 1,
-      // single/multiple: rate from the trip's vehicle; package: priced at package level.
-      sell_rate: type === "package" ? 0 : (t.route_id && t.vehicle_id ? (rateMap.get(`${t.route_id}|${t.vehicle_id}`) ?? 0) : 0),
-    }));
+    const tripPayload = trips.map((t, i) => {
+      const { fare: _fare, ...rest } = t; // `fare` is a UI-only override input
+      return {
+        ...rest, seq: i + 1,
+        // single/multiple: staff-overridden fare when set, else the auto route+
+        // vehicle rate; package trips are priced at package level.
+        sell_rate: type === "package" ? 0 : overriddenRate(t),
+      };
+    });
 
     let ok = false;
     if (endpoint) {
@@ -363,14 +374,32 @@ export default function TransportBookingForm({
                         <option value="">— select —</option>{VISA_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                       </select></div>
                   )}
-                  {/* Trip fare is internal — hidden from agents. For packages
-                      admins see the distributed fare (+ original & discount %). */}
+                  {/* Trip fare is internal — hidden from agents. Package trips are
+                      priced at package level (read-only distributed fare); on
+                      single/multiple bookings staff can edit the fare directly. */}
                   {!isAgent && (
-                    <div className="sm:col-span-2"><label className="label">Trip fare</label>
-                      <input className="input bg-slate-50" readOnly
-                        value={((type === "package" ? (pkgDist.get(i)?.final ?? 0) : fareFor(t)) + (t.hajj_terminal ? hajjChargeFor(t) : 0)).toFixed(2)} />
-                      {type === "package" && (pkgDist.get(i)?.pct ?? 0) > 0 && (
-                        <p className="text-[11px] text-slate-400">was {pkgDist.get(i)!.normal.toFixed(2)} · −{pkgDist.get(i)!.pct.toFixed(3)}%</p>
+                    <div className="sm:col-span-2"><label className="label">Trip fare (SAR)</label>
+                      {type === "package" ? (
+                        <>
+                          <input className="input bg-slate-50" readOnly
+                            value={((pkgDist.get(i)?.final ?? 0) + (t.hajj_terminal ? hajjChargeFor(t) : 0)).toFixed(2)} />
+                          {(pkgDist.get(i)?.pct ?? 0) > 0 && (
+                            <p className="text-[11px] text-slate-400">was {pkgDist.get(i)!.normal.toFixed(2)} · −{pkgDist.get(i)!.pct.toFixed(3)}%</p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <input className="input" type="number" min="0" step="0.01"
+                            value={t.fare !== "" ? t.fare : (baseRate(t) ? String(baseRate(t)) : "")}
+                            placeholder={baseRate(t) ? baseRate(t).toFixed(2) : "0.00"}
+                            onChange={(e) => setTrip(i, { fare: e.target.value })} />
+                          {t.hajj_terminal && hajjChargeFor(t) > 0 && (
+                            <p className="text-[11px] text-slate-400">+ {hajjChargeFor(t).toFixed(2)} Hajj Terminal</p>
+                          )}
+                          {t.fare.trim() !== "" && Number(t.fare) !== baseRate(t) && (
+                            <p className="text-[11px] text-amber-600">manual · auto rate {baseRate(t).toFixed(2)}</p>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
