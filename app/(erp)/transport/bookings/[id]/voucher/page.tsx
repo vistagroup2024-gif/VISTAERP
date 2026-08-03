@@ -66,15 +66,23 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
     fare: (Number(t.sell_rate) || 0) + (Number(t.extra_charge) || 0),
   }));
 
-  // Flight details show only when the booking actually has an airport trip.
-  // An arrival airport trip picks up FROM an airport; a departure trip drops
-  // AT an airport (or the Hajj terminal). Flight number falls back to the
-  // trip's own flight_no when the booking-level field is empty.
-  const isAirport = (s?: string | null) => !!s && /airport|terminal/i.test(s);
-  const arrTrip = (trips ?? []).find((t: any) => isAirport(t.pickup_location) || isAirport(t.route_name) || t.hajj_terminal);
-  const depTrip = (trips ?? []).find((t: any) => isAirport(t.drop_location) || isAirport(t.route_name) || t.hajj_terminal);
-  const arrivalFlight = b.arrival_flight || arrTrip?.flight_no || null;
-  const departureFlight = b.departure_flight || depTrip?.flight_no || null;
+  // Flight details show ONLY for the direction the booking actually has:
+  //   • an ARRIVAL airport trip picks up FROM an airport (route starts at an
+  //     airport, or the pickup is an airport)  → show Arrival Flight
+  //   • a DEPARTURE airport trip drops AT an airport / Hajj terminal (route
+  //     ends at an airport, or the drop is an airport)  → show Departure Flight
+  // Direction matters: "Jeddah Airport – Makkah" is an arrival, not a departure,
+  // even though the word "airport" appears in the route. Each flight is gated on
+  // its own trip existing, so the missing direction stays hidden.
+  const airportRe = /airport|terminal/i;
+  const routeEnds = (route?: string | null) => {
+    const parts = (route ?? "").split(/[-–—]/);
+    return { from: airportRe.test(parts[0] ?? ""), to: airportRe.test(parts[parts.length - 1] ?? "") };
+  };
+  const arrTrip = (trips ?? []).find((t: any) => airportRe.test(t.pickup_location ?? "") || routeEnds(t.route_name ?? t.route_label).from);
+  const depTrip = (trips ?? []).find((t: any) => airportRe.test(t.drop_location ?? "") || t.hajj_terminal || routeEnds(t.route_name ?? t.route_label).to);
+  const arrivalFlight = arrTrip ? (b.arrival_flight || arrTrip.flight_no || null) : null;
+  const departureFlight = depTrip ? (b.departure_flight || depTrip.flight_no || null) : null;
   const docBooking = { ...b, arrival_flight: arrivalFlight, departure_flight: departureFlight };
 
   return (
