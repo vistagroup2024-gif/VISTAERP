@@ -21,7 +21,7 @@ export interface VoucherBooking {
   nationality?: string | null; remarks?: string | null;
   arrival_flight?: string | null; arrival_date?: string | null; arrival_time?: string | null;
   departure_flight?: string | null; departure_date?: string | null; departure_time?: string | null;
-  total_amount?: number | null; currency?: string | null;
+  total_amount?: number | null; discount?: number | null; currency?: string | null;
 }
 
 const exact = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" } as any;
@@ -53,6 +53,10 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
   const currency = b.currency || "SAR";
   const tripTotal = trips.reduce((s, t) => s + (Number(t.fare) || 0), 0);
   const total = b.total_amount != null ? Number(b.total_amount) : tripTotal;
+  const discount = Math.max(0, Number(b.discount) || 0);
+  // Subtotal is the amount before discount; derived from the total so the
+  // arithmetic always reconciles (subtotal − discount = total invoice).
+  const subtotal = total + discount;
   const hasFlights = !!b.arrival_flight || !!b.departure_flight;
 
   const passenger: [string, React.ReactNode][] = [
@@ -142,12 +146,26 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
           </table>
         </div>
 
-        {/* ── Total Invoice Amount ──────────────────────────────── */}
+        {/* ── Total Invoice Amount (with discount breakdown if any) ── */}
         {showFares && (
           <div className="mt-4 flex justify-end">
-            <div className="flex items-center gap-4 rounded-xl border border-brand/30 bg-brand/5 px-5 py-3" style={exact}>
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Invoice Amount</span>
-              <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(total, currency)}</span>
+            <div className="w-full max-w-xs">
+              {discount > 0 && (
+                <div className="mb-2 space-y-1 px-1 text-sm">
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Total Amount</span>
+                    <span className="tabular-nums">{fmtMoney(subtotal, currency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Discount</span>
+                    <span className="tabular-nums text-brand">− {fmtMoney(discount, currency)}</span>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-brand/30 bg-brand/5 px-5 py-3" style={exact}>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Invoice Amount</span>
+                <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(total, currency)}</span>
+              </div>
             </div>
           </div>
         )}
