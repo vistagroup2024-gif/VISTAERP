@@ -75,7 +75,8 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
         </span>
       </div>
 
-      <VoucherDocument provider={provider} booking={b} trips={docTrips} qr={qr} showFares />
+      {/* Fares/total are Vista/Admin only — hidden on the agent-branded voucher. */}
+      <VoucherDocument provider={provider} booking={b} trips={docTrips} qr={qr} showFares={brand === "vista"} />
     </div>
   );
 }
