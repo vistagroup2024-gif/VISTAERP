@@ -37,7 +37,7 @@ export default async function PublicVoucherPage({ params }: { params: { token: s
   return (
     <div className="min-h-screen bg-slate-100 px-3 py-6">
       <div className="mx-auto max-w-3xl">
-        <VoucherDocument provider={provider} booking={booking} trips={trips} qr={qr} showFares />
+        <VoucherDocument provider={provider} booking={booking} trips={trips} qr={qr} showFares={false} />
       </div>
     </div>
   );
