@@ -9,13 +9,16 @@ import { VISTA } from "@/lib/voucherBrand";
 
 export const dynamic = "force-dynamic";
 
-export default async function VoucherPage({ params, searchParams }: { params: { id: string }; searchParams: { brand?: string } }) {
+export default async function VoucherPage({ params, searchParams }: { params: { id: string }; searchParams: { brand?: string; fares?: string } }) {
   const sb = createClient();
   const brand = searchParams.brand === "agent" ? "agent" : "vista";
+  // Fares are Vista/Admin-only. On the Vista voucher they show by default but
+  // can be hidden via ?fares=hide; the agent voucher never shows fares.
+  const showFares = brand === "vista" && searchParams.fares !== "hide";
 
   const [{ data: booking }, { data: trips }] = await Promise.all([
     sb.from("transport_bookings").select("*").eq("id", params.id).maybeSingle(),
-    sb.from("transport_trip_sched").select("seq, route_name, route_label, trip_date, trip_time, pickup_location, drop_location, vehicle_id, hajj_terminal, sell_rate, extra_charge").eq("booking_id", params.id).order("seq"),
+    sb.from("transport_trip_sched").select("seq, route_name, route_label, trip_date, trip_time, pickup_location, drop_location, vehicle_id, hajj_terminal, sell_rate, extra_charge, flight_no").eq("booking_id", params.id).order("seq"),
   ]);
   if (!booking) return <div className="card text-slate-500">Booking not found. <Link href="/transport/bookings" className="text-brand hover:underline">Back</Link></div>;
   const b = booking as any;
@@ -63,20 +66,36 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
     fare: (Number(t.sell_rate) || 0) + (Number(t.extra_charge) || 0),
   }));
 
+  // Flight details show only when the booking actually has an airport trip.
+  // An arrival airport trip picks up FROM an airport; a departure trip drops
+  // AT an airport (or the Hajj terminal). Flight number falls back to the
+  // trip's own flight_no when the booking-level field is empty.
+  const isAirport = (s?: string | null) => !!s && /airport|terminal/i.test(s);
+  const arrTrip = (trips ?? []).find((t: any) => isAirport(t.pickup_location) || isAirport(t.route_name) || t.hajj_terminal);
+  const depTrip = (trips ?? []).find((t: any) => isAirport(t.drop_location) || isAirport(t.route_name) || t.hajj_terminal);
+  const arrivalFlight = b.arrival_flight || arrTrip?.flight_no || null;
+  const departureFlight = b.departure_flight || depTrip?.flight_no || null;
+  const docBooking = { ...b, arrival_flight: arrivalFlight, departure_flight: departureFlight };
+
   return (
     <div className="mx-auto max-w-3xl">
       <div className="no-print mb-3 flex items-center gap-2">
         <Link href={`/transport/bookings/${b.id}`} className="btn-outline text-sm">← Back to booking</Link>
         <Link href={`/transport/bookings/${b.id}/voucher?brand=vista`} className={`text-sm ${brand === "vista" ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Vista</Link>
         <Link href={`/transport/bookings/${b.id}/voucher?brand=agent`} className={`text-sm ${brand === "agent" ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Agent</Link>
+        {brand === "vista" && (
+          <Link href={`/transport/bookings/${b.id}/voucher?brand=vista${showFares ? "&fares=hide" : ""}`}
+            className="ml-2 rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
+            {showFares ? "Hide fare" : "Show fare"}
+          </Link>
+        )}
         <span className="ml-auto flex items-center gap-2">
           {b.status === "cancelled" && <DeleteVoucherButton bookingId={b.id} bookingNo={b.booking_no ?? b.id} />}
           <PrintButton />
         </span>
       </div>
 
-      {/* Fares/total are Vista/Admin only — hidden on the agent-branded voucher. */}
-      <VoucherDocument provider={provider} booking={b} trips={docTrips} qr={qr} showFares={brand === "vista"} />
+      <VoucherDocument provider={provider} booking={docBooking} trips={docTrips} qr={qr} showFares={showFares} />
     </div>
   );
 }
