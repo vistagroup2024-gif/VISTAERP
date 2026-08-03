@@ -4,7 +4,7 @@ import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
 import { money } from "@/lib/format";
 import { Brn, Consumption, nightsBetween, fmtDay } from "@/lib/brn";
-import { PendGroup, buildDemandFromItems, recommendBrns, DayDemand, BrnRecommendation, DemandItem, planByCity, applyBoundaryTolerance } from "@/lib/planning";
+import { buildDemandFromItems, DayDemand, BrnRecommendation, DemandItem, planByCity, applyBoundaryTolerance } from "@/lib/planning";
 import PurchaseSimulator from "./PurchaseSimulator";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +19,13 @@ function Kpi({ label, value, tone }: { label: string; value: string | number; to
 }
 
 interface CItem extends DemandItem { companyId: string | null }
+// A city-tagged purchase recommendation. BRNs are physically bought per city
+// (Makkah or Madinah), so every actionable recommendation carries its city.
+type CityRec = BrnRecommendation & { city: "Makkah" | "Madinah" };
 interface CompanyPlan {
   id: string; name: string; count: number; brns: Brn[];
-  demand: DayDemand[]; recs: BrnRecommendation[];
+  demand: DayDemand[]; recs: CityRec[];
+  cityPlan: ReturnType<typeof planByCity>;
   pilgrims: number; capacityGap: number; capacity: number;
 }
 
@@ -36,8 +40,16 @@ function planFor(id: string, name: string, items: CItem[], brns: Brn[], consByBr
     days = nightsBetween(min, d.toISOString().slice(0, 10));
   }
   const demand = buildDemandFromItems(days, items, brns, consByBrn);
+  const cityPlan = planByCity(items, brns, consByBrn);
+  // Recommendations are the ACTIONABLE city-specific BRNs — Makkah + Madinah.
+  // (The combined daily curve is a diagnostic only; you can't buy a BRN that
+  // spans both cities, so recommending against combined demand was misleading.)
+  const recs: CityRec[] = [
+    ...cityPlan.makkah.recs.map((r) => ({ ...r, city: "Makkah" as const })),
+    ...cityPlan.madinah.recs.map((r) => ({ ...r, city: "Madinah" as const })),
+  ];
   return {
-    id, name, count: items.length, brns, demand, recs: recommendBrns(demand),
+    id, name, count: items.length, brns, demand, recs, cityPlan,
     pilgrims: items.reduce((s, it) => s + it.pax, 0),
     capacityGap: demand.reduce((s, d) => s + d.shortage, 0),
     capacity: brns.reduce((s, b) => s + b.beds, 0),
@@ -120,7 +132,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
     const dayTone = (d: DayDemand) => d.shortage > 0 ? "bg-red-500 text-white"
       : d.available - d.required < d.required * 0.2 ? "bg-yellow-200 text-yellow-900" : "bg-green-100 text-green-800";
 
-    const cityPlan = planByCity(items.filter((i) => i.companyId === company), allB.filter((b) => b.group_company_id === company), consByBrn);
+    const cityPlan = p.cityPlan;
     const CityBlock = ({ title, data, note }: { title: string; data: { demand: DayDemand[]; recs: BrnRecommendation[] }; note?: string }) => {
       const required = data.demand.reduce((s, d) => s + d.required, 0);
       const existing = data.demand.reduce((s, d) => s + Math.min(d.required, d.available), 0);
@@ -162,14 +174,20 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
         </div>
 
         <div className="card">
-          <h2 className="mb-3 font-semibold text-slate-700">🛒 Smart Purchase Recommendation</h2>
+          <h2 className="mb-1 font-semibold text-slate-700">🛒 Smart Purchase Recommendation</h2>
+          <p className="mb-3 text-xs text-slate-500">
+            Each BRN must seat a whole group on every night (a group of 10 needs one BRN with ≥10 free beds — it cannot be split across smaller BRNs). BRNs are city-specific, so these are the exact Makkah/Madinah BRNs to buy — matching “Planning by City” below.
+          </p>
           {p.recs.length === 0 ? (
             <p className="text-sm text-green-700">✓ Existing inventory covers all pending demand for {p.name}.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {p.recs.map((r, i) => (
                 <div key={i} className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                  <p className="font-semibold text-orange-800">New BRN {i + 1}</p>
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-orange-800">New BRN {i + 1}</p>
+                    <span className={`badge ${r.city === "Makkah" ? "bg-emerald-100 text-emerald-700" : "bg-indigo-100 text-indigo-700"}`}>{r.city === "Makkah" ? "🕋 Makkah" : "🕌 Madinah"}</span>
+                  </div>
                   <p className="mt-1 text-2xl font-bold text-slate-800">{r.beds} beds</p>
                   <p className="text-sm text-slate-600">{fmtDay(r.from)} → {fmtDay(r.to)} · {r.nights} night(s)</p>
                   {avgRate > 0 && <p className="mt-1 text-xs text-slate-500">≈ {cost(r)}</p>}
@@ -216,6 +234,9 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
             ))}
             {p.demand.length === 0 && <p className="text-sm text-slate-400">No demand.</p>}
           </div>
+          <p className="mb-2 text-xs text-slate-500">
+            “Available Beds” is total free beds that night. “Shortage” applies the one-BRN-per-group rule: a group counts as covered only if a single BRN can seat all its pax — so a night can still show a shortage even when total free beds ≥ required (e.g. 14 free beds split across small BRNs cannot seat a group of 10).
+          </p>
           <div className="card overflow-x-auto p-0">
             <table className="w-full min-w-[720px]">
               <thead className="bg-slate-50">
@@ -300,7 +321,10 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {p.recs.map((r, i) => (
                     <div key={i} className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                      <p className="font-semibold text-orange-800">New BRN {i + 1}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold text-orange-800">New BRN {i + 1}</p>
+                        <span className={`badge ${r.city === "Makkah" ? "bg-emerald-100 text-emerald-700" : "bg-indigo-100 text-indigo-700"}`}>{r.city === "Makkah" ? "🕋 Makkah" : "🕌 Madinah"}</span>
+                      </div>
                       <p className="mt-1 text-2xl font-bold text-slate-800">{r.beds} beds</p>
                       <p className="text-sm text-slate-600">{fmtDay(r.from)} → {fmtDay(r.to)} · {r.nights} night(s)</p>
                       {avgRate > 0 && <p className="mt-1 text-xs text-slate-500">≈ {cost(r)}</p>}
