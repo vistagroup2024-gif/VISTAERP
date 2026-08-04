@@ -10,6 +10,7 @@ import WorkflowCard from "./WorkflowCard";
 import AgentBrnAdder from "./AgentBrnAdder";
 import CopyExternalErp from "./CopyExternalErp";
 import AttachmentsPanel from "@/components/AttachmentsPanel";
+import ArrivalServicePanel from "./ArrivalServicePanel";
 import { ExtGroup, ExtHotel } from "@/lib/externalErp";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,9 @@ export default async function GroupDetail({ params }: { params: { id: string } }
   const { data: brnAvail } = g.workflow_status === "process" && g.visa_type !== "long_stay"
     ? await supabase.rpc("brn_availability", { p_group: g.id })
     : { data: null };
+
+  // Arrival-service state (transport booking exists / tafweej recorded / pending).
+  const { data: arrState } = await supabase.rpc("arrival_service_state", { p_group: g.id });
 
   // Is the current user an admin? (controls reopen)
   const { data: { user } } = await supabase.auth.getUser();
@@ -165,6 +169,11 @@ export default async function GroupDetail({ params }: { params: { id: string } }
       {g.visa_type === "masar" && g.agent_brn_pending && <AgentBrnAdder groupId={g.id} />}
 
       <AttachmentsPanel endpoint="/api/attachments" groupId={g.id} canUpload={g.visa_status !== "issued"} canDelete={g.visa_status !== "issued"} />
+
+      {g.arrival_date && g.workflow_status !== "rejected" && (
+        <ArrivalServicePanel groupId={g.id} groupNo={g.group_no} pax={g.pax}
+          state={(arrState as string) ?? "pending"} choice={g.arrival_service ?? null} tafweejAt={g.arrival_tafweej_at ?? null} />
+      )}
 
       {g.visa_type !== "long_stay" && (
         <GroupAllocation
