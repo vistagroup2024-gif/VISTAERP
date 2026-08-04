@@ -33,7 +33,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
   const odMap = new Map((outsourceRows ?? []).map((o: any) => [o.id, o]));
   const agentIds = Array.from(new Set((bookings ?? []).map((b: any) => b.agent_id).filter(Boolean)));
   const [{ data: vendors }, { data: agents }] = await Promise.all([
-    sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile").eq("is_active", true).order("name"),
+    sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile, vehicle_ids").eq("is_active", true).order("name"),
     agentIds.length ? sb.from("parties").select("id, name").in("id", agentIds) : Promise.resolve({ data: [] as any[] }),
   ]);
 
