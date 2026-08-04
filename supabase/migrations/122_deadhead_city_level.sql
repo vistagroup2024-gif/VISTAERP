@@ -1,0 +1,5 @@
+-- 122 Repositioning/deadhead time computed at CITY level (via loc_city), matching
+-- routes in either direction, with a ~75km/h distance fallback. Fixes the false
+-- "Repositioning route missing from Route Master (Makkah Hotel -> Jeddah Airport)"
+-- conflict when assigning a driver who is in the same city as a known route pair.
+-- (Applied via Supabase MCP; full body on remote.)
