@@ -364,6 +364,12 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (canAssign && NEXT_TRIP[t.status]) items.push({ label: `Mark ${NEXT_LABEL[NEXT_TRIP[t.status]]}`, onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: NEXT_TRIP[t.status] }) });
     if (canAssign && ["assigned", "on_route", "outsourced"].includes(t.status)) items.push({ label: "Mark Completed", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: "completed" }) });
     if (canAssign && open) items.push({ label: "Cancel Trip", danger: true, onClick: () => { if (confirm("Cancel this trip?")) call("transport_set_trip_status", { p_trip: t.id, p_status: "cancelled" }); } });
+    // A cancelled trip may need to be restored (cancelled by mistake / actually ran):
+    // let dispatchers reopen it or mark it completed directly.
+    if (canAssign && t.status === "cancelled") {
+      items.push({ label: "Reopen Trip", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: t.driver_id ? "assigned" : "pending" }) });
+      items.push({ label: "Mark Completed", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: "completed" }) });
+    }
     return items;
   }
 
