@@ -18,6 +18,7 @@ interface Trip {
   outsource_driver_name: string | null; outsource_driver_mobile: string | null; sell_rate: number | null; payment_method: string | null; vendor_cost: number | null;
   pickup_location: string | null; drop_location: string | null; flight_no: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
+  tafweej_created?: boolean; needs_tafweej?: boolean;
 }
 interface Driver { id: string; name: string; vehicle_id: string | null; status: string }
 interface Vehicle { id: string; name: string; category: string | null; is_active: boolean }
@@ -511,6 +512,13 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                     <td className="px-3 py-2">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_META[t.status]?.chip ?? "bg-slate-200 text-slate-600"}`}>{STATUS_META[t.status]?.label ?? t.status.replace(/_/g, " ")}</span>
                       {delayed && <span className="ml-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">delayed</span>}
+                      {t.needs_tafweej && (
+                        <label className={`mt-1 flex items-center gap-1 text-[11px] font-medium ${t.tafweej_created ? "text-green-700" : "text-orange-600"}`}>
+                          <input type="checkbox" disabled={busy || !canAssign} checked={!!t.tafweej_created}
+                            onChange={(e) => call("transport_set_tafweej", { p_trip: t.id, p_val: e.target.checked })} />
+                          Tafweej Created
+                        </label>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap items-center justify-end gap-2">

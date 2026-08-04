@@ -12,7 +12,10 @@ async function run() {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("generate_hotel_reminders");
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, created: data ?? 0 });
+  // Tafweej reminders (~6h before Jeddah-airport Umrah arrivals).
+  const { data: tafweej, error: tErr } = await supabase.rpc("generate_tafweej_reminders");
+  if (tErr) return NextResponse.json({ ok: false, error: tErr.message }, { status: 500 });
+  return NextResponse.json({ ok: true, created: data ?? 0, tafweej: tafweej ?? 0 });
 }
 
 export async function GET(req: Request) {
