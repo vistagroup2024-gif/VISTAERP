@@ -50,6 +50,14 @@ export default function TransportBookingForm({
     extraCharges.forEach((e) => m.set(`${e.route_id}|${e.vehicle_id}`, e));
     return m;
   }, [extraCharges]);
+  // Route-level fallback: the Hajj Terminal surcharge is a fixed per-route amount,
+  // but it is stored per route+vehicle. A package's vehicle may have no extra row
+  // for a given route, so fall back to any configured extra on that route.
+  const routeExtraMap = useMemo(() => {
+    const m = new Map<string, number>();
+    extraCharges.forEach((e) => { if (!m.has(e.route_id)) m.set(e.route_id, e.amount); });
+    return m;
+  }, [extraCharges]);
   const routeName = (id: string) => routeById.get(id)?.name ?? "";
   const isAirportRoute = (t: Trip) => {
     const r = t.route_id ? routeById.get(t.route_id) : undefined;
@@ -72,7 +80,9 @@ export default function TransportBookingForm({
   const isJeddahAirportPickup = (t: Trip) => { const o = routeOrigin(t); return o.includes("airport") && o.includes("jeddah"); };
   const hajjChargeFor = (t: Trip) => {
     const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
-    return t.route_id && veh ? (extraMap.get(`${t.route_id}|${veh}`)?.amount ?? 0) : 0;
+    if (!t.route_id) return 0;
+    const exact = veh ? extraMap.get(`${t.route_id}|${veh}`)?.amount : undefined;
+    return exact ?? routeExtraMap.get(t.route_id) ?? 0;
   };
 
   const [type, setType] = useState<string>(existing?.booking_type ?? "single");
