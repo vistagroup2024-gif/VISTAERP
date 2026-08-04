@@ -1,0 +1,4 @@
+-- 116 Owner sub-user management RPCs (subset-enforced) + Vista staff visibility.
+-- (Applied via Supabase MCP.) Functions: b2b_user_of, b2b_require_manager,
+-- b2b_list_users, b2b_create_user, b2b_update_user, b2b_set_user_password,
+-- b2b_delete_user, agency_users(p_agent). See git history / remote for bodies.
