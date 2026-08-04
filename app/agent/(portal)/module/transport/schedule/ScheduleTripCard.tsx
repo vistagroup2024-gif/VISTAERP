@@ -10,7 +10,7 @@ export interface Trip {
   route: string | null; trip_date: string | null; trip_time: string | null; status: string;
   vehicle: string | null; requested_vehicle: string | null; is_upgraded: boolean;
   flight_no: string | null; pickup: string | null; drop: string | null;
-  driver_name: string | null; driver_mobile: string | null;
+  driver_name: string | null; driver_mobile: string | null; driver_reg: string | null;
   is_arrival: boolean; is_departure: boolean;
 }
 
@@ -38,18 +38,19 @@ function CopyBtn({ label, text }: { label: string; text: string }) {
 export default function ScheduleTripCard({ t }: { t: Trip }) {
   const st = agentStatus(t);
   const when = `${dateStr(t.trip_date)}${t.trip_time ? ` · ${t.trip_time}` : ""}`;
-  const tripText = [
-    `Booking: ${t.booking_no ?? "—"}`,
-    t.group_no ? `Group: ${t.group_no}` : null,
-    `Passenger: ${t.passenger_name ?? "—"}${t.pax ? ` (${t.pax} pax)` : ""}`,
-    `Route: ${t.route ?? "—"}`,
-    `When: ${when}`,
-    t.flight_no ? `Flight: ${t.flight_no}` : null,
-    `Vehicle: ${t.is_upgraded ? `${t.requested_vehicle ?? "—"} → ${t.vehicle ?? "—"} (upgraded)` : (t.vehicle ?? t.requested_vehicle ?? "—")}`,
-    `Status: ${st.label}`,
-    t.driver_name ? `Driver: ${t.driver_name}${t.driver_mobile ? ` (${t.driver_mobile})` : ""}` : null,
-  ].filter(Boolean).join("\n");
-  const driverText = t.driver_name ? `${t.driver_name}${t.driver_mobile ? ` · ${t.driver_mobile}` : ""}` : "";
+  // Same format as the admin "Copy Driver Details" (WhatsApp-style).
+  const driverText = [
+    `Haji Name : ${t.passenger_name ?? "—"}`,
+    `Route : ${t.route ?? "—"}`,
+    `Trip Date : ${t.trip_date ?? "—"}`,
+    ``,
+    `*Driver Details*`,
+    `Name : ${t.driver_name ?? "—"}`,
+    `Number : ${t.driver_mobile ?? "—"}`,
+    `Vehicle : ${t.vehicle ?? t.requested_vehicle ?? "—"}`,
+    `Car Reg No : ${t.driver_reg ?? "—"}`,
+  ].join("\n");
+  const hasDriver = !!t.driver_name;
 
   return (
     <div className="rounded-lg border border-slate-100 bg-white p-3 shadow-sm">
@@ -76,8 +77,7 @@ export default function ScheduleTripCard({ t }: { t: Trip }) {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <CopyBtn label="Copy trip details" text={tripText} />
-        {driverText && <CopyBtn label="Copy driver details" text={driverText} />}
+        {hasDriver && <CopyBtn label="Copy driver details" text={driverText} />}
         <Link href={`/agent/module/transport/${t.booking_id}`} className="rounded border border-brand/30 bg-brand/5 px-2 py-1 text-xs font-medium text-brand hover:bg-brand/10">View booking →</Link>
       </div>
     </div>

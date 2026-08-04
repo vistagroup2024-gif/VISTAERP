@@ -1,0 +1,3 @@
+-- 123 Agent transport schedule: optional p_date (date navigation) + driver_reg
+-- (car registration) so the agent "Copy driver details" matches the admin format.
+-- (Applied via Supabase MCP; full body on remote.)
