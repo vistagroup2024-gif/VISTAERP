@@ -45,11 +45,12 @@ const TYPE_LABEL: Record<string, string> = { with_ziyarat: "With Ziyarat", witho
 
 export default function TransportBookingForm({
   existing, existingTrips, routes, vehicles, packages, rates, packagePrices = [], extraCharges = [], agents,
-  variant = "admin", endpoint, basePath = "/transport/bookings",
+  variant = "admin", endpoint, basePath = "/transport/bookings", prefill,
 }: {
   existing: any | null; existingTrips: any[];
   routes: Route[]; vehicles: Vehicle[]; packages: Pkg[]; rates: Rate[]; packagePrices?: PkgPrice[]; extraCharges?: ExtraCharge[]; companies?: Company[]; agents: Agent[];
   variant?: "admin" | "agent"; endpoint?: string; basePath?: string;
+  prefill?: { nusuk_group_no?: string; pax?: string | number; passenger_name?: string };
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -110,8 +111,9 @@ export default function TransportBookingForm({
   const [h, setH] = useState({
     agent_id: existing?.agent_id ?? "", group_company_id: existing?.group_company_id ?? "",
     booking_date: existing?.booking_date ?? todayStr(),
-    pax: existing?.pax?.toString() ?? "", nusuk_group_no: existing?.nusuk_group_no ?? "",
-    passenger_name: existing?.passenger_name ?? "", mobile: existing?.mobile ?? "",
+    pax: existing?.pax?.toString() ?? (prefill?.pax != null ? String(prefill.pax) : ""),
+    nusuk_group_no: existing?.nusuk_group_no ?? prefill?.nusuk_group_no ?? "",
+    passenger_name: existing?.passenger_name ?? prefill?.passenger_name ?? "", mobile: existing?.mobile ?? "",
     whatsapp: existing?.whatsapp ?? "", nationality: existing?.nationality ?? "", remarks: existing?.remarks ?? "",
     payment_method: existing?.payment_method ?? "cash",
   });

@@ -5,7 +5,7 @@ import TransportBookingForm from "@/components/TransportBookingForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function AgentNewTransport() {
+export default async function AgentNewTransport({ searchParams }: { searchParams: { nusuk?: string; pax?: string } }) {
   const agent = await getAgent();
   if (!agent) redirect("/login");
   if (!can(agent, "transport.request")) {
@@ -23,6 +23,7 @@ export default async function AgentNewTransport() {
         routes={m.routes ?? []} vehicles={m.vehicles ?? []} packages={m.packages ?? []} rates={m.rates ?? []}
         packagePrices={m.packagePrices ?? []} companies={[]} agents={[]}
         variant="agent" endpoint="/api/agent/transport" basePath="/agent/module/transport"
+        prefill={{ nusuk_group_no: searchParams.nusuk, pax: searchParams.pax }}
       />
     </div>
   );
