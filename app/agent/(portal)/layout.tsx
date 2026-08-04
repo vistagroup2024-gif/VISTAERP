@@ -16,6 +16,7 @@ const NAV: { module: string; label: string; href: string; icon: string }[] = [
   { module: "Flights", label: "Flights", href: "/agent/module/flights", icon: "✈️" },
   { module: "Reports", label: "Reports", href: "/agent/module/reports", icon: "📊" },
   { module: "Financial", label: "Financial", href: "/agent/module/financial", icon: "💳" },
+  { module: "User Management", label: "Users", href: "/agent/users", icon: "👥" },
 ];
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {

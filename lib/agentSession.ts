@@ -11,6 +11,11 @@ export interface AgentSession {
   currency: string | null;
   credit_limit: number | null;
   permissions: Record<string, boolean>;
+  // Acting user (multi-user portal). Owner = the agency's max-access account.
+  user_id: string | null;
+  full_name: string | null;
+  username: string | null;
+  is_owner: boolean;
 }
 
 // Reads the b2b_session cookie and resolves it to the agent profile (or null).
