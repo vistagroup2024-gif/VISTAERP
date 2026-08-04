@@ -1,0 +1,10 @@
+-- ============================================================
+-- VISTA ERP - 105 Booking vehicle units (family split pricing) — package multiplier
+-- Superseded in part by 106 (units-aware transport_sync_trips). Kept for history.
+-- transport_save_booking multiplies the package price by p_header.vehicle_units so
+-- a family split across N identical vehicles is charged per vehicle. Non-package
+-- totals scale from the client duplicating each leg into N trips.
+-- (Applied to remote DB via Supabase MCP.)
+-- ============================================================
+-- (Definition identical to the version in 106 minus the units-aware sync call;
+--  see 106 for the final transport_save_booking / transport_sync_trips.)
