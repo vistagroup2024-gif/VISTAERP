@@ -8,7 +8,7 @@ export default async function DriversPage() {
   const supabase = createClient();
   const [{ data: drivers }, { data: vehicles }] = await Promise.all([
     supabase.from("transport_drivers")
-      .select("id, name, iqama, license_no, mobile, vehicle_id, languages, status, emergency_contact, iqama_expiry, license_expiry, nusuk_registered")
+      .select("id, name, iqama, license_no, mobile, vehicle_id, languages, status, emergency_contact, iqama_expiry, license_expiry, nusuk_registered, base_city")
       .order("name"),
     supabase.from("transport_vehicles").select("id, name").order("name"),
   ]);
