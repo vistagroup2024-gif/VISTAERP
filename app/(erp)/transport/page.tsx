@@ -10,6 +10,7 @@ const CARDS = [
   { href: "/transport/rates", icon: "💲", title: "Rate Master", desc: "Effective-dated agent & vendor rates with history." },
   { href: "/transport/packages", icon: "🧳", title: "Packages", desc: "Bundle multiple trips into a fixed-price package." },
   { href: "/transport/drivers", icon: "🧑‍✈️", title: "Drivers", desc: "Driver master, documents, shift timing." },
+  { href: "/transport/drivers/dashboard", icon: "📡", title: "Driver Dashboard", desc: "Live driver status, location, current & next trips." },
 ];
 
 export default async function TransportOverview() {
