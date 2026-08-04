@@ -21,7 +21,7 @@ interface Trip {
 }
 interface Driver { id: string; name: string; vehicle_id: string | null; status: string }
 interface Vehicle { id: string; name: string; category: string | null; is_active: boolean }
-interface Vendor { id: string; name: string; vendor_type?: string; contact_person?: string | null; mobile?: string | null }
+interface Vendor { id: string; name: string; vendor_type?: string; contact_person?: string | null; mobile?: string | null; vehicle_ids?: string[] | null }
 interface Agent { id: string; agency_name: string }
 
 // Dispatcher status vocabulary. `delayed` and `outsourced` are derived and can
@@ -528,7 +528,12 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                             <select className="input max-w-[12rem] text-sm" value={t.vendor_id ?? ""}
                               onChange={(e) => { if (e.target.value) pickVendor(t, e.target.value); }}>
                               <option value="">Choose vendor…</option>
-                              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}{v.vendor_type === "vendor_driver" ? " (driver)" : ""}</option>)}
+                              {(() => {
+                                const veh = t.vehicle_id ?? t.requested_vehicle_id;
+                                // A vendor with vehicles configured only appears for a trip whose vehicle they operate.
+                                return vendors.filter((v) => !v.vehicle_ids || v.vehicle_ids.length === 0 || !veh || v.vehicle_ids.includes(veh))
+                                  .map((v) => <option key={v.id} value={v.id}>{v.name}{v.vendor_type === "vendor_driver" ? " (driver)" : ""}</option>);
+                              })()}
                             </select>
                             <button onClick={() => setVendorFor(null)} className="text-xs text-slate-400 hover:underline">✕</button>
                           </>
