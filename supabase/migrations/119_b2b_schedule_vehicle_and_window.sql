@@ -1,0 +1,3 @@
+-- 119 Agent transport schedule: expose requested vs assigned vehicle + upgrade flag;
+-- b2b_arrival_compliance gains a p_days window (dashboard uses 1 = today+tomorrow).
+-- (Applied via Supabase MCP; see remote for full bodies.)
