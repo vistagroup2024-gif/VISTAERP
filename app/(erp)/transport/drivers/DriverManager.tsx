@@ -9,12 +9,12 @@ interface Vehicle { id: string; name: string }
 interface Driver {
   id: string; name: string; iqama: string | null; license_no: string | null; mobile: string | null;
   vehicle_id: string | null; languages: string[]; status: string; emergency_contact: string | null;
-  iqama_expiry: string | null; license_expiry: string | null; nusuk_registered?: boolean;
+  iqama_expiry: string | null; license_expiry: string | null; nusuk_registered?: boolean; base_city?: string | null;
 }
 
 const BLANK = {
   name: "", iqama: "", license_no: "", mobile: "", vehicle_id: "", languages: "", status: "active",
-  emergency_contact: "", iqama_expiry: "", license_expiry: "", nusuk_registered: false,
+  emergency_contact: "", iqama_expiry: "", license_expiry: "", nusuk_registered: false, base_city: "",
 };
 
 const STATUS: Record<string, string> = { active: "bg-green-100 text-green-700", inactive: "bg-slate-200 text-slate-500", on_leave: "bg-amber-100 text-amber-700" };
@@ -43,7 +43,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       languages: f.languages ? String(f.languages).split(",").map((s: string) => s.trim()).filter(Boolean) : [],
       status: f.status, emergency_contact: f.emergency_contact.trim() || null,
       iqama_expiry: f.iqama_expiry || null, license_expiry: f.license_expiry || null,
-      nusuk_registered: !!f.nusuk_registered,
+      nusuk_registered: !!f.nusuk_registered, base_city: (f.base_city || "").trim() || null,
     };
   }
 
@@ -61,7 +61,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
   function startEdit(d: Driver) {
     setEditId(d.id);
     setEdit({
-      name: d.name, iqama: d.iqama ?? "", license_no: d.license_no ?? "", mobile: d.mobile ?? "",
+      name: d.name, iqama: d.iqama ?? "", license_no: d.license_no ?? "", mobile: d.mobile ?? "", base_city: d.base_city ?? "",
       vehicle_id: d.vehicle_id ?? "", languages: (d.languages ?? []).join(", "), status: d.status,
       emergency_contact: d.emergency_contact ?? "", iqama_expiry: d.iqama_expiry ?? "", license_expiry: d.license_expiry ?? "",
       nusuk_registered: !!d.nusuk_registered,
@@ -98,6 +98,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
         <select className="input" value={f.vehicle_id} onChange={(e) => set({ ...f, vehicle_id: e.target.value })}>
           <option value="">— none —</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
         </select></div>
+      <div><label className="label">Base City</label><input className="input" placeholder="Makkah / Madinah / Jeddah" value={f.base_city} onChange={(e) => set({ ...f, base_city: e.target.value })} title="Home base — used to locate the driver for auto-assign when there is no recent trip or movement" /></div>
       <div><label className="label">Languages (comma)</label><input className="input" placeholder="Arabic, Urdu, English" value={f.languages} onChange={(e) => set({ ...f, languages: e.target.value })} /></div>
       <div><label className="label">Status</label>
         <select className="input" value={f.status} onChange={(e) => set({ ...f, status: e.target.value })}>
