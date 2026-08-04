@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAgent, can } from "@/lib/agentSession";
 import { createClient } from "@/lib/supabase/server";
 import CompanyInquiryButton from "@/components/CompanyInquiryButton";
+import { dateStr } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,8 @@ export default async function AgentDashboard() {
   const supabase = createClient();
   const { data } = await supabase.rpc("b2b_dashboard", { p_token: agent.token });
   const d = (data as any) ?? {};
-  const { data: pendingArr } = await supabase.rpc("b2b_arrival_compliance", { p_token: agent.token });
+  // Dashboard shows only arrivals of today and tomorrow (p_days = 1).
+  const { data: pendingArr } = await supabase.rpc("b2b_arrival_compliance", { p_token: agent.token, p_days: 1 });
   const arrivalsPending: any[] = (pendingArr as any[]) ?? [];
 
   return (
@@ -46,12 +48,12 @@ export default async function AgentDashboard() {
       {arrivalsPending.length > 0 && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4">
           <h2 className="text-sm font-semibold text-red-800">⚠ Arrival Services Pending ({arrivalsPending.length})</h2>
-          <p className="mt-0.5 mb-3 text-xs text-red-700">These groups have an approaching arrival with no Transport booking and no Tafweej. Arrange one before arrival so no pilgrim is missed.</p>
+          <p className="mt-0.5 mb-3 text-xs text-red-700">Arriving today or tomorrow with no Transport booking and no Tafweej. Arrange one before arrival so no pilgrim is missed.</p>
           <ul className="space-y-2">
             {arrivalsPending.map((g) => (
               <li key={g.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/70 px-3 py-2 text-sm">
                 <span className="font-medium text-slate-800">Group {g.group_no ?? "—"}</span>
-                <span className="text-slate-500">{g.pax ?? "?"} pax · arrives {g.arrival_date}{typeof g.days_to_arrival === "number" ? ` (in ${g.days_to_arrival}d)` : ""}</span>
+                <span className="text-slate-500">{g.pax ?? "?"} pax · arrives {dateStr(g.arrival_date)}{g.days_to_arrival === 0 ? " (today)" : g.days_to_arrival === 1 ? " (tomorrow)" : ""}</span>
                 <span className="ml-auto">
                   {can(agent, "transport.request") && (
                     <Link href={`/agent/module/transport/new?nusuk=${encodeURIComponent(g.group_no ?? "")}&pax=${g.pax ?? ""}`} className="rounded bg-brand px-2.5 py-1 text-xs font-medium text-white hover:opacity-90">Create Transport Booking →</Link>
