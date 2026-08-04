@@ -1,0 +1,3 @@
+-- 115/116/117: see remote (applied via MCP). login_b2b + b2b_me + b2b_agent_of now
+-- authenticate against b2b_agent_users; b2b_user_of/require_manager + b2b_list/create/update/
+-- set_user_password/delete_user + agency_users(staff); trg_sync_b2b_owner keeps Owner in sync.

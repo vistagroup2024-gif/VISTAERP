@@ -65,6 +65,9 @@ export const PERMISSION_CATALOG: PermGroup[] = [
     { key: "profile.edit", label: "Edit Own Profile" },
     { key: "profile.password", label: "Change Password" },
   ] },
+  { module: "User Management", perms: [
+    { key: "agency.manage_users", label: "Manage Users (create/edit staff sub-users)" },
+  ] },
 ];
 
 export const ALL_PERM_KEYS = PERMISSION_CATALOG.flatMap((g) => g.perms.map((p) => p.key));
