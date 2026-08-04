@@ -28,6 +28,19 @@ interface Trip {
 const VISA_TYPES: [string, string][] = [["umrah", "Umrah Visa"], ["visit", "Visit Visa"], ["other", "Other"]];
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "", hajj_terminal: false, passenger_visa_type: "", fare: "" });
+
+// Collapse family-split duplicate legs (identical route/date/time/vehicle saved
+// once per split vehicle) into one representative leg, keeping input order.
+function dedupeLegs<T extends { route_id?: string | null; trip_date?: string | null; trip_time?: string | null; requested_vehicle_id?: string | null; vehicle_id?: string | null }>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const r of rows) {
+    const key = [r.route_id ?? "", r.trip_date ?? "", (r.trip_time ?? "").slice(0, 5), r.requested_vehicle_id ?? r.vehicle_id ?? ""].join("|");
+    if (seen.has(key)) continue;
+    seen.add(key); out.push(r);
+  }
+  return out;
+}
 const TYPE_LABEL: Record<string, string> = { with_ziyarat: "With Ziyarat", without_ziyarat: "Without Ziyarat" };
 
 export default function TransportBookingForm({
@@ -145,11 +158,24 @@ export default function TransportBookingForm({
   // Effective per-trip base fare: the staff override when entered, else auto.
   const overriddenRate = (t: Trip) => (t.fare.trim() !== "" ? Math.max(0, Number(t.fare) || 0) : baseRate(t));
 
+  // Family vehicle-splitting: how many identical vehicles a trip needs to seat
+  // everyone (ceil(pax / capacity)). 1 when it fits or no vehicle chosen yet.
+  const unitsFor = (t: Trip) => {
+    const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
+    const cap = veh ? vehicleById.get(veh)?.seating_capacity ?? null : null;
+    return cap && cap > 0 && totalPax > cap ? Math.ceil(totalPax / cap) : 1;
+  };
+  // Booking-level vehicle count (max across legs — the family splits the same way).
+  const vehicleUnits = () => Math.max(1, ...trips.map(unitsFor));
+
   // Staff-only manual discount (SAR) off the calculated total.
   const [discount, setDiscount] = useState<string>(existing?.discount ? String(existing.discount) : "");
   const [trips, setTrips] = useState<Trip[]>(
     existingTrips.length
-      ? existingTrips.map((t) => ({
+      // Collapse family-split duplicates (same route+date+time+vehicle were saved
+      // once per vehicle) back into a single editable leg; the split is recomputed
+      // from pax on save, so editing never double-multiplies.
+      ? dedupeLegs(existingTrips).map((t) => ({
           id: t.id ?? "", route_id: t.route_id ?? "", route_label: t.route_label ?? "",
           // Always edit the ORIGINAL booked vehicle, never an operational upgrade
           // (assigning a larger car in Operations must not rewrite the booking).
@@ -203,13 +229,15 @@ export default function TransportBookingForm({
   // Total booking amount (auto): package price for the chosen vehicle, else the
   // sum of each trip's route+vehicle rate.
   const total = useMemo(() => {
+    // Family-split: each leg is charged once per vehicle (unitsFor). Package price
+    // is charged once per vehicle across the whole booking (vehicleUnits).
     const base = type === "package"
-      ? (packageId && pkgVehicleId ? (pkgPriceMap.get(`${packageId}|${pkgVehicleId}`) ?? 0) : 0)
-      : trips.reduce((s, t) => s + overriddenRate(t), 0);
-    // Hajj Terminal / route extra charges apply per trip when ticked.
-    const extras = trips.reduce((s, t) => s + (t.hajj_terminal ? hajjChargeFor(t) : 0), 0);
+      ? (packageId && pkgVehicleId ? (pkgPriceMap.get(`${packageId}|${pkgVehicleId}`) ?? 0) * vehicleUnits() : 0)
+      : trips.reduce((s, t) => s + overriddenRate(t) * unitsFor(t), 0);
+    // Hajj Terminal / route extra charges apply per trip (and per split vehicle).
+    const extras = trips.reduce((s, t) => s + (t.hajj_terminal ? hajjChargeFor(t) * unitsFor(t) : 0), 0);
     return base + extras;
-  }, [type, packageId, pkgVehicleId, pkgPriceMap, trips, rateMap, extraMap]);
+  }, [type, packageId, pkgVehicleId, pkgPriceMap, trips, rateMap, extraMap, totalPax]);
 
   const discountVal = isAgent ? 0 : Math.min(Math.max(Number(discount) || 0, 0), total);
   const netTotal = Math.max(0, total - discountVal);
@@ -244,14 +272,16 @@ export default function TransportBookingForm({
         if (isAirportRoute(t) && !t.flight_no.trim()) { setErr("Flight Number is required for airport pickup / drop-off trips."); return; }
         // Passenger Visa Type is mandatory for Jeddah airport arrivals.
         if (isAirportArrival(t) && !t.passenger_visa_type) { setErr("Passenger Visa Type is required for airport arrival trips."); return; }
-        // Vehicle capacity must fit the passenger count.
-        const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
-        const cap = veh ? vehicleById.get(veh)?.seating_capacity : null;
-        if (cap != null && totalPax > cap) {
-          setErr(`Selected vehicle seats ${cap}, but there are ${totalPax} passengers. Choose a larger vehicle.`); return;
-        }
       }
       if (type === "package" && (!packageId || !pkgVehicleId)) { setErr("Select a package and a vehicle."); return; }
+    }
+
+    // Family vehicle-splitting: when the group exceeds the vehicle's capacity,
+    // book multiple identical vehicles (each charged separately). Prompt once.
+    const units = vehicleUnits();
+    if (!isDraft && units > 1) {
+      const vname = vehicleById.get(type === "package" ? pkgVehicleId : (trips[0]?.vehicle_id ?? ""))?.name ?? "vehicle";
+      if (!confirm(`${totalPax} passengers won't fit one ${vname}. Book ${units}× ${vname} for this booking? Each vehicle is charged separately, and every trip is duplicated into ${units} vehicles (booking, vouchers & trips). Click Cancel to pick a larger vehicle instead.`)) return;
     }
 
     setBusy(true); setErr(null);
@@ -260,15 +290,24 @@ export default function TransportBookingForm({
       discount: discountVal,
       package_id: type === "package" ? packageId : "",
       package_vehicle_id: type === "package" ? pkgVehicleId : "",
+      vehicle_units: units,
     };
-    const tripPayload = trips.map((t, i) => {
+    // Duplicate each leg into `unitsFor(t)` identical trips so the family travels
+    // in multiple vehicles; each duplicate is priced as its own vehicle.
+    const tripPayload: any[] = [];
+    let seq = 0;
+    trips.forEach((t) => {
       const { fare: _fare, ...rest } = t; // `fare` is a UI-only override input
-      return {
-        ...rest, seq: i + 1,
-        // single/multiple: staff-overridden fare when set, else the auto route+
-        // vehicle rate; package trips are priced at package level.
-        sell_rate: type === "package" ? 0 : overriddenRate(t),
-      };
+      const n = unitsFor(t);
+      for (let u = 0; u < n; u++) {
+        seq += 1;
+        tripPayload.push({
+          ...rest,
+          id: u === 0 ? rest.id : "", // extra vehicles are always new trip rows
+          seq,
+          sell_rate: type === "package" ? 0 : overriddenRate(t),
+        });
+      }
     });
 
     let ok = false;
