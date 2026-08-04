@@ -1,0 +1,7 @@
+-- 120 Auto-assign correctness:
+--  * Driver location is derived from the ROUTE NAME's destination sector (city the
+--    driver last ended a route in), never the free-text pickup/drop location.
+--  * A driver is never assigned OR proposed for two overlapping trips (time dedup
+--    via a _busy temp table) — no more one driver proposed for simultaneous trips.
+--  * Reposition (>100km / unknown) stays a last resort only for trips with no free
+--    local driver. (Applied via Supabase MCP; full bodies on remote.)
