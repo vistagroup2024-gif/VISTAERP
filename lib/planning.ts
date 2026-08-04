@@ -18,7 +18,7 @@ export interface DayDemand {
   required: number;      // total beds needed this night
   available: number;     // total inventory beds free this night
   shortage: number;      // max(0, required - available)
-  maxGroupPax: number;   // largest single group occupying this night
+  maxGroupPax: number;   // largest single UNFITTABLE group this night (sizes the recommended BRN)
 }
 
 export interface BrnRecommendation {
@@ -43,17 +43,22 @@ function brnFreeCaps(d: string, brns: Brn[], consByBrn: Record<string, Consumpti
 // NOT the real measure of coverage: 14 free beds spread over 5+5+4 cannot seat a
 // group of 10. Returns the pax that cannot be seated (best-fit-decreasing pack,
 // choosing the smallest sufficient BRN like the DB allocator does).
-export function unfittablePax(groupPax: number[], caps: number[]): number {
+// Returns the pax of the groups that CANNOT be seated (best-fit-decreasing).
+export function unfittablePaxList(groupPax: number[], caps: number[]): number[] {
   const bins = [...caps];
-  let short = 0;
+  const unseated: number[] = [];
   for (const pax of [...groupPax].sort((a, b) => b - a)) {
     let bi = -1, bcap = Infinity;
     for (let i = 0; i < bins.length; i++) {
       if (bins[i] >= pax && bins[i] < bcap) { bcap = bins[i]; bi = i; }
     }
-    if (bi === -1) short += pax; else bins[bi] -= pax;
+    if (bi === -1) unseated.push(pax); else bins[bi] -= pax;
   }
-  return short;
+  return unseated;
+}
+
+export function unfittablePax(groupPax: number[], caps: number[]): number {
+  return unfittablePaxList(groupPax, caps).reduce((s, x) => s + x, 0);
 }
 
 // Build the per-day demand curve over the given period days.
@@ -72,8 +77,8 @@ export function buildDemand(
       required,
       available,
       // Shortage respects the one-BRN-per-group rule, not the raw bed sum.
-      shortage: unfittablePax(occ.map((g) => g.pax), caps),
-      maxGroupPax: occ.reduce((m, g) => Math.max(m, g.pax), 0),
+      shortage: unfittablePaxList(occ.map((g) => g.pax), caps).reduce((s, x) => s + x, 0),
+      maxGroupPax: unfittablePaxList(occ.map((g) => g.pax), caps).reduce((m, x) => Math.max(m, x), 0),
     };
   });
 }
@@ -125,16 +130,20 @@ export function buildDemandFromItems(
       available,
       // One-BRN-per-group rule: a group only counts as covered if a single BRN
       // can seat all its pax — not merely if total free beds ≥ required.
-      shortage: unfittablePax(here.map((it) => it.pax), caps),
-      maxGroupPax: here.reduce((m, it) => Math.max(m, it.pax), 0),
+      shortage: unfittablePaxList(here.map((it) => it.pax), caps).reduce((s, x) => s + x, 0),
+      maxGroupPax: unfittablePaxList(here.map((it) => it.pax), caps).reduce((m, x) => Math.max(m, x), 0),
     };
   });
 }
 
 // Recommend the minimum number of new BRNs to cover the shortage.
 // Each contiguous shortage run becomes ONE BRN, sized to that run's peak
-// aggregate shortage but never smaller than the largest single group in the
-// run (so every group fits a single BRN per the one-BRN-per-night rule).
+// aggregate shortage but never smaller than the largest single UNFITTABLE group
+// in the run (so that group fits the new BRN per the one-BRN-per-night rule).
+// Crucially this is the largest group that could NOT already be seated in
+// existing inventory — a big group that fits an existing BRN must not inflate
+// the recommendation (that was the bug where a 10-pax group already covered by a
+// 16-bed BRN forced a needless 10-bed purchase when only ~4 beds were short).
 //
 // A "contiguous run" means calendar-consecutive shortage nights. The demand
 // array may be SPARSE (city-wise planning drops zero-demand dates), so two
@@ -248,7 +257,8 @@ export function planByCity(items: DemandItem[], brns: Brn[], consByBrn: Record<s
       const caps = brnFreeCaps(d, cityBrns, consByBrn);
       const available = caps.reduce((s, c) => s + c, 0);
       return { date: d, arrivals: 0, staying: pax.length, required, available,
-        shortage: unfittablePax(pax, caps), maxGroupPax: pax.reduce((m, x) => Math.max(m, x), 0) };
+        shortage: unfittablePaxList(pax, caps).reduce((s, x) => s + x, 0),
+        maxGroupPax: unfittablePaxList(pax, caps).reduce((m, x) => Math.max(m, x), 0) };
     }).filter((x) => x.required > 0 || x.shortage > 0);
 
   const makDemand = cityDemand(makPax, makBrns);
