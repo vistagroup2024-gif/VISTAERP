@@ -99,9 +99,10 @@ function addDays(iso: string, n: number) {
   return dt.toISOString().slice(0, 10);
 }
 
-export default function OperationsBoard({ date, today, trips, drivers, vehicles, vendors, agents, canEdit, canAssign }: {
+interface Reposition { id: string; from_city: string | null; to_city: string | null; distance_km: number | null; driver_name: string; route: string; trip_time: string | null }
+export default function OperationsBoard({ date, today, trips, drivers, vehicles, vendors, agents, repositions = [], canEdit, canAssign }: {
   date: string; today: string; trips: Trip[]; drivers: Driver[]; vehicles: Vehicle[]; vendors: Vendor[]; agents: Agent[];
-  canEdit: boolean; canAssign: boolean;
+  repositions?: Reposition[]; canEdit: boolean; canAssign: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -411,6 +412,27 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
           disabled={busy} className="btn-outline text-sm text-red-600">↺ Reset Assignments</button>}
       </div>
       {err && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+
+      {/* Long-reposition approvals raised by auto-assign (>100km empty move) */}
+      {canAssign && repositions.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <div className="mb-1 text-sm font-semibold text-amber-800">↪ Reposition approval needed ({repositions.length})</div>
+          <p className="mb-2 text-xs text-amber-700">These trips can only be covered in-house by moving a driver more than 100km empty. Approve to assign (and log the move) or reject to outsource instead.</p>
+          <ul className="space-y-1">
+            {repositions.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-2 rounded bg-white/70 px-2 py-1 text-sm">
+                <span className="font-medium text-slate-700">{r.driver_name}</span>
+                <span className="text-slate-500">{r.from_city ?? "?"} → {r.to_city ?? "?"} · {r.distance_km != null ? `${Math.round(Number(r.distance_km))}km` : "?"}</span>
+                <span className="text-slate-400">for {r.route}{r.trip_time ? ` @ ${r.trip_time.slice(0, 5)}` : ""}</span>
+                <span className="ml-auto flex gap-2">
+                  <button disabled={busy} onClick={() => call("transport_approve_reposition", { p_id: r.id })} className="rounded bg-green-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-green-700">Approve</button>
+                  <button disabled={busy} onClick={() => call("transport_reject_reposition", { p_id: r.id })} className="rounded border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Reject</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
