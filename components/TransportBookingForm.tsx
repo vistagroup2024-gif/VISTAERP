@@ -233,21 +233,26 @@ export default function TransportBookingForm({
   }, [type, packageId, pkgVehicleId, pkgPriceMap, rateMap, trips]);
 
   async function save(status: string) {
-    // Total passengers is mandatory.
-    if (!totalPax || totalPax < 1) { setErr("Total Passengers is required and must be at least 1."); return; }
-    for (const t of trips) {
-      // Mandatory flight numbers on airport routes.
-      if (isAirportRoute(t) && !t.flight_no.trim()) { setErr("Flight Number is required for airport pickup / drop-off trips."); return; }
-      // Passenger Visa Type is mandatory for Jeddah airport arrivals.
-      if (isAirportArrival(t) && !t.passenger_visa_type) { setErr("Passenger Visa Type is required for airport arrival trips."); return; }
-      // Vehicle capacity must fit the passenger count.
-      const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
-      const cap = veh ? vehicleById.get(veh)?.seating_capacity : null;
-      if (cap != null && totalPax > cap) {
-        setErr(`Selected vehicle seats ${cap}, but there are ${totalPax} passengers. Choose a larger vehicle.`); return;
+    // Drafts are work-in-progress: skip mandatory-field validation so partial
+    // bookings can be parked. These rules are enforced on create/confirm below.
+    const isDraft = status === "draft";
+    if (!isDraft) {
+      // Total passengers is mandatory.
+      if (!totalPax || totalPax < 1) { setErr("Total Passengers is required and must be at least 1."); return; }
+      for (const t of trips) {
+        // Mandatory flight numbers on airport routes.
+        if (isAirportRoute(t) && !t.flight_no.trim()) { setErr("Flight Number is required for airport pickup / drop-off trips."); return; }
+        // Passenger Visa Type is mandatory for Jeddah airport arrivals.
+        if (isAirportArrival(t) && !t.passenger_visa_type) { setErr("Passenger Visa Type is required for airport arrival trips."); return; }
+        // Vehicle capacity must fit the passenger count.
+        const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
+        const cap = veh ? vehicleById.get(veh)?.seating_capacity : null;
+        if (cap != null && totalPax > cap) {
+          setErr(`Selected vehicle seats ${cap}, but there are ${totalPax} passengers. Choose a larger vehicle.`); return;
+        }
       }
+      if (type === "package" && (!packageId || !pkgVehicleId)) { setErr("Select a package and a vehicle."); return; }
     }
-    if (type === "package" && (!packageId || !pkgVehicleId)) { setErr("Select a package and a vehicle."); return; }
 
     setBusy(true); setErr(null);
     const header: any = {

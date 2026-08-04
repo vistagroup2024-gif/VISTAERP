@@ -43,7 +43,9 @@ const STATUS_FILTER: [string, string][] = [
   ["picked_up", "Passenger Picked Up / In Progress"], ["completed", "Completed"], ["cancelled", "Cancelled"],
   ["outsourced", "Outsourced"], ["delayed", "Delayed"],
 ];
-const NEXT_TRIP: Record<string, string> = { assigned: "on_route", on_route: "picked_up", picked_up: "completed" };
+// Vendor-managed (outsourced) trips step through the same lifecycle as in-house
+// trips, so they also get Start → Picked Up → Complete (not just Complete).
+const NEXT_TRIP: Record<string, string> = { assigned: "on_route", outsourced: "on_route", on_route: "picked_up", picked_up: "completed" };
 const NEXT_LABEL: Record<string, string> = { on_route: "Start", picked_up: "Picked Up", completed: "Complete" };
 const REST_MS = 10 * 3600 * 1000;
 
@@ -361,6 +363,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (canAssign && open) items.push({ label: t.driver_id ? "Reassign Driver" : "Assign Driver", onClick: () => { setVendorFor(null); setAssignFor(t.id); } });
     if (canAssign && open && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
     if (canAssign && t.driver_id && open) items.push({ label: "Unassign Driver", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
+    if (canAssign && t.vendor_id && open) items.push({ label: "Unassign Vendor", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
     if (canAssign && NEXT_TRIP[t.status]) items.push({ label: `Mark ${NEXT_LABEL[NEXT_TRIP[t.status]]}`, onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: NEXT_TRIP[t.status] }) });
     if (canAssign && ["assigned", "on_route", "outsourced"].includes(t.status)) items.push({ label: "Mark Completed", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: "completed" }) });
     if (canAssign && open) items.push({ label: "Cancel Trip", danger: true, onClick: () => { if (confirm("Cancel this trip?")) call("transport_set_trip_status", { p_trip: t.id, p_status: "cancelled" }); } });
@@ -396,6 +399,14 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
         <span className="text-sm text-slate-500">{date === today ? "Today" : date === tomorrow ? "Tomorrow" : date}</span>
         <Link href={`/transport/operations/dispatch?date=${date}`} className="btn-outline ml-auto text-sm">📄 Driver Sheets</Link>
         <button onClick={async () => { await call("transport_auto_assign", { p_date: date }); }} disabled={busy} className="btn text-sm">{busy ? "Assigning…" : "⚙ Auto Assign Drivers"}</button>
+        {canAssign && <button
+          onClick={async () => {
+            if (!confirm(`Reset ALL assignments for ${date}? Every assigned/outsourced trip that day returns to Pending (drivers & vendors cleared). Completed and cancelled trips are untouched.`)) return;
+            const { data, error } = await supabase.rpc("transport_reset_assignments", { p_date: date });
+            if (error) { setErr(error.message); return; }
+            setErr(`Reset ${data ?? 0} trip(s) to Pending.`); router.refresh();
+          }}
+          disabled={busy} className="btn-outline text-sm text-red-600">↺ Reset Assignments</button>}
       </div>
       {err && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
@@ -451,6 +462,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-3 py-2">Time</th>
+                <th className="px-3 py-2">Haji Name</th>
                 {agentColumn && <th className="px-3 py-2">Agent</th>}
                 <th className="px-3 py-2">Route</th>
                 <th className="px-3 py-2">Vehicle</th>
@@ -465,6 +477,10 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                 return (
                   <tr key={t.id} className={`border-t border-slate-100 align-top hover:bg-slate-50 ${delayed ? "bg-rose-50/40" : ""}`}>
                     <td className="px-3 py-2 font-semibold text-slate-700">{t.trip_time?.slice(0, 5) ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-slate-700">{t.passenger_name ?? <span className="text-slate-400">—</span>}</div>
+                      {t.pax != null && <div className="text-[11px] text-slate-400">{t.pax} pax</div>}
+                    </td>
                     {agentColumn && <td className="px-3 py-2">{t.agent_name ?? "—"}</td>}
                     <td className="px-3 py-2">{t.route_display}
                       {t.hajj_terminal && <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Hajj Terminal</span>}
