@@ -259,6 +259,35 @@ export function planByCity(items: DemandItem[], brns: Brn[], consByBrn: Record<s
   };
 }
 
+// Combined daily diagnostic that stays CONSISTENT with the city recommendations.
+// The naive combined curve (buildDemandFromItems over all BRNs) pools Makkah and
+// Madinah beds together, so it can "seat" a Makkah group in a Madinah BRN and
+// under-report the shortage — that is why the daily table used to say "No
+// purchase" on a night the recommendation engine flagged. Here the shortage is
+// the SUM of the per-city unfittable pax (a group can only use a BRN in its own
+// city), so the table's Shortage/Purchase columns match planByCity's BRN advice.
+// `available` is still the true total free beds both cities (a diagnostic figure).
+export function combinedCityDemand(
+  days: string[], items: DemandItem[], brns: Brn[],
+  consByBrn: Record<string, Consumption[]>, cityPlan: CityPlan
+): DayDemand[] {
+  const mak = new Map(cityPlan.makkah.demand.map((r) => [r.date, r]));
+  const mad = new Map(cityPlan.madinah.demand.map((r) => [r.date, r]));
+  return days.map((d) => {
+    const caps = brnFreeCaps(d, brns, consByBrn);
+    const m = mak.get(d), n = mad.get(d);
+    return {
+      date: d,
+      arrivals: items.filter((it) => it.arrival === d).length,
+      staying: (m?.staying ?? 0) + (n?.staying ?? 0),
+      required: (m?.required ?? 0) + (n?.required ?? 0),
+      available: caps.reduce((s, c) => s + c, 0),
+      shortage: (m?.shortage ?? 0) + (n?.shortage ?? 0),
+      maxGroupPax: Math.max(m?.maxGroupPax ?? 0, n?.maxGroupPax ?? 0),
+    };
+  });
+}
+
 export function todayUTC(): string {
   return new Date().toISOString().slice(0, 10);
 }

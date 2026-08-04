@@ -4,7 +4,7 @@ import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
 import { money } from "@/lib/format";
 import { Brn, Consumption, nightsBetween, fmtDay } from "@/lib/brn";
-import { buildDemandFromItems, DayDemand, BrnRecommendation, DemandItem, planByCity, applyBoundaryTolerance } from "@/lib/planning";
+import { combinedCityDemand, DayDemand, BrnRecommendation, DemandItem, planByCity, applyBoundaryTolerance } from "@/lib/planning";
 import PurchaseSimulator from "./PurchaseSimulator";
 
 export const dynamic = "force-dynamic";
@@ -39,8 +39,11 @@ function planFor(id: string, name: string, items: CItem[], brns: Brn[], consByBr
     const d = new Date(max + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1);
     days = nightsBetween(min, d.toISOString().slice(0, 10));
   }
-  const demand = buildDemandFromItems(days, items, brns, consByBrn);
   const cityPlan = planByCity(items, brns, consByBrn);
+  // City-consistent daily curve: shortage matches the per-city recommendations
+  // (a Makkah group can't be seated by pooling Madinah beds), so the daily table
+  // never says "No purchase" on a night the recommendation engine flags.
+  const demand = combinedCityDemand(days, items, brns, consByBrn, cityPlan);
   // Recommendations are the ACTIONABLE city-specific BRNs — Makkah + Madinah.
   // (The combined daily curve is a diagnostic only; you can't buy a BRN that
   // spans both cities, so recommending against combined demand was misleading.)
@@ -235,7 +238,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
             {p.demand.length === 0 && <p className="text-sm text-slate-400">No demand.</p>}
           </div>
           <p className="mb-2 text-xs text-slate-500">
-            “Available Beds” is total free beds that night. “Shortage” applies the one-BRN-per-group rule: a group counts as covered only if a single BRN can seat all its pax — so a night can still show a shortage even when total free beds ≥ required (e.g. 14 free beds split across small BRNs cannot seat a group of 10).
+            “Available Beds” is total free beds that night. “Shortage” applies the one-BRN-per-group rule: a group counts as covered only if a single BRN can seat all its pax — so a night can still show a shortage even when total free beds ≥ required (e.g. 14 free beds split across small BRNs cannot seat a group of 10). It is also city-specific — a Makkah group can only use a Makkah BRN — so “Available Beds” (both cities) may exceed “Required” while a real shortage remains, matching the city recommendations above.
           </p>
           <div className="card overflow-x-auto p-0">
             <table className="w-full min-w-[720px]">
