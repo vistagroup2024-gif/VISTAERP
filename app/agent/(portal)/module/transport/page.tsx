@@ -31,7 +31,10 @@ export default async function AgentTransportList({ searchParams }: { searchParam
       <RealtimeRefresh tables={["transport_bookings"]} pollMs={20000} />
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Transport Bookings</h1>
-        {can(agent, "transport.request") && <Link href="/agent/module/transport/new" className="btn">+ New Booking</Link>}
+        <div className="flex gap-2">
+          <Link href="/agent/module/transport/schedule" className="btn-outline">📅 Schedule</Link>
+          {can(agent, "transport.request") && <Link href="/agent/module/transport/new" className="btn">+ New Booking</Link>}
+        </div>
       </div>
       {searchParams.created && (
         <div className="mb-4 rounded-md bg-green-50 px-4 py-2 text-sm text-green-700">✓ Booking created successfully.</div>
