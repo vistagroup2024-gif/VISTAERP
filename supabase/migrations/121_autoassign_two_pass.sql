@@ -1,0 +1,6 @@
+-- 121 Two-pass auto-assign so local-capable drivers are never stolen for a reposition.
+--  PASS 1: assign every trip a free driver can cover locally (<=100km, no empty leg).
+--  PASS 2: only the leftovers — assign if a driver is now local, else propose a
+--          reposition (capped at 500km; longer, e.g. 900km Riyadh, is left to outsource).
+--  Also clears stale pending reposition proposals at the start of each run.
+--  (Applied via Supabase MCP; full body on remote.)
