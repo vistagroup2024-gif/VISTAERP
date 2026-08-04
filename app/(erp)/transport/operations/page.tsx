@@ -78,6 +78,18 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
     };
   });
 
+  // Pending long-reposition approvals for this day's trips (raised by auto-assign).
+  const eMap = new Map(enriched.map((t: any) => [t.id, t]));
+  const { data: repoRows } = tripIds.length
+    ? await sb.from("transport_reposition_requests").select("id, trip_id, driver_id, from_city, to_city, distance_km").eq("status", "pending").in("trip_id", tripIds)
+    : { data: [] as any[] };
+  const repositions = (repoRows ?? []).map((r: any) => ({
+    id: r.id, from_city: r.from_city, to_city: r.to_city, distance_km: r.distance_km,
+    driver_name: dMap.get(r.driver_id)?.name ?? "driver",
+    route: (eMap.get(r.trip_id) as any)?.route_display ?? "trip",
+    trip_time: (eMap.get(r.trip_id) as any)?.trip_time ?? null,
+  }));
+
   return (
     <div className="max-w-[1400px]">
       <RealtimeRefresh tables={["transport_trips", "transport_bookings"]} pollMs={20000} />
@@ -90,6 +102,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
         vehicles={(vehicles ?? []) as any[]}
         vendors={(vendors ?? []) as any[]}
         agents={((agents ?? []) as any[]).map((a) => ({ id: a.id, agency_name: a.name }))}
+        repositions={repositions}
         canEdit={canEdit}
         canAssign={canAssign}
       />
