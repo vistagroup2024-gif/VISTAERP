@@ -398,7 +398,8 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
         <input type="date" className="input max-w-[10rem]" value={date} onChange={(e) => go(e.target.value)} />
         <button onClick={() => shift(1)} className="btn-outline text-sm">→</button>
         <span className="text-sm text-slate-500">{date === today ? "Today" : date === tomorrow ? "Tomorrow" : date}</span>
-        <Link href={`/transport/operations/dispatch?date=${date}`} className="btn-outline ml-auto text-sm">📄 Driver Sheets</Link>
+        <Link href="/transport/drivers/dashboard" className="btn-outline ml-auto text-sm">📡 Driver Dashboard</Link>
+        <Link href={`/transport/operations/dispatch?date=${date}`} className="btn-outline text-sm">📄 Driver Sheets</Link>
         <button onClick={async () => { await call("transport_auto_assign", { p_date: date }); }} disabled={busy} className="btn text-sm">{busy ? "Assigning…" : "⚙ Auto Assign Drivers"}</button>
         {canAssign && <button
           onClick={async () => {
