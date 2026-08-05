@@ -1,0 +1,2 @@
+-- 128 Trip Ledger shows only completed trips (ts.status = 'completed'); pending/
+-- assigned/in-progress trips no longer appear. (Applied via Supabase MCP.)
