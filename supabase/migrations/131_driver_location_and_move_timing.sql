@@ -1,0 +1,11 @@
+-- 131 Driver Dashboard location + Move Driver timing.
+--  * transport_trips.completed_at: actual completion (drop) time, stamped on
+--    completion (transport_set_trip_status / transport_complete_trip), backfilled.
+--  * transport_driver_current_location(): live location = destination city of the
+--    last COMPLETED trip (by completed_at) or last movement, whichever is newer,
+--    with no upper time bound. Used by transport_driver_board (location/city) and
+--    resting now counts from completed_at.
+--  * transport_log_driver_movement(): when no time is given, the move is timestamped
+--    from the driver's last completed trip (the drop time), so the availability/rest
+--    clock starts from when he actually finished, not when the move was logged.
+-- (Applied via Supabase MCP; full bodies on remote.)
