@@ -15,7 +15,7 @@ interface Trip {
   driver_mobile: string | null; driver_reg: string | null; vehicle_type: string | null; hajj_terminal: boolean;
   trip_date: string | null;
   vendor_id: string | null; vendor_name: string | null; trip_time: string | null;
-  outsource_driver_name: string | null; outsource_driver_mobile: string | null; sell_rate: number | null; payment_method: string | null; vendor_cost: number | null;
+  outsource_driver_name: string | null; outsource_driver_mobile: string | null; sell_rate: number | null; payment_method: string | null; vendor_cost: number | null; cash_received: number | null;
   pickup_location: string | null; drop_location: string | null; flight_no: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
   tafweej_created?: boolean; needs_tafweej?: boolean;
@@ -116,7 +116,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   const [conflict, setConflict] = useState<{ tripId: string; driverId: string; driverName: string; reason: string } | null>(null);
   const [forceReason, setForceReason] = useState("");
   // Cash-received prompt shown when completing a direct cash customer's trip.
-  const [cashModal, setCashModal] = useState<{ tripId: string; fare: number | null; haji: string | null } | null>(null);
+  const [cashModal, setCashModal] = useState<{ tripId: string; fare: number | null; haji: string | null; edit: boolean } | null>(null);
   const [cashChoice, setCashChoice] = useState<"yes" | "no" | "other">("yes");
   const [cashOther, setCashOther] = useState("");
 
@@ -259,17 +259,26 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   function completeTrip(t: Trip) {
     if (isCashCustomer(t)) {
       setCashChoice("yes"); setCashOther("");
-      setCashModal({ tripId: t.id, fare: t.sell_rate, haji: t.passenger_name });
+      setCashModal({ tripId: t.id, fare: t.sell_rate, haji: t.passenger_name, edit: false });
     } else {
       call("transport_complete_trip", { p_trip: t.id, p_cash: null });
     }
+  }
+  // Edit cash received later (e.g. cash customer pays the next day) — prefilled.
+  function editCash(t: Trip) {
+    const c = t.cash_received;
+    if (c == null) { setCashChoice("no"); setCashOther(""); }
+    else if (t.sell_rate != null && Number(c) === Number(t.sell_rate)) { setCashChoice("yes"); setCashOther(""); }
+    else { setCashChoice("other"); setCashOther(String(c)); }
+    setCashModal({ tripId: t.id, fare: t.sell_rate, haji: t.passenger_name, edit: true });
   }
   async function submitCash() {
     if (!cashModal) return;
     const cash = cashChoice === "yes" ? cashModal.fare
       : cashChoice === "other" ? (parseFloat(cashOther) || null)
       : null;
-    const ok = await call("transport_complete_trip", { p_trip: cashModal.tripId, p_cash: cash });
+    const fn = cashModal.edit ? "transport_set_cash_received" : "transport_complete_trip";
+    const ok = await call(fn, { p_trip: cashModal.tripId, p_cash: cash });
     if (ok) setCashModal(null);
   }
   async function tryAssign(tripId: string, driverId: string, driverName: string) {
@@ -394,6 +403,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (canAssign && t.vendor_id && open) items.push({ label: "Unassign Vendor", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
     if (canAssign && NEXT_TRIP[t.status]) items.push({ label: `Mark ${NEXT_LABEL[NEXT_TRIP[t.status]]}`, onClick: () => NEXT_TRIP[t.status] === "completed" ? completeTrip(t) : call("transport_set_trip_status", { p_trip: t.id, p_status: NEXT_TRIP[t.status] }) });
     if (canAssign && ["assigned", "on_route", "outsourced"].includes(t.status)) items.push({ label: "Mark Completed", onClick: () => completeTrip(t) });
+    if (canAssign && isCashCustomer(t)) items.push({ label: "Edit Cash Received", onClick: () => editCash(t) });
     if (canAssign && open) items.push({ label: "Cancel Trip", danger: true, onClick: () => { if (confirm("Cancel this trip?")) call("transport_set_trip_status", { p_trip: t.id, p_status: "cancelled" }); } });
     // A cancelled trip may need to be restored (cancelled by mistake / actually ran):
     // let dispatchers reopen it or mark it completed directly.
@@ -697,9 +707,9 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       {cashModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-800">Cash Received?</h3>
+            <h3 className="text-lg font-bold text-slate-800">{cashModal.edit ? "Edit Cash Received" : "Cash Received?"}</h3>
             <p className="mt-1 text-sm text-slate-600">
-              Completing {cashModal.haji ?? "this trip"}{cashModal.fare != null ? ` · fare ${Number(cashModal.fare).toFixed(2)} SAR` : ""}.
+              {cashModal.edit ? "Update cash for" : "Completing"} {cashModal.haji ?? "this trip"}{cashModal.fare != null ? ` · fare ${Number(cashModal.fare).toFixed(2)} SAR` : ""}.
             </p>
             <div className="mt-4 flex gap-2">
               {([["yes", "Yes"], ["no", "No"], ["other", "Other"]] as const).map(([v, l]) => (
@@ -719,7 +729,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setCashModal(null)} className="btn-outline text-sm">Cancel</button>
-              <button onClick={submitCash} disabled={busy || (cashChoice === "other" && !cashOther)} className="btn text-sm">Complete Trip</button>
+              <button onClick={submitCash} disabled={busy || (cashChoice === "other" && !cashOther)} className="btn text-sm">{cashModal.edit ? "Save" : "Complete Trip"}</button>
             </div>
           </div>
         </div>

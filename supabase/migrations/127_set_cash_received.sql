@@ -1,0 +1,2 @@
+-- 127 transport_set_cash_received(p_trip, p_cash): update a trip's cash received
+-- after the fact (cash customer pays later) without changing status. (Applied via MCP.)
