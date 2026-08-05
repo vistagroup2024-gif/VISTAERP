@@ -35,6 +35,7 @@ export const STAFF_PERMISSION_CATALOG: StaffPermGroup[] = [
     { key: "transport.driver_assign", label: "Driver Assignment" },
     { key: "transport.vehicles", label: "Vehicle Management" },
     { key: "transport.reports", label: "Reports" },
+    { key: "transport.trip_ledger", label: "Trip Ledger Report (supplier/fare)" },
   ] },
   { module: "Hotels", perms: [
     { key: "hotels.masters", label: "Masters" },
