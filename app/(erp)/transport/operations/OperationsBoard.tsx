@@ -250,8 +250,11 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     router.refresh();
     return true;
   }
-  // Direct cash customer = no agent and paying cash. Agent trips are on credit.
-  const isCashCustomer = (t: Trip) => !t.agent_id && (t.payment_method ?? "cash") === "cash";
+  // Cash customer = the "CASH CUSTOMER" party, or a direct (no-agent) cash booking.
+  // Real agents are on credit and don't get the cash prompt.
+  const isCashCustomer = (t: Trip) =>
+    (t.agent_name ?? "").trim().toUpperCase() === "CASH CUSTOMER" ||
+    (!t.agent_id && (t.payment_method ?? "cash") === "cash");
   // Completing a trip: prompt for cash only for direct cash customers.
   function completeTrip(t: Trip) {
     if (isCashCustomer(t)) {
