@@ -1,0 +1,5 @@
+-- 134 The 12h max-working / 10h-rest rule now measures ACTUAL working (trip) time
+-- within a duty, not the span from first pickup to last drop. A driver with a long
+-- idle gap between trips (e.g. 05:50-07:20 then 14:00-19:30 = ~7h driving over a
+-- 13.7h span) is no longer wrongly blocked. Applied to transport_driver_reason
+-- (assignment) and transport_driver_rest_until (dashboard). (Applied via MCP.)
