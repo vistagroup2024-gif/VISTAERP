@@ -1,0 +1,5 @@
+-- 126 Cash received on completion + Trip Ledger cash column (no time).
+--  * transport_trips.cash_received numeric.
+--  * transport_complete_trip(p_trip, p_cash): completes a trip and records cash
+--    (fare for "Yes", typed amount for "Other", null for "No").
+--  * transport_trip_ledger now returns cash_received. (Applied via Supabase MCP.)
