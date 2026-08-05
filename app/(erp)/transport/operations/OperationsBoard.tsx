@@ -115,6 +115,10 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   const [tripView, setTripView] = useState<Trip | null>(null);
   const [conflict, setConflict] = useState<{ tripId: string; driverId: string; driverName: string; reason: string } | null>(null);
   const [forceReason, setForceReason] = useState("");
+  // Cash-received prompt shown when completing a direct cash customer's trip.
+  const [cashModal, setCashModal] = useState<{ tripId: string; fare: number | null; haji: string | null } | null>(null);
+  const [cashChoice, setCashChoice] = useState<"yes" | "no" | "other">("yes");
+  const [cashOther, setCashOther] = useState("");
 
   const [fVehicle, setFVehicle] = useState<string[]>([]);
   const [fDriver, setFDriver] = useState<string[]>([]);
@@ -246,6 +250,25 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     router.refresh();
     return true;
   }
+  // Direct cash customer = no agent and paying cash. Agent trips are on credit.
+  const isCashCustomer = (t: Trip) => !t.agent_id && (t.payment_method ?? "cash") === "cash";
+  // Completing a trip: prompt for cash only for direct cash customers.
+  function completeTrip(t: Trip) {
+    if (isCashCustomer(t)) {
+      setCashChoice("yes"); setCashOther("");
+      setCashModal({ tripId: t.id, fare: t.sell_rate, haji: t.passenger_name });
+    } else {
+      call("transport_complete_trip", { p_trip: t.id, p_cash: null });
+    }
+  }
+  async function submitCash() {
+    if (!cashModal) return;
+    const cash = cashChoice === "yes" ? cashModal.fare
+      : cashChoice === "other" ? (parseFloat(cashOther) || null)
+      : null;
+    const ok = await call("transport_complete_trip", { p_trip: cashModal.tripId, p_cash: cash });
+    if (ok) setCashModal(null);
+  }
   async function tryAssign(tripId: string, driverId: string, driverName: string) {
     setBusy(true); setErr(null);
     const { data, error } = await supabase.rpc("transport_assign_check", { p_trip: tripId, p_driver: driverId });
@@ -366,14 +389,14 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (canAssign && open && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
     if (canAssign && t.driver_id && open) items.push({ label: "Unassign Driver", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
     if (canAssign && t.vendor_id && open) items.push({ label: "Unassign Vendor", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
-    if (canAssign && NEXT_TRIP[t.status]) items.push({ label: `Mark ${NEXT_LABEL[NEXT_TRIP[t.status]]}`, onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: NEXT_TRIP[t.status] }) });
-    if (canAssign && ["assigned", "on_route", "outsourced"].includes(t.status)) items.push({ label: "Mark Completed", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: "completed" }) });
+    if (canAssign && NEXT_TRIP[t.status]) items.push({ label: `Mark ${NEXT_LABEL[NEXT_TRIP[t.status]]}`, onClick: () => NEXT_TRIP[t.status] === "completed" ? completeTrip(t) : call("transport_set_trip_status", { p_trip: t.id, p_status: NEXT_TRIP[t.status] }) });
+    if (canAssign && ["assigned", "on_route", "outsourced"].includes(t.status)) items.push({ label: "Mark Completed", onClick: () => completeTrip(t) });
     if (canAssign && open) items.push({ label: "Cancel Trip", danger: true, onClick: () => { if (confirm("Cancel this trip?")) call("transport_set_trip_status", { p_trip: t.id, p_status: "cancelled" }); } });
     // A cancelled trip may need to be restored (cancelled by mistake / actually ran):
     // let dispatchers reopen it or mark it completed directly.
     if (canAssign && t.status === "cancelled") {
       items.push({ label: "Reopen Trip", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: t.driver_id ? "assigned" : "pending" }) });
-      items.push({ label: "Mark Completed", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: "completed" }) });
+      items.push({ label: "Mark Completed", onClick: () => completeTrip(t) });
     }
     return items;
   }
@@ -664,6 +687,37 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
               <button onClick={forceAssign} disabled={busy} className="btn text-sm bg-red-600 hover:bg-red-700">Force Assign</button>
             </div>
             <p className="mt-2 text-xs text-slate-400">Force assignments are recorded in the audit log with your name, the time and reason.</p>
+          </div>
+        </div>
+      )}
+
+      {cashModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-slate-800">Cash Received?</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Completing {cashModal.haji ?? "this trip"}{cashModal.fare != null ? ` · fare ${Number(cashModal.fare).toFixed(2)} SAR` : ""}.
+            </p>
+            <div className="mt-4 flex gap-2">
+              {([["yes", "Yes"], ["no", "No"], ["other", "Other"]] as const).map(([v, l]) => (
+                <button key={v} onClick={() => setCashChoice(v)}
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${cashChoice === v ? "border-brand bg-brand/10 text-brand" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>{l}</button>
+              ))}
+            </div>
+            {cashChoice === "other" && (
+              <div className="mt-3">
+                <label className="label">Amount received (SAR)</label>
+                <input type="number" min="0" step="0.01" className="input" value={cashOther} autoFocus
+                  onChange={(e) => setCashOther(e.target.value)} placeholder="0.00" />
+              </div>
+            )}
+            <p className="mt-3 text-xs text-slate-400">
+              {cashChoice === "yes" ? "The full trip fare will be recorded as cash received." : cashChoice === "no" ? "No cash will be recorded." : "The amount you enter will be recorded as cash received."}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setCashModal(null)} className="btn-outline text-sm">Cancel</button>
+              <button onClick={submitCash} disabled={busy || (cashChoice === "other" && !cashOther)} className="btn text-sm">Complete Trip</button>
+            </div>
           </div>
         </div>
       )}

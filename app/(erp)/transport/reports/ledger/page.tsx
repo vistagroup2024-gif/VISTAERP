@@ -24,6 +24,7 @@ export default async function TransportLedgerPage({ searchParams }: { searchPara
   const rows: any[] = (data as any[]) ?? [];
   const totFare = rows.reduce((a, r) => a + Number(r.trip_fare || 0), 0);
   const totSupp = rows.reduce((a, r) => a + Number(r.supplier_amount || 0), 0);
+  const totCash = rows.reduce((a, r) => a + Number(r.cash_received || 0), 0);
 
   return (
     <div className="max-w-[1400px]">
@@ -36,12 +37,12 @@ export default async function TransportLedgerPage({ searchParams }: { searchPara
           <thead className="bg-slate-50"><tr>
             <th className="th">Trip Date</th><th className="th">Supplier</th><th className="th">Customer</th>
             <th className="th">Haji Name</th><th className="th">Booking Car</th><th className="th">Driver</th>
-            <th className="th">Route</th><th className="th text-right">Trip Fare</th><th className="th text-right">Supplier Amt</th>
+            <th className="th">Route</th><th className="th text-right">Trip Fare</th><th className="th text-right">Supplier Amt</th><th className="th text-right">Cash Rcvd</th>
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={i} className="border-t border-slate-100">
-                <td className="td whitespace-nowrap">{dateStr(r.trip_date)}{r.trip_time ? ` · ${r.trip_time}` : ""}</td>
+                <td className="td whitespace-nowrap">{dateStr(r.trip_date)}</td>
                 <td className="td">{r.supplier_name ?? <span className="text-slate-300">in-house</span>}</td>
                 <td className="td">{r.customer_name ?? "—"}</td>
                 <td className="td">{r.haji_name ?? "—"}</td>
@@ -50,15 +51,17 @@ export default async function TransportLedgerPage({ searchParams }: { searchPara
                 <td className="td">{r.route ?? "—"}</td>
                 <td className="td text-right">{money(r.trip_fare)}</td>
                 <td className="td text-right">{money(r.supplier_amount)}</td>
+                <td className="td text-right">{r.cash_received == null ? "—" : money(r.cash_received)}</td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>No trips in this range.</td></tr>}
+            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={10}>No trips in this range.</td></tr>}
           </tbody>
           {rows.length > 0 && (
             <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
               <td className="td" colSpan={7}>Total ({rows.length} trips)</td>
               <td className="td text-right">{money(totFare)}</td>
               <td className="td text-right">{money(totSupp)}</td>
+              <td className="td text-right">{money(totCash)}</td>
             </tr></tfoot>
           )}
         </table>
