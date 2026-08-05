@@ -1,0 +1,2 @@
+-- 125 Trip Ledger excludes cancelled trips too (ts.status <> 'cancelled'), in
+-- addition to cancelled bookings. (Applied via Supabase MCP.)
