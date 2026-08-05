@@ -1,0 +1,4 @@
+-- 133 transport_driver_current_location: when several completed trips share the same
+-- completed_at (e.g. bulk re-completion), break the tie by the latest trip START
+-- time so the genuinely last trip's destination is used. Fixes a driver showing an
+-- earlier trip's city (Rahat showing Jeddah instead of Makkah). (Applied via MCP.)
