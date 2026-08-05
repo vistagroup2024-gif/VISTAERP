@@ -1,0 +1,3 @@
+-- 129 Track invoice creation per trip (invoice made in external accounting software).
+-- transport_trips.invoice_created/at/by, transport_set_invoice_created(p_trip,p_done),
+-- and transport_trip_ledger now returns trip_id + invoice_created. (Applied via MCP.)
