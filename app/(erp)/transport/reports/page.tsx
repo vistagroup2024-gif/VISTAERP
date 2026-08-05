@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
+import Link from "next/link";
 import ReportRange from "./ReportRange";
+import { getStaffAccess, staffCan } from "@/lib/staffSession";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,8 @@ function Table({ title, cols, rows }: { title: string; cols: string[]; rows: any
 
 export default async function ReportsPage({ searchParams }: { searchParams: { from?: string; to?: string } }) {
   const sb = createClient();
+  const access = await getStaffAccess();
+  const canLedger = staffCan(access, "transport.trip_ledger");
   const today = new Date().toISOString().slice(0, 10);
   const from = searchParams.from || monthStart();
   const to = searchParams.to || today;
@@ -45,7 +49,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: { fr
 
   return (
     <div className="max-w-5xl">
-      <PageHeader title="Transport Reports"><PrintButton /></PageHeader>
+      <PageHeader title="Transport Reports">
+        {canLedger && <Link href="/transport/reports/ledger" className="btn-outline text-sm">Trip Ledger →</Link>}
+        <PrintButton />
+      </PageHeader>
       <ReportRange from={from} to={to} />
 
       {error && <div className="card text-red-600">{error.message}</div>}

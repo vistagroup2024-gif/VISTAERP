@@ -44,7 +44,7 @@ const GROUPS: Group[] = [
     { href: "/hotels", label: "Hotels" },
     { href: "/allotments", label: "Allotments" },
   ] },
-  { label: "Transport", icon: "🚐", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports"], items: [
+  { label: "Transport", icon: "🚐", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.trip_ledger"], items: [
     { href: "/transport", label: "Overview" },
     { href: "/transport/operations", label: "Operations" },
     { href: "/transport/bookings", label: "Bookings" },
@@ -57,7 +57,8 @@ const GROUPS: Group[] = [
     { href: "/transport/vendors", label: "Vendors" },
     { href: "/transport/expenses", label: "Expenses" },
     { href: "/transport/messages", label: "Confirmations" },
-    { href: "/transport/reports", label: "Reports" },
+    { href: "/transport/reports", label: "Reports", perm: ["transport.reports"] },
+    { href: "/transport/reports/ledger", label: "Trip Ledger", perm: ["transport.trip_ledger"] },
   ] },
   { label: "Purchase", icon: "🛒", perm: ["purchase.view"], items: [
     { href: "/purchase/bills", label: "Supplier Bills" },
