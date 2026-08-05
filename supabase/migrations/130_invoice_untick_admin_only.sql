@@ -1,0 +1,3 @@
+-- 130 Invoice-created is one-way for staff: only an admin may untick it.
+-- is_admin() helper + guard in transport_set_invoice_created (p_done=false requires
+-- admin). (Applied via Supabase MCP.)

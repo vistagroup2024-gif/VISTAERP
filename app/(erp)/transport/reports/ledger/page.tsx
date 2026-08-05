@@ -18,6 +18,9 @@ export default async function TransportLedgerPage({ searchParams }: { searchPara
     return <div className="card m-6 text-slate-500">You don’t have permission to view the Transport Trip Ledger.</div>;
   }
   const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  const { data: roleRows } = await sb.from("user_roles").select("role").eq("user_id", user?.id ?? "");
+  const isAdmin = (roleRows ?? []).some((r: any) => r.role === "admin");
   const today = new Date().toISOString().slice(0, 10);
   const from = searchParams.from || monthStart();
   const to = searchParams.to || today;
@@ -69,7 +72,7 @@ export default async function TransportLedgerPage({ searchParams }: { searchPara
                 <td className="td text-right">{money(r.trip_fare)}</td>
                 <td className="td text-right">{money(r.supplier_amount)}</td>
                 <td className="td text-right">{r.cash_received == null ? "—" : money(r.cash_received)}</td>
-                <td className="td"><InvoiceCheck tripId={r.trip_id} done={!!r.invoice_created} /></td>
+                <td className="td"><InvoiceCheck tripId={r.trip_id} done={!!r.invoice_created} isAdmin={isAdmin} /></td>
               </tr>
             ))}
             {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={11}>No trips in this range.</td></tr>}
