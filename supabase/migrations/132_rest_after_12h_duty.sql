@@ -1,0 +1,5 @@
+-- 132 Fix the rest rule: 10h mandatory rest is required only after a continuous
+-- duty reaches ~12h (trips chained with <10h gaps = one duty; a >=10h gap starts a
+-- fresh duty). A single/short trip no longer marks the driver Resting.
+-- transport_driver_rest_until(driver) returns the rest-until time (or null), and
+-- transport_driver_board uses it for the 'resting' status. (Applied via Supabase MCP.)
