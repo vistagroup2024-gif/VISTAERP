@@ -173,7 +173,7 @@ export default function BrnTable({ rows, isAdmin = false }: { rows: BrnRow[]; is
 
       {delErr && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{delErr}</div>}
 
-      <div className="card overflow-x-auto p-0">
+      <div className="card max-h-[75vh] overflow-auto p-0">
         <table className="w-full min-w-[1000px] text-sm">
           <thead className="bg-slate-50 thead-freeze">
             <tr>

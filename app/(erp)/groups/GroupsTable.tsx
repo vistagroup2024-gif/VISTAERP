@@ -214,7 +214,7 @@ export default function GroupsTable({ rows, perms }: { rows: GroupRow[]; perms: 
         </div>
       </div>
 
-      <div className="card overflow-x-auto overflow-y-visible p-0">
+      <div className="card max-h-[75vh] overflow-auto p-0">
         <table className="w-full min-w-[1160px]">
           <thead className="bg-slate-50 thead-freeze">
             <tr>

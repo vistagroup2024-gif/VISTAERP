@@ -66,7 +66,7 @@ export default async function CalendarPage({
       {B.length === 0 ? (
         <div className="card text-slate-400">No {city} BRN inventory in this month.</div>
       ) : (
-        <div className="card overflow-x-auto p-0">
+        <div className="card max-h-[75vh] overflow-auto p-0">
           <table className="min-w-max border-collapse text-center text-xs">
             <thead className="bg-slate-50 thead-freeze">
               <tr>
