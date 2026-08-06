@@ -65,6 +65,17 @@ export default function LoginPage() {
       return;
     }
 
+    // 4) Transport Driver (custom session).
+    const dres = await fetch("/api/driver/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: id, password }),
+    });
+    if (dres.ok) {
+      window.location.href = "/driver";
+      return;
+    }
+
     setLoading(false);
     setError("Invalid credentials. Please check your username and password.");
   }

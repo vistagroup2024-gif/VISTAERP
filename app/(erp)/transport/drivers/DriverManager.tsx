@@ -10,11 +10,13 @@ interface Driver {
   id: string; name: string; iqama: string | null; license_no: string | null; mobile: string | null;
   vehicle_id: string | null; languages: string[]; status: string; emergency_contact: string | null;
   iqama_expiry: string | null; license_expiry: string | null; nusuk_registered?: boolean; base_city?: string | null;
+  username?: string | null; portal_enabled?: boolean;
 }
 
 const BLANK = {
   name: "", iqama: "", license_no: "", mobile: "", vehicle_id: "", languages: "", status: "active",
   emergency_contact: "", iqama_expiry: "", license_expiry: "", nusuk_registered: false, base_city: "",
+  username: "", portal_enabled: false, password: "",
 };
 
 const STATUS: Record<string, string> = { active: "bg-green-100 text-green-700", inactive: "bg-slate-200 text-slate-500", on_leave: "bg-amber-100 text-amber-700" };
@@ -44,6 +46,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       status: f.status, emergency_contact: f.emergency_contact.trim() || null,
       iqama_expiry: f.iqama_expiry || null, license_expiry: f.license_expiry || null,
       nusuk_registered: !!f.nusuk_registered, base_city: (f.base_city || "").trim() || null,
+      username: (f.username || "").trim() || null, portal_enabled: !!f.portal_enabled,
     };
   }
 
@@ -51,7 +54,11 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
     e.preventDefault();
     if (!form.name.trim()) return;
     setBusy(true); setErr(null);
-    const { error } = await supabase.from("transport_drivers").insert({ company_id: COMPANY_ID, ...payload(form) });
+    const { data, error } = await supabase.from("transport_drivers").insert({ company_id: COMPANY_ID, ...payload(form) }).select("id").single();
+    if (!error && form.password && data?.id) {
+      const { error: pe } = await supabase.rpc("transport_set_portal_password", { p_kind: "driver", p_id: data.id, p_password: form.password });
+      if (pe) { setBusy(false); return setErr(pe.message); }
+    }
     setBusy(false);
     if (error) return setErr(error.message);
     setForm({ ...BLANK });
@@ -64,13 +71,17 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       name: d.name, iqama: d.iqama ?? "", license_no: d.license_no ?? "", mobile: d.mobile ?? "", base_city: d.base_city ?? "",
       vehicle_id: d.vehicle_id ?? "", languages: (d.languages ?? []).join(", "), status: d.status,
       emergency_contact: d.emergency_contact ?? "", iqama_expiry: d.iqama_expiry ?? "", license_expiry: d.license_expiry ?? "",
-      nusuk_registered: !!d.nusuk_registered,
+      nusuk_registered: !!d.nusuk_registered, username: d.username ?? "", portal_enabled: !!d.portal_enabled, password: "",
     });
   }
 
   async function saveEdit(id: string) {
     setBusy(true); setErr(null);
     const { error } = await supabase.from("transport_drivers").update(payload(edit)).eq("id", id);
+    if (!error && edit.password) {
+      const { error: pe } = await supabase.rpc("transport_set_portal_password", { p_kind: "driver", p_id: id, p_password: edit.password });
+      if (pe) { setBusy(false); return setErr(pe.message); }
+    }
     setBusy(false);
     if (error) return setErr(error.message);
     setEditId(null);
@@ -110,6 +121,13 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       <div><label className="label">Nusuk Registered</label>
         <select className="input" value={f.nusuk_registered ? "yes" : "no"} onChange={(e) => set({ ...f, nusuk_registered: e.target.value === "yes" })}>
           <option value="no">No</option><option value="yes">Yes</option>
+        </select></div>
+      <div className="sm:col-span-4 mt-1 border-t border-slate-100 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Driver Portal Login</div>
+      <div><label className="label">Username</label><input className="input font-mono" value={f.username} onChange={(e) => set({ ...f, username: e.target.value })} placeholder="driver login id" /></div>
+      <div><label className="label">Password {f.username ? "" : ""}</label><input className="input" type="password" autoComplete="new-password" value={f.password ?? ""} onChange={(e) => set({ ...f, password: e.target.value })} placeholder="set / reset" /></div>
+      <div><label className="label">Portal Access</label>
+        <select className="input" value={f.portal_enabled ? "yes" : "no"} onChange={(e) => set({ ...f, portal_enabled: e.target.value === "yes" })}>
+          <option value="no">Disabled</option><option value="yes">Enabled</option>
         </select></div>
     </div>
   );

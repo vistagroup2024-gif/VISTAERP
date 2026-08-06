@@ -60,6 +60,7 @@ export async function updateSession(request: NextRequest) {
   // skip the auth-server round-trip for every navigation inside those portals.
   const p0 = request.nextUrl.pathname;
   if (p0.startsWith("/agent") || p0.startsWith("/api/agent") || p0.startsWith("/vendor") || p0.startsWith("/api/vendor")
+      || p0.startsWith("/driver") || p0.startsWith("/api/driver")
       || p0.startsWith("/v/")) {
     // /v/ is the public, login-free transport voucher (shared via QR).
     return response;

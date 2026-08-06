@@ -1,0 +1,3 @@
+-- 135 Crew portal auth: transport_drivers.username/password_hash/portal_enabled +
+-- transport_vendors.portal_enabled, transport_sessions table, login_transport,
+-- transport_me, logout_transport. (Applied via Supabase MCP; see remote for bodies.)
