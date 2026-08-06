@@ -1,0 +1,5 @@
+-- 137 Trip fare shown in Operations & the Trip Ledger now includes the Hajj-terminal
+-- (route extra) charge, matching the amount the booking is saved at. sell_rate stays
+-- the base; the effective fare = sell_rate + transport_trip_extra_charge(route,vehicle,hajj).
+-- (Applied via Supabase MCP; ledger RPC updated. Operations computes it client-side
+-- from transport_route_rates.)
