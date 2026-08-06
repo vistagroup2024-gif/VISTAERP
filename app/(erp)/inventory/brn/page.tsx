@@ -13,7 +13,7 @@ export default async function BrnListPage() {
   const [{ data: brns }, { data: cons }, { data: roles }] = await Promise.all([
     supabase.from("brn_inventory")
       .select("*, parties:supplier_id(name), group_companies:group_company_id(name)")
-      .order("check_in"),
+      .order("created_at", { ascending: false }),
     supabase.from("brn_consumption").select("*"),
     supabase.from("user_roles").select("role").eq("user_id", user?.id ?? ""),
   ]);
@@ -33,6 +33,7 @@ export default async function BrnListPage() {
       const minAvail = daily.reduce((m, d) => Math.min(m, d.available), b.beds);
       return {
         id: b.id,
+        created_at: (b as any).created_at,
         company: (b as any).group_companies?.name ?? "—",
         brn: b.brn,
         hotel_name: b.hotel_name,

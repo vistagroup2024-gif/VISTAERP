@@ -68,9 +68,9 @@ export default async function CalendarPage({
       ) : (
         <div className="card overflow-x-auto p-0">
           <table className="min-w-max border-collapse text-center text-xs">
-            <thead className="bg-slate-50">
+            <thead className="bg-slate-50 thead-freeze">
               <tr>
-                <th className="th sticky left-0 z-10 bg-slate-50 text-left">BRN / Hotel</th>
+                <th className="th sticky left-0 top-0 !z-30 bg-slate-50 text-left">BRN / Hotel</th>
                 {days.map((d, i) => (
                   <th key={d} className="th px-2 py-2">{i + 1}</th>
                 ))}
