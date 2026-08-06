@@ -8,6 +8,7 @@ import { dateStr } from "@/lib/format";
 
 export interface BrnRow {
   id: string;
+  created_at: string;
   company: string;
   brn: string;
   hotel_name: string;
@@ -42,7 +43,8 @@ export default function BrnTable({ rows, isAdmin = false }: { rows: BrnRow[]; is
   const supabase = createClient();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [delErr, setDelErr] = useState<string | null>(null);
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "check_in", dir: 1 });
+  // Default: newest-added BRN first, so a just-added BRN appears at the top.
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "created_at", dir: -1 });
 
   async function del(id: string, brn: string) {
     if (!confirm(`Delete BRN ${brn}? This cannot be undone.`)) return;
@@ -173,7 +175,7 @@ export default function BrnTable({ rows, isAdmin = false }: { rows: BrnRow[]; is
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[1000px] text-sm">
-          <thead className="bg-slate-50">
+          <thead className="bg-slate-50 thead-freeze">
             <tr>
               {COLS.map((c) => (
                 <th key={c.key} className="th cursor-pointer select-none whitespace-nowrap" onClick={() => toggleSort(c.key)}>

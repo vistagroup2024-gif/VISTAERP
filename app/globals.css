@@ -31,6 +31,15 @@ body {
 .td {
   @apply px-4 py-3 text-center text-sm text-slate-700;
 }
+/* Frozen table header: header row stays visible while the body scrolls.
+   Applied to a <thead>; each header cell gets its own opaque background so
+   rows don't show through while sticky. */
+.thead-freeze th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background-color: rgb(248 250 252); /* slate-50 */
+}
 .badge {
   @apply inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium;
 }

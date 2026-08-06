@@ -121,7 +121,7 @@ async function PendingTab({ company, today }: { company: string; today: string }
       )}
       <div className="mt-4 card overflow-x-auto p-0">
         <table className="w-full min-w-[1120px]">
-          <thead className="bg-slate-50">
+          <thead className="bg-slate-50 thead-freeze">
             <tr>
               <th className="th">Group No</th><th className="th">Company</th><th className="th">Agent</th>
               <th className="th">Arrival</th><th className="th">Departure</th><th className="th">Current Hotel Coverage</th>

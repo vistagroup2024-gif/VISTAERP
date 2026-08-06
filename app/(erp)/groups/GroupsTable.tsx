@@ -216,7 +216,7 @@ export default function GroupsTable({ rows, perms }: { rows: GroupRow[]; perms: 
 
       <div className="card overflow-x-auto overflow-y-visible p-0">
         <table className="w-full min-w-[1160px]">
-          <thead className="bg-slate-50">
+          <thead className="bg-slate-50 thead-freeze">
             <tr>
               <th className="th w-8">
                 <input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleAll} />
