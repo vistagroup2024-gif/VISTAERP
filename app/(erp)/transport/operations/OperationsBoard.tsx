@@ -71,14 +71,20 @@ function RowMenu({ items }: { items: MenuItem[] }) {
   }, [open]);
   function toggle() {
     const r = btnRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 208) });
+    if (r) {
+      // Estimate menu height and flip upward if there isn't room below.
+      const est = Math.max(1, items.length) * 34 + 12;
+      const spaceBelow = window.innerHeight - r.bottom - 8;
+      const top = spaceBelow >= est ? r.bottom + 4 : Math.max(8, r.top - est - 4);
+      setPos({ top, left: Math.max(8, r.right - 208) });
+    }
     setOpen((o) => !o);
   }
   return (
     <>
       <button ref={btnRef} onClick={toggle} aria-label="Actions" className="rounded px-1.5 text-lg leading-none text-slate-500 hover:bg-slate-100">⋮</button>
       {open && pos && (
-        <div ref={menuRef} className="fixed z-50 w-52 rounded-lg border border-slate-200 bg-white py-1 shadow-lg" style={{ top: pos.top, left: pos.left }}>
+        <div ref={menuRef} className="fixed z-50 w-52 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg" style={{ top: pos.top, left: pos.left, maxHeight: "calc(100vh - 16px)" }}>
           {items.length === 0 && <div className="px-3 py-1.5 text-sm text-slate-400">No actions available</div>}
           {items.map((it, i) => (
             <button key={i} onClick={() => { setOpen(false); it.onClick(); }}
