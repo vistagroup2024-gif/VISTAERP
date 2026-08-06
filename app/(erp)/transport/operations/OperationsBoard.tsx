@@ -267,8 +267,16 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       setCashChoice("yes"); setCashOther("");
       setCashModal({ tripId: t.id, fare: t.sell_rate, haji: t.passenger_name, edit: false });
     } else {
+      if (!confirm(`Mark this trip as Completed?\n\n${t.passenger_name ?? "Trip"} — ${t.route_display ?? ""}`)) return;
       call("transport_complete_trip", { p_trip: t.id, p_cash: null });
     }
+  }
+  // Undo an accidental completion: send the trip back to an active state. Fully
+  // reversible — no invoice/lock is created on completion.
+  function reopenTrip(t: Trip) {
+    if (!confirm("Reopen this completed trip? It will move back to an active state.")) return;
+    const back = t.driver_id || t.vendor_id || t.is_outsourced ? "picked_up" : "pending";
+    call("transport_set_trip_status", { p_trip: t.id, p_status: back });
   }
   // Edit cash received later (e.g. cash customer pays the next day) — prefilled.
   function editCash(t: Trip) {
@@ -416,6 +424,10 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (canAssign && t.status === "cancelled") {
       items.push({ label: "Reopen Trip", onClick: () => call("transport_set_trip_status", { p_trip: t.id, p_status: t.driver_id ? "assigned" : "pending" }) });
       items.push({ label: "Mark Completed", onClick: () => completeTrip(t) });
+    }
+    // A completed trip can be reopened (completed by mistake / needs correction).
+    if (canAssign && t.status === "completed") {
+      items.push({ label: "Undo Completion", onClick: () => reopenTrip(t) });
     }
     return items;
   }
