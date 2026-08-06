@@ -119,7 +119,7 @@ async function PendingTab({ company, today }: { company: string; today: string }
           🔔 <b>{available.length}</b> package(s) can now be completed — BRN inventory is available. Open the group and click <b>Update Package</b>.
         </div>
       )}
-      <div className="mt-4 card overflow-x-auto p-0">
+      <div className="mt-4 card max-h-[75vh] overflow-auto p-0">
         <table className="w-full min-w-[1120px]">
           <thead className="bg-slate-50 thead-freeze">
             <tr>
@@ -164,7 +164,7 @@ async function HistoryTab({ companyName }: { companyName?: string }) {
   const { data: rows } = await supabase.from("package_update_history").select("*").order("updated_at", { ascending: false }).limit(1000);
   const H = (rows ?? []).filter((r: any) => !companyName || r.company_name === companyName);
   return (
-    <div className="card overflow-x-auto p-0">
+    <div className="card max-h-[75vh] overflow-auto p-0">
       <table className="w-full min-w-[1080px]">
         <thead className="bg-slate-50">
           <tr>
