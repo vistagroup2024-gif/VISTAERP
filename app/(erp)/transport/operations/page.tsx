@@ -37,6 +37,12 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
     agentIds.length ? sb.from("parties").select("id, name").in("id", agentIds) : Promise.resolve({ data: [] as any[] }),
   ]);
 
+  // Hajj-terminal (route extra) charges, so the displayed fare matches the booking total.
+  const { data: extraRates } = await sb.from("transport_route_rates")
+    .select("route_id, vehicle_id, extra_charge_amount").eq("extra_charge_enabled", true);
+  const exactExtra = new Map((extraRates ?? []).filter((e: any) => e.vehicle_id).map((e: any) => [`${e.route_id}|${e.vehicle_id}`, Number(e.extra_charge_amount)]));
+  const routeExtra = new Map((extraRates ?? []).filter((e: any) => !e.vehicle_id).map((e: any) => [e.route_id, Number(e.extra_charge_amount)]));
+
   const bMap = new Map((bookings ?? []).map((b: any) => [b.id, b]));
   const dMap = new Map((drivers ?? []).map((d: any) => [d.id, d]));
   const vMap = new Map((vehicles ?? []).map((v: any) => [v.id, v]));
@@ -70,7 +76,12 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       vendor_name: t.vendor_id ? venMap.get(t.vendor_id) ?? null : null,
       outsource_driver_name: odMap.get(t.id)?.outsource_driver_name ?? null,
       outsource_driver_mobile: odMap.get(t.id)?.outsource_driver_mobile ?? null,
-      sell_rate: odMap.get(t.id)?.sell_rate ?? null,
+      sell_rate: (() => {
+        const base = Number(odMap.get(t.id)?.sell_rate ?? 0);
+        const veh = t.vehicle_id ?? t.requested_vehicle_id;
+        const extra = t.hajj_terminal ? (exactExtra.get(`${t.route_id}|${veh}`) ?? routeExtra.get(t.route_id) ?? 0) : 0;
+        return odMap.get(t.id)?.sell_rate == null && extra === 0 ? null : base + extra;
+      })(),
       vendor_cost: odMap.get(t.id)?.vendor_cost ?? null,
       cash_received: odMap.get(t.id)?.cash_received ?? null,
       tafweej_created: odMap.get(t.id)?.tafweej_created ?? false,
