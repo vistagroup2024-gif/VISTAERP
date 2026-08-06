@@ -1,0 +1,6 @@
+-- 138 Admin "New Visa Group" notification fires ONLY for agent-portal submissions.
+-- Staff creating a group via the staff form (direct umrah_groups insert) no longer
+-- notifies admins. b2b_create_group (agent path) sets a per-transaction flag
+-- vista.agent_submit that notify_group_events() reads on INSERT.
+-- (Applied via Supabase MCP; see project migration 138 for full function bodies:
+--  b2b_create_group + notify_group_events.)
