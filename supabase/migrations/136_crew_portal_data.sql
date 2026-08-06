@@ -1,0 +1,3 @@
+-- 136 Crew portal data: transport_session_of, transport_driver_my_trips,
+-- transport_driver_portal_status, transport_vendor_my_trips, transport_set_portal_password.
+-- Plus login_driver (driver-only login). (Applied via Supabase MCP.)
