@@ -1,0 +1,9 @@
+-- 140 Expand visa-form origin cities to cover airports worldwide with scheduled or
+-- Umrah-charter service to Saudi Arabia. Adds ~147 airports across new/expanded
+-- markets: Iraq, Syria, Morocco, Tunisia, Algeria, Libya, Sudan, Ethiopia, Kenya,
+-- Tanzania, Nigeria+, West/Central/East Africa, South Africa, Sri Lanka, Nepal,
+-- Maldives, Philippines, Thailand, Singapore, Brunei, Hong Kong, Russia (incl.
+-- Kazan/Ufa/Grozny/Makhachkala), the Caucasus & Central Asia, more India/Egypt/
+-- Indonesia/Bangladesh Umrah hubs, and major European/North-American gateways.
+-- The visa form reads airports live from this table. Idempotent insert.
+-- (Full VALUES list applied via Supabase MCP; see project migration 140.)
