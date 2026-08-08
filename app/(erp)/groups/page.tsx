@@ -31,14 +31,13 @@ export default async function GroupsPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: groups }, { data: roles }, { data: availMap }] = await Promise.all([
+  const [{ data: groups }, { data: roles }] = await Promise.all([
     supabase
       .from("umrah_groups")
-      .select("id, created_at, group_no, group_date, group_name, pax, arrival_date, departure_date, total_nights, brn_status, visa_status, workflow_status, package_status, agent_brn_pending, visa_type, parties:agent_id(name), group_companies:group_company_id(name)")
+      .select("id, created_at, group_no, group_date, group_name, pax, arrival_date, departure_date, total_nights, brn_status, visa_status, workflow_status, package_status, agent_brn_pending, visa_type, brn_avail, parties:agent_id(name), group_companies:group_company_id(name)")
       .order("created_at", { ascending: false })
       .limit(1000),
     supabase.from("user_roles").select("role").eq("user_id", user?.id ?? ""),
-    supabase.rpc("brn_availability_map"),
   ]);
 
   const isAdmin = access.isAdmin || (roles ?? []).some((r: any) => r.role === "admin");
@@ -52,13 +51,13 @@ export default async function GroupsPage() {
     canDelete: isAdmin || staffCan(access, "visa.delete"),
     canCreate: staffCan(access, "visa.create"),
   };
-  const avail = (availMap as Record<string, string>) ?? {};
-  // Once a group is in "Process", show its BRN readiness instead of the generic stage.
+  // Once a group is in "Process", show its BRN readiness (cached on the group as
+  // brn_avail) instead of the generic stage. "Checking…" only until first refresh.
   const AVAIL_LABEL: Record<string, string> = {
     complete: "Ready to Allocate", partial: "Ready to Allocate (partial)", none: "Waiting BRN",
   };
   const labelFor = (g: any, wf: string) =>
-    wf === "process" ? (AVAIL_LABEL[avail[g.id]] ?? "Process") : (WF_LABEL[wf] ?? "Pending");
+    wf === "process" ? (AVAIL_LABEL[g.brn_avail] ?? "Checking…") : (WF_LABEL[wf] ?? "Pending");
 
   const rows: GroupRow[] = (groups ?? []).map((g: any) => ({
     id: g.id,

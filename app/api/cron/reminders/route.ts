@@ -15,7 +15,11 @@ async function run() {
   // Tafweej reminders (~6h before Jeddah-airport Umrah arrivals).
   const { data: tafweej, error: tErr } = await supabase.rpc("generate_tafweej_reminders");
   if (tErr) return NextResponse.json({ ok: false, error: tErr.message }, { status: 500 });
-  return NextResponse.json({ ok: true, created: data ?? 0, tafweej: tafweej ?? 0 });
+  // Refresh cached BRN readiness (Ready to Allocate / Waiting BRN) for in-flight
+  // groups, so labels stay current as shared inventory is consumed. The function
+  // carries its own high statement_timeout, so it completes off the request path.
+  const { error: aErr } = await supabase.rpc("refresh_brn_availability");
+  return NextResponse.json({ ok: true, created: data ?? 0, tafweej: tafweej ?? 0, availability: aErr ? aErr.message : "refreshed" });
 }
 
 export async function GET(req: Request) {
