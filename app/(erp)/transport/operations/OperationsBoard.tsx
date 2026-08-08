@@ -346,7 +346,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     const text = [
       `Haji Name : ${t.passenger_name ?? "—"}`,
       `Route : ${t.route_display}`,
-      `Trip Date : ${t.trip_date ?? "—"}`,
+      `Trip Date : ${copyDate(t.trip_date)}`,
       ``,
       `*Driver Details*`,
       `Name : ${t.driver_name ?? t.outsource_driver_name ?? "—"}`,
@@ -358,6 +358,15 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     ].join("\n");
     navigator.clipboard?.writeText(text).then(() => setErr("Driver details copied to clipboard."),
       () => setErr("Could not copy — clipboard blocked."));
+  }
+
+  // Compact date for copied messages, e.g. "08 Aug-26" (TZ-safe, no Date parsing).
+  function copyDate(s: string | null): string {
+    if (!s) return "—";
+    const [y, m, d] = s.split("-").map(Number);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    if (!y || !m || !d) return s;
+    return `${String(d).padStart(2, "0")} ${months[m - 1]}-${String(y).slice(-2)}`;
   }
 
   // Format a yyyy-mm-dd date as e.g. "3rd Aug 2026" (no Date parsing → TZ-safe).
