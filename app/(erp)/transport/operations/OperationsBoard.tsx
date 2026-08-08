@@ -259,7 +259,11 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // The cash-received prompt is driven purely by the booking's payment method:
   // only Cash bookings collect cash at completion. No Cash / Card / Bank Transfer
   // (any agent or customer on credit) complete without the prompt.
-  const isCashCustomer = (t: Trip) => (t.payment_method ?? "cash") === "cash";
+  const isCashCustomer = (t: Trip) => {
+    if (t.payment_method) return t.payment_method === "cash";
+    // Unset (legacy): only a direct booking or the walk-in CASH CUSTOMER collects cash.
+    return !t.agent_id || (t.agent_name ?? "").trim().toUpperCase() === "CASH CUSTOMER";
+  };
   // Completing a trip: prompt for cash only for direct cash customers.
   function completeTrip(t: Trip) {
     if (isCashCustomer(t)) {
