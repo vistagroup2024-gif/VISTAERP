@@ -14,7 +14,7 @@ interface Rate { agent_id: string | null; route_id: string; vehicle_id: string; 
 interface PkgPrice { package_id: string; vehicle_id: string; price: number; agent_id?: string | null }
 interface ExtraCharge { route_id: string; vehicle_id: string; desc: string | null; amount: number }
 interface Company { id: string; name: string }
-interface Agent { id: string; agency_name: string }
+interface Agent { id: string; agency_name: string; party_type?: string }
 
 interface Trip {
   id: string; route_id: string; route_label: string; vehicle_id: string; trip_date: string; trip_time: string;
@@ -341,12 +341,18 @@ export default function TransportBookingForm({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div><label className="label">Booking date</label><input className="input" type="date" value={h.booking_date} onChange={(e) => setH({ ...h, booking_date: e.target.value })} /></div>
           {!isAgent && <div><label className="label">Agent</label>
-            <select className="input" value={h.agent_id} onChange={(e) => setH({ ...h, agent_id: e.target.value })}>
+            <select className="input" value={h.agent_id} onChange={(e) => {
+              const id = e.target.value;
+              // Default the payment method by party type: a B2B agent bills on credit
+              // (No Cash); a customer / direct pays Cash. Still fully changeable below.
+              const isAgentParty = agents.find((a) => a.id === id)?.party_type === "b2b_agent";
+              setH({ ...h, agent_id: id, payment_method: isAgentParty ? "no_cash" : "cash" });
+            }}>
               <option value="">— direct —</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}
             </select></div>}
-          {!isAgent && !h.agent_id && <div><label className="label">Payment method</label>
+          {!isAgent && <div><label className="label">Payment method</label>
             <select className="input" value={h.payment_method} onChange={(e) => setH({ ...h, payment_method: e.target.value })}>
-              <option value="cash">Cash</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option>
+              <option value="no_cash">No Cash</option><option value="cash">Cash</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option>
             </select></div>}
           <div><label className="label">Haji name</label><input className="input" value={h.passenger_name} onChange={(e) => setH({ ...h, passenger_name: e.target.value })} /></div>
           <div><label className="label">Mobile</label><input className="input" value={h.mobile} onChange={(e) => setH({ ...h, mobile: e.target.value })} /></div>
