@@ -1,0 +1,6 @@
+-- 146 transport_reset_reposition(trip): undo an APPROVED reposition when the plan
+-- changes — unassign the trip (back to pending), delete the repositioning movement it
+-- logged, and re-open the request for a fresh decision. Only for a not-yet-started
+-- (assigned/outsourced) trip. Surfaced as "Reset Repositioning" in the Operations
+-- row menu for trips whose driver came from an approved reposition.
+-- (Full body applied via Supabase MCP.)

@@ -1,0 +1,7 @@
+-- 145 Driver rest rule: require a 10h continuous rest once a duty (trips chained by
+-- <10h gaps) reaches EITHER 12h actual driving OR 14h span (first pickup -> last drop).
+-- The 14h span cap stops marathon chains of short trips (e.g. 11:15 -> 08:15 next day
+-- = 21h span, only 11.5h driving) that the driving-only cap let through, while still
+-- allowing a light long-span day. Updated transport_driver_reason (assignment/auto-
+-- assign gate) and transport_driver_rest_until (dashboard 'resting').
+-- (Full bodies applied via Supabase MCP.)

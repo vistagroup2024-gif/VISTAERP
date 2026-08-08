@@ -106,10 +106,11 @@ function addDays(iso: string, n: number) {
 }
 
 interface Reposition { id: string; from_city: string | null; to_city: string | null; distance_km: number | null; driver_name: string; route: string; trip_time: string | null }
-export default function OperationsBoard({ date, today, trips, drivers, vehicles, vendors, agents, repositions = [], canEdit, canAssign }: {
+export default function OperationsBoard({ date, today, trips, drivers, vehicles, vendors, agents, repositions = [], repositionedTripIds = [], canEdit, canAssign }: {
   date: string; today: string; trips: Trip[]; drivers: Driver[]; vehicles: Vehicle[]; vendors: Vendor[]; agents: Agent[];
-  repositions?: Reposition[]; canEdit: boolean; canAssign: boolean;
+  repositions?: Reposition[]; repositionedTripIds?: string[]; canEdit: boolean; canAssign: boolean;
 }) {
+  const repositioned = new Set(repositionedTripIds);
   const router = useRouter();
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
@@ -427,6 +428,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (canAssign && open) items.push({ label: t.driver_id ? "Reassign Driver" : "Assign Driver", onClick: () => { setVendorFor(null); setAssignFor(t.id); } });
     if (canAssign && open && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
     if (canAssign && t.driver_id && open) items.push({ label: "Unassign Driver", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
+    if (canAssign && open && repositioned.has(t.id)) items.push({ label: "Reset Repositioning", onClick: () => { if (confirm("Reset this repositioning? The trip will be unassigned and re-opened for planning.")) call("transport_reset_reposition", { p_trip: t.id }); } });
     if (canAssign && t.vendor_id && open) items.push({ label: "Unassign Vendor", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
     if (canAssign && NEXT_TRIP[t.status]) items.push({ label: `Mark ${NEXT_LABEL[NEXT_TRIP[t.status]]}`, onClick: () => NEXT_TRIP[t.status] === "completed" ? completeTrip(t) : call("transport_set_trip_status", { p_trip: t.id, p_status: NEXT_TRIP[t.status] }) });
     if (canAssign && ["assigned", "on_route", "outsourced"].includes(t.status)) items.push({ label: "Mark Completed", onClick: () => completeTrip(t) });
