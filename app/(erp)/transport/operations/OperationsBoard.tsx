@@ -256,11 +256,10 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     router.refresh();
     return true;
   }
-  // Cash customer = the "CASH CUSTOMER" party, or a direct (no-agent) cash booking.
-  // Real agents are on credit and don't get the cash prompt.
-  const isCashCustomer = (t: Trip) =>
-    (t.agent_name ?? "").trim().toUpperCase() === "CASH CUSTOMER" ||
-    (!t.agent_id && (t.payment_method ?? "cash") === "cash");
+  // The cash-received prompt is driven purely by the booking's payment method:
+  // only Cash bookings collect cash at completion. No Cash / Card / Bank Transfer
+  // (any agent or customer on credit) complete without the prompt.
+  const isCashCustomer = (t: Trip) => (t.payment_method ?? "cash") === "cash";
   // Completing a trip: prompt for cash only for direct cash customers.
   function completeTrip(t: Trip) {
     if (isCashCustomer(t)) {
