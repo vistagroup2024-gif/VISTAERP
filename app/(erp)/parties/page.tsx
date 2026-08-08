@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import DeleteButton from "@/components/DeleteButton";
@@ -45,7 +46,12 @@ export default async function PartiesPage() {
                 <td className="td">{p.phone ?? "—"}</td>
                 <td className="td">{p.currency ?? "—"}</td>
                 <td className="td text-right">{p.credit_limit ? money(p.credit_limit, p.currency ?? "PKR") : "—"}</td>
-                <td className="td"><DeleteButton rpc="delete_party" paramName="p_party" id={p.id} /></td>
+                <td className="td">
+                  <div className="flex items-center justify-center gap-3">
+                    <Link href={`/parties/${p.id}/edit`} className="text-brand hover:underline">Edit</Link>
+                    <DeleteButton rpc="delete_party" paramName="p_party" id={p.id} />
+                  </div>
+                </td>
               </tr>
             ))}
             {(rows ?? []).length === 0 && (
