@@ -102,6 +102,12 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
     trip_time: (eMap.get(r.trip_id) as any)?.trip_time ?? null,
   }));
 
+  // Trips whose driver came from an APPROVED reposition — can be reset if the plan changes.
+  const { data: approvedRepo } = tripIds.length
+    ? await sb.from("transport_reposition_requests").select("trip_id").eq("status", "approved").in("trip_id", tripIds)
+    : { data: [] as any[] };
+  const repositionedTripIds = (approvedRepo ?? []).map((r: any) => r.trip_id as string);
+
   return (
     <div className="max-w-[1400px]">
       <RealtimeRefresh tables={["transport_trips", "transport_bookings"]} pollMs={20000} />
@@ -115,6 +121,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
         vendors={(vendors ?? []) as any[]}
         agents={((agents ?? []) as any[]).map((a) => ({ id: a.id, agency_name: a.name }))}
         repositions={repositions}
+        repositionedTripIds={repositionedTripIds}
         canEdit={canEdit}
         canAssign={canAssign}
       />
