@@ -343,10 +343,11 @@ export default function TransportBookingForm({
           {!isAgent && <div><label className="label">Agent</label>
             <select className="input" value={h.agent_id} onChange={(e) => {
               const id = e.target.value;
-              // Default the payment method by party type: a B2B agent bills on credit
-              // (No Cash); a customer / direct pays Cash. Still fully changeable below.
-              const isAgentParty = agents.find((a) => a.id === id)?.party_type === "b2b_agent";
-              setH({ ...h, agent_id: id, payment_method: isAgentParty ? "no_cash" : "cash" });
+              // Default the payment method: any agency bills on credit (No Cash); the
+              // walk-in "CASH CUSTOMER" party or a direct booking pays Cash. Changeable.
+              const sel = agents.find((a) => a.id === id);
+              const isCash = !sel || sel.agency_name.trim().toUpperCase() === "CASH CUSTOMER";
+              setH({ ...h, agent_id: id, payment_method: isCash ? "cash" : "no_cash" });
             }}>
               <option value="">— direct —</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}
             </select></div>}
