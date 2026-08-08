@@ -152,7 +152,7 @@ function visibleGroups(access?: StaffNavAccess) {
     .filter((g) => (!g.perm || g.perm.some((k) => access.permissions[k])) && g.items.length > 0);
 }
 
-function SidebarContent({ name, access, onClose }: { name: string; access?: StaffNavAccess; onClose?: () => void }) {
+function SidebarContent({ name, access, onClose, onCollapse }: { name: string; access?: StaffNavAccess; onClose?: () => void; onCollapse?: () => void }) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -176,6 +176,10 @@ function SidebarContent({ name, access, onClose }: { name: string; access?: Staf
         </div>
         <div className="flex items-center gap-1">
           <NotificationBell endpoint="/api/notifications" groupBase="/groups" realtime />
+          {onCollapse && (
+            <button onClick={onCollapse} title="Collapse sidebar" aria-label="Collapse sidebar"
+              className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 text-lg leading-none">⇤</button>
+          )}
           {onClose && (
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
           )}
@@ -197,13 +201,28 @@ function SidebarContent({ name, access, onClose }: { name: string; access?: Staf
 
 export default function Sidebar({ name, access }: { name: string; access?: StaffNavAccess }) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem("sidebar:collapsed") === "1"); } catch {}
+  }, []);
+  function toggleCollapsed() {
+    setCollapsed((c) => { const n = !c; try { localStorage.setItem("sidebar:collapsed", n ? "1" : "0"); } catch {} return n; });
+  }
 
   return (
     <>
-      {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
-        <SidebarContent name={name} access={access} />
-      </aside>
+      {/* Desktop sidebar — sticky full-height so its nav scrolls independently */}
+      {collapsed ? (
+        <div className="no-print sticky top-0 hidden h-screen w-12 shrink-0 flex-col items-center border-r border-slate-200 bg-white py-3 lg:flex">
+          <button onClick={toggleCollapsed} title="Expand sidebar" aria-label="Expand sidebar"
+            className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 text-lg leading-none">⇥</button>
+        </div>
+      ) : (
+        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
+          <SidebarContent name={name} access={access} onCollapse={toggleCollapsed} />
+        </aside>
+      )}
 
       {/* Mobile top bar */}
       <div className="no-print fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
