@@ -86,7 +86,12 @@ export function buildDemand(
 // A unit of demand: a group (or a partial package) that needs `pax` beds on a
 // specific set of nights (full stay for new groups; only the uncovered nights
 // for pending package updates).
-export interface DemandItem { id: string; pax: number; nights: Set<string>; arrival?: string; departure?: string }
+// `hasMadinah` = the group's package ALREADY includes a Madinah night (an existing
+// Madinah BRN is allocated to it). When true, none of its uncovered nights are
+// carved out as Madinah — they are all Makkah demand (so the planner buys Makkah).
+// When false, the group still needs one Madinah night: we place it on free Madinah
+// inventory when possible, and only recommend buying Madinah as a last resort.
+export interface DemandItem { id: string; pax: number; nights: Set<string>; arrival?: string; departure?: string; hasMadinah?: boolean }
 
 // Operational policy (mirrors nusuk_complete): a group may leave its very first
 // night and/or its very last night uncovered when the main stay is covered.
@@ -217,10 +222,37 @@ export function planByCity(items: DemandItem[], brns: Brn[], consByBrn: Record<s
   const makBrns = brns.filter((b) => b.city === "Makkah");
   const madBrns = brns.filter((b) => b.city === "Madinah");
 
-  // 1. Assign each item's single Madinah night by concentration (most beds shared)
+  // Only groups whose package does NOT already include Madinah need a Madinah night
+  // carved out. Groups that already have Madinah keep every uncovered night as Makkah
+  // demand (planner buys Makkah for them); their `madAssign` stays empty below.
+  const needMad = items.filter((it) => it.nights.size > 0 && !it.hasMadinah);
+
   const madAssign = new Map<string, string>();
-  let pool = items.filter((it) => it.nights.size > 0);
-  const assignments: { date: string; beds: number; groups: number }[] = [];
+
+  // Phase A — USE FREE MADINAH INVENTORY FIRST. Place each group's Madinah night on a
+  // night of its stay where an existing Madinah BRN can seat the whole group in one
+  // BRN. We consume from mutable per-night capacity bins so two groups can't be placed
+  // beyond a BRN's free beds. This is the core rule: if Madinah is available and the
+  // package lacks it, use Madinah rather than pushing the night onto Makkah to buy.
+  const madBins: Record<string, number[]> = {};
+  const binsOn = (d: string) => (madBins[d] ??= brnFreeCaps(d, madBrns, consByBrn));
+  const placedFree = new Set<string>();
+  // Largest groups first — they are the hardest to fit into a single BRN.
+  for (const it of [...needMad].sort((a, b) => b.pax - a.pax)) {
+    let cd = "", ci = -1, ccap = Infinity;
+    for (const n of Array.from(it.nights)) {
+      const bins = binsOn(n);
+      for (let i = 0; i < bins.length; i++) {
+        if (bins[i] >= it.pax && bins[i] < ccap) { ccap = bins[i]; ci = i; cd = n; }
+      }
+    }
+    if (ci >= 0) { binsOn(cd)[ci] -= it.pax; madAssign.set(it.id, cd); placedFree.add(it.id); }
+  }
+
+  // Phase B — groups with no free Madinah bed anywhere in their stay still need a
+  // Madinah night (to buy). Concentrate those on shared dates to minimise the number
+  // of new Madinah BRNs, exactly as before.
+  let pool = needMad.filter((it) => !placedFree.has(it.id));
   let guard = 0;
   while (pool.length && guard++ < 1000) {
     const freq = new Map<string, number>();
@@ -228,11 +260,20 @@ export function planByCity(items: DemandItem[], brns: Brn[], consByBrn: Record<s
     let best = "", bestv = -1;
     freq.forEach((v, d) => { if (v > bestv) { bestv = v; best = d; } });
     const chosen = pool.filter((it) => it.nights.has(best));
-    let beds = 0;
-    for (const it of chosen) { madAssign.set(it.id, best); beds += it.pax; }
-    assignments.push({ date: best, beds, groups: chosen.length });
+    for (const it of chosen) madAssign.set(it.id, best);
     pool = pool.filter((it) => !it.nights.has(best));
   }
+
+  // Summary of where Madinah nights landed (for the UI note).
+  const byDate = new Map<string, { beds: number; groups: number }>();
+  for (const it of needMad) {
+    const d = madAssign.get(it.id);
+    if (!d) continue;
+    const cur = byDate.get(d) ?? { beds: 0, groups: 0 };
+    cur.beds += it.pax; cur.groups += 1; byDate.set(d, cur);
+  }
+  const assignments: { date: string; beds: number; groups: number }[] =
+    Array.from(byDate.entries()).map(([date, v]) => ({ date, beds: v.beds, groups: v.groups }));
 
   // 2. Build per-city demand-by-date
   const allNights = Array.from(new Set(items.flatMap((it) => Array.from(it.nights)))).sort();

@@ -84,13 +84,17 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
   const updIds = (updGroups ?? []).map((g: any) => g.id);
   const { data: updAllocs } = updIds.length
     ? await supabase.from("group_brn_allocation")
-        .select("group_id, brn_consumption:consumption_id(check_in, check_out)").in("group_id", updIds)
+        .select("group_id, brn_consumption:consumption_id(check_in, check_out, brn_inventory:brn_id(city))").in("group_id", updIds)
     : { data: [] as any[] };
   const coveredByGroup: Record<string, Set<string>> = {};
+  // Groups whose EXISTING allocation already includes a Madinah BRN — their package
+  // already has Madinah, so their uncovered nights are planned as Makkah only.
+  const hasMadinahGroup = new Set<string>();
   (updAllocs ?? []).forEach((a: any) => {
     if (!a.brn_consumption) return;
     const set = (coveredByGroup[a.group_id] ||= new Set());
     nightsBetween(a.brn_consumption.check_in, a.brn_consumption.check_out).forEach((n) => set.add(n));
+    if (a.brn_consumption.brn_inventory?.city === "Madinah") hasMadinahGroup.add(a.group_id);
   });
 
   // Long Stay groups never use hotel BRNs — exclude from purchase planning entirely.
@@ -104,7 +108,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
     ...(updGroups ?? []).filter(notLongStay).map((g: any) => {
       const cov = coveredByGroup[g.id] ?? new Set<string>();
       const need = nightsBetween(g.arrival_date, g.departure_date).filter((n) => !cov.has(n));
-      return { companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date, departure: g.departure_date, nights: new Set(need) };
+      return { companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date, departure: g.departure_date, nights: new Set(need), hasMadinah: hasMadinahGroup.has(g.id) };
     }).filter((it) => it.nights.size > 0),
   ];
   // Apply the first/last-night tolerance so isolated boundary nights are not
@@ -213,9 +217,9 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
         <div className="card">
           <h2 className="mb-3 font-semibold text-slate-700">🏙️ Planning by City</h2>
           <div className="grid gap-4 md:grid-cols-2">
-            <CityBlock title="🕋 Makkah" data={cityPlan.makkah} note="All nights except each group's single Madinah night." />
+            <CityBlock title="🕋 Makkah" data={cityPlan.makkah} note="Makkah nights. Groups whose package already includes Madinah are planned as Makkah only." />
             <CityBlock title="🕌 Madinah" data={cityPlan.madinah}
-              note={`One optimized Madinah night per group. Concentrated on ${cityPlan.madinah.assignments.length} date(s): ${cityPlan.madinah.assignments.map((a) => `${fmtDay(a.date)} (${a.beds} beds, ${a.groups} grp)`).join(", ") || "—"}.`} />
+              note={`One Madinah night for each group that lacks Madinah — placed on free Madinah inventory first, buying only when none is available. On ${cityPlan.madinah.assignments.length} date(s): ${cityPlan.madinah.assignments.map((a) => `${fmtDay(a.date)} (${a.beds} beds, ${a.groups} grp)`).join(", ") || "—"}.`} />
           </div>
         </div>
 
