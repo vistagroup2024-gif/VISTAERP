@@ -349,6 +349,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       `Name : ${t.driver_name ?? t.outsource_driver_name ?? "—"}`,
       `Number : ${t.driver_mobile ?? t.outsource_driver_mobile ?? "—"}`,
       `Vehicle : ${t.vehicle_type ?? t.vehicle_name ?? "—"}`,
+      ...(t.is_upgraded ? [`*Upgraded* : ${t.requested_vehicle_name ?? "—"} → ${t.vehicle_name ?? "—"}`] : []),
       `Car Reg No : ${t.driver_reg ?? "—"}`,
       ...(t.vendor_name ? [`Vendor : ${t.vendor_name}`] : []),
     ].join("\n");
