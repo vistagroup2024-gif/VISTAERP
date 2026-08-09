@@ -3,7 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import CompanyInquiryButton from "@/components/CompanyInquiryButton";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import GroupsTable, { GroupRow } from "./GroupsTable";
-import { guardStaffPage, staffCan } from "@/lib/staffSession";
+import { guardStaffPage, staffCan, getSessionUser } from "@/lib/staffSession";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ const WF_LABEL: Record<string, string> = {
 export default async function GroupsPage() {
   const access = await guardStaffPage("visa.view");
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   const [{ data: groups }, { data: roles }] = await Promise.all([
     supabase

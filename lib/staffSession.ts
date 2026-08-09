@@ -1,23 +1,36 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export interface StaffAccess {
   isAdmin: boolean;
   permissions: Record<string, boolean>;
+  fullName: string | null;
   // True when no granular permissions have been assigned yet — treated as
   // full access for backward compatibility with role-only staff accounts.
   unrestricted: boolean;
 }
 
 // Loads the current staff user's access (admin flag + granular permission map).
-export async function getStaffAccess(): Promise<StaffAccess> {
+// Wrapped in React cache() so the layout guard and every page's guardStaffPage
+// share ONE staff_access round-trip per request instead of repeating it.
+export const getStaffAccess = cache(async function getStaffAccess(): Promise<StaffAccess> {
   const sb = createClient();
   const { data } = await sb.rpc("staff_access");
   const isAdmin = !!(data as any)?.is_admin;
   const permissions = ((data as any)?.permissions ?? {}) as Record<string, boolean>;
+  const fullName = ((data as any)?.full_name ?? null) as string | null;
   const unrestricted = isAdmin || Object.keys(permissions).length === 0;
-  return { isAdmin, permissions, unrestricted };
-}
+  return { isAdmin, permissions, fullName, unrestricted };
+});
+
+// Cached current user (auth.getUser validates the JWT with the auth server; this
+// dedupes it across the layout and any page that also needs the user in one render).
+export const getSessionUser = cache(async function getSessionUser() {
+  const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  return user;
+});
 
 // Menu/page/action gate. Admins and not-yet-restricted accounts pass everything;
 // otherwise the specific permission must be granted.
