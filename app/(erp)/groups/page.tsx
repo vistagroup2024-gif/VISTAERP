@@ -3,7 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import CompanyInquiryButton from "@/components/CompanyInquiryButton";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import GroupsTable, { GroupRow } from "./GroupsTable";
-import { guardStaffPage, staffCan, getSessionUser } from "@/lib/staffSession";
+import { guardStaffPage, staffCan } from "@/lib/staffSession";
 
 export const dynamic = "force-dynamic";
 
@@ -29,18 +29,14 @@ const WF_LABEL: Record<string, string> = {
 export default async function GroupsPage() {
   const access = await guardStaffPage("visa.view");
   const supabase = createClient();
-  const user = await getSessionUser();
 
-  const [{ data: groups }, { data: roles }] = await Promise.all([
-    supabase
-      .from("umrah_groups")
-      .select("id, created_at, group_no, group_date, group_name, pax, arrival_date, departure_date, total_nights, brn_status, visa_status, workflow_status, package_status, agent_brn_pending, visa_type, brn_avail, parties:agent_id(name), group_companies:group_company_id(name)")
-      .order("created_at", { ascending: false })
-      .limit(1000),
-    supabase.from("user_roles").select("role").eq("user_id", user?.id ?? ""),
-  ]);
+  const { data: groups } = await supabase
+    .from("umrah_groups")
+    .select("id, created_at, group_no, group_date, group_name, pax, arrival_date, departure_date, total_nights, brn_status, visa_status, workflow_status, package_status, agent_brn_pending, visa_type, brn_avail, parties:agent_id(name), group_companies:group_company_id(name)")
+    .order("created_at", { ascending: false })
+    .limit(1000);
 
-  const isAdmin = access.isAdmin || (roles ?? []).some((r: any) => r.role === "admin");
+  const isAdmin = access.isAdmin;
   // Per-action rights (admins / unrestricted accounts pass everything).
   const perms = {
     isAdmin,

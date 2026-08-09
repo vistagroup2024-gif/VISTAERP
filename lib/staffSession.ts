@@ -24,12 +24,14 @@ export const getStaffAccess = cache(async function getStaffAccess(): Promise<Sta
   return { isAdmin, permissions, fullName, unrestricted };
 });
 
-// Cached current user (auth.getUser validates the JWT with the auth server; this
-// dedupes it across the layout and any page that also needs the user in one render).
+// Cached current user. The middleware already calls auth.getUser() on every request
+// (validating + refreshing the JWT with the auth server), so here we read the session
+// from the cookie LOCALLY — no extra auth-server round-trip per page — and rely on the
+// DB's row-level security (which validates the JWT itself) for data protection.
 export const getSessionUser = cache(async function getSessionUser() {
   const sb = createClient();
-  const { data: { user } } = await sb.auth.getUser();
-  return user;
+  const { data: { session } } = await sb.auth.getSession();
+  return session?.user ?? null;
 });
 
 // Menu/page/action gate. Admins and not-yet-restricted accounts pass everything;

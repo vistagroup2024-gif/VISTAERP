@@ -14,32 +14,30 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
   const today = new Date().toISOString().slice(0, 10);
   const date = searchParams.date || today;
 
-  const { data: trips } = await sb
-    .from("transport_trip_sched")
-    .select("id, booking_id, seq, route_id, route_label, route_name, vehicle_id, requested_vehicle_id, is_upgraded, is_outsourced, driver_id, vendor_id, trip_date, trip_time, pickup_location, drop_location, flight_no, status, sched_s, sched_e, drive_min, hajj_terminal, passenger_visa_type")
-    .eq("trip_date", date)
-    .order("trip_time");
+  // These four don't depend on the trips result, so fire them in parallel with it
+  // instead of waiting — cuts the page's sequential Supabase round-trips.
+  const [{ data: trips }, { data: drivers }, { data: vehicles }, { data: vendors }, { data: extraRates }] = await Promise.all([
+    sb.from("transport_trip_sched")
+      .select("id, booking_id, seq, route_id, route_label, route_name, vehicle_id, requested_vehicle_id, is_upgraded, is_outsourced, driver_id, vendor_id, trip_date, trip_time, pickup_location, drop_location, flight_no, status, sched_s, sched_e, drive_min, hajj_terminal, passenger_visa_type")
+      .eq("trip_date", date).order("trip_time"),
+    sb.from("transport_drivers").select("id, name, mobile, license_no, vehicle_id, status").order("name"),
+    sb.from("transport_vehicles").select("id, name, category, vehicle_type, is_active").order("name"),
+    sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile, vehicle_ids").eq("is_active", true).order("name"),
+    sb.from("transport_route_rates").select("route_id, vehicle_id, extra_charge_amount").eq("extra_charge_enabled", true),
+  ]);
 
   const bookingIds = Array.from(new Set((trips ?? []).map((t: any) => t.booking_id)));
   const tripIds = (trips ?? []).map((t: any) => t.id);
-  // The scheduling view doesn't carry the outsourced-driver details; read them
-  // from the base table so they can be shown/copied like an internal driver.
-  const [{ data: bookings }, { data: drivers }, { data: vehicles }, { data: outsourceRows }] = await Promise.all([
+  // Only these two genuinely depend on the trip/booking ids from above.
+  const [{ data: bookings }, { data: outsourceRows }] = await Promise.all([
     bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, whatsapp, pax, booking_type, agent_id, status, payment_method").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
-    sb.from("transport_drivers").select("id, name, mobile, license_no, vehicle_id, status").order("name"),
-    sb.from("transport_vehicles").select("id, name, category, vehicle_type, is_active").order("name"),
     tripIds.length ? sb.from("transport_trips").select("id, outsource_driver_name, outsource_driver_mobile, sell_rate, vendor_cost, tafweej_created, cash_received").in("id", tripIds) : Promise.resolve({ data: [] as any[] }),
   ]);
   const odMap = new Map((outsourceRows ?? []).map((o: any) => [o.id, o]));
   const agentIds = Array.from(new Set((bookings ?? []).map((b: any) => b.agent_id).filter(Boolean)));
-  const [{ data: vendors }, { data: agents }] = await Promise.all([
-    sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile, vehicle_ids").eq("is_active", true).order("name"),
-    agentIds.length ? sb.from("parties").select("id, name").in("id", agentIds) : Promise.resolve({ data: [] as any[] }),
-  ]);
-
-  // Hajj-terminal (route extra) charges, so the displayed fare matches the booking total.
-  const { data: extraRates } = await sb.from("transport_route_rates")
-    .select("route_id, vehicle_id, extra_charge_amount").eq("extra_charge_enabled", true);
+  const { data: agents } = agentIds.length
+    ? await sb.from("parties").select("id, name").in("id", agentIds)
+    : { data: [] as any[] };
   const exactExtra = new Map((extraRates ?? []).filter((e: any) => e.vehicle_id).map((e: any) => [`${e.route_id}|${e.vehicle_id}`, Number(e.extra_charge_amount)]));
   const routeExtra = new Map((extraRates ?? []).filter((e: any) => !e.vehicle_id).map((e: any) => [e.route_id, Number(e.extra_charge_amount)]));
 
