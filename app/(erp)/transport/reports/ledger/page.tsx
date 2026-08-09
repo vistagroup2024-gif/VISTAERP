@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
-import { getStaffAccess, staffCan } from "@/lib/staffSession";
+import { getStaffAccess, staffCan, getSessionUser } from "@/lib/staffSession";
 import LedgerRange from "./LedgerRange";
 import LedgerTable from "./LedgerTable";
 
@@ -16,7 +16,7 @@ export default async function TransportLedgerPage({ searchParams }: { searchPara
     return <div className="card m-6 text-slate-500">You don’t have permission to view the Transport Trip Ledger.</div>;
   }
   const sb = createClient();
-  const { data: { user } } = await sb.auth.getUser();
+  const user = await getSessionUser();
   const { data: roleRows } = await sb.from("user_roles").select("role").eq("user_id", user?.id ?? "");
   const isAdmin = (roleRows ?? []).some((r: any) => r.role === "admin");
   const today = new Date().toISOString().slice(0, 10);

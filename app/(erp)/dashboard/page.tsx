@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { money, dateStr } from "@/lib/format";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
-import { getStaffAccess, staffCan, staffLanding } from "@/lib/staffSession";
+import { getStaffAccess, staffCan, staffLanding, getSessionUser } from "@/lib/staffSession";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +17,7 @@ async function count(table: string) {
 
 export default async function Dashboard() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   // Permission gate: send users who lack Dashboard access to their first module.
   const access = await getStaffAccess();

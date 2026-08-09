@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { guardStaffPage } from "@/lib/staffSession";
+import { guardStaffPage, getSessionUser } from "@/lib/staffSession";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { dateStr } from "@/lib/format";
@@ -50,7 +50,7 @@ export default async function GroupDetail({ params }: { params: { id: string } }
   const { data: arrState } = await supabase.rpc("arrival_service_state", { p_group: g.id });
 
   // Is the current user an admin? (controls reopen)
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user?.id ?? "");
   const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
 
