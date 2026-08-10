@@ -5,6 +5,7 @@ import TransportBookingForm from "@/components/TransportBookingForm";
 import BookingStatusBar from "./BookingStatusBar";
 import DeleteBookingButton from "./DeleteBookingButton";
 import BookingExtras from "./BookingExtras";
+import BookingTripsCancel from "./BookingTripsCancel";
 import { loadBookingMasters } from "@/lib/transportMasters";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,9 @@ export default async function EditBookingPage({ params }: { params: { id: string
       <div className="mt-4">
         <TransportBookingForm existing={b} existingTrips={(trips as any[]) ?? []} {...masters} />
       </div>
+
+      <BookingTripsCancel bookingId={b.id} trips={(trips as any[]) ?? []} isPackage={b.booking_type === "package"} />
+
 
       {b.booking_type === "package" && ((trips as any[]) ?? []).length > 0 && (
         <div className="card mt-4">

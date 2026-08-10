@@ -1,0 +1,3 @@
+-- 153 Assigning an outsource (vendor) now sets trip status 'assigned' (not
+-- 'outsourced'); the vendor_id still drives the Outsourced chip/queue. Applied to
+-- all three transport_assign_vendor overloads. (Applied via Supabase MCP.)

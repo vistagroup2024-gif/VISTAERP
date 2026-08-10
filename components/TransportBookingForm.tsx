@@ -173,11 +173,12 @@ export default function TransportBookingForm({
   // Staff-only manual discount (SAR) off the calculated total.
   const [discount, setDiscount] = useState<string>(existing?.discount ? String(existing.discount) : "");
   const [trips, setTrips] = useState<Trip[]>(
-    existingTrips.length
+    existingTrips.filter((t) => t.status !== "cancelled").length
       // Collapse family-split duplicates (same route+date+time+vehicle were saved
       // once per vehicle) back into a single editable leg; the split is recomputed
-      // from pax on save, so editing never double-multiplies.
-      ? dedupeLegs(existingTrips).map((t) => ({
+      // from pax on save, so editing never double-multiplies. Cancelled trips are
+      // excluded — they are managed via the per-trip Cancel list, not the editor.
+      ? dedupeLegs(existingTrips.filter((t) => t.status !== "cancelled")).map((t) => ({
           id: t.id ?? "", route_id: t.route_id ?? "", route_label: t.route_label ?? "",
           // Always edit the ORIGINAL booked vehicle, never an operational upgrade
           // (assigning a larger car in Operations must not rewrite the booking).
