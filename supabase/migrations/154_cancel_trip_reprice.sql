@@ -1,0 +1,4 @@
+-- 154 transport_cancel_trip(p_trip): cancel one trip in a booking; if the booking was
+-- a package, convert the surviving legs to a 'multiple' booking re-priced at individual
+-- route-master rates (transport_agent_rate). Booking totals recomputed from surviving
+-- trips. (Applied via Supabase MCP.)

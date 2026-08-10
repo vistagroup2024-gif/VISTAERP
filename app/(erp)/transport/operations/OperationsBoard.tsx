@@ -149,7 +149,9 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
 
   // ---- Derived helpers -----------------------------------------------------
   const isDelayed = (t: Trip) => !!t.sched_s && new Date(t.sched_s) < now && ["pending", "assigned"].includes(t.status);
-  const isOutsourced = (t: Trip) => t.is_outsourced || !!t.vendor_id || ["outsource_required", "outsourced"].includes(t.status);
+  // A trip is only "outsourced" once a vendor is actually attached. `outsource_required`
+  // means it still NEEDS handling, so it stays in the Pending / Unassigned queue.
+  const isOutsourced = (t: Trip) => t.is_outsourced || !!t.vendor_id || t.status === "outsourced";
   function statusKeys(t: Trip): string[] {
     const keys = [t.status];
     if (isOutsourced(t)) keys.push("outsourced");
