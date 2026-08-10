@@ -1,0 +1,8 @@
+-- 148 Hotel Booking module — additive foundation (applied via Supabase MCP).
+-- Enums: hotel_booking_status, hotel_vendor_status, hotel_hcn_status.
+-- Tables: hotel_bookings (sales), hotel_purchase_bookings (purchase + HCN),
+--   hotel_attachments, hotel_cancellations, hotel_hcn_reminder_sent.
+-- Reuses parties (suppliers/agents), bills (payables), audit_log (timeline),
+-- notifications/push_notification (alerts), city_type, is_staff/auth_company_id.
+-- Sequence hotel_booking_seq. RLS: <table>_staff = company_id=auth_company_id() AND is_staff().
+-- Full DDL lives in the applied migration; see hotel_bookings / hotel_purchase_bookings.

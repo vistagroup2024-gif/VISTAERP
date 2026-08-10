@@ -1,0 +1,4 @@
+-- 150 Hotel voucher + cron (applied via Supabase MCP):
+-- public_hotel_voucher(p_token) -> client-safe jsonb (no supplier/cost/profit), granted anon.
+-- generate_hotel_hcn_reminders() -> 48h/24h/check-in-day staff alerts when HCN still
+-- pending, deduped via hotel_hcn_reminder_sent; wired into /api/cron/reminders.

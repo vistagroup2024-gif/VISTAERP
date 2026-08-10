@@ -1,0 +1,6 @@
+-- 149 Hotel module staff RPCs (applied via Supabase MCP): hotel_log, hotel_agent_of,
+-- hotel_booking_save, hotel_booking_set_status, hotel_booking_checkin/checkout,
+-- hotel_purchase_save, hotel_purchase_set_vendor_status, hotel_hcn_save, hotel_hcn_share,
+-- hotel_purchase_post_payable (posts into bills+bill_lines), hotel_cancel,
+-- hotel_attachment_list/add/get/delete. Sequence hotel_bill_seq. All SECURITY DEFINER,
+-- is_staff()+company guarded, granted to authenticated.

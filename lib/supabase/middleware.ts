@@ -12,7 +12,7 @@ const ROUTE_PERMS: [string, string[]][] = [
   ["/packages", ["sales.view"]],
   ["/invoices", ["sales.view"]],
   ["/parties", ["sales.view"]],
-  ["/hotels", ["hotels.masters", "hotels.bookings", "hotels.suppliers"]],
+  ["/hotels", ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.hcn", "hotels.reports", "hotels.purchase"]],
   ["/allotments", ["hotels.masters", "hotels.bookings"]],
   ["/transport", ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.driver_assign", "transport.trip_ledger"]],
   ["/purchase", ["purchase.view"]],
@@ -61,8 +61,8 @@ export async function updateSession(request: NextRequest) {
   const p0 = request.nextUrl.pathname;
   if (p0.startsWith("/agent") || p0.startsWith("/api/agent") || p0.startsWith("/vendor") || p0.startsWith("/api/vendor")
       || p0.startsWith("/driver") || p0.startsWith("/api/driver")
-      || p0.startsWith("/v/")) {
-    // /v/ is the public, login-free transport voucher (shared via QR).
+      || p0.startsWith("/v/") || p0.startsWith("/hv/")) {
+    // /v/ = public transport voucher, /hv/ = public hotel voucher (shared via QR).
     return response;
   }
 

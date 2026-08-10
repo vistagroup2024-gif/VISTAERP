@@ -40,9 +40,17 @@ const GROUPS: Group[] = [
     { href: "/invoices", label: "Invoices" },
     { href: "/parties", label: "Customers / Agents" },
   ] },
-  { label: "Hotels", icon: "🏨", perm: ["hotels.masters", "hotels.bookings", "hotels.suppliers"], items: [
-    { href: "/hotels", label: "Hotels" },
-    { href: "/allotments", label: "Allotments" },
+  { label: "Hotels", icon: "🏨", perm: ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.reports"], items: [
+    { href: "/hotels/dashboard", label: "Dashboard", perm: ["hotels.reports"] },
+    { href: "/hotels/bookings", label: "Hotel Bookings", perm: ["hotels.bookings"] },
+    { href: "/hotels/bookings/new", label: "New Hotel Booking", perm: ["hotels.bookings"] },
+    { href: "/hotels/hcn", label: "HCN Management", perm: ["hotels.hcn", "hotels.bookings"] },
+    { href: "/hotels/checkin", label: "Check-in / Arrivals", perm: ["hotels.bookings"] },
+    { href: "/hotels/checkout", label: "Check-out / Completed", perm: ["hotels.bookings"] },
+    { href: "/hotels/suppliers", label: "Suppliers", perm: ["hotels.suppliers"] },
+    { href: "/hotels", label: "Hotel Master", perm: ["hotels.masters"] },
+    { href: "/allotments", label: "Allotments", perm: ["hotels.masters"] },
+    { href: "/hotels/reports", label: "Reports", perm: ["hotels.reports"] },
   ] },
   { label: "Transport", icon: "🚐", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.trip_ledger"], items: [
     { href: "/transport", label: "Overview", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.driver_assign"] },
