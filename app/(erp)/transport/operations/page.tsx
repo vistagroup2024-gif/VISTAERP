@@ -30,7 +30,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
   const tripIds = (trips ?? []).map((t: any) => t.id);
   // Only these two genuinely depend on the trip/booking ids from above.
   const [{ data: bookings }, { data: outsourceRows }] = await Promise.all([
-    bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, whatsapp, pax, booking_type, agent_id, status, payment_method").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
+    bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, whatsapp, pax, booking_type, agent_id, status, payment_method, sell_amount, net_amount").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
     tripIds.length ? sb.from("transport_trips").select("id, outsource_driver_name, outsource_driver_mobile, sell_rate, vendor_cost, tafweej_created, cash_received").in("id", tripIds) : Promise.resolve({ data: [] as any[] }),
   ]);
   const odMap = new Map((outsourceRows ?? []).map((o: any) => [o.id, o]));
@@ -75,10 +75,14 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       outsource_driver_name: odMap.get(t.id)?.outsource_driver_name ?? null,
       outsource_driver_mobile: odMap.get(t.id)?.outsource_driver_mobile ?? null,
       sell_rate: (() => {
-        const base = Number(odMap.get(t.id)?.sell_rate ?? 0);
+        const raw = odMap.get(t.id)?.sell_rate;
+        // Apply the booking's discount ratio (net/sell) so the fare matches the
+        // booking total & trip ledger; the route extra is added on top (not discounted).
+        const ratio = b && Number(b.sell_amount) > 0 ? Number(b.net_amount) / Number(b.sell_amount) : 1;
+        const base = Math.round(Number(raw ?? 0) * ratio * 100) / 100;
         const veh = t.vehicle_id ?? t.requested_vehicle_id;
         const extra = t.hajj_terminal ? (exactExtra.get(`${t.route_id}|${veh}`) ?? routeExtra.get(t.route_id) ?? 0) : 0;
-        return odMap.get(t.id)?.sell_rate == null && extra === 0 ? null : base + extra;
+        return raw == null && extra === 0 ? null : base + extra;
       })(),
       vendor_cost: odMap.get(t.id)?.vendor_cost ?? null,
       cash_received: odMap.get(t.id)?.cash_received ?? null,

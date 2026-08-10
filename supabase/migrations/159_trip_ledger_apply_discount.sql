@@ -1,0 +1,5 @@
+-- 159 Item 3: transport_trip_ledger scales each trip's fare by the booking discount
+-- ratio (net/sell) so the ledger matches the booking total when a booking-level
+-- discount exists (e.g. TRP-000019: 495 gross -> 400 after a 95 discount). The route
+-- extra (Hajj Terminal) is added on top and not discounted. Stored sell_rate untouched.
+-- (Applied via Supabase MCP.)
