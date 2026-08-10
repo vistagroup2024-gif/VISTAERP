@@ -21,7 +21,7 @@ interface Trip {
   tafweej_created?: boolean; needs_tafweej?: boolean;
 }
 interface Driver { id: string; name: string; vehicle_id: string | null; status: string }
-interface Vehicle { id: string; name: string; category: string | null; is_active: boolean }
+interface Vehicle { id: string; name: string; category: string | null; seating_capacity?: number | null; is_active: boolean }
 interface Vendor { id: string; name: string; vendor_type?: string; contact_person?: string | null; mobile?: string | null; vehicle_ids?: string[] | null }
 interface Agent { id: string; agency_name: string }
 
@@ -632,12 +632,17 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                               <option value="">Choose vendor…</option>
                               {(() => {
                                 const veh = t.vehicle_id ?? t.requested_vehicle_id;
-                                // All active vendors are selectable — outsourcing often means the
-                                // vendor sends a different car than the in-house requested one.
-                                // Vendors who operate this trip's vehicle are listed first.
-                                const operates = (v: Vendor) => !!veh && !!v.vehicle_ids && v.vehicle_ids.includes(veh);
-                                return [...vendors].sort((a, b) => Number(operates(b)) - Number(operates(a)))
-                                  .map((v) => <option key={v.id} value={v.id}>{v.name}{v.vendor_type === "vendor_driver" ? " (driver)" : ""}{operates(v) ? " ★" : ""}</option>);
+                                const capOf = (id?: string | null) => (id ? vehicles.find((x) => x.id === id)?.seating_capacity ?? 0 : 0);
+                                const need = capOf(veh);
+                                // A vendor can cover this trip if they operate a vehicle at least as
+                                // large as the booked one — a bigger vehicle is a fine upgrade, a
+                                // smaller one can't seat the group. Vendors with no vehicles set, or
+                                // trips with no vehicle, are unconstrained. Exact-vehicle vendors first.
+                                const canCover = (v: Vendor) => !v.vehicle_ids || v.vehicle_ids.length === 0 || !need
+                                  || v.vehicle_ids.some((id) => capOf(id) >= need);
+                                const exact = (v: Vendor) => !!veh && !!v.vehicle_ids && v.vehicle_ids.includes(veh);
+                                return vendors.filter(canCover).sort((a, b) => Number(exact(b)) - Number(exact(a)))
+                                  .map((v) => <option key={v.id} value={v.id}>{v.name}{v.vendor_type === "vendor_driver" ? " (driver)" : ""}</option>);
                               })()}
                             </select>
                             <button onClick={() => setVendorFor(null)} className="text-xs text-slate-400 hover:underline">✕</button>
