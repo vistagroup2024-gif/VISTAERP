@@ -1,0 +1,30 @@
+name: Deploy production (Vercel hook)
+
+# Manually-triggered production redeploy. Calls a Vercel Deploy Hook whose URL is
+# stored as the repo secret VERCEL_DEPLOY_HOOK_URL (never committed). Create the hook
+# in Vercel → Project Settings → Git → Deploy Hooks (branch: main), then add its URL
+# under GitHub → Settings → Secrets and variables → Actions → New repository secret.
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel deploy hook
+        run: |
+          if [ -z "${VERCEL_DEPLOY_HOOK_URL}" ]; then
+            echo "::error::VERCEL_DEPLOY_HOOK_URL secret is not set. Add it under repo Settings → Secrets → Actions."
+            exit 1
+          fi
+          echo "Triggering Vercel production deploy…"
+          code=$(curl -sS -o response.json -w '%{http_code}' -X POST "${VERCEL_DEPLOY_HOOK_URL}")
+          echo "HTTP ${code}"
+          cat response.json || true
+          echo
+          case "$code" in
+            2*) echo "Deploy hook accepted — build queued on Vercel." ;;
+            *)  echo "::error::Deploy hook returned HTTP ${code}"; exit 1 ;;
+          esac
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
