@@ -1,0 +1,5 @@
+-- 155 Item 7: transport_bookings gains surcharge_type / surcharge_value /
+-- surcharge_amount. transport_save_booking adds an amount/percentage surcharge to the
+-- booking TOTAL only for parties named CASH CUSTOMER or UMRAH PACKAGE CUSTOMER. Per-trip
+-- sell_rate is unchanged, so the surcharge never shows in Operations, voucher, or the
+-- trip ledger. (Applied via Supabase MCP.)
