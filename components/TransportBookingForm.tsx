@@ -172,6 +172,16 @@ export default function TransportBookingForm({
 
   // Staff-only manual discount (SAR) off the calculated total.
   const [discount, setDiscount] = useState<string>(existing?.discount ? String(existing.discount) : "");
+  // Item 7: booking-only additional charge (amount / %) for the two rate-less walk-in
+  // parties. Added to the total here only — never written to trip fares, so it stays
+  // out of Operations / voucher / trip ledger.
+  const [surchargeType, setSurchargeType] = useState<string>(existing?.surcharge_type ?? "");
+  const [surchargeValue, setSurchargeValue] = useState<string>(existing?.surcharge_value ? String(existing.surcharge_value) : "");
+  const SURCHARGE_PARTIES = ["CASH CUSTOMER", "UMRAH PACKAGE CUSTOMER"];
+  const surchargeEligible = !isAgent && (() => {
+    const nm = agents.find((a) => a.id === h.agent_id)?.agency_name?.trim().toUpperCase();
+    return !!nm && SURCHARGE_PARTIES.includes(nm);
+  })();
   const [trips, setTrips] = useState<Trip[]>(
     existingTrips.filter((t) => t.status !== "cancelled").length
       // Collapse family-split duplicates (same route+date+time+vehicle were saved
@@ -243,7 +253,13 @@ export default function TransportBookingForm({
   }, [type, packageId, pkgVehicleId, pkgPriceMap, trips, rateMap, extraMap, totalPax]);
 
   const discountVal = isAgent ? 0 : Math.min(Math.max(Number(discount) || 0, 0), total);
-  const netTotal = Math.max(0, total - discountVal);
+  const afterDiscount = Math.max(0, total - discountVal);
+  // Customer surcharge amount (only when an eligible party is selected).
+  const surchargeAmt = surchargeEligible && Number(surchargeValue) > 0
+    ? (surchargeType === "percentage" ? Math.round(afterDiscount * (Number(surchargeValue) || 0) / 100 * 100) / 100
+       : surchargeType === "amount" ? Number(surchargeValue) || 0 : 0)
+    : 0;
+  const netTotal = afterDiscount + surchargeAmt;
 
   // Live package fare distribution (admin only): spread the package price across
   // trips by the same discount %, adjusting the last trip for rounding — mirrors
@@ -291,6 +307,8 @@ export default function TransportBookingForm({
     const header: any = {
       ...h, booking_type: type, status, currency: "SAR",
       discount: discountVal,
+      surcharge_type: surchargeEligible ? surchargeType : "",
+      surcharge_value: surchargeEligible ? surchargeValue : "",
       package_id: type === "package" ? packageId : "",
       package_vehicle_id: type === "package" ? pkgVehicleId : "",
       vehicle_units: units,
@@ -507,6 +525,21 @@ export default function TransportBookingForm({
               <input className="input max-w-[9rem] text-right" type="number" min="0" step="0.01" max={total || undefined}
                 placeholder="0.00" value={discount} onChange={(e) => setDiscount(e.target.value)} />
             </div>
+            {surchargeEligible && (
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <label className="text-slate-600">Additional Charges</label>
+                <div className="flex items-center gap-2">
+                  <select className="input max-w-[8rem]" value={surchargeType} onChange={(e) => setSurchargeType(e.target.value)}>
+                    <option value="">None</option>
+                    <option value="amount">Amount (SAR)</option>
+                    <option value="percentage">Percentage (%)</option>
+                  </select>
+                  <input className="input max-w-[7rem] text-right" type="number" min="0" step="0.01" placeholder="0"
+                    value={surchargeValue} onChange={(e) => setSurchargeValue(e.target.value)} disabled={!surchargeType} />
+                  <span className="w-24 text-right font-medium text-slate-700">+{surchargeAmt.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
             <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2">
               <h2 className="font-semibold text-slate-700">Total Booking Amount</h2>
               <span className="text-2xl font-bold text-brand-dark">{netTotal.toFixed(2)} SAR</span>
