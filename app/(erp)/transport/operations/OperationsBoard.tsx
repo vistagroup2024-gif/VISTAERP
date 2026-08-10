@@ -632,9 +632,12 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                               <option value="">Choose vendor…</option>
                               {(() => {
                                 const veh = t.vehicle_id ?? t.requested_vehicle_id;
-                                // A vendor with vehicles configured only appears for a trip whose vehicle they operate.
-                                return vendors.filter((v) => !v.vehicle_ids || v.vehicle_ids.length === 0 || !veh || v.vehicle_ids.includes(veh))
-                                  .map((v) => <option key={v.id} value={v.id}>{v.name}{v.vendor_type === "vendor_driver" ? " (driver)" : ""}</option>);
+                                // All active vendors are selectable — outsourcing often means the
+                                // vendor sends a different car than the in-house requested one.
+                                // Vendors who operate this trip's vehicle are listed first.
+                                const operates = (v: Vendor) => !!veh && !!v.vehicle_ids && v.vehicle_ids.includes(veh);
+                                return [...vendors].sort((a, b) => Number(operates(b)) - Number(operates(a)))
+                                  .map((v) => <option key={v.id} value={v.id}>{v.name}{v.vendor_type === "vendor_driver" ? " (driver)" : ""}{operates(v) ? " ★" : ""}</option>);
                               })()}
                             </select>
                             <button onClick={() => setVendorFor(null)} className="text-xs text-slate-400 hover:underline">✕</button>

@@ -25,7 +25,7 @@ export interface VoucherBooking {
   arrival_flight?: string | null; arrival_date?: string | null; arrival_time?: string | null;
   departure_flight?: string | null; departure_date?: string | null; departure_time?: string | null;
   sell_amount?: number | null; discount?: number | null; additional_charges?: number | null;
-  total_amount?: number | null; currency?: string | null;
+  surcharge_amount?: number | null; total_amount?: number | null; currency?: string | null;
 }
 
 const exact = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" } as any;
@@ -65,10 +65,13 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
   const total = b.total_amount != null ? Number(b.total_amount) : tripTotal;
   const discount = Math.max(0, Number(b.discount) || 0);
   const extra = Math.max(0, Number(b.additional_charges) || 0);
+  // Customer surcharge (Cash / Umrah-package walk-ins) — spread into the per-trip
+  // fares above, and shown here so the breakdown reconciles to the invoice total.
+  const surcharge = Math.max(0, Number(b.surcharge_amount) || 0);
   // Amount before discount & additional charges (falls back so the maths always
-  // reconciles: subtotal − discount + additional = total invoice).
-  const subtotal = b.sell_amount != null ? Number(b.sell_amount) : (total + discount - extra);
-  const hasBreakdown = discount > 0 || extra > 0;
+  // reconciles: subtotal − discount + additional + surcharge = total invoice).
+  const subtotal = b.sell_amount != null ? Number(b.sell_amount) : (total + discount - extra - surcharge);
+  const hasBreakdown = discount > 0 || extra > 0 || surcharge > 0;
   const anyHajj = trips.some((t) => t.hajj_terminal);
   const hasFlights = !!b.arrival_flight || !!b.departure_flight;
 
@@ -184,6 +187,12 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
                     <div className="flex items-center justify-between text-slate-600">
                       <span>Additional Charges{anyHajj ? " (Hajj Terminal)" : ""}</span>
                       <span className="tabular-nums">+ {fmtMoney(extra, currency)}</span>
+                    </div>
+                  )}
+                  {surcharge > 0 && (
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Additional Charges</span>
+                      <span className="tabular-nums">+ {fmtMoney(surcharge, currency)}</span>
                     </div>
                   )}
                 </div>
