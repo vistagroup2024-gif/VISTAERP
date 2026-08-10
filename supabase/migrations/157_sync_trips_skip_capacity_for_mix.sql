@@ -1,0 +1,3 @@
+-- 157 Item 6: transport_sync_trips honours a per-trip skip_capacity flag so a
+-- client-validated vehicle MIX (e.g. 1 Staria + 1 Camry for 8 pax) is not rejected by
+-- the uniform-vehicle capacity guard. (Applied via Supabase MCP.)
