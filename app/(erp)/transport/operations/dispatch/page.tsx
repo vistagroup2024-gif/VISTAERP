@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PrintButton from "@/components/PrintButton";
+import { fmtTime12 } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: { d
                     return (
                       <div key={t.id} className="rounded-lg border border-slate-100 p-3 text-sm" style={{ breakInside: "avoid" }}>
                         <div className="flex flex-wrap items-baseline gap-x-3">
-                          <span className="text-base font-bold text-slate-800">{t.trip_time?.slice(0, 5) ?? "—"}</span>
+                          <span className="text-base font-bold text-slate-800">{fmtTime12(t.trip_time) || "—"}</span>
                           <span className="font-medium text-slate-700">{t.route_name ?? t.route_label ?? "—"}</span>
                           <span className="text-xs text-slate-400">{b?.booking_no}</span>
                           <span className="ml-auto text-xs text-slate-500">{t.vehicle_id ? vMap.get(t.vehicle_id) : ""}</span>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAgent, can } from "@/lib/agentSession";
+import { fmtTime12 } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import TransportBookingForm from "@/components/TransportBookingForm";
 
@@ -73,7 +74,7 @@ export default async function AgentTransportDetail({ params }: { params: { id: s
                 <td className="td">{t.seq}</td>
                 <td className="td">{t.route_id ? rName.get(t.route_id) ?? "—" : t.route_label ?? "—"}</td>
                 <td className="td">{t.trip_date ?? "—"}</td>
-                <td className="td">{t.trip_time?.slice(0, 5) ?? "—"}</td>
+                <td className="td">{fmtTime12(t.trip_time) || "—"}</td>
                 <td className="td">{t.vehicle_id ? vName.get(t.vehicle_id) ?? "—" : "—"}</td>
               </tr>
             ))}

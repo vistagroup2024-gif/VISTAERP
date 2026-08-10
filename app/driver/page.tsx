@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import { fmtTime12 } from "@/lib/format";
 
 interface Trip {
   trip_id: string; booking_no: string | null; passenger_name: string | null; mobile: string | null; pax: number | null;
@@ -78,7 +79,7 @@ export default function DriverPortal() {
                 <div className="font-semibold text-slate-800">{t.route ?? "—"}</div>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CHIP[t.status] ?? "bg-slate-200"}`}>{t.status.replace(/_/g, " ")}</span>
               </div>
-              <div className="mt-1 text-sm text-slate-500">{t.trip_time ?? ""}{t.flight_no ? ` · ✈️ ${t.flight_no}` : ""}</div>
+              <div className="mt-1 text-sm text-slate-500">{fmtTime12(t.trip_time)}{t.flight_no ? ` · ✈️ ${t.flight_no}` : ""}</div>
               <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-600">
                 <div><span className="text-xs text-slate-400">Passenger</span><div>{t.passenger_name ?? "—"} ({t.pax ?? "—"})</div></div>
                 <div><span className="text-xs text-slate-400">Mobile</span><div>{t.mobile ? <a href={`tel:${t.mobile}`} className="text-brand">{t.mobile}</a> : "—"}</div></div>

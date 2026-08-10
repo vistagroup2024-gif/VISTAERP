@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { fmtTime12 } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 
 interface T {
@@ -48,7 +49,7 @@ export default function BookingTripsCancel({ bookingId, trips, isPackage }: { bo
                 <tr key={t.id} className={`border-t border-slate-100 ${cancelled ? "text-slate-400 line-through" : ""}`}>
                   <td className="px-3 py-2">{t.seq ?? i + 1}</td>
                   <td className="px-3 py-2 font-medium">{t.route_label ?? t.route_name ?? "Trip"}</td>
-                  <td className="px-3 py-2">{t.trip_date ?? "—"} {t.trip_time?.slice(0, 5) ?? ""}</td>
+                  <td className="px-3 py-2">{t.trip_date ?? "—"} {fmtTime12(t.trip_time)}</td>
                   <td className="px-3 py-2 text-right">{Number(t.sell_rate ?? 0).toFixed(2)}</td>
                   <td className="px-3 py-2">{cancelled ? "Cancelled" : t.status}</td>
                   <td className="px-3 py-2 text-right">

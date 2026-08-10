@@ -5,6 +5,7 @@
 // Design goals: clean, modern, international-standard layout optimised for A4 PDF
 // printing and mobile viewing. Shows only booking-relevant information.
 import React from "react";
+import { fmtTime12 } from "@/lib/format";
 
 export interface VoucherProvider {
   name: string; tagline?: string | null; contact?: string | null; mobile?: string | null;
@@ -38,9 +39,7 @@ function fmtDate(d?: string | null): string {
   if (!m) return d;
   return `${m[3]}-${MONTHS[Number(m[2]) - 1] ?? m[2]}-${m[1]}`;
 }
-function fmtTime(t?: string | null): string {
-  return t ? t.slice(0, 5) : "—";
-}
+function fmtTime(t?: string | null): string { return fmtTime12(t) || "—"; }
 function fmtMoney(n: number, currency: string): string {
   return `${currency} ${new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)}`;
 }
