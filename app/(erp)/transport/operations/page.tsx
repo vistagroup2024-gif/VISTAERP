@@ -80,10 +80,12 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
         // the booking total across voucher / operations / ledger; the route extra is
         // added on top (never discounted or surcharged).
         const ratio = b && Number(b.sell_amount) > 0 ? (Number(b.net_amount) + Number(b.surcharge_amount ?? 0)) / Number(b.sell_amount) : 1;
-        const base = Math.round(Number(raw ?? 0) * ratio * 100) / 100;
+        const base = Number(raw ?? 0) * ratio;
         const veh = t.vehicle_id ?? t.requested_vehicle_id;
         const extra = t.hajj_terminal ? (exactExtra.get(`${t.route_id}|${veh}`) ?? routeExtra.get(t.route_id) ?? 0) : 0;
-        return raw == null && extra === 0 ? null : base + extra;
+        // Round the effective per-trip fare to whole SAR (no fractional riyals from
+        // the discount ratio) for operations / ledger display.
+        return raw == null && extra === 0 ? null : Math.round(base + extra);
       })(),
       vendor_cost: odMap.get(t.id)?.vendor_cost ?? null,
       cash_received: odMap.get(t.id)?.cash_received ?? null,

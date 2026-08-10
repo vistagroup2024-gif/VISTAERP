@@ -49,6 +49,8 @@ const STATUS_FILTER: [string, string][] = [
 const NEXT_TRIP: Record<string, string> = { assigned: "on_route", outsourced: "on_route", on_route: "picked_up", picked_up: "completed" };
 const NEXT_LABEL: Record<string, string> = { on_route: "Start", picked_up: "Picked Up", completed: "Complete" };
 const REST_MS = 10 * 3600 * 1000;
+// Money is shown as whole SAR (no fractional riyals) across the operations board.
+const sar = (n: any) => Math.round(Number(n ?? 0)).toLocaleString("en-US");
 
 interface MenuItem { label: string; onClick: () => void; danger?: boolean }
 
@@ -412,7 +414,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
 
     const payment = [
       `*Payment*`,
-      isAgent ? `*NO CASH*` : `Method : *${method}*\nAmount : ${Number(t.sell_rate ?? 0).toFixed(2)} SAR`,
+      isAgent ? `*NO CASH*` : `Method : *${method}*\nAmount : ${sar(t.sell_rate)} SAR`,
     ];
 
     const text = [passenger.join("\n"), trip.join("\n"), payment.join("\n")].join("\n\n");
@@ -598,8 +600,8 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                       )}
                       {isOutsourced(t) && (t.sell_rate != null || t.vendor_cost != null) && (
                         <div className="mt-0.5 text-[11px] font-medium text-slate-600">
-                          {t.sell_rate != null && <>Trip fare: {Number(t.sell_rate).toFixed(2)} SAR</>}
-                          {t.vendor_cost != null && <span className="text-purple-700"> · Vendor: {Number(t.vendor_cost).toFixed(2)} SAR</span>}
+                          {t.sell_rate != null && <>Trip fare: {sar(t.sell_rate)} SAR</>}
+                          {t.vendor_cost != null && <span className="text-purple-700"> · Vendor: {sar(t.vendor_cost)} SAR</span>}
                         </div>
                       )}
                     </td>
@@ -678,7 +680,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
           ["Drop-off", t.drop_location ?? "—"],
           ["Driver / Vendor", t.driver_name ?? (t.vendor_name ? `${t.vendor_name}${t.outsource_driver_name ? ` · ${t.outsource_driver_name}` : ""}` : "—")],
           ["Status", STATUS_META[t.status]?.label ?? t.status],
-          ["Payment", t.agent_id ? "NO CASH" : `${payLabel[t.payment_method ?? "cash"] ?? "Cash"} — ${Number(t.sell_rate ?? 0).toFixed(2)} SAR`],
+          ["Payment", t.agent_id ? "NO CASH" : `${payLabel[t.payment_method ?? "cash"] ?? "Cash"} — ${sar(t.sell_rate)} SAR`],
         ];
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTripView(null)}>
@@ -710,7 +712,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-800">🏢 Outsource to {vendorModal.vendorName}</h3>
-            {vendorModal.fare != null && <p className="mt-1 text-sm text-slate-500">Trip fare (our selling price): <b>{Number(vendorModal.fare).toFixed(2)} SAR</b> — negotiate the vendor cost below.</p>}
+            {vendorModal.fare != null && <p className="mt-1 text-sm text-slate-500">Trip fare (our selling price): <b>{sar(vendorModal.fare)} SAR</b> — negotiate the vendor cost below.</p>}
             {vendorModal.isDriver ? (
               <p className="mt-1 text-sm text-slate-600">This vendor is the driver — their own name &amp; number are used.</p>
             ) : (
@@ -753,7 +755,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-800">{cashModal.edit ? "Edit Cash Received" : "Cash Received?"}</h3>
             <p className="mt-1 text-sm text-slate-600">
-              {cashModal.edit ? "Update cash for" : "Completing"} {cashModal.haji ?? "this trip"}{cashModal.fare != null ? ` · fare ${Number(cashModal.fare).toFixed(2)} SAR` : ""}.
+              {cashModal.edit ? "Update cash for" : "Completing"} {cashModal.haji ?? "this trip"}{cashModal.fare != null ? ` · fare ${sar(cashModal.fare)} SAR` : ""}.
             </p>
             <div className="mt-4 flex gap-2">
               {([["yes", "Yes"], ["no", "No"], ["other", "Other"]] as const).map(([v, l]) => (
