@@ -19,7 +19,8 @@ export interface LedgerRow {
   invoice_created: boolean;
 }
 
-const money = (n: any) => (n == null || n === "" ? "—" : `${Number(n).toFixed(2)} SAR`);
+// Money is shown as whole SAR (no fractional riyals from the discount ratio).
+const money = (n: any) => (n == null || n === "" ? "—" : `${Math.round(Number(n)).toLocaleString("en-US")} SAR`);
 
 type Key = "supplier_name" | "customer_name" | "haji_name" | "booking_car" | "driver_name" | "route";
 
@@ -95,9 +96,11 @@ export default function LedgerTable({ rows, isAdmin }: { rows: LedgerRow[]; isAd
     });
   }, [rows, search, filters]);
 
-  const totFare = filtered.reduce((a, r) => a + Number(r.trip_fare || 0), 0);
-  const totSupp = filtered.reduce((a, r) => a + Number(r.supplier_amount || 0), 0);
-  const totCash = filtered.reduce((a, r) => a + Number(r.cash_received || 0), 0);
+  // Sum the rounded per-row amounts so the total equals the sum of the whole-SAR
+  // figures shown in each row (no visible off-by-one from fractional riyals).
+  const totFare = filtered.reduce((a, r) => a + Math.round(Number(r.trip_fare || 0)), 0);
+  const totSupp = filtered.reduce((a, r) => a + Math.round(Number(r.supplier_amount || 0)), 0);
+  const totCash = filtered.reduce((a, r) => a + Math.round(Number(r.cash_received || 0)), 0);
   const anyFilter = search.trim() !== "" || Object.values(filters).some((a) => a.length > 0);
 
   return (
