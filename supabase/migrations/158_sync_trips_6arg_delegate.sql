@@ -1,0 +1,3 @@
+-- 158 The 6-arg transport_sync_trips (used by b2b_transport_save_booking) now delegates
+-- to the 7-arg version, so is_extra/skip_capacity apply on the agent path too.
+-- (Applied via Supabase MCP.)
