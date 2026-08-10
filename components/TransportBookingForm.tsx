@@ -23,11 +23,14 @@ interface Trip {
   // Staff-editable per-trip fare override (base sell_rate, excl. Hajj extra).
   // Empty string = use the auto route+vehicle rate.
   fare: string;
+  // Item 5: an extra trip added onto a package (e.g. a Jeddah tour). Priced
+  // individually at its own route+vehicle rate, NOT part of the package price.
+  is_extra?: boolean;
 }
 
 const VISA_TYPES: [string, string][] = [["umrah", "Umrah Visa"], ["visit", "Visit Visa"], ["other", "Other"]];
 const todayStr = () => new Date().toISOString().slice(0, 10);
-const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "", hajj_terminal: false, passenger_visa_type: "", fare: "" });
+const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "", hajj_terminal: false, passenger_visa_type: "", fare: "", is_extra: false });
 
 // Collapse family-split duplicate legs (identical route/date/time/vehicle saved
 // once per split vehicle) into one representative leg, keeping input order.
@@ -93,7 +96,7 @@ export default function TransportBookingForm({
   // Jeddah airport pickups additionally offer Hajj Terminal.
   const isJeddahAirportPickup = (t: Trip) => { const o = routeOrigin(t); return o.includes("airport") && o.includes("jeddah"); };
   const hajjChargeFor = (t: Trip) => {
-    const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
+    const veh = (type === "package" && !t.is_extra) ? pkgVehicleId : t.vehicle_id;
     if (!t.route_id) return 0;
     const exact = veh ? extraMap.get(`${t.route_id}|${veh}`)?.amount : undefined;
     return exact ?? routeExtraMap.get(t.route_id) ?? 0;
@@ -154,21 +157,31 @@ export default function TransportBookingForm({
 
   // Auto route+vehicle rate for a trip (excludes any Hajj Terminal extra).
   const baseRate = (t: Trip) => {
-    const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
+    const veh = (type === "package" && !t.is_extra) ? pkgVehicleId : t.vehicle_id;
     return t.route_id && veh ? (rateMap.get(`${t.route_id}|${veh}`) ?? 0) : 0;
   };
   // Effective per-trip base fare: the staff override when entered, else auto.
   const overriddenRate = (t: Trip) => (t.fare.trim() !== "" ? Math.max(0, Number(t.fare) || 0) : baseRate(t));
+  // A genuine package leg (read-only, distributed fare). Extra trips added onto a
+  // package behave like independent trips (editable route/vehicle/fare).
+  const isPkgLeg = (t: Trip) => type === "package" && !t.is_extra;
 
   // Family vehicle-splitting: how many identical vehicles a trip needs to seat
   // everyone (ceil(pax / capacity)). 1 when it fits or no vehicle chosen yet.
   const unitsFor = (t: Trip) => {
-    const veh = type === "package" ? pkgVehicleId : t.vehicle_id;
+    const veh = (type === "package" && !t.is_extra) ? pkgVehicleId : t.vehicle_id;
     const cap = veh ? vehicleById.get(veh)?.seating_capacity ?? null : null;
     return cap && cap > 0 && totalPax > cap ? Math.ceil(totalPax / cap) : 1;
   };
   // Booking-level vehicle count (max across legs — the family splits the same way).
   const vehicleUnits = () => Math.max(1, ...trips.map(unitsFor));
+  // Package price multiplier is based on the PACKAGE vehicle only (extra trips have
+  // their own vehicles and are priced separately, so they must not inflate it).
+  const pkgUnits = () => {
+    const cap = pkgVehicleId ? vehicleById.get(pkgVehicleId)?.seating_capacity ?? null : null;
+    return cap && cap > 0 && totalPax > cap ? Math.ceil(totalPax / cap) : 1;
+  };
+  const extraTrips = () => trips.filter((t) => t.is_extra);
 
   // Staff-only manual discount (SAR) off the calculated total.
   const [discount, setDiscount] = useState<string>(existing?.discount ? String(existing.discount) : "");
@@ -199,6 +212,7 @@ export default function TransportBookingForm({
           // Preserve the previously saved fare (package trips are priced at
           // package level, so their sell_rate is 0 → leave blank / auto).
           fare: t.sell_rate != null && Number(t.sell_rate) > 0 ? String(Number(t.sell_rate)) : "",
+          is_extra: !!t.is_extra,
         }))
       : [blankTrip()]
   );
@@ -245,7 +259,9 @@ export default function TransportBookingForm({
     // Family-split: each leg is charged once per vehicle (unitsFor). Package price
     // is charged once per vehicle across the whole booking (vehicleUnits).
     const base = type === "package"
-      ? (packageId && pkgVehicleId ? (pkgPriceMap.get(`${packageId}|${pkgVehicleId}`) ?? 0) * vehicleUnits() : 0)
+      ? (packageId && pkgVehicleId ? (pkgPriceMap.get(`${packageId}|${pkgVehicleId}`) ?? 0) * pkgUnits() : 0)
+        // Extra trips on a package are charged individually on top of the package.
+        + trips.filter((t) => t.is_extra).reduce((s, t) => s + overriddenRate(t) * unitsFor(t), 0)
       : trips.reduce((s, t) => s + overriddenRate(t) * unitsFor(t), 0);
     // Hajj Terminal / route extra charges apply per trip (and per split vehicle).
     const extras = trips.reduce((s, t) => s + (t.hajj_terminal ? hajjChargeFor(t) * unitsFor(t) : 0), 0);
@@ -268,7 +284,7 @@ export default function TransportBookingForm({
     const map = new Map<number, { normal: number; final: number; pct: number }>();
     if (type !== "package" || !pkgVehicleId) return map;
     const pkgPrice = packageId ? (pkgPriceMap.get(`${packageId}|${pkgVehicleId}`) ?? 0) : 0;
-    const normals = trips.map((t) => (t.route_id ? (rateMap.get(`${t.route_id}|${pkgVehicleId}`) ?? 0) : 0));
+    const normals = trips.map((t) => (t.is_extra ? 0 : (t.route_id ? (rateMap.get(`${t.route_id}|${pkgVehicleId}`) ?? 0) : 0)));
     const normalTotal = normals.reduce((s, n) => s + n, 0);
     const pct = normalTotal > 0 ? (normalTotal - pkgPrice) / normalTotal * 100 : 0;
     const factor = normalTotal > 0 ? pkgPrice / normalTotal : 0;
@@ -297,7 +313,7 @@ export default function TransportBookingForm({
 
     // Family vehicle-splitting: when the group exceeds the vehicle's capacity,
     // book multiple identical vehicles (each charged separately). Prompt once.
-    const units = vehicleUnits();
+    const units = type === "package" ? pkgUnits() : vehicleUnits();
     if (!isDraft && units > 1) {
       const vname = vehicleById.get(type === "package" ? pkgVehicleId : (trips[0]?.vehicle_id ?? ""))?.name ?? "vehicle";
       if (!confirm(`${totalPax} passengers won't fit one ${vname}. Book ${units}× ${vname} for this booking? Each vehicle is charged separately, and every trip is duplicated into ${units} vehicles (booking, vouchers & trips). Click Cancel to pick a larger vehicle instead.`)) return;
@@ -326,7 +342,10 @@ export default function TransportBookingForm({
           ...rest,
           id: u === 0 ? rest.id : "", // extra vehicles are always new trip rows
           seq,
-          sell_rate: type === "package" ? 0 : overriddenRate(t),
+          // Package legs price from the package (0 here → distributed server-side);
+          // extra trips and non-package trips carry their individual fare.
+          sell_rate: (type === "package" && !t.is_extra) ? 0 : overriddenRate(t),
+          is_extra: !!t.is_extra,
         });
       }
     });
@@ -428,8 +447,8 @@ export default function TransportBookingForm({
               const showHajj = isJeddahAirportPickup(t);
               return (
                 <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-12">
-                  <div className="sm:col-span-3"><label className="label">Route</label>
-                    {type === "package" ? (
+                  <div className="sm:col-span-3"><label className="label">Route{t.is_extra ? " (extra)" : ""}</label>
+                    {isPkgLeg(t) ? (
                       <input className="input bg-slate-50" value={t.route_label} readOnly />
                     ) : (
                       <select className="input" value={t.route_id} onChange={(e) => setTrip(i, { route_id: e.target.value })}>
@@ -437,7 +456,7 @@ export default function TransportBookingForm({
                       </select>
                     )}
                   </div>
-                  {type !== "package" && (
+                  {!isPkgLeg(t) && (
                     <div className="sm:col-span-2"><label className="label">Vehicle</label>
                       <select className="input" value={t.vehicle_id} onChange={(e) => setTrip(i, { vehicle_id: e.target.value })}>
                         <option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -461,7 +480,7 @@ export default function TransportBookingForm({
                       single/multiple bookings staff can edit the fare directly. */}
                   {!isAgent && (
                     <div className="sm:col-span-2"><label className="label">Trip fare (SAR)</label>
-                      {type === "package" ? (
+                      {isPkgLeg(t) ? (
                         <>
                           <input className="input bg-slate-50" readOnly
                             value={((pkgDist.get(i)?.final ?? 0) + (t.hajj_terminal ? hajjChargeFor(t) : 0)).toFixed(2)} />
@@ -493,9 +512,9 @@ export default function TransportBookingForm({
                     </label>
                   )}
                   {done && <p className="sm:col-span-12 text-xs text-slate-400">This trip is completed — its date and time are locked.</p>}
-                  {type === "multiple" && !done && (
+                  {(type === "multiple" || t.is_extra) && !done && (
                     <div className="flex items-end sm:col-span-2">
-                      <button type="button" onClick={() => setTrips((ts) => ts.filter((_, idx) => idx !== i))} className="text-sm text-red-600 hover:underline">Remove</button>
+                      <button type="button" onClick={() => setTrips((ts) => ts.filter((_, idx) => idx !== i))} className="text-sm text-red-600 hover:underline">Remove{t.is_extra ? " extra" : ""}</button>
                     </div>
                   )}
                 </div>
@@ -503,6 +522,11 @@ export default function TransportBookingForm({
             })}
             {type === "multiple" && (
               <button type="button" onClick={() => setTrips((ts) => [...ts, blankTrip()])} className="btn-outline text-sm">+ Add trip</button>
+            )}
+            {!isAgent && type === "package" && packageId && pkgVehicleId && (
+              <button type="button" onClick={() => setTrips((ts) => [...ts, { ...blankTrip(), is_extra: true }])} className="btn-outline text-sm">
+                + Add extra trip (e.g. Jeddah tour — charged separately)
+              </button>
             )}
           </div>
         )}

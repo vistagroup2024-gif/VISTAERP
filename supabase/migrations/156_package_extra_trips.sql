@@ -1,0 +1,5 @@
+-- 156 Item 5: transport_trips.is_extra flag. Extra trips added onto a package are
+-- priced individually (route master) and EXCLUDED from package-price distribution.
+-- distribute_package_fares + transport_sync_trips updated to honour is_extra.
+-- transport_save_booking (156b) adds extra-trip rates to the package total and only
+-- distributes the package price across the package legs. (Applied via Supabase MCP.)
