@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fmtTime12 } from "@/lib/format";
 
 interface TripInfo { trip_id: string; route: string; started?: string; free_at?: string; drop?: string; date?: string; time?: string; start?: string; pickup?: string; status?: string }
 interface Row {
@@ -19,11 +20,7 @@ const STATUS: Record<string, { label: string; dot: string; chip: string }> = {
   off: { label: "Off Duty", dot: "bg-slate-400", chip: "bg-slate-200 text-slate-600" },
 };
 
-function fmtTime(iso?: string) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return isNaN(+d) ? "—" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
+function fmtTime(iso?: string) { return fmtTime12(iso) || "—"; }
 
 export default function DriverDashboard({ rows, locations }: { rows: Row[]; locations: string[] }) {
   const router = useRouter();

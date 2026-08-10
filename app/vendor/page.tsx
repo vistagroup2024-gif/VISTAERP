@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import { fmtTime12 } from "@/lib/format";
 
 interface Trip {
   id: string; route_name: string | null; route_label: string | null; trip_date: string | null; trip_time: string | null;
@@ -37,7 +38,7 @@ export default function VendorPortal() {
   async function logout() { await fetch("/api/vendor/logout", { method: "POST" }); window.location.href = "/login"; }
 
   const route = (t: Trip) => t.route_name ?? t.route_label ?? "—";
-  const when = (t: Trip) => `${t.trip_date ?? "—"} ${t.trip_time?.slice(0, 5) ?? ""}`;
+  const when = (t: Trip) => `${t.trip_date ?? "—"} ${fmtTime12(t.trip_time)}`;
 
   const Card = ({ t, action }: { t: Trip; action?: React.ReactNode }) => (
     <div className="card">

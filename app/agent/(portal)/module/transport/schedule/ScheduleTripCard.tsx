@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { dateStr } from "@/lib/format";
+import { dateStr, fmtTime12 } from "@/lib/format";
 
 export interface Trip {
   trip_id: string; booking_id: string; booking_no: string | null; passenger_name: string | null;
@@ -37,7 +37,7 @@ function CopyBtn({ label, text }: { label: string; text: string }) {
 
 export default function ScheduleTripCard({ t }: { t: Trip }) {
   const st = agentStatus(t);
-  const when = `${dateStr(t.trip_date)}${t.trip_time ? ` · ${t.trip_time}` : ""}`;
+  const when = `${dateStr(t.trip_date)}${t.trip_time ? ` · ${fmtTime12(t.trip_time)}` : ""}`;
   // Same format as the admin "Copy Driver Details" (WhatsApp-style).
   const driverText = [
     `Haji Name : ${t.passenger_name ?? "—"}`,

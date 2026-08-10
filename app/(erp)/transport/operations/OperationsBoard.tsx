@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
+import { fmtTime12 } from "@/lib/format";
 
 interface Trip {
   id: string; booking_id: string; booking_no: string | null; passenger_name: string | null; mobile: string | null;
@@ -404,7 +405,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     const trip = [
       `*Trip Details*`,
       `Date : ${prettyDate(t.trip_date)}`,
-      `Time : ${t.trip_time?.slice(0, 5) ?? "—"}`,
+      `Time : ${fmtTime12(t.trip_time) || "—"}`,
       `Route : ${t.route_display}`,
       t.flight_no ? `Flight : ${t.flight_no}` : null,
       `Vehicle : ${t.requested_vehicle_name ?? t.vehicle_name ?? "—"}`,
@@ -496,7 +497,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
               <li key={r.id} className="flex flex-wrap items-center gap-2 rounded bg-white/70 px-2 py-1 text-sm">
                 <span className="font-medium text-slate-700">{r.driver_name}</span>
                 <span className="text-slate-500">{r.from_city ?? "?"} → {r.to_city ?? "?"} · {r.distance_km != null ? `${Math.round(Number(r.distance_km))}km` : "?"}</span>
-                <span className="text-slate-400">for {r.route}{r.trip_time ? ` @ ${r.trip_time.slice(0, 5)}` : ""}</span>
+                <span className="text-slate-400">for {r.route}{r.trip_time ? ` @ ${fmtTime12(r.trip_time)}` : ""}</span>
                 <span className="ml-auto flex gap-2">
                   <button disabled={busy} onClick={() => call("transport_approve_reposition", { p_id: r.id })} className="rounded bg-green-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-green-700">Approve</button>
                   <button disabled={busy} onClick={() => call("transport_reject_reposition", { p_id: r.id })} className="rounded border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Reject</button>
@@ -573,7 +574,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                 const delayed = isDelayed(t);
                 return (
                   <tr key={t.id} className={`border-t border-slate-100 align-top hover:bg-slate-50 ${delayed ? "bg-rose-50/40" : ""}`}>
-                    <td className="px-3 py-2 font-semibold text-slate-700">{t.trip_time?.slice(0, 5) ?? "—"}</td>
+                    <td className="px-3 py-2 font-semibold text-slate-700">{fmtTime12(t.trip_time) || "—"}</td>
                     <td className="px-3 py-2">
                       <div className="font-medium text-slate-700">{t.passenger_name ?? <span className="text-slate-400">—</span>}</div>
                       {t.pax != null && <div className="text-[11px] text-slate-400">{t.pax} pax</div>}
@@ -672,7 +673,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
           ["WhatsApp", t.whatsapp ?? "—"],
           ["No. of Passengers", t.pax ?? "—"],
           ["Date", t.trip_date ?? "—"],
-          ["Time", t.trip_time?.slice(0, 5) ?? "—"],
+          ["Time", fmtTime12(t.trip_time) || "—"],
           ["Route", t.route_display],
           ...(t.flight_no ? [["Flight", t.flight_no] as [string, any]] : []),
           ["Vehicle (booked)", t.requested_vehicle_name ?? t.vehicle_name ?? "—"],
