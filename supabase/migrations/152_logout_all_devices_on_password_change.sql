@@ -1,0 +1,9 @@
+-- 152 Log out all devices on password change (applied via Supabase MCP).
+-- Every password set/reset now revokes that account's active sessions:
+--   reset_staff_password    -> delete auth.sessions (staff; blocks refresh on all devices)
+--   set_b2b_password        -> delete owner b2b_sessions (admin agency reset)
+--   b2b_change_password     -> delete owner b2b_sessions except the current token (self)
+--   b2b_set_user_password   -> delete that sub-user's b2b_sessions
+--   transport_set_portal_password -> delete driver/vendor portal sessions
+-- Custom portals (agent/driver/vendor) log out immediately (each request re-checks the
+-- session row); staff devices lose refresh immediately and expire at the JWT lifetime.
