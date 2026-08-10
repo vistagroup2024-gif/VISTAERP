@@ -24,7 +24,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
     sb.from("transport_drivers").select("id, name, mobile, license_no, vehicle_id, status").order("name"),
     sb.from("transport_vehicles").select("id, name, category, vehicle_type, upgrade_rank, is_active").order("name"),
     sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile, vehicle_ids").eq("is_active", true).order("name"),
-    sb.from("transport_route_rates").select("route_id, vehicle_id, extra_charge_amount").eq("extra_charge_enabled", true),
+    sb.from("transport_route_rates").select("route_id, vehicle_id, extra_charge_amount, created_at").eq("extra_charge_enabled", true).order("created_at", { ascending: false }),
   ]);
 
   const bookingIds = Array.from(new Set((trips ?? []).map((t: any) => t.booking_id)));
@@ -40,7 +40,12 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
     ? await sb.from("parties").select("id, name").in("id", agentIds)
     : { data: [] as any[] };
   const exactExtra = new Map((extraRates ?? []).filter((e: any) => e.vehicle_id).map((e: any) => [`${e.route_id}|${e.vehicle_id}`, Number(e.extra_charge_amount)]));
-  const routeExtra = new Map((extraRates ?? []).filter((e: any) => !e.vehicle_id).map((e: any) => [e.route_id, Number(e.extra_charge_amount)]));
+  // Route-level fallback matching the DB transport_route_extra(): when the exact
+  // route+vehicle has no extra row, use the most recent enabled extra on that route
+  // (ANY vehicle) — the Hajj-terminal surcharge is stored per route+vehicle, so a
+  // package's vehicle often has no row of its own. Rows are ordered newest-first.
+  const routeExtra = new Map<string, number>();
+  (extraRates ?? []).forEach((e: any) => { if (!routeExtra.has(e.route_id)) routeExtra.set(e.route_id, Number(e.extra_charge_amount)); });
 
   const bMap = new Map((bookings ?? []).map((b: any) => [b.id, b]));
   const dMap = new Map((drivers ?? []).map((d: any) => [d.id, d]));
