@@ -1,0 +1,5 @@
+-- 151 Agent-portal hotel RPCs (applied via Supabase MCP): hotel_agent_status,
+-- b2b_hotel_my_bookings, b2b_hotel_get, b2b_hotel_create. All scoped to the session
+-- agent (agent_id = coalesce(agent_party_id, id)), permission-checked (hotel.view_own
+-- / hotel.create), and expose ONLY client-safe fields — never supplier, cost, or
+-- profit. b2b_hotel_create notifies staff. Granted to anon, authenticated.
