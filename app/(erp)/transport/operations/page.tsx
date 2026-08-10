@@ -3,6 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import OperationsBoard from "./OperationsBoard";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import { getStaffAccess, staffCan } from "@/lib/staffSession";
+import { distributeWhole } from "@/lib/transportFare";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,32 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
   const venMap = new Map((vendors ?? []).map((v: any) => [v.id, v.name]));
   const aMap = new Map((agents ?? []).map((a: any) => [a.id, a.name]));
 
+  // Distribute each booking's discount across its trips as WHOLE SAR that sum to the
+  // booking net — instead of scaling every trip by the ratio (which yields fractions
+  // like 428.57). Largest-remainder rounding: floor each proportional share, then hand
+  // the leftover riyals to the trips with the biggest fractions. Extras (Hajj terminal)
+  // are added on top per trip and never discounted.
+  const baseFareByTrip = new Map<string, number>();
+  {
+    const groups = new Map<string, any[]>();
+    for (const t of (trips ?? []) as any[]) {
+      if (!groups.has(t.booking_id)) groups.set(t.booking_id, []);
+      groups.get(t.booking_id)!.push(t);
+    }
+    Array.from(groups.entries()).forEach(([bid, ts2]) => {
+      const b = bMap.get(bid);
+      const bases: number[] = ts2.map((t: any) => Number(odMap.get(t.id)?.sell_rate) || 0);
+      const gross = bases.reduce((a, n) => a + n, 0);
+      // Target = the booking's discounted subtotal (net + customer surcharge), excl.
+      // route extras. Falls back to gross when the booking totals aren't available.
+      const target = b && Number(b.sell_amount) > 0
+        ? Number(b.net_amount) + Number(b.surcharge_amount ?? 0)
+        : gross;
+      const wholes = distributeWhole(bases, target);
+      ts2.forEach((t: any, i: number) => baseFareByTrip.set(t.id, wholes[i]));
+    });
+  }
+
   const enriched = (trips ?? []).map((t: any) => {
     const b = bMap.get(t.booking_id);
     const veh = t.vehicle_id ? vMap.get(t.vehicle_id) : null;
@@ -76,16 +103,11 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       outsource_driver_mobile: odMap.get(t.id)?.outsource_driver_mobile ?? null,
       sell_rate: (() => {
         const raw = odMap.get(t.id)?.sell_rate;
-        // Apply the booking's (discount − surcharge) ratio so per-trip fares add up to
-        // the booking total across voucher / operations / ledger; the route extra is
-        // added on top (never discounted or surcharged).
-        const ratio = b && Number(b.sell_amount) > 0 ? (Number(b.net_amount) + Number(b.surcharge_amount ?? 0)) / Number(b.sell_amount) : 1;
-        const base = Number(raw ?? 0) * ratio;
         const veh = t.vehicle_id ?? t.requested_vehicle_id;
         const extra = t.hajj_terminal ? (exactExtra.get(`${t.route_id}|${veh}`) ?? routeExtra.get(t.route_id) ?? 0) : 0;
-        // Round the effective per-trip fare to whole SAR (no fractional riyals from
-        // the discount ratio) for operations / ledger display.
-        return raw == null && extra === 0 ? null : Math.round(base + extra);
+        // Whole-SAR discounted fare (distributed above so a booking's trips sum to its
+        // net), plus the route extra on top.
+        return raw == null && extra === 0 ? null : (baseFareByTrip.get(t.id) ?? 0) + Math.round(extra);
       })(),
       vendor_cost: odMap.get(t.id)?.vendor_cost ?? null,
       cash_received: odMap.get(t.id)?.cash_received ?? null,

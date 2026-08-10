@@ -3,6 +3,7 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import { getStaffAccess, staffCan, getSessionUser } from "@/lib/staffSession";
+import { distributeWhole } from "@/lib/transportFare";
 import LedgerRange from "./LedgerRange";
 import LedgerTable from "./LedgerTable";
 
@@ -26,6 +27,28 @@ export default async function TransportLedgerPage({ searchParams }: { searchPara
 
   const { data, error } = await sb.rpc("transport_trip_ledger", { p_from: from, p_to: to });
   const all: any[] = (data as any[]) ?? [];
+
+  // Re-round each booking's trip fares to WHOLE SAR that sum to the booking total,
+  // instead of the fractional per-trip split the discount ratio produces (e.g.
+  // 428.57 → 429 / 428). Group the ledger rows by their booking, then distribute
+  // each group's rounded total across its trips (largest-remainder).
+  const ledgerTripIds = all.map((r) => r.trip_id).filter(Boolean);
+  if (ledgerTripIds.length) {
+    const { data: tb } = await sb.from("transport_trips").select("id, booking_id").in("id", ledgerTripIds);
+    const bookingOf = new Map((tb ?? []).map((r: any) => [r.id, r.booking_id]));
+    const groups = new Map<string, any[]>();
+    for (const r of all) {
+      const key = bookingOf.get(r.trip_id) ?? `t:${r.trip_id}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(r);
+    }
+    Array.from(groups.values()).forEach((rows2) => {
+      const bases: number[] = rows2.map((r) => Number(r.trip_fare) || 0);
+      const target = bases.reduce((a, n) => a + n, 0);
+      const wholes = distributeWhole(bases, target);
+      rows2.forEach((r, i) => { if (r.trip_fare != null) r.trip_fare = wholes[i]; });
+    });
+  }
   const pendingCount = all.filter((r) => !r.invoice_created).length;
   const rows = pendingOnly ? all.filter((r) => !r.invoice_created) : all;
 
