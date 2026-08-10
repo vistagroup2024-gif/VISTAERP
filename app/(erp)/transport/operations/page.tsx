@@ -63,12 +63,14 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
     Array.from(groups.entries()).forEach(([bid, ts2]) => {
       const b = bMap.get(bid);
       const bases: number[] = ts2.map((t: any) => Number(odMap.get(t.id)?.sell_rate) || 0);
-      const gross = bases.reduce((a, n) => a + n, 0);
-      // Target = the booking's discounted subtotal (net + customer surcharge), excl.
-      // route extras. Falls back to gross when the booking totals aren't available.
-      const target = b && Number(b.sell_amount) > 0
-        ? Number(b.net_amount) + Number(b.surcharge_amount ?? 0)
-        : gross;
+      // Apply the booking's discount RATIO to the trips visible today, then round to
+      // whole SAR that sum to the discounted total of THESE trips. Using the ratio
+      // (not the booking net) keeps each leg's own fare — critical for packages whose
+      // legs span several days, so a lone visible leg isn't handed the whole booking.
+      const ratio = b && Number(b.sell_amount) > 0
+        ? (Number(b.net_amount) + Number(b.surcharge_amount ?? 0)) / Number(b.sell_amount)
+        : 1;
+      const target = ratio * bases.reduce((a, n) => a + n, 0);
       const wholes = distributeWhole(bases, target);
       ts2.forEach((t: any, i: number) => baseFareByTrip.set(t.id, wholes[i]));
     });
