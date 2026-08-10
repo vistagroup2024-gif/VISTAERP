@@ -28,8 +28,9 @@ interface Trip {
   is_extra?: boolean;
   // Item 6: a mix of different vehicles for one trip when a single vehicle can't
   // seat everyone (e.g. 1 Staria + 1 Camry for 8 pax). Each entry expands into that
-  // many trip rows, priced per vehicle. Empty/undefined = single-vehicle behaviour.
-  mix?: { vehicle_id: string; qty: number }[];
+  // many trip rows, priced per vehicle. `fare` is a staff override of that car's
+  // per-vehicle sell rate (empty/undefined = auto route+vehicle rate).
+  mix?: { vehicle_id: string; qty: number; fare?: number }[];
 }
 
 const VISA_TYPES: [string, string][] = [["umrah", "Umrah Visa"], ["visit", "Visit Visa"], ["other", "Other"]];
@@ -65,7 +66,12 @@ function buildInitialTrips(rows: any[]): Trip[] {
   for (const g of Array.from(groups.values())) {
     const first = g[0];
     const counts = new Map<string, number>();
-    for (const r of g) { const v = r.requested_vehicle_id ?? r.vehicle_id ?? ""; counts.set(v, (counts.get(v) ?? 0) + 1); }
+    const fares = new Map<string, number>();
+    for (const r of g) {
+      const v = r.requested_vehicle_id ?? r.vehicle_id ?? "";
+      counts.set(v, (counts.get(v) ?? 0) + 1);
+      if (!fares.has(v) && r.sell_rate != null && Number(r.sell_rate) > 0) fares.set(v, Number(r.sell_rate));
+    }
     const distinct = Array.from(counts.keys()).filter(Boolean);
     const leg: Trip = {
       id: first.id ?? "", route_id: first.route_id ?? "", route_label: first.route_label ?? "",
@@ -77,7 +83,7 @@ function buildInitialTrips(rows: any[]): Trip[] {
       fare: distinct.length <= 1 && first.sell_rate != null && Number(first.sell_rate) > 0 ? String(Number(first.sell_rate)) : "",
       is_extra: !!first.is_extra,
     };
-    if (distinct.length > 1) { leg.mix = distinct.map((v) => ({ vehicle_id: v, qty: counts.get(v) ?? 1 })); leg.vehicle_id = distinct[0]; }
+    if (distinct.length > 1) { leg.mix = distinct.map((v) => ({ vehicle_id: v, qty: counts.get(v) ?? 1, fare: fares.get(v) })); leg.vehicle_id = distinct[0]; }
     out.push(leg);
   }
   return out;
@@ -252,9 +258,13 @@ export default function TransportBookingForm({
     : [{ vehicle_id: t.vehicle_id, qty: Math.max(1, Math.ceil(totalPax / (vehCap(t.vehicle_id) || 1))) }]);
   const mixSeats = (mix: { vehicle_id: string; qty: number }[]) => mix.reduce((s, m) => s + vehCap(m.vehicle_id) * (Number(m.qty) || 0), 0);
   const mixActive = (t: Trip) => needsMix(t) && !!(t.mix && t.mix.length);
+  // The per-vehicle sell rate for one row of a mix: the staff override when set,
+  // else the auto route+vehicle rate.
+  const mixRowFare = (routeId: string, m: { vehicle_id: string; fare?: number }) =>
+    m.fare != null ? Math.max(0, Number(m.fare) || 0) : rateFor(routeId, m.vehicle_id);
   // Per-trip base fare & vehicle count, honouring an active mix.
   const tripBase = (t: Trip) => mixActive(t)
-    ? tripMix(t).reduce((s, m) => s + rateFor(t.route_id, m.vehicle_id) * (Number(m.qty) || 0), 0)
+    ? tripMix(t).reduce((s, m) => s + mixRowFare(t.route_id, m) * (Number(m.qty) || 0), 0)
     : overriddenRate(t) * unitsFor(t);
 
   function setTrip(i: number, patch: Partial<Trip>) {
@@ -391,7 +401,7 @@ export default function TransportBookingForm({
           for (let u = 0; u < (Number(m.qty) || 0); u++) {
             seq += 1;
             tripPayload.push({ ...rest, id: "", seq, vehicle_id: m.vehicle_id,
-              sell_rate: rateFor(t.route_id, m.vehicle_id), is_extra: !!t.is_extra, skip_capacity: true });
+              sell_rate: mixRowFare(t.route_id, m), is_extra: !!t.is_extra, skip_capacity: true });
           }
         });
       } else {
@@ -542,6 +552,16 @@ export default function TransportBookingForm({
                             <input type="number" min={1} className="input max-w-[4.5rem]" value={m.qty}
                               onChange={(e) => upd((x) => x.map((r, ri) => ri === mi ? { ...r, qty: Math.max(1, Number(e.target.value) || 1) } : r))} />
                             <span className="text-xs text-slate-500">= {vehCap(m.vehicle_id) * (Number(m.qty) || 0)} seats</span>
+                            {!isAgent && (
+                              <span className="flex items-center gap-1">
+                                <span className="text-xs text-slate-500">fare</span>
+                                <input type="number" min="0" step="0.01" className="input max-w-[6rem]"
+                                  placeholder={rateFor(t.route_id, m.vehicle_id) ? rateFor(t.route_id, m.vehicle_id).toFixed(2) : "0.00"}
+                                  value={m.fare != null ? String(m.fare) : ""}
+                                  onChange={(e) => upd((x) => x.map((r, ri) => ri === mi ? { ...r, fare: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value) || 0) } : r))} />
+                                <span className="text-[11px] text-slate-400">/car</span>
+                              </span>
+                            )}
                             {mix.length > 1 && (
                               <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => upd((x) => x.filter((_, ri) => ri !== mi))}>remove</button>
                             )}
