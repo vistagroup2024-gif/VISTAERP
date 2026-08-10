@@ -21,7 +21,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       .select("id, booking_id, seq, route_id, route_label, route_name, vehicle_id, requested_vehicle_id, is_upgraded, is_outsourced, driver_id, vendor_id, trip_date, trip_time, pickup_location, drop_location, flight_no, status, sched_s, sched_e, drive_min, hajj_terminal, passenger_visa_type")
       .eq("trip_date", date).order("trip_time"),
     sb.from("transport_drivers").select("id, name, mobile, license_no, vehicle_id, status").order("name"),
-    sb.from("transport_vehicles").select("id, name, category, vehicle_type, seating_capacity, is_active").order("name"),
+    sb.from("transport_vehicles").select("id, name, category, vehicle_type, upgrade_rank, is_active").order("name"),
     sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile, vehicle_ids").eq("is_active", true).order("name"),
     sb.from("transport_route_rates").select("route_id, vehicle_id, extra_charge_amount").eq("extra_charge_enabled", true),
   ]);

@@ -21,7 +21,7 @@ interface Trip {
   tafweej_created?: boolean; needs_tafweej?: boolean;
 }
 interface Driver { id: string; name: string; vehicle_id: string | null; status: string }
-interface Vehicle { id: string; name: string; category: string | null; seating_capacity?: number | null; is_active: boolean }
+interface Vehicle { id: string; name: string; category: string | null; upgrade_rank?: number | null; is_active: boolean }
 interface Vendor { id: string; name: string; vendor_type?: string; contact_person?: string | null; mobile?: string | null; vehicle_ids?: string[] | null }
 interface Agent { id: string; agency_name: string }
 
@@ -632,14 +632,15 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                               <option value="">Choose vendor…</option>
                               {(() => {
                                 const veh = t.vehicle_id ?? t.requested_vehicle_id;
-                                const capOf = (id?: string | null) => (id ? vehicles.find((x) => x.id === id)?.seating_capacity ?? 0 : 0);
-                                const need = capOf(veh);
-                                // A vendor can cover this trip if they operate a vehicle at least as
-                                // large as the booked one — a bigger vehicle is a fine upgrade, a
-                                // smaller one can't seat the group. Vendors with no vehicles set, or
-                                // trips with no vehicle, are unconstrained. Exact-vehicle vendors first.
+                                const rankOf = (id?: string | null) => (id ? vehicles.find((x) => x.id === id)?.upgrade_rank ?? 0 : 0);
+                                const need = rankOf(veh);
+                                // A vendor can cover this trip if they operate a vehicle whose upgrade
+                                // rank is at least the booked one's — a higher-rank vehicle is a valid
+                                // upgrade, a lower-rank one is a downgrade. Mirrors the auto-assign
+                                // ladder (Camry=1, Starex=2, Staria=3…). Vendors with no vehicles set,
+                                // or trips with no vehicle, are unconstrained. Exact-vehicle vendors first.
                                 const canCover = (v: Vendor) => !v.vehicle_ids || v.vehicle_ids.length === 0 || !need
-                                  || v.vehicle_ids.some((id) => capOf(id) >= need);
+                                  || v.vehicle_ids.some((id) => rankOf(id) >= need);
                                 const exact = (v: Vendor) => !!veh && !!v.vehicle_ids && v.vehicle_ids.includes(veh);
                                 return vendors.filter(canCover).sort((a, b) => Number(exact(b)) - Number(exact(a)))
                                   .map((v) => <option key={v.id} value={v.id}>{v.name}{v.vendor_type === "vendor_driver" ? " (driver)" : ""}</option>);
