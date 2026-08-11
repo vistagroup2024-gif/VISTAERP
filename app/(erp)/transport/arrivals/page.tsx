@@ -16,11 +16,12 @@ export default async function TransportArrivalsPage({ searchParams }: { searchPa
     return <div className="card m-6 text-slate-500">You don’t have permission to view Arrival Services.</div>;
   }
   const sb = createClient();
-  const days = Math.max(1, Math.min(365, Number(searchParams.days) || 30));
+  // Default view is today & tomorrow (p_days = 1 → current_date .. current_date+1).
+  const days = Math.max(1, Math.min(365, Number(searchParams.days) || 1));
   const { data, error } = await sb.rpc("arrival_compliance", { p_days: days });
   const rows: any[] = (data as any[]) ?? [];
 
-  const ranges: [number, string][] = [[7, "7 days"], [30, "30 days"], [60, "60 days"], [90, "90 days"]];
+  const ranges: [number, string][] = [[1, "Today & Tomorrow"], [7, "7 days"], [30, "30 days"], [60, "60 days"]];
 
   return (
     <div className="max-w-[1200px]">

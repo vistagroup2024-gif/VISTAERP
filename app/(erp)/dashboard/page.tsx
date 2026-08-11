@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { money, dateStr } from "@/lib/format";
+import { money } from "@/lib/format";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import { getStaffAccess, staffCan, staffLanding, getSessionUser } from "@/lib/staffSession";
 
@@ -58,10 +58,6 @@ export default async function Dashboard() {
     { label: "Invoices", value: invoices, href: "/invoices" },
   ];
 
-  // Arrival-service compliance: groups arriving soon with neither Transport nor Tafweej.
-  const { data: arrPending } = await supabase.rpc("arrival_compliance", { p_days: 30 });
-  const arrivalsPending: any[] = (arrPending as any[]) ?? [];
-
   return (
     <div className="space-y-6">
       <RealtimeRefresh tables={["umrah_groups", "brn_inventory", "brn_consumption", "group_brn_allocation"]} />
@@ -81,34 +77,6 @@ export default async function Dashboard() {
             <p className="mt-1 text-3xl font-bold text-brand-dark">{c.value}</p>
           </Link>
         ))}
-      </div>
-
-      <div className="card border-l-4 border-red-400">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-800">⚠ Arrival Services Pending <span className="text-red-600">({arrivalsPending.length})</span></h2>
-          <span className="text-xs text-slate-400">Next 30 days · no Transport &amp; no Tafweej</span>
-        </div>
-        {arrivalsPending.length === 0 ? (
-          <p className="text-sm text-green-700">✓ Every upcoming arrival has a Transport booking or Tafweej.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-500">
-              <th className="th">Group</th><th className="th">Agency</th><th className="th">Arrival</th><th className="th">Pax</th><th className="th">Choice</th><th className="th"></th>
-            </tr></thead>
-            <tbody>
-              {arrivalsPending.map((g) => (
-                <tr key={g.id} className="border-b border-slate-50">
-                  <td className="td font-medium"><Link href={`/groups/${g.id}`} className="text-brand hover:underline">{g.group_no ?? "—"}</Link></td>
-                  <td className="td">{g.agency ?? "—"}</td>
-                  <td className="td">{dateStr(g.arrival_date)}{typeof g.days_to_arrival === "number" ? ` (${g.days_to_arrival}d)` : ""}</td>
-                  <td className="td">{g.pax ?? "—"}</td>
-                  <td className="td">{g.arrival_service ? <span className="capitalize text-slate-600">{g.arrival_service} (pending)</span> : <span className="text-slate-400">not chosen</span>}</td>
-                  <td className="td text-right"><Link href={`/transport/bookings/new?nusuk=${encodeURIComponent(g.group_no ?? "")}&pax=${g.pax ?? ""}`} className="text-xs font-medium text-brand hover:underline">Create Transport →</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </div>
 
       <div className="card">
