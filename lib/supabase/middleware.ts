@@ -6,6 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const ROUTE_PERMS: [string, string[]][] = [
   ["/dashboard", ["dashboard.view"]],
   ["/groups", ["visa.view"]],
+  ["/visa/invoices", ["visa.invoices"]],
   ["/inventory", ["brn.view", "brn.planning", "visa.view"]],
   ["/bookings", ["sales.view"]],
   ["/sales", ["sales.view"]],
@@ -27,6 +28,7 @@ const ROUTE_PERMS: [string, string[]][] = [
 const LANDING: [string, string][] = [
   ["dashboard.view", "/dashboard"],
   ["visa.view", "/groups"],
+  ["visa.invoices", "/visa/invoices"],
   ["brn.view", "/inventory"],
   ["transport.bookings", "/transport"], ["transport.operations", "/transport"],
   ["transport.masters", "/transport"], ["transport.vehicles", "/transport"], ["transport.reports", "/transport"], ["transport.trip_ledger", "/transport/reports/ledger"],

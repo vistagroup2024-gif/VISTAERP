@@ -12,7 +12,7 @@ function monthStart() { const d = new Date(); return new Date(d.getFullYear(), d
 
 export default async function VisaInvoicesPage({ searchParams }: { searchParams: { from?: string; to?: string; pending?: string } }) {
   const access = await getStaffAccess();
-  if (!staffCan(access, "visa.view")) {
+  if (!staffCan(access, "visa.invoices")) {
     return <div className="card m-6 text-slate-500">You don’t have permission to view Visa Invoices.</div>;
   }
   const sb = createClient();

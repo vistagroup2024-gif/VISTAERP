@@ -19,9 +19,9 @@ const DASHBOARD: Item = { href: "/dashboard", label: "Dashboard", icon: "▣" };
 
 // Hierarchical navigation. Each module is a collapsible parent menu.
 const GROUPS: Group[] = [
-  { label: "Visa", icon: "🕋", perm: ["visa.view", "visa.package_update"], items: [
+  { label: "Visa", icon: "🕋", perm: ["visa.view", "visa.package_update", "visa.invoices"], items: [
     { href: "/groups", label: "Visa Groups", perm: ["visa.view"] },
-    { href: "/visa/invoices", label: "Visa Invoices", perm: ["visa.view"] },
+    { href: "/visa/invoices", label: "Visa Invoices", perm: ["visa.invoices"] },
     { href: "/groups/package-updates", label: "Package Updates", perm: ["visa.package_update"] },
   ] },
   { label: "BRN Inventory", icon: "📦", perm: ["brn.view", "brn.planning"], items: [

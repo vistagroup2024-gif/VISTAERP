@@ -20,6 +20,7 @@ export const STAFF_PERMISSION_CATALOG: StaffPermGroup[] = [
     { key: "visa.erp_create", label: "ERP Creation" },
     { key: "visa.package_update", label: "Package Updates" },
     { key: "visa.mark_issued", label: "Mark Visa Issued" },
+    { key: "visa.invoices", label: "Visa Invoices (accounting ledger)" },
   ] },
   { module: "BRN Inventory", perms: [
     { key: "brn.view", label: "View Inventory" },
