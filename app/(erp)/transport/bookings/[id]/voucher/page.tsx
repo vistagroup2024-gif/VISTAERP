@@ -6,6 +6,7 @@ import PrintButton from "@/components/PrintButton";
 import DeleteVoucherButton from "./DeleteVoucherButton";
 import VoucherDocument from "@/components/VoucherDocument";
 import { VISTA } from "@/lib/voucherBrand";
+import { distributeWhole } from "@/lib/transportFare";
 
 export const dynamic = "force-dynamic";
 
@@ -59,15 +60,20 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
     ? { name: agent.agency_name, tagline: null as string | null, contact: agent.contact_person, mobile: agent.mobile, email: agent.email, address: agent.address, logo: agent.logo, note: agent.voucher_note }
     : { ...VISTA, tagline: VISTA.tagline as string | null, note: null as string | null };
 
-  // Per-trip fares show the ACTUAL fare (route+vehicle rate, plus any Hajj-terminal
-  // extra) — never scaled by the booking discount or surcharge. The discount and
-  // surcharge are shown once in the totals breakdown below (Total Amount − Discount
-  // + Additional = Total Invoice Amount), so the actual trip fares are never touched.
-  const docTrips = (trips ?? []).map((t: any) => ({
+  // Per-trip fare = the route+vehicle rate PLUS the customer surcharge (Additional
+  // Charges) distributed across the trips as whole SAR — so the surcharge is baked
+  // into the fares, not shown as its own line. The booking discount and the Hajj-
+  // terminal charge stay as separate lines in the totals below. The Hajj-terminal
+  // extra is NOT in the per-trip fare (it's the separate line).
+  const vBases: number[] = (trips ?? []).map((t: any) => Number(t.sell_rate) || 0);
+  const vGross = vBases.reduce((a, n) => a + n, 0);
+  const vSurcharge = Math.max(0, Number(b.surcharge_amount) || 0);
+  const vFares = distributeWhole(vBases, vGross + vSurcharge);
+  const docTrips = (trips ?? []).map((t: any, i: number) => ({
     seq: t.seq, route: t.route_name ?? t.route_label, trip_date: t.trip_date, trip_time: t.trip_time,
     pickup_location: t.pickup_location, drop_location: t.drop_location,
     vehicle: t.vehicle_id ? vName.get(t.vehicle_id) ?? null : null, hajj_terminal: t.hajj_terminal,
-    fare: (Number(t.sell_rate) || 0) + (Number(t.extra_charge) || 0),
+    fare: vFares[i],
   }));
 
   // Flight details show ONLY for the direction the booking actually has:
