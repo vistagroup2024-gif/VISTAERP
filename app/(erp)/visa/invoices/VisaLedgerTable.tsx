@@ -44,6 +44,7 @@ export default function VisaLedgerTable({ rows, isAdmin }: { rows: VisaLedgerRow
             <th className="th">Date</th><th className="th">Company</th><th className="th">Customer</th>
             <th className="th">Name</th><th className="th">Group No</th><th className="th">Visa Type</th>
             <th className="th text-right">Nights</th><th className="th text-right">Pax</th><th className="th">Invoice</th>
+            <th className="th no-print"></th>
           </tr></thead>
           <tbody>
             {filtered.map((r) => (
@@ -52,15 +53,16 @@ export default function VisaLedgerTable({ rows, isAdmin }: { rows: VisaLedgerRow
                 <td className="td">{r.company ?? "—"}</td>
                 <td className="td">{r.customer ?? "—"}</td>
                 <td className="td">{r.group_name ?? "—"}</td>
-                <td className="td font-medium"><Link href={`/groups/${r.group_id}`} className="text-brand hover:underline">{r.group_no ?? "—"}</Link></td>
+                <td className="td font-medium">{r.group_no ?? "—"}</td>
                 <td className="td">{VISA_TYPE_LABEL[r.visa_type ?? ""] ?? r.visa_type ?? "—"}</td>
                 <td className="td text-right tabular-nums">{r.total_nights ?? "—"}</td>
                 <td className="td text-right tabular-nums">{r.pax ?? "—"}</td>
                 <td className="td"><VisaInvoiceCheck groupId={r.group_id} done={r.invoice_created} isAdmin={isAdmin} /></td>
+                <td className="td no-print text-right"><Link href={`/groups/${r.group_id}`} className="btn-outline whitespace-nowrap text-xs">Open</Link></td>
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={9} className="td text-center text-slate-400">No visa groups in this range.</td></tr>
+              <tr><td colSpan={10} className="td text-center text-slate-400">No visa groups in this range.</td></tr>
             )}
           </tbody>
           {filtered.length > 0 && (
@@ -68,6 +70,7 @@ export default function VisaLedgerTable({ rows, isAdmin }: { rows: VisaLedgerRow
               <td className="td" colSpan={7}>Total ({filtered.length})</td>
               <td className="td text-right tabular-nums">{totPax}</td>
               <td className="td"></td>
+              <td className="td no-print"></td>
             </tr></tfoot>
           )}
         </table>
