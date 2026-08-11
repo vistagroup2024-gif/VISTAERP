@@ -21,6 +21,7 @@ const DASHBOARD: Item = { href: "/dashboard", label: "Dashboard", icon: "▣" };
 const GROUPS: Group[] = [
   { label: "Visa", icon: "🕋", perm: ["visa.view", "visa.package_update"], items: [
     { href: "/groups", label: "Visa Groups", perm: ["visa.view"] },
+    { href: "/visa/invoices", label: "Visa Invoices", perm: ["visa.view"] },
     { href: "/groups/package-updates", label: "Package Updates", perm: ["visa.package_update"] },
   ] },
   { label: "BRN Inventory", icon: "📦", perm: ["brn.view", "brn.planning"], items: [
