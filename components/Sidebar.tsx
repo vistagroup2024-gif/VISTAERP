@@ -55,6 +55,7 @@ const GROUPS: Group[] = [
   { label: "Transport", icon: "🚐", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.trip_ledger"], items: [
     { href: "/transport", label: "Overview", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.driver_assign"] },
     { href: "/transport/operations", label: "Operations", perm: ["transport.operations", "transport.driver_assign"] },
+    { href: "/transport/arrivals", label: "Arrival Service", perm: ["transport.operations", "transport.bookings"] },
     { href: "/transport/bookings", label: "Bookings", perm: ["transport.bookings"] },
     { href: "/transport/vehicles", label: "Vehicles", perm: ["transport.vehicles"] },
     { href: "/transport/routes", label: "Routes", perm: ["transport.masters"] },
