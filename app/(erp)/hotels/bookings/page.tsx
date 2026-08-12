@@ -11,7 +11,7 @@ export default async function HotelBookingsPage() {
   const supabase = createClient();
   const { data: bookings } = await supabase
     .from("hotel_bookings")
-    .select("id, booking_no, booking_date, guest_name, group_no, city, check_in, check_out, nights, rooms, status, hotel_name, parties:agent_id(name), hotels:hotel_id(name), hotel_purchase_bookings(hcn_status, bill_id)")
+    .select("id, booking_no, booking_date, guest_name, group_no, city, check_in, check_out, nights, rooms, status, hotel_name, parties:agent_id(name), hotels:hotel_id(name), hotel_purchase_bookings(hcn_status, bill_id, supplier:supplier_id(name))")
     .order("created_at", { ascending: false })
     .limit(1000);
 
@@ -20,10 +20,11 @@ export default async function HotelBookingsPage() {
     const hcn = purch.map((p) => p.hcn_status);
     const hcnStatus = hcn.includes("shared") ? "shared" : hcn.includes("received") ? "received" : "pending";
     const hasBill = purch.some((p) => p.bill_id);
+    const supplier = purch.map((p) => p.supplier?.name).find(Boolean) ?? null;
     return {
       id: b.id, booking_no: b.booking_no, booking_date: b.booking_date, guest_name: b.guest_name, group_no: b.group_no,
       agent: b.parties?.name ?? null, city: b.city, hotel: b.hotels?.name ?? b.hotel_name ?? null,
-      check_in: b.check_in, check_out: b.check_out, nights: b.nights, rooms: b.rooms,
+      check_in: b.check_in, check_out: b.check_out, nights: b.nights, rooms: b.rooms, supplier,
       status: b.status, hcn_status: hcnStatus, payment: hasBill ? "billed" : "none",
     };
   });

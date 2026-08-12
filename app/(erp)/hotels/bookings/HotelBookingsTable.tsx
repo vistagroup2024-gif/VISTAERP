@@ -9,8 +9,10 @@ import { HOTEL_STATUS_LABEL, HOTEL_STATUS_TONE, HCN_STATUS_LABEL } from "../lib"
 export interface HRow {
   id: string; booking_no: string; booking_date: string; guest_name: string; group_no: string | null;
   agent: string | null; city: string | null; hotel: string | null; check_in: string | null; check_out: string | null;
-  nights: number; rooms: number; status: string; hcn_status: string; payment: string;
+  nights: number; rooms: number; supplier: string | null; status: string; hcn_status: string; payment: string;
 }
+
+const PAYMENT_LABEL: Record<string, string> = { billed: "Billed", none: "Pending" };
 
 export default function HotelBookingsTable({ rows }: { rows: HRow[] }) {
   const [q, setQ] = useState("");
@@ -49,23 +51,23 @@ export default function HotelBookingsTable({ rows }: { rows: HRow[] }) {
         <table className="w-full min-w-[900px]">
           <thead className="bg-slate-50">
             <tr>
-              <th className="th">Booking</th><th className="th">Guest / Group</th><th className="th">Agent</th>
-              <th className="th">City / Hotel</th><th className="th">Check-in</th><th className="th">Check-out</th>
-              <th className="th">Nights</th><th className="th">Rooms</th><th className="th">HCN</th><th className="th">Status</th>
+              <th className="th">Guest Name</th><th className="th">Agent</th><th className="th">Hotel</th>
+              <th className="th">Check-in</th><th className="th">Check-out</th><th className="th">Nights</th>
+              <th className="th">Rooms</th><th className="th">Supplier</th><th className="th">Payment</th><th className="th">Status</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="td"><Link href={`/hotels/bookings/${r.id}`} className="font-medium text-brand hover:underline">{r.booking_no}</Link><div className="text-xs text-slate-400">{dateStr(r.booking_date)}</div></td>
-                <td className="td">{r.guest_name}{r.group_no ? <div className="text-xs text-slate-400">{r.group_no}</div> : null}</td>
+                <td className="td"><Link href={`/hotels/bookings/${r.id}`} className="font-medium text-brand hover:underline">{r.guest_name}</Link><div className="text-xs text-slate-400">{r.booking_no}{r.group_no ? ` · ${r.group_no}` : ""}</div></td>
                 <td className="td">{r.agent ?? "—"}</td>
-                <td className="td capitalize">{r.city ?? "—"}<div className="text-xs text-slate-400">{r.hotel ?? ""}</div></td>
+                <td className="td">{r.hotel ?? "—"}<div className="text-xs text-slate-400 capitalize">{r.city ?? ""}</div></td>
                 <td className="td">{dateStr(r.check_in)}</td>
                 <td className="td">{dateStr(r.check_out)}</td>
                 <td className="td">{r.nights || "—"}</td>
                 <td className="td">{r.rooms}</td>
-                <td className="td"><span className="badge bg-slate-100 text-slate-600">{HCN_STATUS_LABEL[r.hcn_status] ?? "—"}</span></td>
+                <td className="td">{r.supplier ?? "—"}</td>
+                <td className="td"><span className={`badge ${r.payment === "billed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{PAYMENT_LABEL[r.payment] ?? r.payment}</span></td>
                 <td className="td"><span className={`badge ${HOTEL_STATUS_TONE[r.status] ?? "bg-slate-100"}`}>{HOTEL_STATUS_LABEL[r.status] ?? r.status}</span></td>
               </tr>
             ))}
