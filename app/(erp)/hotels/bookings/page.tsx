@@ -12,7 +12,7 @@ export default async function HotelBookingsPage() {
   const supabase = createClient();
   const { data: bookings } = await supabase
     .from("hotel_bookings")
-    .select("id, booking_no, booking_date, guest_name, group_no, city, check_in, check_out, nights, rooms, status, hotel_name, parties:agent_id(name), hotels:hotel_id(name), hotel_purchase_bookings(hcn_status, bill_id, supplier:supplier_id(name))")
+    .select("id, booking_no, booking_date, guest_name, group_no, guests, city, check_in, check_out, nights, rooms, status, hotel_name, parties:agent_id(name), hotels:hotel_id(name), hotel_purchase_bookings(id, hcn_status, hcn, hotel_name, check_in, check_out, sort, bill_id, supplier:supplier_id(name), hotels:hotel_id(name))")
     .order("created_at", { ascending: false })
     .limit(1000);
 
@@ -22,11 +22,18 @@ export default async function HotelBookingsPage() {
     const hasBill = purch.some((p) => p.bill_id);
     const suppliers = Array.from(new Set(purch.map((p) => p.supplier?.name).filter(Boolean)));
     const supplier = suppliers.length > 1 ? `${suppliers[0]} +${suppliers.length - 1}` : (suppliers[0] ?? null);
+    const stays = purch
+      .slice()
+      .sort((a, c) => (a.sort ?? 0) - (c.sort ?? 0))
+      .map((p) => ({
+        id: p.id, hcn_status: p.hcn_status ?? "pending", hcn: p.hcn ?? null,
+        hotel: p.hotels?.name ?? p.hotel_name ?? null, check_in: p.check_in, check_out: p.check_out,
+      }));
     return {
       id: b.id, booking_no: b.booking_no, booking_date: b.booking_date, guest_name: b.guest_name, group_no: b.group_no,
-      agent: b.parties?.name ?? null, city: b.city, hotel: b.hotels?.name ?? b.hotel_name ?? null,
+      guests: b.guests, agent: b.parties?.name ?? null, city: b.city, hotel: b.hotels?.name ?? b.hotel_name ?? null,
       check_in: b.check_in, check_out: b.check_out, nights: b.nights, rooms: b.rooms, supplier,
-      status: b.status, hcn_status: hcnStage, payment: hasBill ? "billed" : "none",
+      status: b.status, hcn_status: hcnStage, payment: hasBill ? "billed" : "none", stays,
     };
   });
 
