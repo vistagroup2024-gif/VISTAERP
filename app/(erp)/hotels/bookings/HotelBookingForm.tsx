@@ -8,9 +8,29 @@ import { nightsBetween } from "../lib";
 interface Opt { id: string; name: string }
 interface HotelOpt { id: string; name: string; city: string | null }
 
+// Preset suggestions for the select-or-type (datalist) fields. Users can pick one
+// or type their own value.
+const SOURCES = ["Portal", "Phone", "Walk-in", "WhatsApp", "Email", "Agent"];
+const ROOM_TYPES = ["Single", "Double", "Triple", "Quad", "Quint", "Sharing"];
+const MEAL_PLANS = ["Room Only", "Bed & Breakfast", "Half Board", "Full Board"];
+const NATIONALITIES = ["Pakistan", "India", "Bangladesh", "Indonesia", "Malaysia", "Nigeria", "Egypt", "Turkey", "United Kingdom", "United States", "Saudi Arabia"];
+
+// A "select or type" input: free text with a dropdown of suggestions.
+function Combo({ label, value, onChange, options, listId, placeholder, className }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]; listId: string; placeholder?: string; className?: string;
+}) {
+  return (
+    <div className={className}>
+      <label className="label">{label}</label>
+      <input className="input" list={listId} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <datalist id={listId}>{options.map((o) => <option key={o} value={o} />)}</datalist>
+    </div>
+  );
+}
+
 export default function HotelBookingForm({
-  existing, hotels, agents,
-}: { existing: any | null; hotels: HotelOpt[]; agents: Opt[] }) {
+  existing, hotels, agents, salespeople = [],
+}: { existing: any | null; hotels: HotelOpt[]; agents: Opt[]; salespeople?: string[] }) {
   const router = useRouter();
   const supabase = createClient();
   const [saving, setSaving] = useState(false);
@@ -83,29 +103,19 @@ export default function HotelBookingForm({
               {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
-          <div><label className="label">Agent Reference No.</label><input className="input" value={f.agent_ref} onChange={(e) => set("agent_ref", e.target.value)} /></div>
-          <div><label className="label">Managed By / Salesperson</label><input className="input" value={f.managed_by} onChange={(e) => set("managed_by", e.target.value)} /></div>
-          <div><label className="label">Booking Source</label><input className="input" placeholder="Portal / Phone / Walk-in" value={f.source} onChange={(e) => set("source", e.target.value)} /></div>
+          <Combo label="Managed By / Salesperson" value={f.managed_by} onChange={(v) => set("managed_by", v)} options={salespeople} listId="dl-salespeople" placeholder="Select or type" />
+          <Combo label="Booking Source" value={f.source} onChange={(v) => set("source", v)} options={SOURCES} listId="dl-source" placeholder="Select or type" />
         </div>
       </section>
 
       <section className="card space-y-4">
-        <h2 className="font-semibold text-slate-700">Guest / Group Details</h2>
+        <h2 className="font-semibold text-slate-700">Guest Details</h2>
         <div className="grid gap-4 md:grid-cols-3">
-          <div><label className="label">Group Number</label><input className="input" value={f.group_no} onChange={(e) => set("group_no", e.target.value)} /></div>
           <div><label className="label">Passenger / Group Name *</label><input required className="input" value={f.guest_name} onChange={(e) => set("guest_name", e.target.value)} /></div>
-          <div><label className="label">Nationality</label><input className="input" value={f.nationality} onChange={(e) => set("nationality", e.target.value)} /></div>
+          <Combo label="Nationality" value={f.nationality} onChange={(v) => set("nationality", v)} options={NATIONALITIES} listId="dl-nationality" placeholder="Select or type" />
+          <div><label className="label">Guests</label><input type="number" min={1} className="input" value={f.guests} onChange={(e) => set("guests", e.target.value)} /></div>
           <div><label className="label">Mobile</label><input className="input" value={f.mobile} onChange={(e) => set("mobile", e.target.value)} /></div>
           <div><label className="label">WhatsApp</label><input className="input" value={f.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} /></div>
-          <div className="grid grid-cols-2 gap-2">
-            <div><label className="label">Rooms</label><input type="number" min={1} className="input" value={f.rooms} onChange={(e) => set("rooms", e.target.value)} /></div>
-            <div><label className="label">Guests</label><input type="number" min={1} className="input" value={f.guests} onChange={(e) => set("guests", e.target.value)} /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div><label className="label">Adults</label><input type="number" min={0} className="input" value={f.adults} onChange={(e) => set("adults", e.target.value)} /></div>
-            <div><label className="label">Children</label><input type="number" min={0} className="input" value={f.children} onChange={(e) => set("children", e.target.value)} /></div>
-          </div>
-          <div className="md:col-span-3"><label className="label">Special Requests</label><textarea className="input" rows={2} value={f.special_requests} onChange={(e) => set("special_requests", e.target.value)} /></div>
         </div>
         <p className="text-xs text-slate-400">Attachments can be added from the booking page after saving.</p>
       </section>
@@ -120,18 +130,18 @@ export default function HotelBookingForm({
             </select>
           </div>
           <div>
-            <label className="label">Hotel (from master)</label>
+            <label className="label">Hotel</label>
             <select className="input" value={f.hotel_id} onChange={(e) => set("hotel_id", e.target.value)}>
-              <option value="">— Not listed / free text —</option>
+              <option value="">— Select hotel —</option>
               {hotels.filter((h) => !f.city || !h.city || h.city === f.city).map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
             </select>
           </div>
-          <div><label className="label">Hotel Name (if not in master)</label><input className="input" value={f.hotel_name} onChange={(e) => set("hotel_name", e.target.value)} disabled={!!f.hotel_id} /></div>
+          <div><label className="label">Rooms</label><input type="number" min={1} className="input" value={f.rooms} onChange={(e) => set("rooms", e.target.value)} /></div>
           <div><label className="label">Check-in *</label><input required type="date" className="input" value={f.check_in} onChange={(e) => set("check_in", e.target.value)} /></div>
           <div><label className="label">Check-out *</label><input required type="date" className="input" value={f.check_out} onChange={(e) => set("check_out", e.target.value)} /></div>
           <div><label className="label">Nights (auto)</label><input className="input bg-slate-50" value={nights} readOnly /></div>
-          <div><label className="label">Room Type</label><input className="input" placeholder="Double / Triple / Quad" value={f.room_type} onChange={(e) => set("room_type", e.target.value)} /></div>
-          <div><label className="label">Meal Plan</label><input className="input" placeholder="Room only / BB / HB / FB" value={f.meal_plan} onChange={(e) => set("meal_plan", e.target.value)} /></div>
+          <Combo label="Room Type" value={f.room_type} onChange={(v) => set("room_type", v)} options={ROOM_TYPES} listId="dl-roomtype" placeholder="Select or type" />
+          <Combo label="Meal Plan" value={f.meal_plan} onChange={(v) => set("meal_plan", v)} options={MEAL_PLANS} listId="dl-mealplan" placeholder="Select or type" />
           <div className="md:col-span-3"><label className="label">Special Hotel Requirements</label><textarea className="input" rows={2} value={f.hotel_requirements} onChange={(e) => set("hotel_requirements", e.target.value)} /></div>
         </div>
       </section>
