@@ -20,6 +20,7 @@ export default async function PublicHotelVoucher({ params }: { params: { token: 
           booking_no: v.booking_no, guest_name: v.guest_name, group_no: v.group_no, agent: v.agent,
           hotel_name: v.hotel_name, city: v.city, check_in: v.check_in, check_out: v.check_out,
           nights: v.nights, room_type: v.room_type, rooms: v.rooms, guests: v.guests, meal_plan: v.meal_plan, hcn: v.hcn,
+          stays: v.stays,
         }}
       />
     </div>
