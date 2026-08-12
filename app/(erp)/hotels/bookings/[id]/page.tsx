@@ -17,8 +17,8 @@ export default async function HotelBookingDetailPage({ params }: { params: { id:
     .eq("id", params.id).single();
   if (!b) notFound();
 
-  const [{ data: purchases }, { data: suppliers }, { data: hotels }, { data: tl }] = await Promise.all([
-    supabase.from("hotel_purchase_bookings").select("*").eq("booking_id", params.id).order("created_at").limit(1),
+  const [{ data: stays }, { data: suppliers }, { data: hotels }, { data: tl }] = await Promise.all([
+    supabase.from("hotel_purchase_bookings").select("*, supplier:supplier_id(name)").eq("booking_id", params.id).order("sort").order("created_at"),
     supabase.from("parties").select("id, name").eq("party_type", "supplier").eq("is_active", true).order("name"),
     supabase.from("hotels").select("id, name").eq("is_active", true).order("name"),
     supabase.from("audit_log").select("id, action, detail, created_at").eq("entity", "hotel_booking").eq("entity_id", params.id).order("created_at", { ascending: false }).limit(100),
@@ -48,7 +48,7 @@ export default async function HotelBookingDetailPage({ params }: { params: { id:
       <PageHeader title={`Hotel Booking ${b.booking_no}`} />
       <HotelBookingDetail
         booking={booking}
-        purchase={(purchases ?? [])[0] ?? null}
+        stays={(stays ?? []) as any}
         suppliers={(suppliers ?? []) as any}
         hotels={(hotels ?? []) as any}
         perms={perms}

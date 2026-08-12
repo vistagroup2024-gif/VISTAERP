@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
 import { dateStr } from "@/lib/format";
-import { HOTEL_STATUS_LABEL, HOTEL_STATUS_TONE, HCN_STATUS_LABEL } from "../lib";
+import { HOTEL_STATUS_LABEL, HOTEL_STATUS_TONE, HCN_STAGE_LABEL, HCN_STAGE_TONE } from "../lib";
+
+// HCN workflow stages surfaced in the list Status column / filter.
+const HCN_STAGES = ["pending", "ready_to_send", "sent"];
 
 export interface HRow {
   id: string; booking_no: string; booking_date: string; guest_name: string; group_no: string | null;
@@ -43,7 +46,7 @@ export default function HotelBookingsTable({ rows }: { rows: HRow[] }) {
         <input className="input max-w-xs" placeholder="Search booking, guest, group, hotel…" value={q} onChange={(e) => setQ(e.target.value)} />
         <MultiSelectFilter label="Status" options={Object.keys(HOTEL_STATUS_LABEL).map((k) => ({ value: k, label: HOTEL_STATUS_LABEL[k] }))} selected={status} onChange={setStatus} />
         <MultiSelectFilter label="City" options={cities.map((c) => ({ value: c, label: c }))} selected={city} onChange={setCity} />
-        <MultiSelectFilter label="HCN" options={Object.keys(HCN_STATUS_LABEL).map((k) => ({ value: k, label: HCN_STATUS_LABEL[k] }))} selected={hcn} onChange={setHcn} />
+        <MultiSelectFilter label="HCN" options={HCN_STAGES.map((k) => ({ value: k, label: HCN_STAGE_LABEL[k] }))} selected={hcn} onChange={setHcn} />
         {agents.length > 0 && <MultiSelectFilter label="Agent" options={agents.map((a) => ({ value: a, label: a }))} selected={agent} onChange={setAgent} />}
         <span className="ml-auto text-sm text-slate-500">{filtered.length} / {rows.length}</span>
       </div>
@@ -68,7 +71,11 @@ export default function HotelBookingsTable({ rows }: { rows: HRow[] }) {
                 <td className="td">{r.rooms}</td>
                 <td className="td">{r.supplier ?? "—"}</td>
                 <td className="td"><span className={`badge ${r.payment === "billed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{PAYMENT_LABEL[r.payment] ?? r.payment}</span></td>
-                <td className="td"><span className={`badge ${HOTEL_STATUS_TONE[r.status] ?? "bg-slate-100"}`}>{HOTEL_STATUS_LABEL[r.status] ?? r.status}</span></td>
+                <td className="td">
+                  {r.status === "cancelled" || r.status === "completed"
+                    ? <span className={`badge ${HOTEL_STATUS_TONE[r.status] ?? "bg-slate-100"}`}>{HOTEL_STATUS_LABEL[r.status] ?? r.status}</span>
+                    : <span className={`badge ${HCN_STAGE_TONE[r.hcn_status] ?? "bg-slate-100"}`}>{HCN_STAGE_LABEL[r.hcn_status] ?? r.hcn_status}</span>}
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={10}>No bookings match.</td></tr>}
