@@ -17,9 +17,15 @@ export default async function HotelVoucherPage({ params }: { params: { id: strin
     .eq("id", params.id).single();
   if (!b) notFound();
 
-  const { data: purch } = await supabase
-    .from("hotel_purchase_bookings").select("hcn, hcn_shared").eq("booking_id", params.id).order("created_at", { ascending: false }).limit(1);
-  const hcn = (purch ?? [])[0]?.hcn ?? null;
+  const { data: stayRows } = await supabase
+    .from("hotel_purchase_bookings")
+    .select("hotel_name, city, check_in, check_out, nights, room_type, rooms, meal_plan, hcn, hotels:hotel_id(name)")
+    .eq("booking_id", params.id).order("sort").order("created_at");
+  const stays = (stayRows ?? []).map((s: any) => ({
+    hotel_name: s.hotels?.name ?? s.hotel_name, city: s.city, check_in: s.check_in, check_out: s.check_out,
+    nights: s.nights, room_type: s.room_type, rooms: s.rooms, meal_plan: s.meal_plan, hcn: s.hcn,
+  }));
+  const hcn = stays[0]?.hcn ?? null;
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || "";
   const qr = b.public_token ? await QRCode.toDataURL(`${origin}/hv/${b.public_token}`, { margin: 1, width: 200 }) : undefined;
@@ -33,6 +39,7 @@ export default async function HotelVoucherPage({ params }: { params: { id: strin
           booking_no: b.booking_no, guest_name: b.guest_name, group_no: b.group_no, agent: (b as any).parties?.name ?? null,
           hotel_name: (b as any).hotels?.name ?? b.hotel_name, city: b.city, check_in: b.check_in, check_out: b.check_out,
           nights: b.nights, room_type: b.room_type, rooms: b.rooms, guests: b.guests, meal_plan: b.meal_plan, hcn,
+          stays,
         }}
         qr={qr}
       />

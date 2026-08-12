@@ -3,6 +3,7 @@ import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import HotelBookingsTable, { HRow } from "./HotelBookingsTable";
+import { aggregateHcnStage } from "../lib";
 
 export const dynamic = "force-dynamic";
 
@@ -17,15 +18,15 @@ export default async function HotelBookingsPage() {
 
   const rows: HRow[] = (bookings ?? []).map((b: any) => {
     const purch = (b.hotel_purchase_bookings ?? []) as any[];
-    const hcn = purch.map((p) => p.hcn_status);
-    const hcnStatus = hcn.includes("shared") ? "shared" : hcn.includes("received") ? "received" : "pending";
+    const hcnStage = aggregateHcnStage(purch.map((p) => p.hcn_status).filter(Boolean));
     const hasBill = purch.some((p) => p.bill_id);
-    const supplier = purch.map((p) => p.supplier?.name).find(Boolean) ?? null;
+    const suppliers = Array.from(new Set(purch.map((p) => p.supplier?.name).filter(Boolean)));
+    const supplier = suppliers.length > 1 ? `${suppliers[0]} +${suppliers.length - 1}` : (suppliers[0] ?? null);
     return {
       id: b.id, booking_no: b.booking_no, booking_date: b.booking_date, guest_name: b.guest_name, group_no: b.group_no,
       agent: b.parties?.name ?? null, city: b.city, hotel: b.hotels?.name ?? b.hotel_name ?? null,
       check_in: b.check_in, check_out: b.check_out, nights: b.nights, rooms: b.rooms, supplier,
-      status: b.status, hcn_status: hcnStatus, payment: hasBill ? "billed" : "none",
+      status: b.status, hcn_status: hcnStage, payment: hasBill ? "billed" : "none",
     };
   });
 
