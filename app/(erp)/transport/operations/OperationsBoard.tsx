@@ -386,10 +386,9 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   }
 
   // Copy trip details for sharing (WhatsApp-formatted, *bold* payment), split
-  // into Passenger / Trip / Payment. Agent bookings show NO CASH; direct
-  // customers show the payment method and amount.
+  // into Passenger / Trip / Payment. Cash bookings show the method + amount to
+  // collect; every non-cash booking (agent no-cash, card, bank transfer) shows NO CASH.
   function copyTrip(t: Trip) {
-    const isAgent = !!t.agent_id;
     const payLabel: Record<string, string> = { cash: "Cash", card: "Card", bank_transfer: "Bank Transfer" };
     const method = payLabel[t.payment_method ?? "cash"] ?? "Cash";
 
@@ -415,7 +414,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
 
     const payment = [
       `*Payment*`,
-      isAgent ? `*NO CASH*` : `Method : *${method}*\nAmount : ${sar(t.sell_rate)} SAR`,
+      isCashCustomer(t) ? `Method : *${method}*\nAmount : ${sar(t.sell_rate)} SAR` : `*NO CASH*`,
     ];
 
     const text = [passenger.join("\n"), trip.join("\n"), payment.join("\n")].join("\n\n");
@@ -681,7 +680,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
           ["Drop-off", t.drop_location ?? "—"],
           ["Driver / Vendor", t.driver_name ?? (t.vendor_name ? `${t.vendor_name}${t.outsource_driver_name ? ` · ${t.outsource_driver_name}` : ""}` : "—")],
           ["Status", STATUS_META[t.status]?.label ?? t.status],
-          ["Payment", t.agent_id ? "NO CASH" : `${payLabel[t.payment_method ?? "cash"] ?? "Cash"} — ${sar(t.sell_rate)} SAR`],
+          ["Payment", isCashCustomer(t) ? `${payLabel[t.payment_method ?? "cash"] ?? "Cash"} — ${sar(t.sell_rate)} SAR` : "NO CASH"],
         ];
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTripView(null)}>
