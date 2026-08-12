@@ -180,6 +180,7 @@ function StayCard({ stay, index, booking, suppliers, hotels, perms, rpc, busy }:
     notes: stay.notes ?? "",
   });
   const setP = (k: string, v: any) => setPf((s) => ({ ...s, [k]: v }));
+  const purchTotal = (Number(pf.purchase_rate) || 0) * (Number(stay.nights) || 0) * (Number(stay.rooms) || 0);
   const [showHcn, setShowHcn] = useState(false);
   const [hcnNo, setHcnNo] = useState(stay.hcn ?? "");
   const [copied, setCopied] = useState(false);
@@ -235,12 +236,12 @@ function StayCard({ stay, index, booking, suppliers, hotels, perms, rpc, busy }:
               </div>
             )}
             {perms.canPurchaseRate && <div><label className="label">Purchase Price / night</label><input type="number" step="0.01" className="input" value={pf.purchase_rate} onChange={(e) => setP("purchase_rate", e.target.value)} /></div>}
-            {perms.canPurchaseRate && <div><label className="label">Purchase Total</label><input type="number" step="0.01" className="input" value={pf.purchase_total} onChange={(e) => setP("purchase_total", e.target.value)} /></div>}
+            {perms.canPurchaseRate && <div><label className="label">Purchase Total <span className="text-slate-400">(auto)</span></label><input className="input bg-slate-50" value={purchTotal.toFixed(2)} readOnly tabIndex={-1} /></div>}
             <div><label className="label">Supplier Reference</label><input className="input" value={pf.supplier_ref} onChange={(e) => setP("supplier_ref", e.target.value)} /></div>
             <div className="md:col-span-2"><label className="label">Booking Notes</label><input className="input" value={pf.notes} onChange={(e) => setP("notes", e.target.value)} /></div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button disabled={busy} className="btn" onClick={() => rpc("hotel_purchase_save", { p_id: stay.id, p_booking: booking.id, p: pf })}>Save purchase</button>
+            <button disabled={busy} className="btn" onClick={() => rpc("hotel_purchase_save", { p_id: stay.id, p_booking: booking.id, p: { ...pf, purchase_total: String(purchTotal) } })}>Save purchase</button>
             {perms.canPayable && !stay.bill_id &&
               <button disabled={busy} className="btn-outline" onClick={() => rpc("hotel_purchase_post_payable", { p_id: stay.id })}>Post Supplier Payable</button>}
             {stay.bill_id && <Link href={`/purchase/bills/${stay.bill_id}`} className="btn-outline">View Payable →</Link>}

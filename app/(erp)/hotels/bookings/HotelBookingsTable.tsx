@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
+import RowMenu from "@/components/RowMenu";
 import { dateStr } from "@/lib/format";
 import { HOTEL_STATUS_LABEL, HOTEL_STATUS_TONE, HCN_STAGE_LABEL, HCN_STAGE_TONE } from "../lib";
 
@@ -18,6 +20,7 @@ export interface HRow {
 const PAYMENT_LABEL: Record<string, string> = { billed: "Billed", none: "Pending" };
 
 export default function HotelBookingsTable({ rows }: { rows: HRow[] }) {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string[]>([]);
   const [city, setCity] = useState<string[]>([]);
@@ -57,6 +60,7 @@ export default function HotelBookingsTable({ rows }: { rows: HRow[] }) {
               <th className="th">Guest Name</th><th className="th">Agent</th><th className="th">Hotel</th>
               <th className="th">Check-in</th><th className="th">Check-out</th><th className="th">Nights</th>
               <th className="th">Rooms</th><th className="th">Supplier</th><th className="th">Payment</th><th className="th">Status</th>
+              <th className="th text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -76,9 +80,16 @@ export default function HotelBookingsTable({ rows }: { rows: HRow[] }) {
                     ? <span className={`badge ${HOTEL_STATUS_TONE[r.status] ?? "bg-slate-100"}`}>{HOTEL_STATUS_LABEL[r.status] ?? r.status}</span>
                     : <span className={`badge ${HCN_STAGE_TONE[r.hcn_status] ?? "bg-slate-100"}`}>{HCN_STAGE_LABEL[r.hcn_status] ?? r.hcn_status}</span>}
                 </td>
+                <td className="td text-right">
+                  <RowMenu items={[
+                    { label: "Open", onClick: () => router.push(`/hotels/bookings/${r.id}`) },
+                    { label: "Edit", onClick: () => router.push(`/hotels/bookings/${r.id}/edit`) },
+                    { label: "Voucher", onClick: () => router.push(`/hotels/bookings/${r.id}/voucher`) },
+                  ]} />
+                </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={10}>No bookings match.</td></tr>}
+            {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={11}>No bookings match.</td></tr>}
           </tbody>
         </table>
       </div>

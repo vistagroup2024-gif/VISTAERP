@@ -50,7 +50,6 @@ const GROUPS: Group[] = [
     { href: "/hotels/checkout", label: "Check-out / Completed", perm: ["hotels.bookings"] },
     { href: "/hotels/suppliers", label: "Suppliers", perm: ["hotels.suppliers"] },
     { href: "/hotels", label: "Hotel Master", perm: ["hotels.masters"] },
-    { href: "/allotments", label: "Allotments", perm: ["hotels.masters"] },
     { href: "/hotels/reports", label: "Reports", perm: ["hotels.reports"] },
   ] },
   { label: "Transport", icon: "🚐", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.trip_ledger"], items: [

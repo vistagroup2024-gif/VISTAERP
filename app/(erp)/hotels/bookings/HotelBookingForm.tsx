@@ -90,12 +90,10 @@ export default function HotelBookingForm({
   const addStay = () => setStays((arr) => [...arr, blankStay()]);
   const removeStay = (i: number) => setStays((arr) => (arr.length > 1 ? arr.filter((_, idx) => idx !== i) : arr));
 
-  // Suggested totals per stay = rate x nights x rooms; user can override.
+  // Totals are always auto = rate x nights x rooms and are not editable.
   function nightsOf(s: StayForm) { return nightsBetween(s.check_in, s.check_out); }
-  function suggestedSale(s: StayForm) { return (Number(s.sale_rate) || 0) * nightsOf(s) * (Number(s.rooms) || 0); }
-  function suggestedPurchase(s: StayForm) { return (Number(s.purchase_rate) || 0) * nightsOf(s) * (Number(s.rooms) || 0); }
-  function saleTotalOf(s: StayForm) { return s.sale_total === "" ? suggestedSale(s) : Number(s.sale_total) || 0; }
-  function purchaseTotalOf(s: StayForm) { return s.purchase_total === "" ? suggestedPurchase(s) : Number(s.purchase_total) || 0; }
+  function saleTotalOf(s: StayForm) { return (Number(s.sale_rate) || 0) * nightsOf(s) * (Number(s.rooms) || 0); }
+  function purchaseTotalOf(s: StayForm) { return (Number(s.purchase_rate) || 0) * nightsOf(s) * (Number(s.rooms) || 0); }
 
   const grandSale = useMemo(() => stays.reduce((a, s) => a + saleTotalOf(s), 0), [stays]);
   const grandPurchase = useMemo(() => stays.reduce((a, s) => a + purchaseTotalOf(s), 0), [stays]);
@@ -211,8 +209,8 @@ export default function HotelBookingForm({
                 <div className="grid gap-4 md:grid-cols-3">
                   <div><label className="label">Sale Price / night</label><input type="number" step="0.01" className="input" value={s.sale_rate} onChange={(e) => setStay(i, "sale_rate", e.target.value)} /></div>
                   <div>
-                    <label className="label">Sale Total {s.sale_total === "" && <span className="text-slate-400">(auto {suggestedSale(s).toFixed(2)})</span>}</label>
-                    <input type="number" step="0.01" className="input" placeholder={suggestedSale(s).toFixed(2)} value={s.sale_total} onChange={(e) => setStay(i, "sale_total", e.target.value)} />
+                    <label className="label">Sale Total <span className="text-slate-400">(auto)</span></label>
+                    <input className="input bg-slate-50" value={saleTotalOf(s).toFixed(2)} readOnly tabIndex={-1} />
                   </div>
                   <div className="flex items-end text-sm text-slate-500">{nights}n × {s.rooms || 0} rooms</div>
                 </div>
@@ -231,8 +229,8 @@ export default function HotelBookingForm({
                   </div>
                   <div><label className="label">Purchase Price / night</label><input type="number" step="0.01" className="input" value={s.purchase_rate} onChange={(e) => setStay(i, "purchase_rate", e.target.value)} /></div>
                   <div>
-                    <label className="label">Purchase Total {s.purchase_total === "" && <span className="text-slate-400">(auto {suggestedPurchase(s).toFixed(2)})</span>}</label>
-                    <input type="number" step="0.01" className="input" placeholder={suggestedPurchase(s).toFixed(2)} value={s.purchase_total} onChange={(e) => setStay(i, "purchase_total", e.target.value)} />
+                    <label className="label">Purchase Total <span className="text-slate-400">(auto)</span></label>
+                    <input className="input bg-slate-50" value={purchaseTotalOf(s).toFixed(2)} readOnly tabIndex={-1} />
                   </div>
                 </div>
               </div>
