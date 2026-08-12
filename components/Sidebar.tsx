@@ -45,6 +45,7 @@ const GROUPS: Group[] = [
     { href: "/hotels/dashboard", label: "Dashboard", perm: ["hotels.reports"] },
     { href: "/hotels/bookings", label: "Hotel Bookings", perm: ["hotels.bookings"] },
     { href: "/hotels/hcn", label: "HCN Management", perm: ["hotels.hcn", "hotels.bookings"] },
+    { href: "/hotels/nusuk", label: "Nusuk Agreements", perm: ["hotels.bookings"] },
     { href: "/hotels/checkin", label: "Check-in / Arrivals", perm: ["hotels.bookings"] },
     { href: "/hotels/checkout", label: "Check-out / Completed", perm: ["hotels.bookings"] },
     { href: "/hotels/suppliers", label: "Suppliers", perm: ["hotels.suppliers"] },
