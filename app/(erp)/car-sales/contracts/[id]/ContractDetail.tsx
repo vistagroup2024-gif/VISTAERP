@@ -67,6 +67,16 @@ export default function ContractDetail({ contract, installments, receipts = [], 
       </div>
       {next && <p className="text-sm text-slate-500">Next payment due <b>{dateStr(next.due_date)}</b> · installment #{next.inst_no}.</p>}
 
+      <section className="card">
+        <h2 className="mb-2 font-semibold text-slate-700">Documents</h2>
+        <div className="flex flex-wrap gap-2 text-sm">
+          <a href={`/car-sales/contracts/${contract.id}/agreement`} target="_blank" rel="noreferrer" className="btn-outline">Installment Agreement</a>
+          <a href={`/car-sales/contracts/${contract.id}/handover`} target="_blank" rel="noreferrer" className="btn-outline">Handover Form</a>
+          <a href={`/car-sales/contracts/${contract.id}/completion`} target="_blank" rel="noreferrer" className="btn-outline">Completion Statement</a>
+          {contract.vehicle?.ownership === "transferred" && <a href={`/car-sales/contracts/${contract.id}/transfer`} target="_blank" rel="noreferrer" className="btn-outline">Transfer Record</a>}
+        </div>
+      </section>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card">
           <h2 className="mb-3 font-semibold text-slate-700">Customer & Vehicle</h2>
@@ -151,7 +161,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
               }).join(", ");
               return (
                 <tr key={r.id} className="border-t border-slate-100">
-                  <td className="td font-medium">{r.receipt_no}</td>
+                  <td className="td font-medium"><a href={`/car-sales/receipts/${r.id}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">{r.receipt_no}</a></td>
                   <td className="td">{dateStr(r.receipt_date)}</td>
                   <td className="td capitalize">{r.method}</td>
                   <td className="td text-right tabular-nums">{sar(r.amount)}</td>

@@ -41,7 +41,7 @@ export default function ReceiptsTable({ rows }: { rows: ReceiptRow[] }) {
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="td font-medium">{r.receipt_no}</td>
+                <td className="td font-medium"><Link href={`/car-sales/receipts/${r.id}`} className="text-brand hover:underline">{r.receipt_no}</Link></td>
                 <td className="td">{dateStr(r.receipt_date)}</td>
                 <td className="td">{r.customer ?? "—"}</td>
                 <td className="td">{r.contract_id ? <Link href={`/car-sales/contracts/${r.contract_id}`} className="text-brand hover:underline">{r.contract_no}</Link> : "—"}</td>
