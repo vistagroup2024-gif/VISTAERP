@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { dateStr } from "@/lib/format";
+import MultiSelectFilter from "@/components/MultiSelectFilter";
 import VisaInvoiceCheck from "./VisaInvoiceCheck";
 import { VISA_TYPE_LABEL } from "./VisaLedgerRange";
 
@@ -21,22 +22,39 @@ export interface VisaLedgerRow {
 
 export default function VisaLedgerTable({ rows, isAdmin }: { rows: VisaLedgerRow[]; isAdmin: boolean }) {
   const [search, setSearch] = useState("");
+  const [company, setCompany] = useState<string[]>([]);
+  const [customer, setCustomer] = useState<string[]>([]);
+  const [visaType, setVisaType] = useState<string[]>([]);
+  const [invoice, setInvoice] = useState<string[]>([]);
+
+  const companies = useMemo(() => Array.from(new Set(rows.map((r) => r.company).filter(Boolean))) as string[], [rows]);
+  const customers = useMemo(() => Array.from(new Set(rows.map((r) => r.customer).filter(Boolean))) as string[], [rows]);
+  const visaTypes = useMemo(() => Array.from(new Set(rows.map((r) => r.visa_type).filter(Boolean))) as string[], [rows]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      [r.company, r.customer, r.group_name, r.group_no, VISA_TYPE_LABEL[r.visa_type ?? ""] ?? r.visa_type]
-        .some((v) => String(v ?? "").toLowerCase().includes(q))
-    );
-  }, [rows, search]);
+    return rows.filter((r) => {
+      if (company.length && !company.includes(r.company ?? "")) return false;
+      if (customer.length && !customer.includes(r.customer ?? "")) return false;
+      if (visaType.length && !visaType.includes(r.visa_type ?? "")) return false;
+      if (invoice.length && !invoice.includes(r.invoice_created ? "created" : "pending")) return false;
+      if (q && ![r.company, r.customer, r.group_name, r.group_no, VISA_TYPE_LABEL[r.visa_type ?? ""] ?? r.visa_type]
+        .some((v) => String(v ?? "").toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }, [rows, search, company, customer, visaType, invoice]);
 
   const totPax = filtered.reduce((a, r) => a + Number(r.pax || 0), 0);
 
   return (
     <div className="card">
-      <div className="no-print mb-3">
+      <div className="no-print mb-3 flex flex-wrap items-center gap-2">
         <input className="input max-w-xs" placeholder="Search company / customer / group…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <MultiSelectFilter label="Company" options={companies.map((c) => ({ value: c, label: c }))} selected={company} onChange={setCompany} />
+        <MultiSelectFilter label="Customer" options={customers.map((c) => ({ value: c, label: c }))} selected={customer} onChange={setCustomer} />
+        <MultiSelectFilter label="Visa Type" options={visaTypes.map((v) => ({ value: v, label: VISA_TYPE_LABEL[v] ?? v }))} selected={visaType} onChange={setVisaType} />
+        <MultiSelectFilter label="Invoice" options={[{ value: "pending", label: "Pending" }, { value: "created", label: "Created" }]} selected={invoice} onChange={setInvoice} />
+        <span className="ml-auto text-sm text-slate-500">{filtered.length} / {rows.length}</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
