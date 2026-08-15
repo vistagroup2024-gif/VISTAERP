@@ -16,8 +16,8 @@ function Money({ label, value, tone }: { label: string; value: string; tone?: st
   );
 }
 
-export default function ContractDetail({ contract, installments, canManage, canCost }: {
-  contract: any; installments: any[]; canManage: boolean; canCost: boolean;
+export default function ContractDetail({ contract, installments, receipts = [], canManage, canReceipts, canCost }: {
+  contract: any; installments: any[]; receipts?: any[]; canManage: boolean; canReceipts: boolean; canCost: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -121,7 +121,136 @@ export default function ContractDetail({ contract, installments, canManage, canC
         </table>
       </section>
 
-      <p className="text-sm text-slate-400">Receipts &amp; payment allocation, the Monthly Service Charge, delivery, holding and transfer for this contract will appear here as those steps are added.</p>
+      {canReceipts && contract.status === "active" && (
+        <PaymentPanel contractId={contract.id} installments={installments} onDone={() => router.refresh()} />
+      )}
+
+      {/* Receipt history */}
+      <section className="card overflow-x-auto p-0">
+        <h2 className="px-4 pt-4 font-semibold text-slate-700">Receipts</h2>
+        <table className="mt-2 w-full min-w-[640px]">
+          <thead className="bg-slate-50"><tr>
+            <th className="th">Receipt</th><th className="th">Date</th><th className="th">Method</th>
+            <th className="th text-right">Amount</th><th className="th">Allocated To</th>{canReceipts && <th className="th text-right"></th>}
+          </tr></thead>
+          <tbody>
+            {receipts.map((r) => {
+              const allocs = (r.car_receipt_allocations ?? []) as any[];
+              const to = allocs.map((a) => {
+                if (a.target_type === "advance") return "Advance";
+                const ins = installments.find((i) => i.id === a.installment_id);
+                return ins ? `#${ins.inst_no} (${sar(a.amount)})` : sar(a.amount);
+              }).join(", ");
+              return (
+                <tr key={r.id} className="border-t border-slate-100">
+                  <td className="td font-medium">{r.receipt_no}</td>
+                  <td className="td">{dateStr(r.receipt_date)}</td>
+                  <td className="td capitalize">{r.method}</td>
+                  <td className="td text-right tabular-nums">{sar(r.amount)}</td>
+                  <td className="td text-xs">{to || "—"}</td>
+                  {canReceipts && <td className="td text-right"><button className="text-red-500 hover:underline" disabled={busy} onClick={() => call2("car_receipt_delete", { p_id: r.id }, "Delete this receipt?")}>Delete</button></td>}
+                </tr>
+              );
+            })}
+            {receipts.length === 0 && <tr><td className="td text-slate-400" colSpan={canReceipts ? 6 : 5}>No receipts yet.</td></tr>}
+          </tbody>
+        </table>
+      </section>
+
+      <p className="text-sm text-slate-400">The Monthly Service Charge, delivery, holding and transfer for this contract will appear here as those steps are added.</p>
     </div>
+  );
+
+  async function call2(fn: string, args: any, msg?: string) {
+    if (msg && !confirm(msg)) return;
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc(fn, args);
+    setBusy(false);
+    if (error) return setErr(error.message);
+    router.refresh();
+  }
+}
+
+function PaymentPanel({ contractId, installments, onDone }: { contractId: string; installments: any[]; onDone: () => void }) {
+  const supabase = createClient();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [method, setMethod] = useState("cash");
+  const [reference, setReference] = useState("");
+  const unpaid = installments.filter((i) => Number(i.paid_amount || 0) < Number(i.amount || 0));
+  const [alloc, setAlloc] = useState<Record<string, string>>({});
+  const total = Object.values(alloc).reduce((a, v) => a + (Number(v) || 0), 0);
+
+  async function save() {
+    const allocs = Object.entries(alloc)
+      .filter(([, v]) => Number(v) > 0)
+      .map(([installment_id, v]) => ({ target_type: "installment", installment_id, amount: String(v) }));
+    if (allocs.length === 0) { setErr("Allocate the payment to at least one installment."); return; }
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc("car_receipt_save", {
+      p_id: null,
+      p_header: { contract_id: contractId, receipt_date: date, amount: String(total), method, reference },
+      p_allocs: allocs,
+    });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setAlloc({}); setReference(""); setOpen(false); onDone();
+  }
+
+  return (
+    <section className="card space-y-3 border-l-4 border-emerald-400">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-slate-700">Receive Payment</h2>
+        <button className="btn-outline text-sm" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Record a payment"}</button>
+      </div>
+      {open && (
+        <div className="space-y-3">
+          {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+          <div className="grid gap-3 md:grid-cols-4">
+            <div><label className="label">Date</label><input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+            <div><label className="label">Method</label>
+              <select className="input" value={method} onChange={(e) => setMethod(e.target.value)}>
+                <option value="cash">Cash</option><option value="bank">Bank</option><option value="card">Card</option><option value="transfer">Transfer</option>
+              </select>
+            </div>
+            <div className="md:col-span-2"><label className="label">Reference</label><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Cheque / transfer ref" /></div>
+          </div>
+          <p className="text-xs text-slate-400">Enter the amount against the exact installment(s) being paid — money is not auto-applied to the oldest month.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
+                <th className="th">No.</th><th className="th">Due</th><th className="th text-right">Amount</th><th className="th text-right">Remaining</th><th className="th text-right">Pay Now</th>
+              </tr></thead>
+              <tbody>
+                {unpaid.map((i) => {
+                  const rem = Number(i.amount) - Number(i.paid_amount);
+                  return (
+                    <tr key={i.id} className="border-b border-slate-50">
+                      <td className="td">{i.inst_no}</td>
+                      <td className="td">{dateStr(i.due_date)}</td>
+                      <td className="td text-right tabular-nums">{sar(i.amount)}</td>
+                      <td className="td text-right tabular-nums">{sar(rem)}</td>
+                      <td className="td text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <input type="number" step="0.01" className="input w-28 text-right" value={alloc[i.id] ?? ""} onChange={(e) => setAlloc((s) => ({ ...s, [i.id]: e.target.value }))} />
+                          <button type="button" className="text-xs text-brand hover:underline" onClick={() => setAlloc((s) => ({ ...s, [i.id]: String(rem) }))}>full</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {unpaid.length === 0 && <tr><td className="td text-slate-400" colSpan={5}>All installments are paid.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="text-sm">Receipt total: <b>{sar(total)}</b></div>
+            <button className="btn" disabled={busy || total <= 0} onClick={save}>{busy ? "Saving…" : "Save receipt"}</button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
