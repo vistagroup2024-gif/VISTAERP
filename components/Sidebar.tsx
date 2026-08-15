@@ -69,6 +69,9 @@ const GROUPS: Group[] = [
     { href: "/transport/reports", label: "Reports", perm: ["transport.reports"] },
     { href: "/transport/reports/ledger", label: "Trip Ledger", perm: ["transport.trip_ledger"] },
   ] },
+  { label: "Car Sales", icon: "🚗", perm: ["carsales.view"], items: [
+    { href: "/car-sales/vehicles", label: "Vehicles / Stock", perm: ["carsales.vehicles", "carsales.view"] },
+  ] },
   { label: "Purchase", icon: "🛒", perm: ["purchase.view"], items: [
     { href: "/purchase/bills", label: "Supplier Bills" },
     { href: "/purchase/payments", label: "Supplier Payments" },
