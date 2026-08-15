@@ -29,6 +29,16 @@ export const OWNERSHIP_TONE: Record<string, string> = {
   transferred: "bg-green-100 text-green-700",
 };
 
+export const PO_STATUS_LABEL: Record<string, string> = {
+  draft: "Draft", ordered: "Ordered", received: "Received", cancelled: "Cancelled",
+};
+export const PO_STATUS_TONE: Record<string, string> = {
+  draft: "bg-slate-100 text-slate-600",
+  ordered: "bg-amber-100 text-amber-800",
+  received: "bg-emerald-100 text-emerald-700",
+  cancelled: "bg-red-100 text-red-700",
+};
+
 // All module money is SAR.
 export const sar = (n: number | string | null | undefined) => money(Number(n || 0), "SAR");
 export const vehicleTitle = (v: { make?: string | null; model?: string | null; variant?: string | null; model_year?: number | null }) =>
