@@ -16,8 +16,8 @@ function Money({ label, value, tone }: { label: string; value: string; tone?: st
   );
 }
 
-export default function ContractDetail({ contract, installments, receipts = [], canManage, canReceipts, canCost }: {
-  contract: any; installments: any[]; receipts?: any[]; canManage: boolean; canReceipts: boolean; canCost: boolean;
+export default function ContractDetail({ contract, installments, receipts = [], commission = null, canManage, canReceipts, canOwnership, canCost }: {
+  contract: any; installments: any[]; receipts?: any[]; commission?: any; canManage: boolean; canReceipts: boolean; canOwnership: boolean; canCost: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -121,6 +121,14 @@ export default function ContractDetail({ contract, installments, receipts = [], 
         </table>
       </section>
 
+      {canOwnership && contract.status !== "cancelled" && (
+        <LifecyclePanel contract={contract} onDone={() => router.refresh()} />
+      )}
+
+      {canManage && contract.status !== "cancelled" && (
+        <CommissionPanel contractId={contract.id} commission={commission} salePrice={Number(contract.sale_price || 0)} onDone={() => router.refresh()} />
+      )}
+
       {canReceipts && contract.status === "active" && (
         <PaymentPanel contractId={contract.id} installments={installments} onDone={() => router.refresh()} />
       )}
@@ -169,6 +177,129 @@ export default function ContractDetail({ contract, installments, receipts = [], 
     if (error) return setErr(error.message);
     router.refresh();
   }
+}
+
+function LifecyclePanel({ contract, onDone }: { contract: any; onDone: () => void }) {
+  const supabase = createClient();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [modal, setModal] = useState<null | "deliver" | "hold" | "transfer">(null);
+  const [f, setF] = useState<Record<string, string>>({});
+  const vs = contract.vehicle?.status as string;
+  const owner = contract.vehicle?.ownership as string;
+  const vid = contract.vehicle?.id as string;
+
+  async function run(fn: string, args: any) {
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc(fn, args);
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setModal(null); setF({}); onDone();
+  }
+
+  return (
+    <section className="card space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="font-semibold text-slate-700">Vehicle Lifecycle</h2>
+        <span className="text-sm text-slate-400">{contract.vehicle ? `${contract.vehicle.plate_no ?? contract.vehicle.vehicle_no}` : ""}</span>
+        <div className="ml-auto flex flex-wrap gap-2">
+          {vs !== "delivered" && vs !== "held" && <button className="btn-outline text-sm" onClick={() => { setF({ delivery_date: new Date().toISOString().slice(0, 10) }); setModal("deliver"); }}>Deliver</button>}
+          {vs !== "held" && owner === "vista" && <button className="btn-outline text-sm text-amber-700" onClick={() => { setF({ held_date: new Date().toISOString().slice(0, 10) }); setModal("hold"); }}>Hold Vehicle</button>}
+          {vs === "held" && <button className="btn-outline text-sm" disabled={busy} onClick={() => run("car_vehicle_release", { p_vehicle: vid, p_notes: null })}>Release Hold</button>}
+          {owner === "vista" && <button className="btn-outline text-sm" onClick={() => { setF({ transfer_date: new Date().toISOString().slice(0, 10) }); setModal("transfer"); }}>Transfer Out</button>}
+          {owner === "transferred" && <span className="badge bg-green-100 text-green-700">Transferred — charges stopped</span>}
+        </div>
+      </div>
+      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setModal(null)}>
+          <div className="w-full max-w-md rounded-lg bg-white p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-3 text-lg font-semibold capitalize">{modal === "deliver" ? "Deliver Vehicle" : modal === "hold" ? "Hold Vehicle" : "Transfer Vehicle Out"}</h3>
+            <div className="space-y-3">
+              {modal === "deliver" && (<>
+                <div><label className="label">Delivery Date</label><input type="date" className="input" value={f.delivery_date ?? ""} onChange={(e) => setF({ ...f, delivery_date: e.target.value })} /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="label">Odometer</label><input type="number" className="input" value={f.odometer ?? ""} onChange={(e) => setF({ ...f, odometer: e.target.value })} /></div>
+                  <div><label className="label">Delivered By</label><input className="input" value={f.delivered_by ?? ""} onChange={(e) => setF({ ...f, delivered_by: e.target.value })} /></div>
+                </div>
+                <div><label className="label">Customer Acknowledgement</label><input className="input" value={f.acknowledged_by ?? ""} onChange={(e) => setF({ ...f, acknowledged_by: e.target.value })} /></div>
+              </>)}
+              {modal === "hold" && (<>
+                <div><label className="label">Held Date</label><input type="date" className="input" value={f.held_date ?? ""} onChange={(e) => setF({ ...f, held_date: e.target.value })} /></div>
+                <div><label className="label">Reason</label><input className="input" value={f.reason ?? ""} onChange={(e) => setF({ ...f, reason: e.target.value })} /></div>
+                <div><label className="label">Agreement Notes</label><textarea className="input" rows={2} value={f.agreement_notes ?? ""} onChange={(e) => setF({ ...f, agreement_notes: e.target.value })} /></div>
+                <p className="text-xs text-slate-400">Holding does not cancel the contract — the balance and installments stay active.</p>
+              </>)}
+              {modal === "transfer" && (<>
+                <div><label className="label">Transfer Date</label><input type="date" className="input" value={f.transfer_date ?? ""} onChange={(e) => setF({ ...f, transfer_date: e.target.value })} /></div>
+                <div><label className="label">Destination / Company</label><input className="input" value={f.destination ?? ""} onChange={(e) => setF({ ...f, destination: e.target.value })} /></div>
+                <div><label className="label">Reference</label><input className="input" value={f.reference ?? ""} onChange={(e) => setF({ ...f, reference: e.target.value })} /></div>
+                <p className="text-xs text-slate-400">Transferring out of Vista's name stops future Monthly Service Charges. Past charges are kept.</p>
+              </>)}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button className="btn" disabled={busy} onClick={() => {
+                if (modal === "deliver") run("car_vehicle_deliver", { p_contract: contract.id, p: f });
+                else if (modal === "hold") run("car_vehicle_hold", { p_contract: contract.id, p: f });
+                else run("car_vehicle_transfer", { p_vehicle: vid, p: f });
+              }}>{busy ? "Saving…" : "Confirm"}</button>
+              <button className="btn-outline" onClick={() => setModal(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CommissionPanel({ contractId, commission, salePrice, onDone }: { contractId: string; commission: any; salePrice: number; onDone: () => void }) {
+  const supabase = createClient();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [f, setF] = useState({
+    reference_name: commission?.reference_name ?? "",
+    comm_type: commission?.comm_type ?? "fixed",
+    comm_value: commission?.comm_value ?? "",
+    paid: commission?.paid ?? false,
+    paid_date: commission?.paid_date ?? "",
+    notes: commission?.notes ?? "",
+  });
+  const amount = f.comm_type === "percentage" ? Math.round(salePrice * (Number(f.comm_value) || 0) / 100 * 100) / 100 : (Number(f.comm_value) || 0);
+
+  async function save() {
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc("car_commission_save", { p_contract: contractId, p: { ...f, comm_value: String(f.comm_value || 0), paid: String(!!f.paid) } });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setOpen(false); onDone();
+  }
+
+  return (
+    <section className="card space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="font-semibold text-slate-700">Commission</h2>
+        {commission ? <span className="text-sm text-slate-500">{commission.reference_name ?? "—"} · {sar(commission.amount)} · {commission.paid ? "Paid" : "Unpaid"}</span> : <span className="text-sm text-slate-400">None</span>}
+        <button className="btn-outline text-sm ml-auto" onClick={() => setOpen((o) => !o)}>{open ? "Close" : commission ? "Edit" : "Add commission"}</button>
+      </div>
+      {open && (
+        <div className="space-y-3">
+          {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+          <div className="grid gap-3 md:grid-cols-4">
+            <div><label className="label">Reference / Introducer</label><input className="input" value={f.reference_name} onChange={(e) => setF({ ...f, reference_name: e.target.value })} /></div>
+            <div><label className="label">Type</label><select className="input" value={f.comm_type} onChange={(e) => setF({ ...f, comm_type: e.target.value })}><option value="fixed">Fixed</option><option value="percentage">Percentage</option></select></div>
+            <div><label className="label">{f.comm_type === "percentage" ? "Percent (%)" : "Amount (SAR)"}</label><input type="number" step="0.01" className="input" value={f.comm_value} onChange={(e) => setF({ ...f, comm_value: e.target.value })} /></div>
+            <div className="flex items-end text-sm">Commission: <b className="ml-1">{sar(amount)}</b></div>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!f.paid} onChange={(e) => setF({ ...f, paid: e.target.checked })} /> Paid</label>
+            {f.paid && <div><label className="label">Paid Date</label><input type="date" className="input" value={f.paid_date} onChange={(e) => setF({ ...f, paid_date: e.target.value })} /></div>}
+            <div className="md:col-span-2"><label className="label">Notes</label><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></div>
+          </div>
+          <button className="btn" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save commission"}</button>
+        </div>
+      )}
+    </section>
+  );
 }
 
 function PaymentPanel({ contractId, installments, onDone }: { contractId: string; installments: any[]; onDone: () => void }) {

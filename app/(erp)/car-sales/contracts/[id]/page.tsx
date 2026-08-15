@@ -9,12 +9,13 @@ export const dynamic = "force-dynamic";
 export default async function ContractDetailPage({ params }: { params: { id: string } }) {
   const access = await guardStaffPage(["carsales.installments", "carsales.sales"]);
   const supabase = createClient();
-  const [{ data: c }, { data: installments }, { data: receipts }] = await Promise.all([
+  const [{ data: c }, { data: installments }, { data: receipts }, { data: commission }] = await Promise.all([
     supabase.from("car_contracts")
-      .select("*, customer:customer_id(name, phone, tax_number), vehicle:vehicle_id(vehicle_no, make, model, variant, model_year, plate_no, vin)")
+      .select("*, customer:customer_id(name, phone, tax_number), vehicle:vehicle_id(id, vehicle_no, make, model, variant, model_year, plate_no, vin, status, ownership)")
       .eq("id", params.id).single(),
     supabase.from("car_installments").select("*").eq("contract_id", params.id).order("inst_no"),
     supabase.from("car_receipts").select("*, car_receipt_allocations(installment_id, amount, target_type)").eq("contract_id", params.id).order("receipt_date", { ascending: false }).order("created_at", { ascending: false }),
+    supabase.from("car_commissions").select("*").eq("contract_id", params.id).maybeSingle(),
   ]);
   if (!c) notFound();
 
@@ -25,8 +26,10 @@ export default async function ContractDetailPage({ params }: { params: { id: str
         contract={{ ...c, customer_name: (c as any).customer?.name ?? null, customer_phone: (c as any).customer?.phone ?? null, vehicle: (c as any).vehicle }}
         installments={(installments ?? []) as any}
         receipts={(receipts ?? []) as any}
+        commission={commission as any}
         canManage={staffCan(access, "carsales.installments")}
         canReceipts={staffCan(access, "carsales.receipts")}
+        canOwnership={staffCan(access, "carsales.ownership")}
         canCost={staffCan(access, "carsales.cost")}
       />
     </div>
