@@ -71,6 +71,31 @@ export function instStatus(amount: number, paid: number, due: string | null): st
   return "pending";
 }
 
+export const SCHARGE_STATUS_LABEL: Record<string, string> = {
+  pending: "Pending", due: "Due", partial: "Partially Paid", paid: "Paid", overdue: "Overdue",
+};
+export const SCHARGE_STATUS_TONE: Record<string, string> = {
+  pending: "bg-slate-100 text-slate-600",
+  due: "bg-amber-100 text-amber-800",
+  partial: "bg-amber-100 text-amber-800",
+  paid: "bg-emerald-100 text-emerald-700",
+  overdue: "bg-red-100 text-red-700",
+};
+export function schargeStatus(amount: number, paid: number, due: string | null): string {
+  const a = Number(amount || 0), p = Number(paid || 0);
+  const today = new Date().toISOString().slice(0, 10);
+  if (p >= a && a > 0) return "paid";
+  if (p > 0 && p < a) return "partial";
+  if (due && due < today) return "overdue";
+  if (due && due <= today) return "due";
+  return "pending";
+}
+export const monthLabel = (iso: string | null) => {
+  if (!iso) return "—";
+  const [y, m] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en", { month: "short", year: "numeric", timeZone: "UTC" });
+};
+
 // All module money is SAR.
 export const sar = (n: number | string | null | undefined) => money(Number(n || 0), "SAR");
 export const vehicleTitle = (v: { make?: string | null; model?: string | null; variant?: string | null; model_year?: number | null }) =>

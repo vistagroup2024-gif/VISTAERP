@@ -74,6 +74,7 @@ const GROUPS: Group[] = [
     { href: "/car-sales/purchases", label: "Purchase Orders", perm: ["carsales.purchase"] },
     { href: "/car-sales/contracts", label: "Installment Contracts", perm: ["carsales.installments", "carsales.sales"] },
     { href: "/car-sales/receipts", label: "Receipts", perm: ["carsales.receipts"] },
+    { href: "/car-sales/service-charges", label: "Monthly Charges", perm: ["carsales.charges"] },
   ] },
   { label: "Purchase", icon: "🛒", perm: ["purchase.view"], items: [
     { href: "/purchase/bills", label: "Supplier Bills" },
