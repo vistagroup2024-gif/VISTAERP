@@ -16,7 +16,7 @@ const ROUTE_PERMS: [string, string[]][] = [
   ["/hotels", ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.hcn", "hotels.reports", "hotels.purchase"]],
   ["/allotments", ["hotels.masters", "hotels.bookings"]],
   ["/transport", ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.driver_assign", "transport.trip_ledger"]],
-  ["/car-sales", ["carsales.view", "carsales.vehicles", "carsales.sales", "carsales.installments", "carsales.receipts", "carsales.charges", "carsales.ownership", "carsales.reports"]],
+  ["/car-sales", ["carsales.view", "carsales.vehicles", "carsales.sales", "carsales.installments", "carsales.receipts", "carsales.charges", "carsales.ownership", "carsales.reports", "carsales.accounting"]],
   ["/purchase", ["purchase.view"]],
   ["/accounting", ["accounting.view"]],
   ["/settings/users", ["users.view"]],
