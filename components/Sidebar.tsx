@@ -70,12 +70,14 @@ const GROUPS: Group[] = [
     { href: "/transport/reports/ledger", label: "Trip Ledger", perm: ["transport.trip_ledger"] },
   ] },
   { label: "Car Sales", icon: "🚗", perm: ["carsales.view"], items: [
+    { href: "/car-sales", label: "Dashboard", perm: ["carsales.view", "carsales.reports"] },
     { href: "/car-sales/vehicles", label: "Vehicles / Stock", perm: ["carsales.vehicles", "carsales.view"] },
     { href: "/car-sales/purchases", label: "Purchase Orders", perm: ["carsales.purchase"] },
     { href: "/car-sales/contracts", label: "Installment Contracts", perm: ["carsales.installments", "carsales.sales"] },
     { href: "/car-sales/receipts", label: "Receipts", perm: ["carsales.receipts"] },
     { href: "/car-sales/service-charges", label: "Monthly Charges", perm: ["carsales.charges"] },
     { href: "/car-sales/commissions", label: "Commissions", perm: ["carsales.ownership", "carsales.sales"] },
+    { href: "/car-sales/reports", label: "Reports", perm: ["carsales.reports"] },
   ] },
   { label: "Purchase", icon: "🛒", perm: ["purchase.view"], items: [
     { href: "/purchase/bills", label: "Supplier Bills" },

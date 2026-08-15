@@ -34,7 +34,7 @@ const LANDING: [string, string][] = [
   ["transport.bookings", "/transport"], ["transport.operations", "/transport"],
   ["transport.masters", "/transport"], ["transport.vehicles", "/transport"], ["transport.reports", "/transport"], ["transport.trip_ledger", "/transport/reports/ledger"],
   ["hotels.bookings", "/hotels"], ["hotels.masters", "/hotels"],
-  ["carsales.view", "/car-sales/vehicles"], ["carsales.vehicles", "/car-sales/vehicles"],
+  ["carsales.view", "/car-sales"], ["carsales.reports", "/car-sales"], ["carsales.vehicles", "/car-sales/vehicles"],
   ["sales.view", "/bookings"],
   ["accounting.view", "/accounting/accounts"],
   ["purchase.view", "/purchase/bills"],
