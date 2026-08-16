@@ -23,16 +23,25 @@ export default function NusukAgreementsTable({ rows, companies }: { rows: Row[];
   const router = useRouter();
   const supabase = createClient();
   const [q, setQ] = useState("");
+  const [tab, setTab] = useState<"pending" | "completed">("pending");
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<Row | null>(null);
   const [form, setForm] = useState<any>({});
   const [err, setErr] = useState<string | null>(null);
 
+  const counts = useMemo(() => ({
+    pending: rows.filter((r) => r.status !== "completed").length,
+    completed: rows.filter((r) => r.status === "completed").length,
+  }), [rows]);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return rows;
-    return rows.filter((r) => [r.booking_no, r.guest_name, r.hotel, r.agreement_no].some((v) => String(v ?? "").toLowerCase().includes(s)));
-  }, [rows, q]);
+    return rows.filter((r) => {
+      if (tab === "completed" ? r.status !== "completed" : r.status === "completed") return false;
+      if (!s) return true;
+      return [r.booking_no, r.guest_name, r.hotel, r.agreement_no].some((v) => String(v ?? "").toLowerCase().includes(s));
+    });
+  }, [rows, q, tab]);
 
   async function createAgreement(r: Row) {
     setBusy(true);
@@ -72,7 +81,17 @@ export default function NusukAgreementsTable({ rows, companies }: { rows: Row[];
 
   return (
     <div className="space-y-3">
-      <input className="input max-w-xs" placeholder="Search booking, guest, hotel, agreement…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg border border-slate-200 p-0.5">
+          {(["pending", "completed"] as const).map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize ${tab === t ? "bg-brand text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+              {t} <span className={tab === t ? "opacity-80" : "text-slate-400"}>({counts[t]})</span>
+            </button>
+          ))}
+        </div>
+        <input className="input max-w-xs" placeholder="Search booking, guest, hotel, agreement…" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[900px]">
           <thead className="bg-slate-50"><tr>

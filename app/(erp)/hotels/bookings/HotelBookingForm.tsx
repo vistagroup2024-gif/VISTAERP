@@ -189,12 +189,11 @@ export default function HotelBookingForm({
                 </div>
                 <div>
                   <label className="label">Hotel</label>
-                  <select className="input" value={s.hotel_id} onChange={(e) => setStay(i, "hotel_id", e.target.value)}>
-                    <option value="">— Free text below —</option>
+                  <select required className="input" value={s.hotel_id} onChange={(e) => setStay(i, "hotel_id", e.target.value)}>
+                    <option value="">— Select hotel —</option>
                     {hotels.filter((x) => !s.city || !x.city || x.city === s.city).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </select>
                 </div>
-                <div><label className="label">Hotel (free text)</label><input className="input" value={s.hotel_name} disabled={!!s.hotel_id} onChange={(e) => setStay(i, "hotel_name", e.target.value)} /></div>
                 <div><label className="label">Check-in *</label><input required type="date" className="input" value={s.check_in} onChange={(e) => setStay(i, "check_in", e.target.value)} /></div>
                 <div><label className="label">Check-out *</label><input required type="date" className="input" value={s.check_out} onChange={(e) => setStay(i, "check_out", e.target.value)} /></div>
                 <div><label className="label">Nights (auto)</label><input className="input bg-slate-50" value={nights} readOnly /></div>
