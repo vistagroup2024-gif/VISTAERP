@@ -9,6 +9,7 @@ import AttachmentsPanel from "@/components/AttachmentsPanel";
 import {
   HOTEL_STATUS_LABEL, HOTEL_STATUS_TONE, VENDOR_STATUS_LABEL, VENDOR_STATUS_ORDER,
   HCN_STAGE_LABEL, HCN_STAGE_TONE, buildHcnCopyText,
+  ROOM_LABEL, roomNightly, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE,
 } from "../../lib";
 
 interface Perms {
@@ -178,9 +179,10 @@ function StayCard({ stay, index, booking, suppliers, hotels, perms, rpc, busy }:
     currency: stay.currency ?? "SAR",
     supplier_ref: stay.supplier_ref ?? "",
     notes: stay.notes ?? "",
+    option_date: stay.option_date ?? "",
+    vendor_option_date: stay.vendor_option_date ?? "",
   });
   const setP = (k: string, v: any) => setPf((s) => ({ ...s, [k]: v }));
-  const purchTotal = (Number(pf.purchase_rate) || 0) * (Number(stay.nights) || 0) * (Number(stay.rooms) || 0);
   const [showHcn, setShowHcn] = useState(false);
   const [hcnNo, setHcnNo] = useState(stay.hcn ?? "");
   const [copied, setCopied] = useState(false);
@@ -203,6 +205,8 @@ function StayCard({ stay, index, booking, suppliers, hotels, perms, rpc, busy }:
         <span className="badge bg-slate-100 capitalize text-slate-600">{stay.city ?? ""}</span>
         <span className={`badge ${HCN_STAGE_TONE[stage] ?? "bg-slate-100"}`}>{HCN_STAGE_LABEL[stage] ?? stage}</span>
         {stay.vendor_status && <span className="badge bg-slate-100 text-slate-600">{VENDOR_STATUS_LABEL[stay.vendor_status] ?? stay.vendor_status}</span>}
+        <span className={`badge ${PAYMENT_STATUS_TONE[stay.customer_payment ?? "pending"]}`}>Customer: {PAYMENT_STATUS_LABEL[stay.customer_payment ?? "pending"]}</span>
+        <span className={`badge ${PAYMENT_STATUS_TONE[stay.vendor_payment ?? "pending"]}`}>Vendor: {PAYMENT_STATUS_LABEL[stay.vendor_payment ?? "pending"]}</span>
       </div>
 
       <dl className="grid grid-cols-2 gap-y-2 text-sm md:grid-cols-4">
@@ -210,11 +214,55 @@ function StayCard({ stay, index, booking, suppliers, hotels, perms, rpc, busy }:
         <Dt l="Check-out" v={dateStr(stay.check_out)} />
         <Dt l="Nights" v={String(stay.nights ?? "—")} />
         <Dt l="Rooms" v={String(stay.rooms ?? "—")} />
-        <Dt l="Room Type" v={stay.room_type} />
-        <Dt l="Meal Plan" v={stay.meal_plan} />
+        <Dt l="Option Date (customer)" v={dateStr(stay.option_date)} />
+        <Dt l="Vendor Option Date" v={dateStr(stay.vendor_option_date)} />
         <Dt l="Sale Total" v={money(Number(stay.sale_total) || 0, "SAR")} />
         {perms.canProfit && <Dt l="Purchase Total" v={money(Number(stay.purchase_total) || 0, "SAR")} />}
       </dl>
+
+      {/* Per-room breakdown */}
+      {Array.isArray(stay.rooms_detail) && stay.rooms_detail.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead className="text-left text-xs text-slate-400"><tr>
+              <th className="py-1">Room</th><th className="py-1">Meal</th><th className="py-1 text-right">Sale/night</th>
+              {perms.canProfit && <th className="py-1 text-right">Purchase/night</th>}
+            </tr></thead>
+            <tbody>
+              {stay.rooms_detail.map((r: any, ri: number) => (
+                <tr key={r.id ?? ri} className="border-t border-slate-50">
+                  <td className="py-1">{ROOM_LABEL[r.room_type] ?? r.room_type}{r.room_type === "suite" && r.suite_type ? ` · ${r.suite_type}` : ""}</td>
+                  <td className="py-1 text-slate-500">{r.meal_plan || "—"}</td>
+                  <td className="py-1 text-right">{money(roomNightly(r, "sale"), "SAR")}</td>
+                  {perms.canProfit && <td className="py-1 text-right text-slate-500">{money(roomNightly(r, "purchase"), "SAR")}</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Payment status controls */}
+      {perms.canEdit && (
+        <div className="flex flex-wrap items-center gap-4 rounded-md bg-slate-50 p-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Customer payment</span>
+            <select className="input max-w-[9rem]" disabled={busy} value={stay.customer_payment ?? "pending"}
+              onChange={(e) => rpc("hotel_stay_set_payment", { p_id: stay.id, p_kind: "customer", p_status: e.target.value })}>
+              {["pending", "partial", "rcvd"].map((s) => <option key={s} value={s}>{PAYMENT_STATUS_LABEL[s]}</option>)}
+            </select>
+          </div>
+          {perms.canPurchase && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vendor payment</span>
+              <select className="input max-w-[9rem]" disabled={busy} value={stay.vendor_payment ?? "pending"}
+                onChange={(e) => rpc("hotel_stay_set_payment", { p_id: stay.id, p_kind: "vendor", p_status: e.target.value })}>
+                {["pending", "partial", "paid"].map((s) => <option key={s} value={s}>{PAYMENT_STATUS_LABEL[s]}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Purchase / vendor edit */}
       {perms.canPurchase && (
@@ -235,13 +283,14 @@ function StayCard({ stay, index, booking, suppliers, hotels, perms, rpc, busy }:
                 </select>
               </div>
             )}
-            {perms.canPurchaseRate && <div><label className="label">Purchase Price / night</label><input type="number" step="0.01" className="input" value={pf.purchase_rate} onChange={(e) => setP("purchase_rate", e.target.value)} /></div>}
-            {perms.canPurchaseRate && <div><label className="label">Purchase Total <span className="text-slate-400">(auto)</span></label><input className="input bg-slate-50" value={purchTotal.toFixed(2)} readOnly tabIndex={-1} /></div>}
+            {perms.canPurchaseRate && <div><label className="label">Purchase Total <span className="text-slate-400">(set per room in Edit)</span></label><input className="input bg-slate-50" value={money(Number(stay.purchase_total) || 0, "SAR")} readOnly tabIndex={-1} /></div>}
             <div><label className="label">Supplier Reference</label><input className="input" value={pf.supplier_ref} onChange={(e) => setP("supplier_ref", e.target.value)} /></div>
-            <div className="md:col-span-2"><label className="label">Booking Notes</label><input className="input" value={pf.notes} onChange={(e) => setP("notes", e.target.value)} /></div>
+            <div><label className="label">Vendor Option Date <span className="text-slate-400">(vendor due)</span></label><input type="date" className="input" value={pf.vendor_option_date} onChange={(e) => setP("vendor_option_date", e.target.value)} /></div>
+            <div><label className="label">Option Date <span className="text-slate-400">(customer due)</span></label><input type="date" className="input" value={pf.option_date} onChange={(e) => setP("option_date", e.target.value)} /></div>
+            <div className="md:col-span-3"><label className="label">Booking Notes</label><input className="input" value={pf.notes} onChange={(e) => setP("notes", e.target.value)} /></div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button disabled={busy} className="btn" onClick={() => rpc("hotel_purchase_save", { p_id: stay.id, p_booking: booking.id, p: { ...pf, purchase_total: String(purchTotal) } })}>Save purchase</button>
+            <button disabled={busy} className="btn" onClick={() => rpc("hotel_purchase_save", { p_id: stay.id, p_booking: booking.id, p: { supplier_id: pf.supplier_id, supplier_ref: pf.supplier_ref, notes: pf.notes, option_date: pf.option_date, vendor_option_date: pf.vendor_option_date } })}>Save vendor / dates</button>
             {perms.canPayable && !stay.bill_id &&
               <button disabled={busy} className="btn-outline" onClick={() => rpc("hotel_purchase_post_payable", { p_id: stay.id })}>Post Supplier Payable</button>}
             {stay.bill_id && <Link href={`/purchase/bills/${stay.bill_id}`} className="btn-outline">View Payable →</Link>}

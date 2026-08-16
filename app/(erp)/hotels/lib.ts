@@ -99,6 +99,44 @@ export function buildHcnCopyText(
   return lines.join("\n").trim();
 }
 
+// ---- Per-room pricing (Phase B) ----
+// DBL is the base (2 beds, 0 extra). TPL/Quad/Quint add extra beds priced at the
+// extra-bed rate. Suite is a flat manual rate.
+export const ROOM_TYPES: { value: string; label: string; extra: number }[] = [
+  { value: "single", label: "Single", extra: 0 },
+  { value: "dbl", label: "Double (DBL)", extra: 0 },
+  { value: "tpl", label: "Triple (TPL)", extra: 1 },
+  { value: "quad", label: "Quad", extra: 2 },
+  { value: "quint", label: "Quint", extra: 3 },
+  { value: "suite", label: "Suite (manual)", extra: 0 },
+];
+
+export const ROOM_EXTRA: Record<string, number> = Object.fromEntries(ROOM_TYPES.map((r) => [r.value, r.extra]));
+export const ROOM_LABEL: Record<string, string> = Object.fromEntries(ROOM_TYPES.map((r) => [r.value, r.label]));
+
+export interface RoomRates {
+  room_type: string;
+  sale_dbl?: number | string; sale_extra?: number | string; sale_suite?: number | string;
+  purchase_dbl?: number | string; purchase_extra?: number | string; purchase_suite?: number | string;
+}
+
+// Nightly rate for one room (per night), for sale or purchase side.
+export function roomNightly(r: RoomRates, side: "sale" | "purchase"): number {
+  if (r.room_type === "suite") return Number((side === "sale" ? r.sale_suite : r.purchase_suite) || 0);
+  const dbl = Number((side === "sale" ? r.sale_dbl : r.purchase_dbl) || 0);
+  const extra = Number((side === "sale" ? r.sale_extra : r.purchase_extra) || 0);
+  return dbl + (ROOM_EXTRA[r.room_type] ?? 0) * extra;
+}
+
+// Payment status labels for the manual vendor/customer payment states.
+export const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  pending: "Pending", partial: "Partial", paid: "Paid", rcvd: "Rcvd",
+};
+export const PAYMENT_STATUS_TONE: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-700", partial: "bg-blue-100 text-blue-700",
+  paid: "bg-green-100 text-green-700", rcvd: "bg-green-100 text-green-700",
+};
+
 // Nights: check-in 1 Aug, check-out 5 Aug = 4 nights.
 export function nightsBetween(checkIn: string, checkOut: string): number {
   if (!checkIn || !checkOut) return 0;

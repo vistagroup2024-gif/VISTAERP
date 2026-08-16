@@ -17,12 +17,16 @@ export default async function HotelBookingDetailPage({ params }: { params: { id:
     .eq("id", params.id).single();
   if (!b) notFound();
 
-  const [{ data: stays }, { data: suppliers }, { data: hotels }, { data: tl }] = await Promise.all([
+  const [{ data: stays }, { data: rooms }, { data: suppliers }, { data: hotels }, { data: tl }] = await Promise.all([
     supabase.from("hotel_purchase_bookings").select("*, supplier:supplier_id(name)").eq("booking_id", params.id).order("sort").order("created_at"),
+    supabase.from("hotel_stay_rooms").select("*").eq("booking_id", params.id).order("sort"),
     supabase.from("parties").select("id, name").eq("party_type", "supplier").eq("is_active", true).order("name"),
     supabase.from("hotels").select("id, name").eq("is_active", true).order("name"),
     supabase.from("audit_log").select("id, action, detail, created_at").eq("entity", "hotel_booking").eq("entity_id", params.id).order("created_at", { ascending: false }).limit(100),
   ]);
+  const roomsByStay = new Map<string, any[]>();
+  for (const r of (rooms ?? []) as any[]) { const a = roomsByStay.get(r.stay_id) ?? []; a.push(r); roomsByStay.set(r.stay_id, a); }
+  const staysWithRooms = ((stays ?? []) as any[]).map((s) => ({ ...s, rooms_detail: roomsByStay.get(s.id) ?? [] }));
 
   const perms = {
     canEdit: staffCan(access, "hotels.bookings"),
@@ -48,7 +52,7 @@ export default async function HotelBookingDetailPage({ params }: { params: { id:
       <PageHeader title={`Hotel Booking ${b.booking_no}`} />
       <HotelBookingDetail
         booking={booking}
-        stays={(stays ?? []) as any}
+        stays={staysWithRooms as any}
         suppliers={(suppliers ?? []) as any}
         hotels={(hotels ?? []) as any}
         perms={perms}

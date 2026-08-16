@@ -4,19 +4,16 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { money } from "@/lib/format";
-import { nightsBetween } from "../lib";
+import { nightsBetween, ROOM_TYPES, ROOM_EXTRA, roomNightly } from "../lib";
 
 interface Opt { id: string; name: string }
 interface HotelOpt { id: string; name: string; city: string | null }
 
-// Preset suggestions for the select-or-type (datalist) fields.
 const SOURCES = ["Portal", "Phone", "Walk-in", "WhatsApp", "Email", "Agent"];
-const ROOM_TYPES = ["Single", "Double", "Triple", "Quad", "Quint", "Sharing"];
 const MEAL_PLANS = ["Room Only", "Bed & Breakfast", "Half Board", "Full Board"];
 const NATIONALITIES = ["Pakistan", "India", "Bangladesh", "Indonesia", "Malaysia", "Nigeria", "Egypt", "Turkey", "United Kingdom", "United States", "Saudi Arabia"];
 const CITIES = ["makkah", "madinah", "jeddah", "other"];
 
-// A "select or type" input: free text with a dropdown of suggestions.
 function Combo({ label, value, onChange, options, listId, placeholder }: {
   label: string; value: string; onChange: (v: string) => void; options: string[]; listId: string; placeholder?: string;
 }) {
@@ -29,33 +26,48 @@ function Combo({ label, value, onChange, options, listId, placeholder }: {
   );
 }
 
+interface RoomForm {
+  room_type: string; meal_plan: string; suite_type: string;
+  sale_dbl: number | string; sale_extra: number | string; sale_suite: number | string;
+  purchase_dbl: number | string; purchase_extra: number | string; purchase_suite: number | string;
+}
 interface StayForm {
   id?: string;
-  city: string; hotel_id: string; hotel_name: string; room_type: string; meal_plan: string;
-  check_in: string; check_out: string; rooms: number | string;
-  sale_rate: number | string; sale_total: number | string;
-  supplier_id: string; purchase_rate: number | string; purchase_total: number | string; currency: string;
-  supplier_ref: string; notes: string;
+  city: string; hotel_id: string; hotel_name: string;
+  check_in: string; check_out: string; option_date: string;
+  supplier_id: string; supplier_ref: string; notes: string; currency: string;
+  rooms_detail: RoomForm[];
 }
 
+function blankRoom(): RoomForm {
+  return { room_type: "dbl", meal_plan: "", suite_type: "", sale_dbl: "", sale_extra: "", sale_suite: "", purchase_dbl: "", purchase_extra: "", purchase_suite: "" };
+}
 function blankStay(): StayForm {
   return {
-    city: "makkah", hotel_id: "", hotel_name: "", room_type: "", meal_plan: "",
-    check_in: "", check_out: "", rooms: 1,
-    sale_rate: "", sale_total: "", supplier_id: "", purchase_rate: "", purchase_total: "", currency: "SAR",
-    supplier_ref: "", notes: "",
+    city: "makkah", hotel_id: "", hotel_name: "", check_in: "", check_out: "", option_date: "",
+    supplier_id: "", supplier_ref: "", notes: "", currency: "SAR", rooms_detail: [blankRoom()],
   };
 }
-
 function stayFromRow(s: any): StayForm {
+  const rooms = Array.isArray(s.rooms_detail) && s.rooms_detail.length
+    ? s.rooms_detail.map((r: any) => ({
+        room_type: r.room_type ?? "dbl", meal_plan: r.meal_plan ?? "", suite_type: r.suite_type ?? "",
+        sale_dbl: r.sale_dbl ?? "", sale_extra: r.sale_extra ?? "", sale_suite: r.sale_suite ?? "",
+        purchase_dbl: r.purchase_dbl ?? "", purchase_extra: r.purchase_extra ?? "", purchase_suite: r.purchase_suite ?? "",
+      }))
+    // Legacy stay without per-room detail: seed one room from the stay's flat rate.
+    : Array.from({ length: Math.max(1, Number(s.rooms) || 1) }, () => ({
+        room_type: s.room_type && ROOM_EXTRA[s.room_type] !== undefined ? s.room_type : "dbl",
+        meal_plan: s.meal_plan ?? "", suite_type: "",
+        sale_dbl: s.sale_rate ?? "", sale_extra: "", sale_suite: "",
+        purchase_dbl: s.purchase_rate ?? "", purchase_extra: "", purchase_suite: "",
+      }));
   return {
     id: s.id,
     city: s.city ?? "makkah", hotel_id: s.hotel_id ?? "", hotel_name: s.hotel_name ?? "",
-    room_type: s.room_type ?? "", meal_plan: s.meal_plan ?? "",
-    check_in: s.check_in ?? "", check_out: s.check_out ?? "", rooms: s.rooms ?? 1,
-    sale_rate: s.sale_rate ?? "", sale_total: s.sale_total ?? "",
-    supplier_id: s.supplier_id ?? "", purchase_rate: s.purchase_rate ?? "", purchase_total: s.purchase_total ?? "",
-    currency: s.currency ?? "SAR", supplier_ref: s.supplier_ref ?? "", notes: s.notes ?? "",
+    check_in: s.check_in ?? "", check_out: s.check_out ?? "", option_date: s.option_date ?? "",
+    supplier_id: s.supplier_id ?? "", supplier_ref: s.supplier_ref ?? "", notes: s.notes ?? "",
+    currency: s.currency ?? "SAR", rooms_detail: rooms,
   };
 }
 
@@ -90,10 +102,16 @@ export default function HotelBookingForm({
   const addStay = () => setStays((arr) => [...arr, blankStay()]);
   const removeStay = (i: number) => setStays((arr) => (arr.length > 1 ? arr.filter((_, idx) => idx !== i) : arr));
 
-  // Totals are always auto = rate x nights x rooms and are not editable.
+  const setRoom = (si: number, ri: number, k: keyof RoomForm, v: any) =>
+    setStays((arr) => arr.map((s, idx) => idx !== si ? s : { ...s, rooms_detail: s.rooms_detail.map((r, j) => j === ri ? { ...r, [k]: v } : r) }));
+  const addRoom = (si: number) => setStays((arr) => arr.map((s, idx) => idx === si ? { ...s, rooms_detail: [...s.rooms_detail, blankRoom()] } : s));
+  const removeRoom = (si: number, ri: number) => setStays((arr) => arr.map((s, idx) => idx === si ? { ...s, rooms_detail: s.rooms_detail.length > 1 ? s.rooms_detail.filter((_, j) => j !== ri) : s.rooms_detail } : s));
+
   function nightsOf(s: StayForm) { return nightsBetween(s.check_in, s.check_out); }
-  function saleTotalOf(s: StayForm) { return (Number(s.sale_rate) || 0) * nightsOf(s) * (Number(s.rooms) || 0); }
-  function purchaseTotalOf(s: StayForm) { return (Number(s.purchase_rate) || 0) * nightsOf(s) * (Number(s.rooms) || 0); }
+  function staySaleNightly(s: StayForm) { return s.rooms_detail.reduce((a, r) => a + roomNightly(r, "sale"), 0); }
+  function stayPurchNightly(s: StayForm) { return s.rooms_detail.reduce((a, r) => a + roomNightly(r, "purchase"), 0); }
+  function saleTotalOf(s: StayForm) { return staySaleNightly(s) * nightsOf(s); }
+  function purchaseTotalOf(s: StayForm) { return stayPurchNightly(s) * nightsOf(s); }
 
   const grandSale = useMemo(() => stays.reduce((a, s) => a + saleTotalOf(s), 0), [stays]);
   const grandPurchase = useMemo(() => stays.reduce((a, s) => a + purchaseTotalOf(s), 0), [stays]);
@@ -102,26 +120,35 @@ export default function HotelBookingForm({
     e.preventDefault();
     setSaving(true); setErr(null);
     const header = { ...h, guests: String(h.guests) };
-    const payloadStays = stays.map((s, i) => ({
-      id: s.id,
-      city: s.city,
-      hotel_id: s.hotel_id,
-      hotel_name: s.hotel_id ? (hotels.find((x) => x.id === s.hotel_id)?.name ?? "") : s.hotel_name,
-      room_type: s.room_type,
-      meal_plan: s.meal_plan,
-      check_in: s.check_in,
-      check_out: s.check_out,
-      rooms: String(s.rooms || 1),
-      sale_rate: String(s.sale_rate || 0),
-      sale_total: String(saleTotalOf(s)),
-      supplier_id: s.supplier_id,
-      purchase_rate: String(s.purchase_rate || 0),
-      purchase_total: String(purchaseTotalOf(s)),
-      currency: s.currency || "SAR",
-      supplier_ref: s.supplier_ref,
-      notes: s.notes,
-      sort: String(i),
-    }));
+    const payloadStays = stays.map((s, i) => {
+      const first = s.rooms_detail[0];
+      return {
+        id: s.id,
+        city: s.city,
+        hotel_id: s.hotel_id,
+        hotel_name: s.hotel_id ? (hotels.find((x) => x.id === s.hotel_id)?.name ?? "") : s.hotel_name,
+        room_type: first?.room_type ?? "dbl",
+        meal_plan: first?.meal_plan ?? "",
+        check_in: s.check_in,
+        check_out: s.check_out,
+        option_date: s.option_date,
+        rooms: String(s.rooms_detail.length || 1),
+        sale_rate: String(staySaleNightly(s)),
+        sale_total: String(saleTotalOf(s)),
+        supplier_id: s.supplier_id,
+        purchase_rate: String(stayPurchNightly(s)),
+        purchase_total: String(purchaseTotalOf(s)),
+        currency: s.currency || "SAR",
+        supplier_ref: s.supplier_ref,
+        notes: s.notes,
+        sort: String(i),
+        rooms_detail: s.rooms_detail.map((r) => ({
+          room_type: r.room_type, meal_plan: r.meal_plan, suite_type: r.suite_type,
+          sale_dbl: String(r.sale_dbl || 0), sale_extra: String(r.sale_extra || 0), sale_suite: String(r.sale_suite || 0),
+          purchase_dbl: String(r.purchase_dbl || 0), purchase_extra: String(r.purchase_extra || 0), purchase_suite: String(r.purchase_suite || 0),
+        })),
+      };
+    });
     const { data, error } = await supabase.rpc("hotel_booking_save_full", {
       p_id: existing?.id ?? null, p: header, p_stays: payloadStays,
     });
@@ -175,11 +202,11 @@ export default function HotelBookingForm({
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-slate-600">Stay {i + 1}</h3>
                 {stays.length > 1 && (
-                  <button type="button" className="text-sm text-red-500 hover:underline" onClick={() => removeStay(i)}>Remove</button>
+                  <button type="button" className="text-sm text-red-500 hover:underline" onClick={() => removeStay(i)}>Remove stay</button>
                 )}
               </div>
 
-              {/* Stay + room details */}
+              {/* Stay-level: hotel, dates, option date */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <label className="label">City</label>
@@ -194,43 +221,85 @@ export default function HotelBookingForm({
                     {hotels.filter((x) => !s.city || !x.city || x.city === s.city).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </select>
                 </div>
+                <div><label className="label">Option Date <span className="text-slate-400">(customer due)</span></label><input type="date" className="input" value={s.option_date} onChange={(e) => setStay(i, "option_date", e.target.value)} /></div>
                 <div><label className="label">Check-in *</label><input required type="date" className="input" value={s.check_in} onChange={(e) => setStay(i, "check_in", e.target.value)} /></div>
                 <div><label className="label">Check-out *</label><input required type="date" className="input" value={s.check_out} onChange={(e) => setStay(i, "check_out", e.target.value)} /></div>
                 <div><label className="label">Nights (auto)</label><input className="input bg-slate-50" value={nights} readOnly /></div>
-                <div><label className="label">Rooms</label><input type="number" min={1} className="input" value={s.rooms} onChange={(e) => setStay(i, "rooms", e.target.value)} /></div>
-                <Combo label="Room Type" value={s.room_type} onChange={(v) => setStay(i, "room_type", v)} options={ROOM_TYPES} listId={`dl-roomtype-${i}`} placeholder="Select or type" />
-                <Combo label="Meal Plan" value={s.meal_plan} onChange={(v) => setStay(i, "meal_plan", v)} options={MEAL_PLANS} listId={`dl-mealplan-${i}`} placeholder="Select or type" />
               </div>
 
-              {/* Sale pricing */}
-              <div className="rounded-md bg-emerald-50/60 p-3">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">Sale</div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div><label className="label">Sale Price / night</label><input type="number" step="0.01" className="input" value={s.sale_rate} onChange={(e) => setStay(i, "sale_rate", e.target.value)} /></div>
-                  <div>
-                    <label className="label">Sale Total <span className="text-slate-400">(auto)</span></label>
-                    <input className="input bg-slate-50" value={saleTotalOf(s).toFixed(2)} readOnly tabIndex={-1} />
-                  </div>
-                  <div className="flex items-end text-sm text-slate-500">{nights}n × {s.rooms || 0} rooms</div>
+              {/* Rooms — each independent */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rooms ({s.rooms_detail.length})</span>
+                  <button type="button" className="btn-outline text-xs" onClick={() => addRoom(i)}>+ Add room</button>
                 </div>
+                {s.rooms_detail.map((r, ri) => {
+                  const isSuite = r.room_type === "suite";
+                  const extras = ROOM_EXTRA[r.room_type] ?? 0;
+                  const saleN = roomNightly(r, "sale");
+                  const purchN = roomNightly(r, "purchase");
+                  return (
+                    <div key={ri} className="rounded-md border border-slate-200 p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-500">Room {ri + 1}</span>
+                        {s.rooms_detail.length > 1 && <button type="button" className="text-xs text-red-500 hover:underline" onClick={() => removeRoom(i, ri)}>Remove</button>}
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div>
+                          <label className="label">Room Type</label>
+                          <select className="input" value={r.room_type} onChange={(e) => setRoom(i, ri, "room_type", e.target.value)}>
+                            {ROOM_TYPES.map((rt) => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
+                          </select>
+                        </div>
+                        <Combo label="Meal Plan" value={r.meal_plan} onChange={(v) => setRoom(i, ri, "meal_plan", v)} options={MEAL_PLANS} listId={`dl-mp-${i}-${ri}`} placeholder="Select or type" />
+                        {isSuite && <div><label className="label">Suite Type</label><input className="input" value={r.suite_type} placeholder="e.g. Junior Suite" onChange={(e) => setRoom(i, ri, "suite_type", e.target.value)} /></div>}
+                      </div>
+
+                      {/* Sale pricing */}
+                      <div className="mt-3 rounded bg-emerald-50/60 p-2">
+                        <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Sale / night</div>
+                        <div className="grid gap-3 md:grid-cols-3">
+                          {isSuite
+                            ? <div><label className="label">Suite Rate</label><input type="number" step="0.01" className="input" value={r.sale_suite} onChange={(e) => setRoom(i, ri, "sale_suite", e.target.value)} /></div>
+                            : <>
+                                <div><label className="label">DBL Rate</label><input type="number" step="0.01" className="input" value={r.sale_dbl} onChange={(e) => setRoom(i, ri, "sale_dbl", e.target.value)} /></div>
+                                <div><label className="label">Extra Bed {extras ? `(×${extras})` : ""}</label><input type="number" step="0.01" className="input" disabled={!extras} value={r.sale_extra} onChange={(e) => setRoom(i, ri, "sale_extra", e.target.value)} /></div>
+                              </>}
+                          <div className="flex items-end text-sm text-emerald-700">= {money(saleN, "SAR")}/night</div>
+                        </div>
+                      </div>
+
+                      {/* Purchase pricing */}
+                      <div className="mt-2 rounded bg-slate-50 p-2">
+                        <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Purchase / night</div>
+                        <div className="grid gap-3 md:grid-cols-3">
+                          {isSuite
+                            ? <div><label className="label">Suite Rate</label><input type="number" step="0.01" className="input" value={r.purchase_suite} onChange={(e) => setRoom(i, ri, "purchase_suite", e.target.value)} /></div>
+                            : <>
+                                <div><label className="label">DBL Rate</label><input type="number" step="0.01" className="input" value={r.purchase_dbl} onChange={(e) => setRoom(i, ri, "purchase_dbl", e.target.value)} /></div>
+                                <div><label className="label">Extra Bed {extras ? `(×${extras})` : ""}</label><input type="number" step="0.01" className="input" disabled={!extras} value={r.purchase_extra} onChange={(e) => setRoom(i, ri, "purchase_extra", e.target.value)} /></div>
+                              </>}
+                          <div className="flex items-end text-sm text-slate-500">= {money(purchN, "SAR")}/night</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
-              {/* Purchase / vendor */}
-              <div className="rounded-md bg-slate-50 p-3">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Purchase / Vendor</div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <label className="label">Vendor / Supplier</label>
-                    <select className="input" value={s.supplier_id} onChange={(e) => setStay(i, "supplier_id", e.target.value)}>
-                      <option value="">— Select —</option>
-                      {suppliers.map((sup) => <option key={sup.id} value={sup.id}>{sup.name}</option>)}
-                    </select>
-                  </div>
-                  <div><label className="label">Purchase Price / night</label><input type="number" step="0.01" className="input" value={s.purchase_rate} onChange={(e) => setStay(i, "purchase_rate", e.target.value)} /></div>
-                  <div>
-                    <label className="label">Purchase Total <span className="text-slate-400">(auto)</span></label>
-                    <input className="input bg-slate-50" value={purchaseTotalOf(s).toFixed(2)} readOnly tabIndex={-1} />
-                  </div>
+              {/* Vendor + stay totals */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <label className="label">Vendor / Supplier</label>
+                  <select className="input" value={s.supplier_id} onChange={(e) => setStay(i, "supplier_id", e.target.value)}>
+                    <option value="">— Select —</option>
+                    {suppliers.map((sup) => <option key={sup.id} value={sup.id}>{sup.name}</option>)}
+                  </select>
+                </div>
+                <div><label className="label">Supplier Reference</label><input className="input" value={s.supplier_ref} onChange={(e) => setStay(i, "supplier_ref", e.target.value)} /></div>
+                <div className="flex items-end justify-end gap-4 text-sm">
+                  <span className="text-slate-500">Purchase: <b>{money(purchaseTotalOf(s), "SAR")}</b></span>
+                  <span>Sale: <b className="text-emerald-700">{money(saleTotalOf(s), "SAR")}</b></span>
                 </div>
               </div>
             </div>
