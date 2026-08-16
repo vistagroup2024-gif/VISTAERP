@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 
 // `perm` (any-of) on an Item gates that link individually. Omit to always show.
-interface Item { href: string; label: string; icon?: string; perm?: string[] }
+interface Item { href: string; label: string; icon?: string; perm?: string[]; exact?: boolean }
 // `perm` (any-of) gates the whole module. Omit to always show.
 interface Group { label: string; icon: string; items: Item[]; perm?: string[] }
 
@@ -48,7 +48,7 @@ const GROUPS: Group[] = [
     { href: "/hotels/checkin", label: "Check-in / Arrivals", perm: ["hotels.bookings"] },
     { href: "/hotels/checkout", label: "Check-out / Completed", perm: ["hotels.bookings"] },
     { href: "/hotels/suppliers", label: "Suppliers", perm: ["hotels.suppliers"] },
-    { href: "/hotels", label: "Hotel Master", perm: ["hotels.masters"] },
+    { href: "/hotels", label: "Hotel Master", perm: ["hotels.masters"], exact: true },
     { href: "/hotels/reports", label: "Reports", perm: ["hotels.reports"] },
   ] },
   { label: "Transport", icon: "🚐", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.trip_ledger"], items: [
@@ -102,13 +102,14 @@ const GROUPS: Group[] = [
   ] },
 ];
 
-function isActive(path: string, href: string) {
+function isActive(path: string, href: string, exact?: boolean) {
+  if (exact) return path === href;
   return path === href || path.startsWith(href + "/");
 }
 
-function NavLink({ href, label, icon, onClick }: Item & { onClick?: () => void }) {
+function NavLink({ href, label, icon, exact, onClick }: Item & { onClick?: () => void }) {
   const path = usePathname();
-  const active = isActive(path, href);
+  const active = isActive(path, href, exact);
   return (
     <Link href={href} onClick={onClick}
       className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${
@@ -125,7 +126,7 @@ function CollapsibleGroup({ group, onClose }: { group: Group; onClose?: () => vo
   // A child on the current route decides both the initial expand and the parent
   // highlight. `hasActive` is deterministic on server + client (usePathname),
   // so there is no hydration mismatch; sessionStorage is applied after mount.
-  const hasActive = group.items.some((i) => isActive(path, i.href));
+  const hasActive = group.items.some((i) => isActive(path, i.href, i.exact));
   const [open, setOpen] = useState(hasActive);
 
   useEffect(() => {
