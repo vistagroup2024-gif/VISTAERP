@@ -4,8 +4,35 @@ import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
 import { money } from "@/lib/format";
 import { Brn, Consumption, nightsBetween, fmtDay } from "@/lib/brn";
-import { combinedCityDemand, DayDemand, BrnRecommendation, DemandItem, planByCity, applyBoundaryTolerance } from "@/lib/planning";
+import { combinedCityDemand, DayDemand, BrnRecommendation, DemandItem, planByCity, applyBoundaryTolerance, buildDemandFromItems, recommendBrns } from "@/lib/planning";
 import PurchaseSimulator from "./PurchaseSimulator";
+
+// The three planning views, surfaced as tabs. Opening a tab re-renders the page
+// for that mode (server component keyed off ?mode=).
+type PlanMode = "city" | "pending" | "overall";
+const MODES: { key: PlanMode; label: string; hint: string }[] = [
+  { key: "city", label: "By City", hint: "Makkah / Madinah split — the exact city-specific BRNs to buy." },
+  { key: "pending", label: "Pending Groups Only", hint: "Only groups still pending BRN purchase (package updates excluded)." },
+  { key: "overall", label: "Overall (no city)", hint: "All demand pooled across cities — a single combined plan." },
+];
+
+function PlanningTabs({ mode, company }: { mode: PlanMode; company: string }) {
+  const q = (m: PlanMode) => `/inventory/planning?mode=${m}${company ? `&company=${company}` : ""}`;
+  const active = MODES.find((m) => m.key === mode) ?? MODES[0];
+  return (
+    <div className="space-y-2">
+      <div className="inline-flex flex-wrap rounded-lg border border-slate-200 p-0.5">
+        {MODES.map((m) => (
+          <a key={m.key} href={q(m.key)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${mode === m.key ? "bg-brand text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+            {m.label}
+          </a>
+        ))}
+      </div>
+      <p className="text-xs text-slate-500">{active.hint}</p>
+    </div>
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +53,7 @@ interface CompanyPlan {
   id: string; name: string; count: number; brns: Brn[];
   demand: DayDemand[]; recs: CityRec[];
   cityPlan: ReturnType<typeof planByCity>;
+  overallDemand: DayDemand[]; overallRecs: BrnRecommendation[];
   pilgrims: number; capacityGap: number; capacity: number;
 }
 
@@ -51,17 +79,25 @@ function planFor(id: string, name: string, items: CItem[], brns: Brn[], consByBr
     ...cityPlan.makkah.recs.map((r) => ({ ...r, city: "Makkah" as const })),
     ...cityPlan.madinah.recs.map((r) => ({ ...r, city: "Madinah" as const })),
   ];
+  // Overall (no-city) view: pool every BRN and every group's nights together and
+  // recommend against the combined shortage — a single citywide-agnostic plan.
+  const overallDemand = buildDemandFromItems(days, items, brns, consByBrn);
+  const overallRecs = recommendBrns(overallDemand);
   return {
-    id, name, count: items.length, brns, demand, recs, cityPlan,
+    id, name, count: items.length, brns, demand, recs, cityPlan, overallDemand, overallRecs,
     pilgrims: items.reduce((s, it) => s + it.pax, 0),
     capacityGap: demand.reduce((s, d) => s + d.shortage, 0),
     capacity: brns.reduce((s, b) => s + b.beds, 0),
   };
 }
 
-export default async function PlanningPage({ searchParams }: { searchParams: { company?: string } }) {
+export default async function PlanningPage({ searchParams }: { searchParams: { company?: string; mode?: string } }) {
   await guardStaffPage("brn.planning");
   const company = searchParams.company ?? "";
+  const mode: PlanMode = (["city", "pending", "overall"].includes(searchParams.mode ?? "") ? searchParams.mode : "city") as PlanMode;
+  // "Pending groups only" plans just the pending-BRN groups; the other modes also
+  // fold in groups whose package needs updating (their uncovered nights).
+  const includeUpdates = mode !== "pending";
   const supabase = createClient();
   const [{ data: pendGroups }, { data: updGroups }, { data: brns }, { data: cons }, { data: companies }] = await Promise.all([
     supabase.from("umrah_groups")
@@ -105,7 +141,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
       companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date, departure: g.departure_date,
       nights: new Set(nightsBetween(g.arrival_date, g.departure_date)),
     })),
-    ...(updGroups ?? []).filter(notLongStay).map((g: any) => {
+    ...(includeUpdates ? (updGroups ?? []) : []).filter(notLongStay).map((g: any) => {
       const cov = coveredByGroup[g.id] ?? new Set<string>();
       const need = nightsBetween(g.arrival_date, g.departure_date).filter((n) => !cov.has(n));
       return { companyId: g.group_company_id, id: g.id, pax: g.pax, arrival: g.arrival_date, departure: g.departure_date, nights: new Set(need), hasMadinah: hasMadinahGroup.has(g.id) };
@@ -132,10 +168,12 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
     const p = plans.find((x) => x.id === company)
       ?? planFor(company, comps.find((c) => c.id === company)?.name ?? "Company",
         items.filter((i) => i.companyId === company), allB.filter((b) => b.group_company_id === company), consByBrn);
-    const reqs = p.demand.map((d) => d.required);
+    const viewDemand = mode === "overall" ? p.overallDemand : p.demand;
+    const viewRecs: BrnRecommendation[] = mode === "overall" ? p.overallRecs : p.recs;
+    const reqs = viewDemand.map((d) => d.required);
     const avgDaily = reqs.length ? Math.round(reqs.reduce((s, x) => s + x, 0) / reqs.length) : 0;
-    const peak = p.demand.reduce((m, d) => (d.required > (m?.required ?? -1) ? d : m), p.demand[0]);
-    const daysShort = p.demand.filter((d) => d.shortage > 0).length;
+    const peak = viewDemand.reduce((m, d) => (d.required > (m?.required ?? -1) ? d : m), viewDemand[0]);
+    const daysShort = viewDemand.filter((d) => d.shortage > 0).length;
     const dayTone = (d: DayDemand) => d.shortage > 0 ? "bg-red-500 text-white"
       : d.available - d.required < d.required * 0.2 ? "bg-yellow-200 text-yellow-900" : "bg-green-100 text-green-800";
 
@@ -169,37 +207,43 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
       <div className="space-y-6">
         <PageHeader title={`BRN Purchase Planning — ${p.name}`} />
         <CompanyFilter companies={comps} value={company} />
+        <PlanningTabs mode={mode} company={company} />
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
-          <Kpi label="Groups (new + updates)" value={p.count} />
+          <Kpi label={mode === "pending" ? "Pending Groups" : "Groups (new + updates)"} value={p.count} />
           <Kpi label="Pending Pilgrims" value={p.pilgrims} />
           <Kpi label="Existing BRNs" value={p.brns.length} />
           <Kpi label="Existing Capacity" value={p.capacity} />
-          <Kpi label="Projected Demand" value={p.demand.reduce((s, d) => s + d.required, 0)} tone="text-brand" />
-          <Kpi label="Capacity Gap" value={p.capacityGap} tone={p.capacityGap > 0 ? "text-red-600" : "text-green-700"} />
-          <Kpi label="Recommended BRNs" value={p.recs.length} tone={p.recs.length > 0 ? "text-orange-600" : "text-green-700"} />
+          <Kpi label="Projected Demand" value={viewDemand.reduce((s, d) => s + d.required, 0)} tone="text-brand" />
+          <Kpi label="Capacity Gap" value={viewDemand.reduce((s, d) => s + d.shortage, 0)} tone={daysShort > 0 ? "text-red-600" : "text-green-700"} />
+          <Kpi label="Recommended BRNs" value={viewRecs.length} tone={viewRecs.length > 0 ? "text-orange-600" : "text-green-700"} />
         </div>
 
         <div className="card">
           <h2 className="mb-1 font-semibold text-slate-700">🛒 Smart Purchase Recommendation</h2>
           <p className="mb-3 text-xs text-slate-500">
-            Each BRN must seat a whole group on every night (a group of 10 needs one BRN with ≥10 free beds — it cannot be split across smaller BRNs). BRNs are city-specific, so these are the exact Makkah/Madinah BRNs to buy — matching “Planning by City” below.
+            {mode === "overall"
+              ? "Demand is pooled across both cities (no Makkah/Madinah split), so a group can be seated by any BRN. Each BRN still must seat a whole group on every night."
+              : "Each BRN must seat a whole group on every night (a group of 10 needs one BRN with ≥10 free beds — it cannot be split across smaller BRNs). BRNs are city-specific, so these are the exact Makkah/Madinah BRNs to buy — matching “Planning by City” below."}
           </p>
-          {p.recs.length === 0 ? (
-            <p className="text-sm text-green-700">✓ Existing inventory covers all pending demand for {p.name}.</p>
+          {viewRecs.length === 0 ? (
+            <p className="text-sm text-green-700">✓ Existing inventory covers all {mode === "pending" ? "pending-group" : "pending"} demand for {p.name}.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {p.recs.map((r, i) => (
-                <div key={i} className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-orange-800">New BRN {i + 1}</p>
-                    <span className={`badge ${r.city === "Makkah" ? "bg-emerald-100 text-emerald-700" : "bg-indigo-100 text-indigo-700"}`}>{r.city === "Makkah" ? "🕋 Makkah" : "🕌 Madinah"}</span>
+              {viewRecs.map((r, i) => {
+                const city = (r as CityRec).city;
+                return (
+                  <div key={i} className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-orange-800">New BRN {i + 1}</p>
+                      {city && <span className={`badge ${city === "Makkah" ? "bg-emerald-100 text-emerald-700" : "bg-indigo-100 text-indigo-700"}`}>{city === "Makkah" ? "🕋 Makkah" : "🕌 Madinah"}</span>}
+                    </div>
+                    <p className="mt-1 text-2xl font-bold text-slate-800">{r.beds} beds</p>
+                    <p className="text-sm text-slate-600">{fmtDay(r.from)} → {fmtDay(r.to)} · {r.nights} night(s)</p>
+                    {avgRate > 0 && <p className="mt-1 text-xs text-slate-500">≈ {cost(r)}</p>}
                   </div>
-                  <p className="mt-1 text-2xl font-bold text-slate-800">{r.beds} beds</p>
-                  <p className="text-sm text-slate-600">{fmtDay(r.from)} → {fmtDay(r.to)} · {r.nights} night(s)</p>
-                  {avgRate > 0 && <p className="mt-1 text-xs text-slate-500">≈ {cost(r)}</p>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -214,16 +258,18 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
           </div>
         </div>
 
-        <div className="card">
-          <h2 className="mb-3 font-semibold text-slate-700">🏙️ Planning by City</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            <CityBlock title="🕋 Makkah" data={cityPlan.makkah} note="Makkah nights. Groups whose package already includes Madinah are planned as Makkah only." />
-            <CityBlock title="🕌 Madinah" data={cityPlan.madinah}
-              note={`One Madinah night for each group that lacks Madinah — placed on free Madinah inventory first, buying only when none is available. On ${cityPlan.madinah.assignments.length} date(s): ${cityPlan.madinah.assignments.map((a) => `${fmtDay(a.date)} (${a.beds} beds, ${a.groups} grp)`).join(", ") || "—"}.`} />
+        {mode !== "overall" && (
+          <div className="card">
+            <h2 className="mb-3 font-semibold text-slate-700">🏙️ Planning by City</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <CityBlock title="🕋 Makkah" data={cityPlan.makkah} note="Makkah nights. Groups whose package already includes Madinah are planned as Makkah only." />
+              <CityBlock title="🕌 Madinah" data={cityPlan.madinah}
+                note={`One Madinah night for each group that lacks Madinah — placed on free Madinah inventory first, buying only when none is available. On ${cityPlan.madinah.assignments.length} date(s): ${cityPlan.madinah.assignments.map((a) => `${fmtDay(a.date)} (${a.beds} beds, ${a.groups} grp)`).join(", ") || "—"}.`} />
+            </div>
           </div>
-        </div>
+        )}
 
-        <PurchaseSimulator demand={p.demand} />
+        <PurchaseSimulator demand={viewDemand} />
 
         <div>
           <div className="mb-2 flex gap-2 text-xs">
@@ -232,14 +278,14 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
             <span className="badge bg-red-500 text-white">🔴 Purchase required</span>
           </div>
           <div className="card mb-3 flex flex-wrap gap-1">
-            {p.demand.map((d) => (
+            {viewDemand.map((d) => (
               <div key={d.date} title={`${fmtDay(d.date)} — need ${d.required}, have ${d.available}, short ${d.shortage}`}
                 className={`flex h-12 w-14 flex-col items-center justify-center rounded text-[10px] ${dayTone(d)}`}>
                 <span className="font-semibold">{fmtDay(d.date)}</span>
                 <span>{d.shortage > 0 ? `-${d.shortage}` : "ok"}</span>
               </div>
             ))}
-            {p.demand.length === 0 && <p className="text-sm text-slate-400">No demand.</p>}
+            {viewDemand.length === 0 && <p className="text-sm text-slate-400">No demand.</p>}
           </div>
           <p className="mb-2 text-xs text-slate-500">
             “Available Beds” is total free beds that night. “Shortage” applies the one-BRN-per-group rule: a group counts as covered only if a single BRN can seat all its pax — so a night can still show a shortage even when total free beds ≥ required (e.g. 14 free beds split across small BRNs cannot seat a group of 10). It is also city-specific — a Makkah group can only use a Makkah BRN — so “Available Beds” (both cities) may exceed “Required” while a real shortage remains, matching the city recommendations above.
@@ -253,7 +299,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
                 </tr>
               </thead>
               <tbody>
-                {p.demand.map((d) => (
+                {viewDemand.map((d) => (
                   <tr key={d.date} className={`border-t border-slate-100 ${d.shortage > 0 ? "bg-red-50" : ""}`}>
                     <td className="td font-medium">{fmtDay(d.date)}</td>
                     <td className="td">{d.arrivals}</td>
@@ -273,22 +319,30 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
   }
 
   // ---- All-companies overview ----
+  const recsOf = (p: CompanyPlan): BrnRecommendation[] => (mode === "overall" ? p.overallRecs : p.recs);
+  const gapOf = (p: CompanyPlan) => (mode === "overall" ? p.overallDemand.reduce((s, d) => s + d.shortage, 0) : p.capacityGap);
   const totalGroups = plans.reduce((s, p) => s + p.count, 0);
   const totalPilgrims = plans.reduce((s, p) => s + p.pilgrims, 0);
-  const totalGap = plans.reduce((s, p) => s + p.capacityGap, 0);
-  const totalRecs = plans.reduce((s, p) => s + p.recs.length, 0);
+  const totalGap = plans.reduce((s, p) => s + gapOf(p), 0);
+  const totalRecs = plans.reduce((s, p) => s + recsOf(p).length, 0);
 
   return (
     <div className="space-y-6">
       <PageHeader title="BRN Purchase Planning" />
       <CompanyFilter companies={comps} value={company} />
+      <PlanningTabs mode={mode} company={company} />
       <p className="text-sm text-slate-500">
-        Every pending group is planned. Inventory is never shared across companies — each company gets its own procurement plan. Select a company above for the full dashboard, recommendations, calendar and simulator.
+        {mode === "pending"
+          ? "Only groups still pending BRN purchase are planned (package updates excluded). "
+          : mode === "overall"
+            ? "Demand is pooled across cities (no Makkah/Madinah split). "
+            : "Every pending group is planned. "}
+        Inventory is never shared across companies — each company gets its own procurement plan. Select a company above for the full dashboard, recommendations, calendar and simulator.
       </p>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Companies With Demand" value={plans.length} />
-        <Kpi label="Pending Groups" value={totalGroups} />
+        <Kpi label={mode === "pending" ? "Pending Groups" : "Groups"} value={totalGroups} />
         <Kpi label="Pending Pilgrims" value={totalPilgrims} />
         <Kpi label="Total Capacity Gap" value={totalGap} tone={totalGap > 0 ? "text-red-600" : "text-green-700"} />
       </div>
@@ -303,14 +357,14 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
           </thead>
           <tbody>
             {plans.map((p) => (
-              <tr key={p.id} className={`border-t border-slate-100 ${p.capacityGap > 0 ? "bg-red-50" : ""}`}>
+              <tr key={p.id} className={`border-t border-slate-100 ${gapOf(p) > 0 ? "bg-red-50" : ""}`}>
                 <td className="td font-medium">{p.name}</td>
                 <td className="td">{p.count}</td>
                 <td className="td">{p.pilgrims}</td>
                 <td className="td">{p.capacity}</td>
-                <td className="td font-semibold text-red-600">{p.capacityGap || ""}</td>
-                <td className="td">{p.recs.length}</td>
-                <td className="td"><a href={`/inventory/planning?company=${p.id}`} className="text-brand text-sm hover:underline">Open plan →</a></td>
+                <td className="td font-semibold text-red-600">{gapOf(p) || ""}</td>
+                <td className="td">{recsOf(p).length}</td>
+                <td className="td"><a href={`/inventory/planning?mode=${mode}&company=${p.id}`} className="text-brand text-sm hover:underline">Open plan →</a></td>
               </tr>
             ))}
             {plans.length === 0 && <tr><td className="td text-slate-400" colSpan={7}>No pending groups to plan for.</td></tr>}
@@ -322,21 +376,24 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
         <div className="card">
           <h2 className="mb-3 font-semibold text-slate-700">🛒 Consolidated Recommendations by Company</h2>
           <div className="space-y-4">
-            {plans.filter((p) => p.recs.length > 0).map((p) => (
+            {plans.filter((p) => recsOf(p).length > 0).map((p) => (
               <div key={p.id}>
                 <p className="mb-2 font-medium text-slate-700">{p.name}</p>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {p.recs.map((r, i) => (
-                    <div key={i} className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                      <div className="flex items-center justify-between">
-                        <p className="font-semibold text-orange-800">New BRN {i + 1}</p>
-                        <span className={`badge ${r.city === "Makkah" ? "bg-emerald-100 text-emerald-700" : "bg-indigo-100 text-indigo-700"}`}>{r.city === "Makkah" ? "🕋 Makkah" : "🕌 Madinah"}</span>
+                  {recsOf(p).map((r, i) => {
+                    const city = (r as CityRec).city;
+                    return (
+                      <div key={i} className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-orange-800">New BRN {i + 1}</p>
+                          {city && <span className={`badge ${city === "Makkah" ? "bg-emerald-100 text-emerald-700" : "bg-indigo-100 text-indigo-700"}`}>{city === "Makkah" ? "🕋 Makkah" : "🕌 Madinah"}</span>}
+                        </div>
+                        <p className="mt-1 text-2xl font-bold text-slate-800">{r.beds} beds</p>
+                        <p className="text-sm text-slate-600">{fmtDay(r.from)} → {fmtDay(r.to)} · {r.nights} night(s)</p>
+                        {avgRate > 0 && <p className="mt-1 text-xs text-slate-500">≈ {cost(r)}</p>}
                       </div>
-                      <p className="mt-1 text-2xl font-bold text-slate-800">{r.beds} beds</p>
-                      <p className="text-sm text-slate-600">{fmtDay(r.from)} → {fmtDay(r.to)} · {r.nights} night(s)</p>
-                      {avgRate > 0 && <p className="mt-1 text-xs text-slate-500">≈ {cost(r)}</p>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
