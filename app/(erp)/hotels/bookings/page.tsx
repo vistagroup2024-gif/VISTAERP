@@ -12,7 +12,7 @@ export default async function HotelBookingsPage() {
   const supabase = createClient();
   const { data: bookings } = await supabase
     .from("hotel_bookings")
-    .select("id, booking_no, booking_date, guest_name, group_no, guests, city, check_in, check_out, nights, rooms, status, hotel_name, parties:agent_id(name), hotels:hotel_id(name), hotel_purchase_bookings(id, hcn_status, hcn, vendor_status, hotel_name, city, check_in, check_out, rooms, meal_plan, room_type, sort, bill_id, supplier:supplier_id(name), hotels:hotel_id(name))")
+    .select("id, booking_no, booking_date, guest_name, group_no, guests, city, check_in, check_out, nights, rooms, status, hotel_name, parties:agent_id(name), hotels:hotel_id(name), hotel_purchase_bookings(id, hcn_status, hcn, vendor_status, vendor_payment, customer_payment, hotel_name, city, check_in, check_out, rooms, meal_plan, room_type, sort, bill_id, supplier:supplier_id(name), hotels:hotel_id(name))")
     .order("created_at", { ascending: false })
     .limit(1000);
 
@@ -48,7 +48,8 @@ export default async function HotelBookingsPage() {
         vendor_status: p?.vendor_status ?? "pending_purchase",
         hcn_status: p?.hcn_status ?? "pending",
         hcn: p?.hcn ?? null,
-        payment: p?.bill_id ? "billed" : "none",
+        vendor_payment: p?.vendor_payment ?? "pending",
+        customer_payment: p?.customer_payment ?? "pending",
       });
     });
   }

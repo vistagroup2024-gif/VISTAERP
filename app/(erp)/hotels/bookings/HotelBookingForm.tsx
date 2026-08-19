@@ -34,7 +34,7 @@ interface RoomForm {
 interface StayForm {
   id?: string;
   city: string; hotel_id: string; hotel_name: string;
-  check_in: string; check_out: string; option_date: string;
+  check_in: string; check_out: string; option_date: string; vendor_option_date: string;
   supplier_id: string; supplier_ref: string; notes: string; currency: string;
   rooms_detail: RoomForm[];
 }
@@ -44,7 +44,7 @@ function blankRoom(): RoomForm {
 }
 function blankStay(): StayForm {
   return {
-    city: "makkah", hotel_id: "", hotel_name: "", check_in: "", check_out: "", option_date: "",
+    city: "makkah", hotel_id: "", hotel_name: "", check_in: "", check_out: "", option_date: "", vendor_option_date: "",
     supplier_id: "", supplier_ref: "", notes: "", currency: "SAR", rooms_detail: [blankRoom()],
   };
 }
@@ -65,7 +65,7 @@ function stayFromRow(s: any): StayForm {
   return {
     id: s.id,
     city: s.city ?? "makkah", hotel_id: s.hotel_id ?? "", hotel_name: s.hotel_name ?? "",
-    check_in: s.check_in ?? "", check_out: s.check_out ?? "", option_date: s.option_date ?? "",
+    check_in: s.check_in ?? "", check_out: s.check_out ?? "", option_date: s.option_date ?? "", vendor_option_date: s.vendor_option_date ?? "",
     supplier_id: s.supplier_id ?? "", supplier_ref: s.supplier_ref ?? "", notes: s.notes ?? "",
     currency: s.currency ?? "SAR", rooms_detail: rooms,
   };
@@ -104,7 +104,8 @@ export default function HotelBookingForm({
 
   const setRoom = (si: number, ri: number, k: keyof RoomForm, v: any) =>
     setStays((arr) => arr.map((s, idx) => idx !== si ? s : { ...s, rooms_detail: s.rooms_detail.map((r, j) => j === ri ? { ...r, [k]: v } : r) }));
-  const addRoom = (si: number) => setStays((arr) => arr.map((s, idx) => idx === si ? { ...s, rooms_detail: [...s.rooms_detail, blankRoom()] } : s));
+  // New room starts as a copy of the first room's rates/types (edit manually after).
+  const addRoom = (si: number) => setStays((arr) => arr.map((s, idx) => idx === si ? { ...s, rooms_detail: [...s.rooms_detail, { ...(s.rooms_detail[0] ?? blankRoom()) }] } : s));
   const removeRoom = (si: number, ri: number) => setStays((arr) => arr.map((s, idx) => idx === si ? { ...s, rooms_detail: s.rooms_detail.length > 1 ? s.rooms_detail.filter((_, j) => j !== ri) : s.rooms_detail } : s));
 
   function nightsOf(s: StayForm) { return nightsBetween(s.check_in, s.check_out); }
@@ -132,6 +133,7 @@ export default function HotelBookingForm({
         check_in: s.check_in,
         check_out: s.check_out,
         option_date: s.option_date,
+        vendor_option_date: s.vendor_option_date,
         rooms: String(s.rooms_detail.length || 1),
         sale_rate: String(staySaleNightly(s)),
         sale_total: String(saleTotalOf(s)),
@@ -296,6 +298,7 @@ export default function HotelBookingForm({
                     {suppliers.map((sup) => <option key={sup.id} value={sup.id}>{sup.name}</option>)}
                   </select>
                 </div>
+                <div><label className="label">Vendor Option Date <span className="text-slate-400">(if known)</span></label><input type="date" className="input" value={s.vendor_option_date} onChange={(e) => setStay(i, "vendor_option_date", e.target.value)} /></div>
                 <div><label className="label">Supplier Reference</label><input className="input" value={s.supplier_ref} onChange={(e) => setStay(i, "supplier_ref", e.target.value)} /></div>
                 <div className="flex items-end justify-end gap-4 text-sm">
                   <span className="text-slate-500">Purchase: <b>{money(purchaseTotalOf(s), "SAR")}</b></span>

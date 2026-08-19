@@ -3,7 +3,8 @@ import Link from "next/link";
 import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import { dateStr } from "@/lib/format";
-import { HOTEL_STATUS_LABEL, HOTEL_STATUS_TONE, HCN_STAGE_LABEL, HCN_STAGE_TONE, aggregateHcnStage } from "../lib";
+import { HOTEL_STATUS_LABEL, HCN_STAGE_LABEL, HCN_STAGE_TONE, aggregateHcnStage } from "../lib";
+import CheckinActions from "./CheckinActions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,15 +15,19 @@ export default async function CheckinPage() {
   const today = new Date().toISOString().slice(0, 10);
   const { data } = await supabase
     .from("hotel_bookings")
-    .select("id, booking_no, guest_name, group_no, city, hotel_name, check_in, check_out, rooms, status, checked_in_at, hotels:hotel_id(name), hotel_purchase_bookings(hcn_status, hcn, supplier:supplier_id(name))")
+    .select("id, booking_no, guest_name, group_no, guests, city, hotel_name, check_in, check_out, rooms, status, checked_in_at, hotels:hotel_id(name), hotel_purchase_bookings(id, hcn_status, hcn, hotel_name, check_in, check_out, sort, supplier:supplier_id(name), hotels:hotel_id(name))")
     .neq("status", "cancelled").gte("check_in", today).order("check_in").limit(1000);
 
   const rows = (data ?? []).map((b: any) => {
-    const purch = (b.hotel_purchase_bookings ?? []) as any[];
+    const purch = ((b.hotel_purchase_bookings ?? []) as any[]).slice().sort((a, c) => (a.sort ?? 0) - (c.sort ?? 0));
     const stage = aggregateHcnStage(purch.map((p) => p.hcn_status).filter(Boolean));
     const hcnNos = Array.from(new Set(purch.map((p) => p.hcn).filter(Boolean)));
     const suppliers = Array.from(new Set(purch.map((p) => p.supplier?.name).filter(Boolean)));
-    return { ...b, stage, hcn: hcnNos.join(", "), supplier: suppliers.length > 1 ? `${suppliers[0]} +${suppliers.length - 1}` : (suppliers[0] ?? null) };
+    const stays = purch.map((p) => ({
+      id: p.id, hcn_status: p.hcn_status ?? "pending", hcn: p.hcn ?? null,
+      hotel: p.hotels?.name ?? p.hotel_name ?? null, check_in: p.check_in, check_out: p.check_out,
+    }));
+    return { ...b, stage, hcn: hcnNos.join(", "), supplier: suppliers.length > 1 ? `${suppliers[0]} +${suppliers.length - 1}` : (suppliers[0] ?? null), stays };
   });
   const dayDiff = (d: string) => Math.round((new Date(d + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime()) / 86400000);
   const groups: [string, any[]][] = [
@@ -43,7 +48,7 @@ export default async function CheckinPage() {
               <thead className="bg-slate-50"><tr>
                 <th className="th">Booking</th><th className="th">Guest / Group</th><th className="th">Hotel / City</th>
                 <th className="th">Supplier</th><th className="th">Check-in</th><th className="th">Check-out</th><th className="th">Rooms</th>
-                <th className="th">HCN</th><th className="th">Status</th>
+                <th className="th">HCN</th><th className="th">Status</th><th className="th text-right">Actions</th>
               </tr></thead>
               <tbody>
                 {list.map((r: any) => {
@@ -59,11 +64,12 @@ export default async function CheckinPage() {
                       <td className="td">{dateStr(r.check_out)}</td>
                       <td className="td">{r.rooms}</td>
                       <td className="td font-mono text-xs">{r.hcn || <span className="text-slate-400">—</span>}</td>
-                      <td className="td"><span className={`badge ${HCN_STAGE_TONE[r.stage] ?? "bg-slate-100"}`}>{HCN_STAGE_LABEL[r.stage] ?? r.stage}</span>{r.status === "cancelled" ? "" : ""}<div className="mt-0.5 text-[11px] text-slate-400">{HOTEL_STATUS_LABEL[r.status] ?? ""}</div></td>
+                      <td className="td"><span className={`badge ${HCN_STAGE_TONE[r.stage] ?? "bg-slate-100"}`}>{HCN_STAGE_LABEL[r.stage] ?? r.stage}</span><div className="mt-0.5 text-[11px] text-slate-400">{HOTEL_STATUS_LABEL[r.status] ?? ""}</div></td>
+                      <td className="td text-right"><CheckinActions booking={{ id: r.id, guest_name: r.guest_name, booking_no: r.booking_no, group_no: r.group_no, guests: r.guests }} stays={r.stays} /></td>
                     </tr>
                   );
                 })}
-                {list.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>None.</td></tr>}
+                {list.length === 0 && <tr><td className="td text-slate-400" colSpan={10}>None.</td></tr>}
               </tbody>
             </table>
           </div>
