@@ -120,12 +120,13 @@ export interface RoomRates {
   purchase_dbl?: number | string; purchase_extra?: number | string; purchase_suite?: number | string;
 }
 
-// Nightly rate for one room (per night), for sale or purchase side.
+// Nightly rate for one room (per night), for sale or purchase side. Pricing is now a
+// flat per-room rate stored in sale_dbl / purchase_dbl (extra-bed math removed); the
+// suite rate is a legacy fallback for older rows.
 export function roomNightly(r: RoomRates, side: "sale" | "purchase"): number {
-  if (r.room_type === "suite") return Number((side === "sale" ? r.sale_suite : r.purchase_suite) || 0);
-  const dbl = Number((side === "sale" ? r.sale_dbl : r.purchase_dbl) || 0);
-  const extra = Number((side === "sale" ? r.sale_extra : r.purchase_extra) || 0);
-  return dbl + (ROOM_EXTRA[r.room_type] ?? 0) * extra;
+  const flat = Number((side === "sale" ? r.sale_dbl : r.purchase_dbl) || 0);
+  if (flat > 0) return flat;
+  return Number((side === "sale" ? r.sale_suite : r.purchase_suite) || 0);
 }
 
 // Payment status labels for the manual vendor/customer payment states.

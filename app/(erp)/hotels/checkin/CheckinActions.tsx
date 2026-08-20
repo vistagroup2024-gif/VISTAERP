@@ -45,7 +45,10 @@ export default function CheckinActions({ booking, stays }: { booking: CheckinBoo
     try { await navigator.clipboard.writeText(text); setErr("HCN details copied."); } catch { setErr("Could not copy — clipboard blocked."); }
   }
 
-  const items: RowMenuItem[] = [{ label: "Open booking", onClick: () => router.push(`/hotels/bookings/${booking.id}`) }];
+  const items: RowMenuItem[] = [
+    { label: "Open booking", onClick: () => router.push(`/hotels/bookings/${booking.id}`) },
+    { label: "Print Voucher", onClick: () => router.push(`/hotels/bookings/${booking.id}/voucher`) },
+  ];
   for (const s of stays) {
     const st = s.hcn_status;
     if (isPending(st)) items.push({ label: `Enter HCN${tag(s)}`, onClick: () => setModal({ stayId: s.id, hotel: s.hotel, value: s.hcn ?? "" }) });

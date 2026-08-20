@@ -9,7 +9,7 @@ import AttachmentsPanel from "@/components/AttachmentsPanel";
 import {
   HOTEL_STATUS_LABEL, HOTEL_STATUS_TONE, VENDOR_STATUS_LABEL, VENDOR_STATUS_ORDER,
   HCN_STAGE_LABEL, HCN_STAGE_TONE, buildHcnCopyText,
-  ROOM_LABEL, roomNightly, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE,
+  ROOM_LABEL, roomNightly,
 } from "../../lib";
 
 interface Perms {
@@ -64,6 +64,11 @@ export default function HotelBookingDetail({
             <button disabled={busy} className="btn-outline text-sm" onClick={() => rpc("hotel_booking_checkout", { p_id: booking.id })}>Mark Check-out</button>}
           {perms.canCancel && st !== "cancelled" &&
             <button className="btn-outline text-sm text-red-600" onClick={() => setShowCancel("sales")}>Cancel</button>}
+          {perms.canCancel && st === "cancelled" &&
+            <button disabled={busy} className="btn-outline text-sm text-red-600"
+              onClick={async () => { if (confirm("Delete this cancelled booking permanently? This cannot be undone.")) { const ok = await rpc("hotel_booking_delete", { p_id: booking.id }); if (ok) { router.push("/hotels/bookings"); } } }}>
+              Delete
+            </button>}
         </div>
       </div>
 
@@ -205,8 +210,6 @@ function StayCard({ stay, index, booking, suppliers, hotels, perms, rpc, busy }:
         <span className="badge bg-slate-100 capitalize text-slate-600">{stay.city ?? ""}</span>
         <span className={`badge ${HCN_STAGE_TONE[stage] ?? "bg-slate-100"}`}>{HCN_STAGE_LABEL[stage] ?? stage}</span>
         {stay.vendor_status && <span className="badge bg-slate-100 text-slate-600">{VENDOR_STATUS_LABEL[stay.vendor_status] ?? stay.vendor_status}</span>}
-        <span className={`badge ${PAYMENT_STATUS_TONE[stay.customer_payment ?? "pending"]}`}>Customer: {PAYMENT_STATUS_LABEL[stay.customer_payment ?? "pending"]}</span>
-        <span className={`badge ${PAYMENT_STATUS_TONE[stay.vendor_payment ?? "pending"]}`}>Vendor: {PAYMENT_STATUS_LABEL[stay.vendor_payment ?? "pending"]}</span>
       </div>
 
       <dl className="grid grid-cols-2 gap-y-2 text-sm md:grid-cols-4">
@@ -239,28 +242,6 @@ function StayCard({ stay, index, booking, suppliers, hotels, perms, rpc, busy }:
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {/* Payment status controls */}
-      {perms.canEdit && (
-        <div className="flex flex-wrap items-center gap-4 rounded-md bg-slate-50 p-3 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Customer payment</span>
-            <select className="input max-w-[9rem]" disabled={busy} value={stay.customer_payment ?? "pending"}
-              onChange={(e) => rpc("hotel_stay_set_payment", { p_id: stay.id, p_kind: "customer", p_status: e.target.value })}>
-              {["pending", "partial", "rcvd"].map((s) => <option key={s} value={s}>{PAYMENT_STATUS_LABEL[s]}</option>)}
-            </select>
-          </div>
-          {perms.canPurchase && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vendor payment</span>
-              <select className="input max-w-[9rem]" disabled={busy} value={stay.vendor_payment ?? "pending"}
-                onChange={(e) => rpc("hotel_stay_set_payment", { p_id: stay.id, p_kind: "vendor", p_status: e.target.value })}>
-                {["pending", "partial", "paid"].map((s) => <option key={s} value={s}>{PAYMENT_STATUS_LABEL[s]}</option>)}
-              </select>
-            </div>
-          )}
         </div>
       )}
 

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { money } from "@/lib/format";
-import { nightsBetween, ROOM_TYPES, ROOM_EXTRA, roomNightly } from "../lib";
+import { nightsBetween, ROOM_TYPES, roomNightly } from "../lib";
 
 interface Opt { id: string; name: string }
 interface HotelOpt { id: string; name: string; city: string | null }
@@ -57,7 +57,7 @@ function stayFromRow(s: any): StayForm {
       }))
     // Legacy stay without per-room detail: seed one room from the stay's flat rate.
     : Array.from({ length: Math.max(1, Number(s.rooms) || 1) }, () => ({
-        room_type: s.room_type && ROOM_EXTRA[s.room_type] !== undefined ? s.room_type : "dbl",
+        room_type: s.room_type || "dbl",
         meal_plan: s.meal_plan ?? "", suite_type: "",
         sale_dbl: s.sale_rate ?? "", sale_extra: "", sale_suite: "",
         purchase_dbl: s.purchase_rate ?? "", purchase_extra: "", purchase_suite: "",
@@ -235,18 +235,13 @@ export default function HotelBookingForm({
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rooms ({s.rooms_detail.length})</span>
                   <button type="button" className="btn-outline text-xs" onClick={() => addRoom(i)}>+ Add room</button>
                 </div>
-                {s.rooms_detail.map((r, ri) => {
-                  const isSuite = r.room_type === "suite";
-                  const extras = ROOM_EXTRA[r.room_type] ?? 0;
-                  const saleN = roomNightly(r, "sale");
-                  const purchN = roomNightly(r, "purchase");
-                  return (
+                {s.rooms_detail.map((r, ri) => (
                     <div key={ri} className="rounded-md border border-slate-200 p-3">
                       <div className="mb-2 flex items-center justify-between">
                         <span className="text-xs font-semibold text-slate-500">Room {ri + 1}</span>
                         {s.rooms_detail.length > 1 && <button type="button" className="text-xs text-red-500 hover:underline" onClick={() => removeRoom(i, ri)}>Remove</button>}
                       </div>
-                      <div className="grid gap-3 md:grid-cols-3">
+                      <div className="grid gap-3 md:grid-cols-4">
                         <div>
                           <label className="label">Room Type</label>
                           <select className="input" value={r.room_type} onChange={(e) => setRoom(i, ri, "room_type", e.target.value)}>
@@ -254,39 +249,11 @@ export default function HotelBookingForm({
                           </select>
                         </div>
                         <Combo label="Meal Plan" value={r.meal_plan} onChange={(v) => setRoom(i, ri, "meal_plan", v)} options={MEAL_PLANS} listId={`dl-mp-${i}-${ri}`} placeholder="Select or type" />
-                        {isSuite && <div><label className="label">Suite Type</label><input className="input" value={r.suite_type} placeholder="e.g. Junior Suite" onChange={(e) => setRoom(i, ri, "suite_type", e.target.value)} /></div>}
-                      </div>
-
-                      {/* Sale pricing */}
-                      <div className="mt-3 rounded bg-emerald-50/60 p-2">
-                        <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Sale / night</div>
-                        <div className="grid gap-3 md:grid-cols-3">
-                          {isSuite
-                            ? <div><label className="label">Suite Rate</label><input type="number" step="0.01" className="input" value={r.sale_suite} onChange={(e) => setRoom(i, ri, "sale_suite", e.target.value)} /></div>
-                            : <>
-                                <div><label className="label">DBL Rate</label><input type="number" step="0.01" className="input" value={r.sale_dbl} onChange={(e) => setRoom(i, ri, "sale_dbl", e.target.value)} /></div>
-                                <div><label className="label">Extra Bed {extras ? `(×${extras})` : ""}</label><input type="number" step="0.01" className="input" disabled={!extras} value={r.sale_extra} onChange={(e) => setRoom(i, ri, "sale_extra", e.target.value)} /></div>
-                              </>}
-                          <div className="flex items-end text-sm text-emerald-700">= {money(saleN, "SAR")}/night</div>
-                        </div>
-                      </div>
-
-                      {/* Purchase pricing */}
-                      <div className="mt-2 rounded bg-slate-50 p-2">
-                        <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Purchase / night</div>
-                        <div className="grid gap-3 md:grid-cols-3">
-                          {isSuite
-                            ? <div><label className="label">Suite Rate</label><input type="number" step="0.01" className="input" value={r.purchase_suite} onChange={(e) => setRoom(i, ri, "purchase_suite", e.target.value)} /></div>
-                            : <>
-                                <div><label className="label">DBL Rate</label><input type="number" step="0.01" className="input" value={r.purchase_dbl} onChange={(e) => setRoom(i, ri, "purchase_dbl", e.target.value)} /></div>
-                                <div><label className="label">Extra Bed {extras ? `(×${extras})` : ""}</label><input type="number" step="0.01" className="input" disabled={!extras} value={r.purchase_extra} onChange={(e) => setRoom(i, ri, "purchase_extra", e.target.value)} /></div>
-                              </>}
-                          <div className="flex items-end text-sm text-slate-500">= {money(purchN, "SAR")}/night</div>
-                        </div>
+                        <div><label className="label">Sale Price / night</label><input type="number" step="0.01" className="input" value={r.sale_dbl} onChange={(e) => setRoom(i, ri, "sale_dbl", e.target.value)} /></div>
+                        <div><label className="label">Purchase Price / night</label><input type="number" step="0.01" className="input" value={r.purchase_dbl} onChange={(e) => setRoom(i, ri, "purchase_dbl", e.target.value)} /></div>
                       </div>
                     </div>
-                  );
-                })}
+                ))}
               </div>
 
               {/* Vendor + stay totals */}
