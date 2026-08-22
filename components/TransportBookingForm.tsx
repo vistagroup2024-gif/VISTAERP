@@ -26,6 +26,10 @@ interface Trip {
   // Item 5: an extra trip added onto a package (e.g. a Jeddah tour). Priced
   // individually at its own route+vehicle rate, NOT part of the package price.
   is_extra?: boolean;
+  // Extra trips can carry FEWER passengers than the whole booking (e.g. 2 of 7 go
+  // on a Camry tour). Their capacity/vehicle-count is judged on this pax, not the
+  // booking total. Empty = use the booking's total pax.
+  pax?: string;
   // Item 6: a mix of different vehicles for one trip when a single vehicle can't
   // seat everyone (e.g. 1 Staria + 1 Camry for 8 pax). Each entry expands into that
   // many trip rows, priced per vehicle. `fare` is a staff override of that car's
@@ -35,7 +39,7 @@ interface Trip {
 
 const VISA_TYPES: [string, string][] = [["umrah", "Umrah Visa"], ["visit", "Visit Visa"], ["other", "Other"]];
 const todayStr = () => new Date().toISOString().slice(0, 10);
-const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "", hajj_terminal: false, passenger_visa_type: "", fare: "", is_extra: false });
+const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "", hajj_terminal: false, passenger_visa_type: "", fare: "", is_extra: false, pax: "" });
 
 // Collapse family-split duplicate legs (identical route/date/time/vehicle saved
 // once per split vehicle) into one representative leg, keeping input order.
@@ -82,6 +86,7 @@ function buildInitialTrips(rows: any[]): Trip[] {
       passenger_visa_type: first.passenger_visa_type ?? "", status: first.status ?? "",
       fare: distinct.length <= 1 && first.sell_rate != null && Number(first.sell_rate) > 0 ? String(Number(first.sell_rate)) : "",
       is_extra: !!first.is_extra,
+      pax: first.pax != null ? String(first.pax) : "",
     };
     if (distinct.length > 1) { leg.mix = distinct.map((v) => ({ vehicle_id: v, qty: counts.get(v) ?? 1, fare: fares.get(v) })); leg.vehicle_id = distinct[0]; }
     out.push(leg);
@@ -216,7 +221,8 @@ export default function TransportBookingForm({
   const unitsFor = (t: Trip) => {
     const veh = (type === "package" && !t.is_extra) ? pkgVehicleId : t.vehicle_id;
     const cap = veh ? vehicleById.get(veh)?.seating_capacity ?? null : null;
-    return cap && cap > 0 && totalPax > cap ? Math.ceil(totalPax / cap) : 1;
+    const pax = paxFor(t);
+    return cap && cap > 0 && pax > cap ? Math.ceil(pax / cap) : 1;
   };
   // Booking-level vehicle count (max across legs — the family splits the same way).
   const vehicleUnits = () => Math.max(1, ...trips.map(unitsFor));
@@ -245,17 +251,20 @@ export default function TransportBookingForm({
   const [err, setErr] = useState<string | null>(null);
 
   const totalPax = Number(h.pax) || 0;
+  // Passengers for capacity/vehicle-count on a trip: an extra trip may carry fewer
+  // than the whole booking (its own pax), everything else uses the booking total.
+  const paxFor = (t: Trip) => (t.is_extra && Number(t.pax) > 0 ? Number(t.pax) : totalPax);
 
   // ---- Item 6: mixed-vehicle helpers -----------------------------------------
   const vehCap = (id: string) => (id ? vehicleById.get(id)?.seating_capacity ?? 0 : 0);
   const rateFor = (routeId: string, vehId: string) => (routeId && vehId ? (rateMap.get(`${routeId}|${vehId}`) ?? 0) : 0);
   // A trip needs a vehicle mix when a single chosen vehicle can't seat everyone.
-  const needsMix = (t: Trip) => !isPkgLeg(t) && !!t.vehicle_id && totalPax > 0 && totalPax > vehCap(t.vehicle_id);
+  const needsMix = (t: Trip) => !isPkgLeg(t) && !!t.vehicle_id && paxFor(t) > 0 && paxFor(t) > vehCap(t.vehicle_id);
   // The mix rows to show/use: the saved mix, else a default of the chosen vehicle
   // duplicated enough times to (attempt to) seat everyone.
   const tripMix = (t: Trip) => (t.mix && t.mix.length
     ? t.mix
-    : [{ vehicle_id: t.vehicle_id, qty: Math.max(1, Math.ceil(totalPax / (vehCap(t.vehicle_id) || 1))) }]);
+    : [{ vehicle_id: t.vehicle_id, qty: Math.max(1, Math.ceil(paxFor(t) / (vehCap(t.vehicle_id) || 1))) }]);
   const mixSeats = (mix: { vehicle_id: string; qty: number }[]) => mix.reduce((s, m) => s + vehCap(m.vehicle_id) * (Number(m.qty) || 0), 0);
   const mixActive = (t: Trip) => needsMix(t) && !!(t.mix && t.mix.length);
   // The per-vehicle sell rate for one row of a mix: the staff override when set,
@@ -369,8 +378,8 @@ export default function TransportBookingForm({
         if (!needsMix(t)) continue;
         const mix = tripMix(t);
         if (mix.some((m) => !m.vehicle_id)) { setErr("Choose a vehicle for every row in the vehicle mix."); return; }
-        if (mixSeats(mix) < totalPax) {
-          setErr(`The selected vehicles seat ${mixSeats(mix)} but there are ${totalPax} passengers. Pick vehicles that seat everyone.`);
+        if (mixSeats(mix) < paxFor(t)) {
+          setErr(`The selected vehicles seat ${mixSeats(mix)} but there are ${paxFor(t)} passengers. Pick vehicles that seat everyone.`);
           return;
         }
       }
@@ -540,13 +549,18 @@ export default function TransportBookingForm({
                         <option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                       </select></div>
                   )}
+                  {t.is_extra && (
+                    <div className="sm:col-span-2"><label className="label">Pax <span className="text-slate-400">(this trip)</span></label>
+                      <input type="number" min={1} className="input" value={t.pax ?? ""} placeholder={String(totalPax || "")}
+                        onChange={(e) => setTrip(i, { pax: e.target.value })} /></div>
+                  )}
                   {needsMix(t) && (() => {
-                    const mix = tripMix(t); const seats = mixSeats(mix); const ok = seats >= totalPax;
+                    const mix = tripMix(t); const seats = mixSeats(mix); const ok = seats >= paxFor(t);
                     const upd = (fn: (m: { vehicle_id: string; qty: number }[]) => { vehicle_id: string; qty: number }[]) => setTrip(i, { mix: fn(mix) });
                     return (
                       <div className="sm:col-span-12 rounded-md border border-amber-200 bg-amber-50 p-2">
                         <div className="mb-1 text-xs font-medium text-amber-800">
-                          {totalPax} passengers exceed one {vehicleById.get(t.vehicle_id)?.name ?? "vehicle"} — choose the vehicles for this trip:
+                          {paxFor(t)} passengers exceed one {vehicleById.get(t.vehicle_id)?.name ?? "vehicle"} — choose the vehicles for this trip:
                         </div>
                         {mix.map((m, mi) => (
                           <div key={mi} className="mb-1 flex flex-wrap items-center gap-2">
@@ -576,7 +590,7 @@ export default function TransportBookingForm({
                         ))}
                         <div className="flex flex-wrap items-center gap-3">
                           <button type="button" className="text-xs font-medium text-brand hover:underline" onClick={() => upd((x) => [...x, { vehicle_id: "", qty: 1 }])}>+ Add vehicle</button>
-                          <span className={`text-xs font-semibold ${ok ? "text-green-700" : "text-red-600"}`}>Seats {seats} / {totalPax} needed{ok ? " ✓" : " — not enough"}</span>
+                          <span className={`text-xs font-semibold ${ok ? "text-green-700" : "text-red-600"}`}>Seats {seats} / {paxFor(t)} needed{ok ? " ✓" : " — not enough"}</span>
                         </div>
                       </div>
                     );

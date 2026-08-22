@@ -65,10 +65,15 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
   // into the fares, not shown as its own line. The booking discount and the Hajj-
   // terminal charge stay as separate lines in the totals below. The Hajj-terminal
   // extra is NOT in the per-trip fare (it's the separate line).
+  // Per-trip fare = route+vehicle rate + surcharge − booking discount, distributed
+  // across the trips as whole SAR, so each trip shows its DISCOUNTED amount (the
+  // customer sees exactly what to pay per trip). The Hajj-terminal charge stays a
+  // separate line. Discount is now baked in, so it is not shown again below.
   const vBases: number[] = (trips ?? []).map((t: any) => Number(t.sell_rate) || 0);
   const vGross = vBases.reduce((a, n) => a + n, 0);
   const vSurcharge = Math.max(0, Number(b.surcharge_amount) || 0);
-  const vFares = distributeWhole(vBases, vGross + vSurcharge);
+  const vDiscount = Math.max(0, Number(b.discount) || 0);
+  const vFares = distributeWhole(vBases, Math.max(0, vGross + vSurcharge - vDiscount));
   const docTrips = (trips ?? []).map((t: any, i: number) => ({
     seq: t.seq, route: t.route_name ?? t.route_label, trip_date: t.trip_date, trip_time: t.trip_time,
     pickup_location: t.pickup_location, drop_location: t.drop_location,
@@ -96,7 +101,9 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
   const depTrip = (trips ?? []).find((t: any) => airportRe.test(t.drop_location ?? "") || routeEnds(t.route_name ?? t.route_label).to);
   const arrivalFlight = arrTrip ? (b.arrival_flight || arrTrip.flight_no || null) : null;
   const departureFlight = depTrip ? (b.departure_flight || depTrip.flight_no || null) : null;
-  const docBooking = { ...b, arrival_flight: arrivalFlight, departure_flight: departureFlight };
+  // Discount is already distributed into the per-trip fares above, so hide the
+  // separate discount line and let the subtotal fall back to the sum of trip fares.
+  const docBooking = { ...b, arrival_flight: arrivalFlight, departure_flight: departureFlight, discount: 0, sell_amount: null };
 
   return (
     <div className="mx-auto max-w-3xl">
