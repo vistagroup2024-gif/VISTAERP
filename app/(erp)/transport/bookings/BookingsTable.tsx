@@ -8,6 +8,7 @@ interface Row {
   id: string; booking_no: string | null; booking_type: string; status: string;
   passenger_name: string | null; mobile: string | null; pax: number | null; booking_date: string | null;
   total_amount: number; currency: string; agent_name: string | null;
+  cancel_requested?: boolean | null; cancel_reason?: string | null;
 }
 
 const LABEL: Record<string, string> = {
@@ -62,7 +63,7 @@ export default function BookingsTable({ initial }: { initial: Row[] }) {
                 <td className="td">{r.pax ?? "—"}</td>
                 <td className="td">{TYPE[r.booking_type] ?? r.booking_type}</td>
                 <td className="td">{Number(r.total_amount).toFixed(2)} {r.currency}</td>
-                <td className="td"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COLOR[r.status] ?? "bg-slate-200"}`}>{LABEL[r.status] ?? r.status}</span></td>
+                <td className="td"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COLOR[r.status] ?? "bg-slate-200"}`}>{LABEL[r.status] ?? r.status}</span>{r.cancel_requested && r.status !== "cancelled" && <div className="mt-0.5" title={r.cancel_reason ?? ""}><span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-600">⚠ cancel requested</span></div>}</td>
               </tr>
             ))}
             {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={7}>No bookings found.</td></tr>}

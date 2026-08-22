@@ -17,8 +17,13 @@ export interface Trip {
 // Agent-facing status: agents don't care whether Vista fulfils in-house or by an
 // outsourced vendor — only whether a driver is confirmed yet.
 export function agentStatus(t: Trip): { label: string; cls: string } {
-  if (t.status === "completed") return { label: "Completed", cls: "bg-green-100 text-green-700" };
-  const assigned = !!t.driver_name || ["assigned", "on_route", "picked_up"].includes(t.status);
+  if (t.status === "completed") return { label: "Dropped / Completed", cls: "bg-green-100 text-green-700" };
+  if (t.status === "cancelled") return { label: "Cancelled", cls: "bg-red-100 text-red-700" };
+  // Live status from driver assigned to drop — never reveals whether Vista fulfils
+  // in-house or via an outsourced vendor.
+  if (t.status === "picked_up") return { label: "Passenger On Board", cls: "bg-teal-100 text-teal-700" };
+  if (t.status === "on_route") return { label: "Driver En Route", cls: "bg-cyan-100 text-cyan-700" };
+  const assigned = !!t.driver_name || t.status === "assigned";
   return assigned
     ? { label: "Driver Assigned", cls: "bg-indigo-100 text-indigo-700" }
     : { label: "Pending Assignment", cls: "bg-amber-100 text-amber-700" };

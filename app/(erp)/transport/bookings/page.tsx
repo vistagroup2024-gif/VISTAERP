@@ -9,7 +9,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: { c
   const sb = createClient();
   const { data: rows } = await sb
     .from("transport_bookings")
-    .select("id, booking_no, booking_type, status, passenger_name, mobile, pax, booking_date, total_amount, currency, agent_id, created_at")
+    .select("id, booking_no, booking_type, status, passenger_name, mobile, pax, booking_date, total_amount, currency, agent_id, created_at, cancel_requested, cancel_reason")
     .order("created_at", { ascending: false })
     .limit(500);
 
