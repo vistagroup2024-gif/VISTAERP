@@ -170,6 +170,16 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // ---- Filter option lists -------------------------------------------------
   const vehicleOpts = useMemo(() => vehicles.map((v) => ({ value: v.id, label: v.name })), [vehicles]);
   const driverOpts = useMemo(() => drivers.filter((d) => d.status === "active").map((d) => ({ value: d.id, label: d.name })), [drivers]);
+
+  // Vehicle upgrade ranks — a driver may only serve a trip whose requested vehicle is
+  // the same or LOWER category (downgrade). A Staria driver can do Camry/Starex, not
+  // Hiace/GMC/Bus. Drivers whose vehicle is too small are hidden from the assign list.
+  const rankOf = useMemo(() => { const m = new Map<string, number>(); vehicles.forEach((v) => m.set(v.id, v.upgrade_rank ?? 0)); return m; }, [vehicles]);
+  const eligibleDrivers = (t: Trip) => {
+    const reqId = t.requested_vehicle_id ?? t.vehicle_id;
+    const reqRank = reqId ? (rankOf.get(reqId) ?? 0) : 0;
+    return drivers.filter((d) => d.status === "active" && (!d.vehicle_id || (rankOf.get(d.vehicle_id) ?? 0) >= reqRank));
+  };
   const routeOpts = useMemo(() => {
     const seen = new Map<string, string>();
     trips.forEach((t) => { if (t.route_id) seen.set(t.route_id, t.route_display); });
@@ -623,7 +633,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                             <select className="input max-w-[11rem] text-sm" defaultValue=""
                               onChange={(e) => { if (e.target.value) { const d = drivers.find((x) => x.id === e.target.value); tryAssign(t.id, e.target.value, d?.name ?? "driver"); } }}>
                               <option value="">Choose driver…</option>
-                              {drivers.filter((d) => d.status === "active").map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                              {eligibleDrivers(t).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
                             <button onClick={() => setAssignFor(null)} className="text-xs text-slate-400 hover:underline">✕</button>
                           </>

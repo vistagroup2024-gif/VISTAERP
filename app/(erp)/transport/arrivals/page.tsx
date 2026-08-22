@@ -51,13 +51,14 @@ export default async function TransportArrivalsPage({ searchParams }: { searchPa
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-500">
-                <th className="th">Group</th><th className="th">Agency</th><th className="th">Arrival</th>
+                <th className="th">Group</th><th className="th">Group Name</th><th className="th">Agency</th><th className="th">Arrival</th>
                 <th className="th">Pax</th><th className="th">Choice</th><th className="th text-right">Action</th>
               </tr></thead>
               <tbody>
                 {rows.map((g) => (
                   <tr key={g.id} className="border-b border-slate-50 align-middle">
                     <td className="td font-medium"><Link href={`/groups/${g.id}`} className="text-brand hover:underline">{g.group_no ?? "—"}</Link></td>
+                    <td className="td">{g.group_name ?? "—"}</td>
                     <td className="td">{g.agency ?? "—"}</td>
                     <td className="td whitespace-nowrap">{dateStr(g.arrival_date)}{typeof g.days_to_arrival === "number" ? ` (${g.days_to_arrival}d)` : ""}</td>
                     <td className="td">{g.pax ?? "—"}</td>

@@ -285,11 +285,18 @@ export default function TransportBookingForm({
     setPkgVehicleId(vid);
     const pkg = packages.find((p) => p.id === packageId);
     if (!pkg) { setTrips([]); return; }
-    const legs = [...pkg.legs].sort((a, b) => a.seq - b.seq);
-    setTrips(legs.length ? legs.map((l) => ({
-      ...blankTrip(),
-      route_id: l.route_id ?? "", route_label: l.route_id ? routeName(l.route_id) : (l.label ?? ""),
-    })) : [blankTrip()]);
+    // Only build fresh trip rows when none exist yet. When the user changes the
+    // vehicle on an already-filled booking, keep every entered detail (date, time,
+    // pickup, drop-off, flight no) — only the fares recompute (they derive from the
+    // selected vehicle live).
+    setTrips((cur) => {
+      if (cur.length > 0) return cur;
+      const legs = [...pkg.legs].sort((a, b) => a.seq - b.seq);
+      return legs.length ? legs.map((l) => ({
+        ...blankTrip(),
+        route_id: l.route_id ?? "", route_label: l.route_id ? routeName(l.route_id) : (l.label ?? ""),
+      })) : [blankTrip()];
+    });
   }
 
   function changeType(next: string) {
