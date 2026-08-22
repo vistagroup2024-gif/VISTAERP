@@ -169,6 +169,9 @@ export default function TransportBookingForm({
     passenger_name: existing?.passenger_name ?? prefill?.passenger_name ?? "", mobile: existing?.mobile ?? "",
     whatsapp: existing?.whatsapp ?? "", nationality: existing?.nationality ?? "", remarks: existing?.remarks ?? "",
     payment_method: existing?.payment_method ?? "cash",
+    // Amount to collect from the passenger (may differ from the fare — e.g. the
+    // agent asks us to collect 250 on a 200 trip). Only meaningful for cash.
+    collect_amount: existing?.collect_amount != null ? String(existing.collect_amount) : "",
   });
 
   // Rate per route|vehicle for the SELECTED agent (agent-specific overrides the
@@ -358,6 +361,22 @@ export default function TransportBookingForm({
     return map;
   }, [type, packageId, pkgVehicleId, pkgPriceMap, rateMap, trips]);
 
+  // Additional charge (surcharge) distributed across the trips proportionally, so
+  // each trip's shown fare reflects it — mirrors how it is baked into the voucher.
+  const surchargeDist = useMemo(() => {
+    const map = new Map<number, number>();
+    if (surchargeAmt <= 0) return map;
+    const weights = trips.map((t, i) => (t.is_extra ? tripBase(t) : (pkgDist.get(i)?.final ?? tripBase(t))));
+    const tot = weights.reduce((s, w) => s + w, 0);
+    if (tot <= 0) { if (trips.length) map.set(0, surchargeAmt); return map; }
+    let acc = 0;
+    trips.forEach((_, i) => {
+      const share = i === trips.length - 1 ? Math.round((surchargeAmt - acc) * 100) / 100 : Math.round(surchargeAmt * weights[i] / tot * 100) / 100;
+      acc += share; map.set(i, share);
+    });
+    return map;
+  }, [surchargeAmt, trips, pkgDist]);
+
   async function save(status: string) {
     // Drafts are work-in-progress: skip mandatory-field validation so partial
     // bookings can be parked. These rules are enforced on create/confirm below.
@@ -398,6 +417,7 @@ export default function TransportBookingForm({
     const header: any = {
       ...h, booking_type: type, status, currency: "SAR",
       discount: discountVal,
+      collect_amount: h.payment_method === "cash" ? h.collect_amount : "",
       surcharge_type: surchargeEligible ? surchargeType : "",
       surcharge_value: surchargeEligible ? surchargeValue : "",
       package_id: type === "package" ? packageId : "",
@@ -480,6 +500,14 @@ export default function TransportBookingForm({
             <select className="input" value={h.payment_method} onChange={(e) => setH({ ...h, payment_method: e.target.value })}>
               <option value="no_cash">No Cash</option><option value="cash">Cash</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option>
             </select></div>}
+          {!isAgent && h.payment_method === "cash" && (
+            <div><label className="label">Collect from passenger <span className="text-slate-400">(SAR)</span></label>
+              <input className="input" type="number" min="0" step="0.01" value={h.collect_amount}
+                placeholder={netTotal ? netTotal.toFixed(2) : "e.g. 250"}
+                onChange={(e) => setH({ ...h, collect_amount: e.target.value })} />
+              <p className="text-[11px] text-slate-400">Leave blank to use the fare ({netTotal.toFixed(2)}). Set when the agent asks to collect a different amount.</p>
+            </div>
+          )}
           <div><label className="label">Haji name</label><input className="input" value={h.passenger_name} onChange={(e) => setH({ ...h, passenger_name: e.target.value })} /></div>
           <div><label className="label">Mobile</label><input className="input" value={h.mobile} onChange={(e) => setH({ ...h, mobile: e.target.value })} /></div>
           <div><label className="label">WhatsApp</label><input className="input" value={h.whatsapp} onChange={(e) => setH({ ...h, whatsapp: e.target.value })} /></div>
@@ -616,7 +644,10 @@ export default function TransportBookingForm({
                       {isPkgLeg(t) ? (
                         <>
                           <input className="input bg-slate-50" readOnly
-                            value={((pkgDist.get(i)?.final ?? 0) + (t.hajj_terminal ? hajjChargeFor(t) : 0)).toFixed(2)} />
+                            value={((pkgDist.get(i)?.final ?? 0) + (surchargeDist.get(i) ?? 0) + (t.hajj_terminal ? hajjChargeFor(t) : 0)).toFixed(2)} />
+                          {(surchargeDist.get(i) ?? 0) > 0 && (
+                            <p className="text-[11px] text-slate-400">incl. +{(surchargeDist.get(i) ?? 0).toFixed(2)} additional</p>
+                          )}
                           {(pkgDist.get(i)?.pct ?? 0) > 0 && (
                             <p className="text-[11px] text-slate-400">was {pkgDist.get(i)!.normal.toFixed(2)} · −{pkgDist.get(i)!.pct.toFixed(3)}%</p>
                           )}
