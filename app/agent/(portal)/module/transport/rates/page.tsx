@@ -19,16 +19,23 @@ export default async function AgentRatesPage() {
   const routes: any[] = m.routes ?? [];
   const vehicles: any[] = m.vehicles ?? [];
   const rates: any[] = m.rates ?? [];
+  const packages: any[] = m.packages ?? [];
+  const packagePrices: any[] = m.packagePrices ?? [];
 
-  // Rates are already resolved to this agent's price (agent-specific override applied
-  // server-side), keyed by route|vehicle.
+  // Route rates — already resolved to this agent's price, keyed by route|vehicle.
   const rate = new Map<string, number>();
   rates.forEach((r: any) => { if (r.sell_rate != null) rate.set(`${r.route_id}|${r.vehicle_id}`, Number(r.sell_rate)); });
+  const routeVeh = vehicles.filter((v: any) => routes.some((rt: any) => rate.has(`${rt.id}|${v.id}`)));
+  const routeRows = routes
+    .map((rt: any) => ({ id: rt.id, name: rt.name, cells: routeVeh.map((v: any) => rate.get(`${rt.id}|${v.id}`) ?? null) }))
+    .filter((r: any) => r.cells.some((c: number | null) => c != null));
 
-  // Only vehicles that have at least one rate, and routes that have at least one.
-  const usedVeh = vehicles.filter((v: any) => routes.some((rt: any) => rate.has(`${rt.id}|${v.id}`)));
-  const rows = routes
-    .map((rt: any) => ({ id: rt.id, name: rt.name, cells: usedVeh.map((v: any) => rate.get(`${rt.id}|${v.id}`) ?? null) }))
+  // Package prices — keyed by package|vehicle.
+  const pkg = new Map<string, number>();
+  packagePrices.forEach((p: any) => { if (p.price != null) pkg.set(`${p.package_id}|${p.vehicle_id}`, Number(p.price)); });
+  const pkgVeh = vehicles.filter((v: any) => packages.some((p: any) => pkg.has(`${p.id}|${v.id}`)));
+  const pkgRows = packages
+    .map((p: any) => ({ id: p.id, name: p.name, cells: pkgVeh.map((v: any) => pkg.get(`${p.id}|${v.id}`) ?? null) }))
     .filter((r: any) => r.cells.some((c: number | null) => c != null));
 
   return (
@@ -37,8 +44,10 @@ export default async function AgentRatesPage() {
         <h1 className="text-2xl font-bold text-slate-800">Transport Rates</h1>
         <Link href="/agent/module/transport" className="btn-outline text-sm">Back</Link>
       </div>
-      <p className="text-sm text-slate-500">Your active rates by route and vehicle ({agent.currency ?? "SAR"}).</p>
-      <AgentRatesTable vehicles={usedVeh.map((v: any) => ({ id: v.id, name: v.name }))} rows={rows} currency={agent.currency ?? "SAR"} />
+      <p className="text-sm text-slate-500">Your active rates by vehicle.</p>
+      <AgentRatesTable
+        routeVehicles={routeVeh.map((v: any) => ({ id: v.id, name: v.name }))} routeRows={routeRows}
+        packageVehicles={pkgVeh.map((v: any) => ({ id: v.id, name: v.name }))} packageRows={pkgRows} />
     </div>
   );
 }

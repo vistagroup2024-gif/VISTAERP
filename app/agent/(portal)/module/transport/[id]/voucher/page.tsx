@@ -64,7 +64,11 @@ export default async function AgentVoucherPage({ params, searchParams }: { param
   const h = headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
   const proto = h.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
-  const qr = await QRCode.toDataURL(host && b.public_token ? `${proto}://${host}/v/${b.public_token}` : (b.public_token ? `/v/${b.public_token}` : " "), { margin: 1, width: 160 });
+  // Scanning the agent voucher's QR opens the AGENT-branded public voucher; the Vista
+  // voucher opens the Vista-branded one.
+  const publicPath = b.public_token ? `/v/${b.public_token}${brand === "agent" ? "?brand=agent" : ""}` : " ";
+  const qr = await QRCode.toDataURL(host && b.public_token ? `${proto}://${host}${publicPath}` : publicPath, { margin: 1, width: 160 });
+  const helpline = brand === "agent" ? "+966 53 0048282" : null;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -74,7 +78,7 @@ export default async function AgentVoucherPage({ params, searchParams }: { param
         <Link href={`/agent/module/transport/${b.id}/voucher?brand=agent`} className={`text-sm ${brand === "agent" ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Agent</Link>
         <span className="ml-auto"><PrintButton /></span>
       </div>
-      <VoucherDocument provider={provider} booking={docBooking} trips={docTrips} qr={qr} showFares={showFares} />
+      <VoucherDocument provider={provider} booking={docBooking} trips={docTrips} qr={qr} showFares={showFares} helpline={helpline} />
     </div>
   );
 }

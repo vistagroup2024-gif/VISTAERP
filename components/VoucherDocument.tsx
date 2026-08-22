@@ -44,9 +44,9 @@ function fmtMoney(n: number, currency: string): string {
   return `${currency} ${new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)}`;
 }
 
-export default function VoucherDocument({ provider, booking: b, trips, qr, showFares = true, notes }: {
+export default function VoucherDocument({ provider, booking: b, trips, qr, showFares = true, notes, helpline }: {
   provider: VoucherProvider; booking: VoucherBooking; trips: VoucherTrip[]; qr: string;
-  showFares?: boolean; notes?: string | null;
+  showFares?: boolean; notes?: string | null; helpline?: string | null;
   /** @deprecated static instructions are no longer rendered — kept for call-site compat */
   instructions?: string[];
 }) {
@@ -209,6 +209,7 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
         <div className="mt-8 flex items-center justify-between gap-4 border-t border-slate-200 pt-4">
           <div className="text-xs leading-relaxed text-slate-500">
             {provider.mobile && <div><span className="font-semibold text-slate-600">24/7 Assistance:</span> {provider.mobile}</div>}
+            {helpline && <div className="font-semibold text-slate-600">24/7 assistance : {helpline}</div>}
             <div className="mt-0.5">Thank you for travelling with {provider.name}. Electronically generated — valid without a signature.</div>
           </div>
           {qr && <img src={qr} alt="Scan to view voucher" className="h-20 w-20 shrink-0 rounded-lg border border-slate-200 p-1" style={exact} />}
