@@ -45,7 +45,7 @@ export default async function AgentVoucherPage({ params, searchParams }: { param
   const docTrips = trips.map((t: any, i: number) => ({
     seq: t.seq, route: t.route_id ? rName.get(t.route_id) ?? t.route_label : t.route_label,
     trip_date: t.trip_date, trip_time: t.trip_time, pickup_location: t.pickup_location, drop_location: t.drop_location,
-    vehicle: t.vehicle_id ? vName.get(t.vehicle_id) ?? null : null, hajj_terminal: t.hajj_terminal, fare: vFares[i],
+    vehicle: (t.requested_vehicle_id ?? t.vehicle_id) ? vName.get(t.requested_vehicle_id ?? t.vehicle_id) ?? null : null, hajj_terminal: t.hajj_terminal, fare: vFares[i],
   }));
 
   const airportRe = /airport|terminal/i;

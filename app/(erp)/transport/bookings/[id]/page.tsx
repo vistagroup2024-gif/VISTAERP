@@ -6,6 +6,7 @@ import BookingStatusBar from "./BookingStatusBar";
 import DeleteBookingButton from "./DeleteBookingButton";
 import BookingExtras from "./BookingExtras";
 import BookingTripsCancel from "./BookingTripsCancel";
+import CancelRequestBar from "./CancelRequestBar";
 import { loadBookingMasters } from "@/lib/transportMasters";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ export default async function EditBookingPage({ params }: { params: { id: string
         <Link href="/transport/bookings" className="btn-outline">All bookings</Link>
         <DeleteBookingButton bookingId={b.id} bookingNo={b.booking_no ?? b.id} />
       </PageHeader>
+      {b.cancel_requested && b.status !== "cancelled" && <CancelRequestBar id={b.id} reason={b.cancel_reason ?? null} />}
       <BookingStatusBar id={b.id} status={b.status} />
       <BookingExtras
         booking={{ id: b.id, booking_no: b.booking_no, passenger_name: b.passenger_name, mobile: b.mobile, whatsapp: b.whatsapp, status: b.status }}

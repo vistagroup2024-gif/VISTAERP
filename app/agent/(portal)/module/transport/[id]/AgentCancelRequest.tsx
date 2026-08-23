@@ -11,8 +11,6 @@ export default function AgentCancelRequest({ token, id, requested }: { token: st
   const [done, setDone] = useState(requested);
   const [err, setErr] = useState<string | null>(null);
 
-  if (done) return <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-red-600">Cancellation requested</span>;
-
   async function request() {
     const reason = window.prompt("Request cancellation of this booking?\nOptionally add a reason:", "");
     if (reason === null) return;
@@ -22,6 +20,23 @@ export default function AgentCancelRequest({ token, id, requested }: { token: st
     if (error) { setErr(error.message); return; }
     setDone(true); router.refresh();
   }
+
+  async function withdraw() {
+    if (!window.confirm("Withdraw your cancellation request? The booking stays as it is.")) return;
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc("b2b_transport_withdraw_cancel", { p_token: token, p_id: id });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setDone(false); router.refresh();
+  }
+
+  if (done) return (
+    <span className="inline-flex items-center gap-2">
+      <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-red-600">Cancellation requested</span>
+      <button disabled={busy} onClick={withdraw} className="text-sm text-slate-500 hover:underline">Withdraw</button>
+      {err && <span className="text-xs text-red-600">{err}</span>}
+    </span>
+  );
 
   return (
     <span className="inline-flex items-center gap-2">

@@ -19,12 +19,14 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
 
   const [{ data: booking }, { data: trips }] = await Promise.all([
     sb.from("transport_bookings").select("*").eq("id", params.id).maybeSingle(),
-    sb.from("transport_trip_sched").select("seq, route_name, route_label, trip_date, trip_time, pickup_location, drop_location, vehicle_id, hajj_terminal, sell_rate, extra_charge, flight_no").eq("booking_id", params.id).order("seq"),
+    sb.from("transport_trip_sched").select("seq, route_name, route_label, trip_date, trip_time, pickup_location, drop_location, vehicle_id, requested_vehicle_id, hajj_terminal, sell_rate, extra_charge, flight_no").eq("booking_id", params.id).order("seq"),
   ]);
   if (!booking) return <div className="card text-slate-500">Booking not found. <Link href="/transport/bookings" className="text-brand hover:underline">Back</Link></div>;
   const b = booking as any;
 
-  const vehicleIds = Array.from(new Set((trips ?? []).map((t: any) => t.vehicle_id).filter(Boolean)));
+  // The voucher/invoice always shows the ORIGINALLY BOOKED vehicle — a Vista upgrade
+  // (a bigger car at no extra charge) only shows in Operations/Schedule, never here.
+  const vehicleIds = Array.from(new Set((trips ?? []).map((t: any) => t.requested_vehicle_id ?? t.vehicle_id).filter(Boolean)));
   const { data: vehicles } = vehicleIds.length ? await sb.from("transport_vehicles").select("id, name").in("id", vehicleIds) : { data: [] as any[] };
   const vName = new Map((vehicles ?? []).map((v: any) => [v.id, v.name]));
 
@@ -77,7 +79,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
   const docTrips = (trips ?? []).map((t: any, i: number) => ({
     seq: t.seq, route: t.route_name ?? t.route_label, trip_date: t.trip_date, trip_time: t.trip_time,
     pickup_location: t.pickup_location, drop_location: t.drop_location,
-    vehicle: t.vehicle_id ? vName.get(t.vehicle_id) ?? null : null, hajj_terminal: t.hajj_terminal,
+    vehicle: (t.requested_vehicle_id ?? t.vehicle_id) ? vName.get(t.requested_vehicle_id ?? t.vehicle_id) ?? null : null, hajj_terminal: t.hajj_terminal,
     fare: vFares[i],
   }));
 

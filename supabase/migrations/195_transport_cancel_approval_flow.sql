@@ -1,0 +1,3 @@
+-- Cancellation request approval flow: agent requests (staff notified); staff approve
+-- (cancel + notify agent) or reject (keep confirmed, clear request, notify agent);
+-- agent may withdraw a pending request. Bodies applied via migration 195.

@@ -17,10 +17,14 @@ export default async function AgentRatesPage() {
   const { data: masters } = await sb.rpc("b2b_transport_masters", { p_token: agent.token });
   const m: any = masters ?? {};
   const routes: any[] = m.routes ?? [];
-  const vehicles: any[] = m.vehicles ?? [];
   const rates: any[] = m.rates ?? [];
   const packages: any[] = m.packages ?? [];
   const packagePrices: any[] = m.packagePrices ?? [];
+
+  // Fixed vehicle-column order: Camry, Starex, Staria, GMC, Hiace, Coaster, Bus.
+  const ORDER = ["camry", "starex", "staria", "gmc", "hiace", "coaster", "bus"];
+  const vrank = (name: string) => { const n = (name ?? "").toLowerCase(); const i = ORDER.findIndex((k) => n.includes(k)); return i < 0 ? 99 : i; };
+  const vehicles: any[] = [...(m.vehicles ?? [])].sort((a: any, b: any) => vrank(a.name) - vrank(b.name) || String(a.name).localeCompare(String(b.name)));
 
   // Route rates — already resolved to this agent's price, keyed by route|vehicle.
   const rate = new Map<string, number>();

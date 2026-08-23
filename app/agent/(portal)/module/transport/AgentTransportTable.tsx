@@ -57,14 +57,24 @@ export default function AgentTransportTable({ rows, token, canRequest }: { rows:
     router.refresh();
   }
 
+  async function withdrawCancel(r: ARow) {
+    if (!window.confirm(`Withdraw the cancellation request for booking ${r.booking_no ?? ""}?`)) return;
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc("b2b_transport_withdraw_cancel", { p_token: token, p_id: r.id });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    router.refresh();
+  }
+
   function actions(r: ARow): RowMenuItem[] {
     const items: RowMenuItem[] = [
       { label: "View", onClick: () => router.push(`/agent/module/transport/${r.id}`) },
       { label: "Vista Voucher", onClick: () => window.open(`/agent/module/transport/${r.id}/voucher?brand=vista`, "_blank") },
       { label: "Agent Voucher", onClick: () => window.open(`/agent/module/transport/${r.id}/voucher?brand=agent`, "_blank") },
     ];
-    if (canRequest && !["cancelled", "completed"].includes(r.status) && !r.cancel_requested) {
-      items.push({ label: "Request Cancellation", onClick: () => requestCancel(r) });
+    if (canRequest && !["cancelled", "completed"].includes(r.status)) {
+      if (r.cancel_requested) items.push({ label: "Withdraw cancel request", onClick: () => withdrawCancel(r) });
+      else items.push({ label: "Request Cancellation", onClick: () => requestCancel(r) });
     }
     return items;
   }

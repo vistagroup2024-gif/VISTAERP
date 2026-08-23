@@ -5,16 +5,10 @@ import { useMemo, useState } from "react";
 interface Veh { id: string; name: string }
 interface RRow { id: string; name: string; cells: (number | null)[] }
 
-// A soft palette so each vehicle column is visually distinct (header + cell tint).
+// Two alternating tones (brand + slate) so columns are easy to read without a rainbow.
 const COLS = [
-  { head: "bg-sky-100 text-sky-800", cell: "bg-sky-50/60" },
-  { head: "bg-emerald-100 text-emerald-800", cell: "bg-emerald-50/60" },
-  { head: "bg-amber-100 text-amber-800", cell: "bg-amber-50/60" },
-  { head: "bg-violet-100 text-violet-800", cell: "bg-violet-50/60" },
-  { head: "bg-rose-100 text-rose-800", cell: "bg-rose-50/60" },
-  { head: "bg-teal-100 text-teal-800", cell: "bg-teal-50/60" },
-  { head: "bg-indigo-100 text-indigo-800", cell: "bg-indigo-50/60" },
-  { head: "bg-orange-100 text-orange-800", cell: "bg-orange-50/60" },
+  { head: "bg-brand/10 text-brand", cell: "bg-brand/5" },
+  { head: "bg-slate-100 text-slate-700", cell: "bg-slate-50" },
 ];
 
 function Matrix({ vehicles, rows, firstCol }: { vehicles: Veh[]; rows: RRow[]; firstCol: string }) {
