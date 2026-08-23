@@ -8,18 +8,21 @@ import PrintButton from "@/components/PrintButton";
 import VoucherDocument from "@/components/VoucherDocument";
 import { VISTA } from "@/lib/voucherBrand";
 import { distributeWhole } from "@/lib/transportFare";
+import AgentInvoiceVoucher from "./AgentInvoiceVoucher";
 
 export const dynamic = "force-dynamic";
 
 // Agent-portal voucher (Vista or agent branded). Reads only the agent's own booking
 // via the token-scoped RPC, so an agent can never open another agency's voucher.
-export default async function AgentVoucherPage({ params, searchParams }: { params: { id: string }; searchParams: { brand?: string } }) {
+export default async function AgentVoucherPage({ params, searchParams }: { params: { id: string }; searchParams: { brand?: string; fares?: string } }) {
   const agent = await getAgent();
   if (!agent) redirect("/login");
   if (!can(agent, "transport.view") && !can(agent, "transport.request")) {
     return <div className="rounded-xl bg-white p-6 text-slate-500 shadow-sm">You don’t have access to Transport.</div>;
   }
-  const brand = searchParams.brand === "agent" ? "agent" : "vista";
+  // "invoice" mode: agent-branded voucher where the agent enters their own selling fares.
+  const invoice = searchParams.fares === "mine";
+  const brand = invoice ? "agent" : (searchParams.brand === "agent" ? "agent" : "vista");
   const sb = createClient();
   const [{ data: bundle }, { data: masters }, { data: branding }] = await Promise.all([
     sb.rpc("b2b_transport_get_booking", { p_token: agent.token, p_id: params.id }),
@@ -70,14 +73,35 @@ export default async function AgentVoucherPage({ params, searchParams }: { param
   const qr = await QRCode.toDataURL(host && b.public_token ? `${proto}://${host}${publicPath}` : publicPath, { margin: 1, width: 160 });
   const helpline = brand === "agent" ? "+966 53 0048282" : null;
 
+  const tabs = (
+    <div className="no-print mb-3 flex flex-wrap items-center gap-3">
+      <Link href={`/agent/module/transport/${b.id}`} className="btn-outline text-sm">← Back</Link>
+      <Link href={`/agent/module/transport/${b.id}/voucher?brand=vista`} className={`text-sm ${!invoice && brand === "vista" ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Vista</Link>
+      <Link href={`/agent/module/transport/${b.id}/voucher?brand=agent`} className={`text-sm ${!invoice && brand === "agent" ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Agent</Link>
+      <Link href={`/agent/module/transport/${b.id}/voucher?fares=mine`} className={`text-sm ${invoice ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Agent + My Fare</Link>
+      {!invoice && <span className="ml-auto"><PrintButton /></span>}
+    </div>
+  );
+
+  if (invoice) {
+    const tripsBase = trips.map((t: any) => ({
+      id: t.id, seq: t.seq, route: t.route_id ? rName.get(t.route_id) ?? t.route_label : t.route_label,
+      trip_date: t.trip_date, trip_time: t.trip_time, pickup_location: t.pickup_location, drop_location: t.drop_location,
+      vehicle: (t.requested_vehicle_id ?? t.vehicle_id) ? vName.get(t.requested_vehicle_id ?? t.vehicle_id) ?? null : null,
+      hajj_terminal: t.hajj_terminal, fare: t.agent_sell_rate != null ? Number(t.agent_sell_rate) : null,
+    }));
+    return (
+      <div className="mx-auto max-w-3xl">
+        {tabs}
+        <AgentInvoiceVoucher token={agent.token} bookingId={b.id} provider={provider} booking={docBooking}
+          tripsBase={tripsBase} qr={qr} helpline={helpline} currency={b.currency ?? agent.currency ?? "SAR"} />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="no-print mb-3 flex items-center gap-2">
-        <Link href={`/agent/module/transport/${b.id}`} className="btn-outline text-sm">← Back</Link>
-        <Link href={`/agent/module/transport/${b.id}/voucher?brand=vista`} className={`text-sm ${brand === "vista" ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Vista</Link>
-        <Link href={`/agent/module/transport/${b.id}/voucher?brand=agent`} className={`text-sm ${brand === "agent" ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Agent</Link>
-        <span className="ml-auto"><PrintButton /></span>
-      </div>
+      {tabs}
       <VoucherDocument provider={provider} booking={docBooking} trips={docTrips} qr={qr} showFares={showFares} helpline={helpline} />
     </div>
   );
