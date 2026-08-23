@@ -38,7 +38,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
   let agent: any = null;
   if (brand === "agent" && b.agent_id) {
     const { data: party } = await sb.from("parties").select("name, phone").eq("id", b.agent_id).maybeSingle();
-    const { data: login } = await sb.from("b2b_agents").select("agency_name, contact_person, email, mobile, address, logo, voucher_note").eq("agent_party_id", b.agent_id).maybeSingle();
+    const { data: login } = await sb.from("b2b_agents").select("agency_name, contact_person, email, mobile, address, logo, logo_lockup, voucher_note").eq("agent_party_id", b.agent_id).maybeSingle();
     if (party || login) {
       agent = {
         agency_name: party?.name ?? login?.agency_name,
@@ -47,6 +47,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
         mobile: login?.mobile ?? party?.phone ?? null,
         address: login?.address ?? null,
         logo: login?.logo ?? null,
+        logo_lockup: login?.logo_lockup ?? false,
         voucher_note: login?.voucher_note ?? null,
       };
     }
@@ -61,7 +62,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
   const qr = await QRCode.toDataURL(host ? `${proto}://${host}${publicPath}` : publicPath, { margin: 1, width: 160 });
 
   const provider = brand === "agent" && agent
-    ? { name: agent.agency_name, tagline: null as string | null, contact: agent.contact_person, mobile: agent.mobile, email: agent.email, address: agent.address, logo: agent.logo, note: agent.voucher_note }
+    ? { name: agent.agency_name, tagline: null as string | null, contact: agent.contact_person, mobile: agent.mobile, email: agent.email, address: agent.address, logo: agent.logo, logoHasName: !!agent.logo_lockup, note: agent.voucher_note }
     : { ...VISTA, tagline: VISTA.tagline as string | null, note: null as string | null };
 
   // Per-trip fare = the route+vehicle rate PLUS the customer surcharge (Additional

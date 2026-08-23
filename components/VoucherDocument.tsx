@@ -13,6 +13,9 @@ export interface VoucherProvider {
   // When true the logo is a full lockup that already includes the company name,
   // so the header renders it alone (no separate name text beside it).
   logoLockup?: boolean;
+  // When true the (agent) logo already shows the company name, so the header
+  // renders the logo ONLY and does not repeat the name text beside it.
+  logoHasName?: boolean;
 }
 export interface VoucherTrip {
   seq?: number | null; route?: string | null; trip_date?: string | null; trip_time?: string | null;
@@ -92,9 +95,18 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
             {provider.tagline && <div className="text-[11px] font-medium tracking-wide text-slate-500">{provider.tagline}</div>}
           </div>
         ) : (
+          // Agent (or other) branding. The logo always sits on a white padded box so a
+          // logo saved on a coloured background still reads cleanly on the voucher. When
+          // the logo already contains the company name (logoHasName) the name text is
+          // omitted so it is not duplicated.
           <div className="flex items-center gap-3">
-            {provider.logo ? <img src={provider.logo} alt={provider.name} className="h-14 w-auto object-contain" style={exact} /> : null}
-            <div className="text-2xl font-bold tracking-tight text-slate-900">{provider.name}</div>
+            {provider.logo ? (
+              <img src={provider.logo} alt={provider.name}
+                className="h-16 w-auto max-w-[220px] rounded-lg border border-slate-200 bg-white object-contain p-1.5" style={exact} />
+            ) : null}
+            {!(provider.logoHasName && provider.logo) && (
+              <div className="text-2xl font-bold tracking-tight text-slate-900">{provider.name}</div>
+            )}
           </div>
         )}
         <div className="text-right">

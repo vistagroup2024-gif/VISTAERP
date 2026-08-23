@@ -28,6 +28,7 @@ export default function AgentForm({
     status: existing?.status ?? "active",
     credit_limit: existing?.credit_limit ?? 0,
     logo: existing?.logo ?? "",
+    logo_lockup: existing?.logo_lockup ?? false,
   });
   const [logoErr, setLogoErr] = useState<string | null>(null);
   const [password, setPassword] = useState("");
@@ -53,6 +54,9 @@ export default function AgentForm({
         const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
         const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext("2d"); if (!ctx) return setLogoErr("Could not process the image.");
+        // Composite onto a solid white background so a logo saved on a coloured/dark
+        // background (or a transparent PNG) always renders cleanly on the white voucher.
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
         const url = canvas.toDataURL("image/png");
         if (url.length > 700_000) return setLogoErr("Image is too large — please use a smaller logo.");
@@ -86,6 +90,7 @@ export default function AgentForm({
       status: f.status,
       credit_limit: Number(f.credit_limit) || 0,
       logo: f.logo || null,
+      logo_lockup: !!f.logo_lockup,
       permissions: perms,
     };
     const dup = (e: any) => /duplicate key|unique/i.test(e?.message ?? "") ? "This username already exists." : e.message;
@@ -156,6 +161,10 @@ export default function AgentForm({
             {f.logo && <button type="button" className="text-sm text-red-500 hover:underline" onClick={() => setF({ ...f, logo: "" })}>Remove</button>}
           </div>
           {logoErr && <p className="mt-1 text-xs text-red-600">{logoErr}</p>}
+          <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" checked={!!f.logo_lockup} onChange={(e) => setF({ ...f, logo_lockup: e.target.checked })} />
+            Logo already shows the company name (don’t repeat the name on the voucher)
+          </label>
         </div>
       </div>
 
