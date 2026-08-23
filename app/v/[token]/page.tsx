@@ -2,7 +2,8 @@ import QRCode from "qrcode";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import VoucherDocument from "@/components/VoucherDocument";
-import SetDocTitle, { voucherFileName } from "@/components/SetDocTitle";
+import SetDocTitle from "@/components/SetDocTitle";
+import { voucherFileName } from "@/lib/voucherFileName";
 import { VISTA } from "@/lib/voucherBrand";
 
 export const dynamic = "force-dynamic";

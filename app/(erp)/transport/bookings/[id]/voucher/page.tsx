@@ -7,7 +7,8 @@ import DeleteVoucherButton from "./DeleteVoucherButton";
 import VoucherDocument from "@/components/VoucherDocument";
 import { VISTA } from "@/lib/voucherBrand";
 import { distributeWhole } from "@/lib/transportFare";
-import SetDocTitle, { voucherFileName } from "@/components/SetDocTitle";
+import SetDocTitle from "@/components/SetDocTitle";
+import { voucherFileName } from "@/lib/voucherFileName";
 
 export const dynamic = "force-dynamic";
 
