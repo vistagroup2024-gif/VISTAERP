@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import VoucherDocument from "@/components/VoucherDocument";
+import SetDocTitle, { voucherFileName } from "@/components/SetDocTitle";
 import { VISTA } from "@/lib/voucherBrand";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export default async function PublicVoucherPage({ params, searchParams }: { para
   return (
     <div className="min-h-screen bg-slate-100 px-3 py-6">
       <div className="mx-auto max-w-3xl">
+        <SetDocTitle title={voucherFileName(booking.booking_no, booking.passenger_name)} />
         <VoucherDocument provider={provider} booking={booking} trips={trips} qr={qr} showFares={false} helpline={helpline} />
       </div>
     </div>

@@ -7,6 +7,7 @@ import DeleteVoucherButton from "./DeleteVoucherButton";
 import VoucherDocument from "@/components/VoucherDocument";
 import { VISTA } from "@/lib/voucherBrand";
 import { distributeWhole } from "@/lib/transportFare";
+import SetDocTitle, { voucherFileName } from "@/components/SetDocTitle";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +110,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
 
   return (
     <div className="mx-auto max-w-3xl">
+      <SetDocTitle title={voucherFileName(b.booking_no, b.passenger_name)} />
       <div className="no-print mb-3 flex items-center gap-2">
         <Link href={`/transport/bookings/${b.id}`} className="btn-outline text-sm">← Back to booking</Link>
         <Link href={`/transport/bookings/${b.id}/voucher?brand=vista`} className={`text-sm ${brand === "vista" ? "font-semibold text-brand" : "text-slate-500 hover:underline"}`}>Vista</Link>

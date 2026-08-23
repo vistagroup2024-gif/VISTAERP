@@ -55,10 +55,13 @@ table td {
 /* Printable documents (vouchers, driver sheets): hide the app chrome so only
    the .print-doc area prints on a clean white page. */
 @media print {
+  /* margin:0 removes the browser's default URL/date header & footer; we restore a
+     safe inner margin on the document itself so content isn't clipped. */
+  @page { margin: 0; }
   aside { display: none !important; }
   .no-print { display: none !important; }
   main { padding: 0 !important; }
   body { background: #fff !important; }
-  .print-doc { box-shadow: none !important; }
+  .print-doc { box-shadow: none !important; border: 0 !important; border-radius: 0 !important; padding: 10mm !important; }
   table th, table td { text-align: left !important; }
 }

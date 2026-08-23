@@ -8,6 +8,7 @@ import PrintButton from "@/components/PrintButton";
 import VoucherDocument from "@/components/VoucherDocument";
 import { VISTA } from "@/lib/voucherBrand";
 import { distributeWhole } from "@/lib/transportFare";
+import SetDocTitle, { voucherFileName } from "@/components/SetDocTitle";
 import AgentInvoiceVoucher from "./AgentInvoiceVoucher";
 
 export const dynamic = "force-dynamic";
@@ -73,6 +74,7 @@ export default async function AgentVoucherPage({ params, searchParams }: { param
   const qr = await QRCode.toDataURL(host && b.public_token ? `${proto}://${host}${publicPath}` : publicPath, { margin: 1, width: 160 });
   const helpline = brand === "agent" ? "+966 53 0048282" : null;
 
+  const docTitle = <SetDocTitle title={voucherFileName(b.booking_no, b.passenger_name)} />;
   const tabs = (
     <div className="no-print mb-3 flex flex-wrap items-center gap-3">
       <Link href={`/agent/module/transport/${b.id}`} className="btn-outline text-sm">← Back</Link>
@@ -92,6 +94,7 @@ export default async function AgentVoucherPage({ params, searchParams }: { param
     }));
     return (
       <div className="mx-auto max-w-3xl">
+        {docTitle}
         {tabs}
         <AgentInvoiceVoucher token={agent.token} bookingId={b.id} provider={provider} booking={docBooking}
           tripsBase={tripsBase} qr={qr} helpline={helpline} currency={b.currency ?? agent.currency ?? "SAR"} />
@@ -101,6 +104,7 @@ export default async function AgentVoucherPage({ params, searchParams }: { param
 
   return (
     <div className="mx-auto max-w-3xl">
+      {docTitle}
       {tabs}
       <VoucherDocument provider={provider} booking={docBooking} trips={docTrips} qr={qr} showFares={showFares} helpline={helpline} />
     </div>

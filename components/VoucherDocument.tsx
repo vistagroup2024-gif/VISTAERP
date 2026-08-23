@@ -83,7 +83,7 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
   return (
     <div className="print-doc mx-auto overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800 shadow-sm">
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-6 border-b-2 border-brand px-8 pb-5 pt-7">
+      <div className="flex items-start justify-between gap-6 border-b-2 border-brand px-5 pb-5 pt-6 sm:px-8 sm:pt-7">
         {provider.logoLockup ? (
           // Vista lockup: pin mark on top, company name + tagline stacked below.
           <div className="flex flex-col items-start gap-1">
@@ -106,7 +106,7 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
         </div>
       </div>
 
-      <div className="px-8 py-6">
+      <div className="px-5 py-5 sm:px-8 sm:py-6">
         {/* ── Passenger Details ─────────────────────────────────── */}
         <SectionTitle>Passenger Details</SectionTitle>
         <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
@@ -208,8 +208,7 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
         {/* ── Footer ────────────────────────────────────────────── */}
         <div className="mt-8 flex items-center justify-between gap-4 border-t border-slate-200 pt-4">
           <div className="text-xs leading-relaxed text-slate-500">
-            {provider.mobile && <div><span className="font-semibold text-slate-600">24/7 Assistance:</span> {provider.mobile}</div>}
-            {helpline && <div className="font-semibold text-slate-600">24/7 assistance : {helpline}</div>}
+            {(helpline || provider.mobile) && <div><span className="font-semibold text-slate-600">24/7 Assistance:</span> {helpline || provider.mobile}</div>}
             <div className="mt-0.5">Thank you for travelling with {provider.name}. Electronically generated — valid without a signature.</div>
           </div>
           {qr && <img src={qr} alt="Scan to view voucher" className="h-20 w-20 shrink-0 rounded-lg border border-slate-200 p-1" style={exact} />}

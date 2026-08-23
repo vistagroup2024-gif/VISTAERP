@@ -53,7 +53,7 @@ export default function AgentSidebar({ agencyName, nav }: { agencyName: string; 
       </aside>
 
       {/* Mobile top bar */}
-      <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
+      <div className="no-print fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
         <div className="flex items-center gap-2">
           <Image src="/icon.svg" alt="Vista Group" width={30} height={30} />
           <p className="text-base font-bold text-slate-800">Vista B2B</p>
