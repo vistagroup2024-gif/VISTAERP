@@ -16,7 +16,7 @@ interface Trip {
   driver_mobile: string | null; driver_reg: string | null; vehicle_type: string | null; hajj_terminal: boolean;
   trip_date: string | null;
   vendor_id: string | null; vendor_name: string | null; trip_time: string | null;
-  outsource_driver_name: string | null; outsource_driver_mobile: string | null; sell_rate: number | null; payment_method: string | null; vendor_cost: number | null; cash_received: number | null; collect_amount: number | null;
+  outsource_driver_name: string | null; outsource_driver_mobile: string | null; sell_rate: number | null; payment_method: string | null; vendor_cost: number | null; cash_received: number | null; collect_amount: number | null; assignment_confirmed?: boolean;
   pickup_location: string | null; drop_location: string | null; flight_no: string | null; status: string;
   sched_s: string | null; sched_e: string | null;
   tafweej_created?: boolean; needs_tafweej?: boolean;
@@ -174,6 +174,11 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // Vehicle upgrade ranks — a driver may only serve a trip whose requested vehicle is
   // the same or LOWER category (downgrade). A Staria driver can do Camry/Starex, not
   // Hiace/GMC/Bus. Drivers whose vehicle is too small are hidden from the assign list.
+  // Proposed (unconfirmed) assignments awaiting the dispatcher's confirm before agents
+  // and drivers can see the driver details.
+  const unconfirmedCount = useMemo(() => trips.filter((t) =>
+    (t.driver_id || t.vendor_id) && ["assigned", "outsourced"].includes(t.status) && t.assignment_confirmed === false).length, [trips]);
+
   const rankOf = useMemo(() => { const m = new Map<string, number>(); vehicles.forEach((v) => m.set(v.id, v.upgrade_rank ?? 0)); return m; }, [vehicles]);
   const eligibleDrivers = (t: Trip) => {
     const reqId = t.requested_vehicle_id ?? t.vehicle_id;
@@ -487,6 +492,14 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
         <Link href="/transport/drivers/dashboard" className="btn-outline ml-auto text-sm">📡 Driver Dashboard</Link>
         <Link href={`/transport/operations/dispatch?date=${date}`} className="btn-outline text-sm">📄 Driver Sheets</Link>
         <button onClick={async () => { await call("transport_auto_assign", { p_date: date }); }} disabled={busy} className="btn text-sm">{busy ? "Assigning…" : "⚙ Auto Assign Drivers"}</button>
+        {canAssign && unconfirmedCount > 0 && (
+          <button
+            onClick={async () => {
+              if (!confirm(`Confirm ${unconfirmedCount} proposed assignment${unconfirmedCount === 1 ? "" : "s"} for ${date}? Agents and drivers will then see the assigned driver details.`)) return;
+              await call("transport_confirm_assignments", { p_date: date });
+            }}
+            disabled={busy} className="btn bg-green-600 text-sm hover:bg-green-700">✓ Confirm Assignments ({unconfirmedCount})</button>
+        )}
         {canAssign && <button
           onClick={async () => {
             if (!confirm(`Reset ALL assignments for ${date}? Every assigned/outsourced trip that day returns to Pending (drivers & vendors cleared). Completed and cancelled trips are untouched.`)) return;

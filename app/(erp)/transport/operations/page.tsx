@@ -32,7 +32,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
   // Only these two genuinely depend on the trip/booking ids from above.
   const [{ data: bookings }, { data: outsourceRows }] = await Promise.all([
     bookingIds.length ? sb.from("transport_bookings").select("id, booking_no, passenger_name, mobile, whatsapp, pax, booking_type, agent_id, status, payment_method, sell_amount, net_amount, surcharge_amount, collect_amount").in("id", bookingIds) : Promise.resolve({ data: [] as any[] }),
-    tripIds.length ? sb.from("transport_trips").select("id, outsource_driver_name, outsource_driver_mobile, sell_rate, vendor_cost, tafweej_created, cash_received").in("id", tripIds) : Promise.resolve({ data: [] as any[] }),
+    tripIds.length ? sb.from("transport_trips").select("id, outsource_driver_name, outsource_driver_mobile, sell_rate, vendor_cost, tafweej_created, cash_received, assignment_confirmed").in("id", tripIds) : Promise.resolve({ data: [] as any[] }),
   ]);
   const odMap = new Map((outsourceRows ?? []).map((o: any) => [o.id, o]));
   const agentIds = Array.from(new Set((bookings ?? []).map((b: any) => b.agent_id).filter(Boolean)));
@@ -119,6 +119,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       })(),
       vendor_cost: odMap.get(t.id)?.vendor_cost ?? null,
       cash_received: odMap.get(t.id)?.cash_received ?? null,
+      assignment_confirmed: odMap.get(t.id)?.assignment_confirmed ?? false,
       tafweej_created: odMap.get(t.id)?.tafweej_created ?? false,
       // Jeddah-airport arrival with an Umrah visa → needs Tafweej.
       needs_tafweej: (t.passenger_visa_type === "umrah") && /^jeddah airport/i.test(t.route_name ?? t.route_label ?? ""),

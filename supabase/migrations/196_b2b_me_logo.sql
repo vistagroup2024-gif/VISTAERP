@@ -1,0 +1,2 @@
+-- Expose the agency logo to the portal session (b2b_me now returns a.logo) so it shows
+-- on the agent's portal header. Body applied via migration 196.

@@ -38,6 +38,7 @@ export default async function PortalLayout({ children }: { children: React.React
         {/* Desktop top bar with notifications (mobile bell lives in the sidebar bar) */}
         <header className="hidden items-center justify-end gap-3 border-b border-slate-200 bg-white px-6 py-2 lg:flex">
           <NotificationBell endpoint="/api/agent/notifications" groupBase="/agent/groups" />
+          {agent.logo && <img src={agent.logo} alt={agent.agency_name} className="h-8 w-8 rounded object-contain" />}
           <span className="text-sm text-slate-500">{agent.agency_name}</span>
         </header>
         <main className="flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-6">{children}</main>

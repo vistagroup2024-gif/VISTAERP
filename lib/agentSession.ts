@@ -8,6 +8,7 @@ export interface AgentSession {
   agent_party_id: string | null;
   email: string | null;
   mobile: string | null;
+  logo: string | null;
   currency: string | null;
   credit_limit: number | null;
   permissions: Record<string, boolean>;

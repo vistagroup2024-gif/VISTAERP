@@ -27,7 +27,9 @@ export default function AgentForm({
     currency: existing?.currency ?? "SAR",
     status: existing?.status ?? "active",
     credit_limit: existing?.credit_limit ?? 0,
+    logo: existing?.logo ?? "",
   });
+  const [logoErr, setLogoErr] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [perms, setPerms] = useState<Record<string, boolean>>(existing?.permissions ?? {});
@@ -36,6 +38,31 @@ export default function AgentForm({
 
   function togglePerm(k: string) { setPerms((p) => ({ ...p, [k]: !p[k] })); }
   function setAll(v: boolean) { setPerms(Object.fromEntries(ALL_PERM_KEYS.map((k) => [k, v]))); }
+
+  // Read a logo image, downscale to <=400px and store as a data URL (kept in the
+  // b2b_agents.logo text column; rendered on the portal header and vouchers).
+  function onLogo(file: File | null) {
+    setLogoErr(null);
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return setLogoErr("Please choose an image file.");
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 400; const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d"); if (!ctx) return setLogoErr("Could not process the image.");
+        ctx.drawImage(img, 0, 0, w, h);
+        const url = canvas.toDataURL("image/png");
+        if (url.length > 700_000) return setLogoErr("Image is too large — please use a smaller logo.");
+        setF((s) => ({ ...s, logo: url }));
+      };
+      img.onerror = () => setLogoErr("Could not read the image.");
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -58,6 +85,7 @@ export default function AgentForm({
       currency: f.currency,
       status: f.status,
       credit_limit: Number(f.credit_limit) || 0,
+      logo: f.logo || null,
       permissions: perms,
     };
     const dup = (e: any) => /duplicate key|unique/i.test(e?.message ?? "") ? "This username already exists." : e.message;
@@ -118,6 +146,17 @@ export default function AgentForm({
           </select></div>
         <div><label className="label">Credit limit</label>
           <input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: Number(e.target.value) })} /></div>
+        <div className="col-span-2 md:col-span-3">
+          <label className="label">Agency Logo <span className="text-slate-400">(shown on their portal & vouchers)</span></label>
+          <div className="flex items-center gap-3">
+            {f.logo
+              ? <img src={f.logo} alt="Logo" className="h-14 w-14 rounded-lg border border-slate-200 object-contain p-1" />
+              : <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400">No logo</div>}
+            <input type="file" accept="image/*" className="text-sm" onChange={(e) => onLogo(e.target.files?.[0] ?? null)} />
+            {f.logo && <button type="button" className="text-sm text-red-500 hover:underline" onClick={() => setF({ ...f, logo: "" })}>Remove</button>}
+          </div>
+          {logoErr && <p className="mt-1 text-xs text-red-600">{logoErr}</p>}
+        </div>
       </div>
 
       <div className="card space-y-3">
