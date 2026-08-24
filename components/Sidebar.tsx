@@ -85,6 +85,7 @@ const GROUPS: Group[] = [
     { href: "/purchase/payments", label: "Supplier Payments" },
   ] },
   { label: "Accounting", icon: "📚", perm: ["accounting.view"], items: [
+    { href: "/accounting", label: "Dashboard" },
     { href: "/accounting/accounts", label: "Chart of Accounts" },
     { href: "/accounting/receipts", label: "Receipt" },
     { href: "/accounting/payments", label: "Payment" },
@@ -100,6 +101,9 @@ const GROUPS: Group[] = [
     { href: "/accounting/trial-balance", label: "Trial Balance" },
     { href: "/accounting/profit-loss", label: "Profit & Loss" },
     { href: "/accounting/balance-sheet", label: "Balance Sheet" },
+    { href: "/accounting/vat", label: "VAT Return" },
+    { href: "/accounting/assets", label: "Fixed Assets" },
+    { href: "/accounting/close", label: "Year-End Close" },
     { href: "/accounting/rules", label: "Approval Rules" },
     { href: "/accounting/audit", label: "Audit Trail" },
   ] },

@@ -1,77 +1,54 @@
+import { createClient } from "@/lib/supabase/server";
+import { COMPANY_ID } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
-import { loadLedger } from "@/lib/accounting";
-import { money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
-export default async function BalanceSheetPage() {
-  const { ledger, totals } = await loadLedger();
+export default async function BalanceSheetPage({ searchParams }: { searchParams: { as_of?: string } }) {
+  const sb = createClient();
+  const asOf = searchParams.as_of ?? "";
+  const { data } = await sb.rpc("trial_balance", { p_company: COMPANY_ID, p_from: null, p_to: asOf || null });
+  const rows = (data ?? []) as any[];
+  const net = (r: any) => Number(r.closing_net); // debit − credit
 
-  const assets = ledger.filter((a) => a.type === "asset" && (a.debit || a.credit));
-  const liabilities = ledger.filter((a) => a.type === "liability" && (a.debit || a.credit));
-  const equity = ledger.filter((a) => a.type === "equity" && (a.debit || a.credit));
+  const assets = rows.filter((r) => r.nature === "asset").map((r) => ({ ...r, amt: net(r) })).filter((r) => r.amt);
+  const liabilities = rows.filter((r) => r.nature === "liability").map((r) => ({ ...r, amt: -net(r) })).filter((r) => r.amt);
+  const equity = rows.filter((r) => r.nature === "equity" || r.nature === "control").map((r) => ({ ...r, amt: -net(r) })).filter((r) => r.amt);
+  // Current-year earnings not yet closed = −(income+expense cumulative net).
+  const earnings = -rows.filter((r) => r.nature === "income" || r.nature === "expense").reduce((s, r) => s + net(r), 0);
 
-  // Current-period earnings are not yet closed to retained earnings, so we
-  // surface them as an equity line to keep the sheet in balance.
-  const totalEquityWithEarnings = totals.equity + totals.netProfit;
-  const totalLiabEquity = totals.liabilities + totalEquityWithEarnings;
-  const balanced = Math.abs(totals.assets - totalLiabEquity) < 0.01;
+  const totA = assets.reduce((s, r) => s + r.amt, 0);
+  const totL = liabilities.reduce((s, r) => s + r.amt, 0);
+  const totE = equity.reduce((s, r) => s + r.amt, 0) + earnings;
+  const balanced = Math.abs(totA - (totL + totE)) < 0.01;
 
-  const Section = ({ title, rows, sign }: { title: string; rows: typeof ledger; sign: 1 | -1 }) => (
-    <section>
-      <h2 className="mb-2 font-semibold text-slate-700">{title}</h2>
-      <table className="w-full text-sm">
-        <tbody>
-          {rows.map((a) => (
-            <tr key={a.id} className="border-b border-slate-50">
-              <td className="py-2"><span className="font-mono text-slate-400">{a.code}</span> {a.name}</td>
-              <td className="py-2 text-right">{money(sign * a.net, "PKR")}</td>
-            </tr>
-          ))}
-          {rows.length === 0 && <tr><td className="py-2 text-slate-400">None.</td></tr>}
-        </tbody>
-      </table>
-    </section>
+  const Section = ({ title, rows, extra }: { title: string; rows: any[]; extra?: { name: string; amt: number } }) => (
+    <div className="card p-0">
+      <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 font-semibold text-slate-700">{title}</div>
+      <table className="w-full text-sm"><tbody>
+        {rows.map((r) => (<tr key={r.id} className="border-b border-slate-50"><td className="px-4 py-1.5"><span className="font-mono text-xs text-slate-400">{r.code}</span> {r.name}</td><td className="px-4 py-1.5 text-right tabular-nums">{money(r.amt)}</td></tr>))}
+        {extra && <tr className="border-b border-slate-50"><td className="px-4 py-1.5 italic text-slate-600">{extra.name}</td><td className="px-4 py-1.5 text-right tabular-nums">{money(extra.amt)}</td></tr>}
+      </tbody></table>
+    </div>
   );
 
   return (
-    <div className="max-w-2xl">
+    <div className="space-y-4">
       <PageHeader title="Balance Sheet" />
-      <p className="mb-4 text-sm text-slate-500">Posted entries · base currency (PKR) · as of today</p>
-
-      <div className="card space-y-6">
-        <Section title="Assets" rows={assets} sign={1} />
-        <div className="flex justify-between border-t border-slate-200 pt-2 font-bold">
-          <span>Total Assets</span>
-          <span>{money(totals.assets, "PKR")}</span>
+      <form className="card flex flex-wrap items-end gap-3" method="get">
+        <div><label className="label">As of</label><input type="date" name="as_of" defaultValue={asOf} className="input" /></div>
+        <button className="btn">Run</button>
+        <span className={`ml-auto rounded-full px-3 py-1 text-sm font-medium ${balanced ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+          {balanced ? "Balanced ✓" : `Off by ${money(Math.abs(totA - (totL + totE)))}`}
+        </span>
+      </form>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Section title={`Assets — ${money(totA)}`} rows={assets} />
+        <div className="space-y-4">
+          <Section title={`Liabilities — ${money(totL)}`} rows={liabilities} />
+          <Section title={`Equity — ${money(totE)}`} rows={equity} extra={{ name: "Current-year earnings", amt: earnings }} />
         </div>
-
-        <Section title="Liabilities" rows={liabilities} sign={-1} />
-        <div className="flex justify-between border-t border-slate-100 pt-2 font-medium">
-          <span>Total Liabilities</span>
-          <span>{money(totals.liabilities, "PKR")}</span>
-        </div>
-
-        <Section title="Equity" rows={equity} sign={-1} />
-        <div className="flex justify-between border-b border-slate-50 py-2 text-sm">
-          <span>Current Period Earnings</span>
-          <span>{money(totals.netProfit, "PKR")}</span>
-        </div>
-        <div className="flex justify-between border-t border-slate-100 pt-2 font-medium">
-          <span>Total Equity</span>
-          <span>{money(totalEquityWithEarnings, "PKR")}</span>
-        </div>
-
-        <div className="flex justify-between rounded-lg bg-slate-50 px-4 py-3 font-bold">
-          <span>Total Liabilities + Equity</span>
-          <span>{money(totalLiabEquity, "PKR")}</span>
-        </div>
-
-        {!balanced && (
-          <p className="text-sm text-red-600">
-            ⚠ Out of balance by {money(totals.assets - totalLiabEquity, "PKR")} — check for unbalanced journal entries.
-          </p>
-        )}
       </div>
     </div>
   );
