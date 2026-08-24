@@ -3,7 +3,7 @@ import VoucherEditor from "@/components/accounting/VoucherEditor";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewJournalPage() {
+export default async function PaymentsPage() {
   const { accounts, cashBank } = await loadPickAccounts();
-  return <VoucherEditor kind="journal" accounts={accounts} cashBank={cashBank} />;
+  return <VoucherEditor kind="payment" accounts={accounts} cashBank={cashBank} />;
 }

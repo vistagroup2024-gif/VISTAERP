@@ -1,65 +1,125 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 
+type Grp = { id: string; code: string; name: string; type: string };
+
+const SUBTYPES = ["Cash","Bank","Receivable","Payable","Inventory","Fixed Asset","Accumulated Depreciation","Tax","Revenue","COGS","Direct Expense","Indirect Expense","Equity","Drawing"];
+
 export default function NewAccountPage() {
   const router = useRouter();
+  const sp = useSearchParams();
   const supabase = createClient();
-  const [form, setForm] = useState({ code: "", name: "", type: "expense", is_postable: true });
+  const [groups, setGroups] = useState<Grp[]>([]);
+  const [form, setForm] = useState({
+    parent: sp.get("parent") ?? "",
+    name: "", name_ar: "", is_group: false, subtype: "",
+    nature: "expense", currency: "SAR", opening: "", opening_dr: true, code: "",
+  });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    supabase.from("accounts").select("id, code, name, type").eq("is_group", true).order("code")
+      .then(({ data }) => setGroups((data ?? []) as Grp[]));
+  }, [supabase]);
+
+  const parent = useMemo(() => groups.find((g) => g.id === form.parent), [groups, form.parent]);
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
-    setError(null);
-    const { error } = await supabase.from("accounts").insert({
-      company_id: COMPANY_ID,
-      code: form.code,
-      name: form.name,
-      type: form.type,
-      is_postable: form.is_postable,
+    setSaving(true); setError(null);
+    const { data, error } = await supabase.rpc("acct_create", {
+      p_company: COMPANY_ID,
+      p_parent: form.parent || null,
+      p_name: form.name,
+      p_name_ar: form.name_ar || null,
+      p_is_group: form.is_group,
+      p_subtype: form.subtype || null,
+      p_nature: form.parent ? null : form.nature,
+      p_currency: form.currency,
+      p_opening: form.opening ? Number(form.opening) : 0,
+      p_opening_is_debit: form.opening_dr,
+      p_code: form.code || null,
     });
     setSaving(false);
     if (error) return setError(error.message);
-    router.push("/accounting/accounts");
-    router.refresh();
+    router.push("/accounting/accounts"); router.refresh();
   }
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-xl">
       <h1 className="mb-6 text-2xl font-bold">New Account</h1>
       <form onSubmit={save} className="card space-y-4">
         {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="label">Code</label>
-            <input className="input font-mono" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. 6300" required />
-          </div>
-          <div>
-            <label className="label">Type</label>
-            <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-              <option value="asset">Asset</option>
-              <option value="liability">Liability</option>
-              <option value="equity">Equity</option>
-              <option value="income">Income</option>
-              <option value="expense">Expense</option>
-            </select>
-          </div>
-        </div>
+
         <div>
-          <label className="label">Account name</label>
-          <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <label className="label">Parent group</label>
+          <select className="input" value={form.parent} onChange={(e) => setForm({ ...form, parent: e.target.value })}>
+            <option value="">— none (root) —</option>
+            {groups.map((g) => <option key={g.id} value={g.id}>{g.code} · {g.name}</option>)}
+          </select>
+          {parent && <p className="mt-1 text-xs text-slate-500">Nature inherited: <b>{parent.type}</b>. Code auto-generated under {parent.code}.</p>}
         </div>
+
+        {!form.parent && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Nature (root only)</label>
+              <select className="input" value={form.nature} onChange={(e) => setForm({ ...form, nature: e.target.value })}>
+                <option value="asset">Asset</option><option value="liability">Liability</option>
+                <option value="equity">Equity</option><option value="income">Income</option>
+                <option value="expense">Expense</option><option value="control">Control</option>
+              </select>
+            </div>
+            <div><label className="label">Code (optional)</label>
+              <input className="input font-mono" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="auto" /></div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div><label className="label">Account name (EN)</label>
+            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus /></div>
+          <div><label className="label">Name (AR)</label>
+            <input className="input text-right" dir="rtl" value={form.name_ar} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} /></div>
+        </div>
+
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={form.is_postable} onChange={(e) => setForm({ ...form, is_postable: e.target.checked })} />
-          Postable (can be used on journal lines)
+          <input type="checkbox" checked={form.is_group} onChange={(e) => setForm({ ...form, is_group: e.target.checked })} />
+          This is a <b>group</b> (container — cannot be posted to)
         </label>
+
+        {!form.is_group && (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="label">Sub-type</label>
+                <select className="input" value={form.subtype} onChange={(e) => setForm({ ...form, subtype: e.target.value })}>
+                  <option value="">—</option>
+                  {SUBTYPES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select></div>
+              <div><label className="label">Currency</label>
+                <select className="input" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                  <option>SAR</option><option>PKR</option><option>USD</option>
+                </select></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="label">Opening balance</label>
+                <input className="input text-right tabular-nums" inputMode="decimal" value={form.opening}
+                  onChange={(e) => setForm({ ...form, opening: e.target.value })} placeholder="0.00" /></div>
+              <div><label className="label">Opening side</label>
+                <select className="input" value={form.opening_dr ? "dr" : "cr"} onChange={(e) => setForm({ ...form, opening_dr: e.target.value === "dr" })}>
+                  <option value="dr">Debit</option><option value="cr">Credit</option>
+                </select></div>
+            </div>
+            <p className="text-xs text-slate-400">Opening balance posts an opening entry against <b>9-01 Opening Balance Control</b>, so the trial balance stays balanced.</p>
+          </>
+        )}
+
         <div className="flex gap-2">
-          <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+          <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save account"}</button>
           <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
         </div>
       </form>

@@ -61,3 +61,19 @@ export async function loadLedger() {
     },
   };
 }
+
+// Postable, active accounts for voucher pickers (server-side).
+export async function loadPickAccounts() {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("accounts")
+    .select("id, code, name, subtype, type")
+    .eq("is_postable", true)
+    .eq("status", "active")
+    .order("code");
+  const accounts = (data ?? []).map((a: any) => ({
+    id: a.id, code: a.code, name: a.name, subtype: a.subtype, nature: a.type,
+  }));
+  const cashBank = accounts.filter((a) => a.subtype === "Cash" || a.subtype === "Bank");
+  return { accounts, cashBank };
+}
