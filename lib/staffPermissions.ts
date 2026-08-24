@@ -54,6 +54,7 @@ export const STAFF_PERMISSION_CATALOG: StaffPermGroup[] = [
   { module: "Sales & Accounting", perms: [
     { key: "sales.view", label: "Sales Orders & Invoices" },
     { key: "accounting.view", label: "Accounting" },
+    { key: "accounting.authorize", label: "Authorise / Approve Vouchers" },
     { key: "purchase.view", label: "Supplier Bills & Payments" },
   ] },
   { module: "Reports", perms: [

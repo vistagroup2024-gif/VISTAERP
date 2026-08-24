@@ -111,12 +111,12 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
       }
       const { data, error } = await supabase.rpc(rpc, args);
       if (error) throw new Error(error.message);
-      const no = (data as any)?.entry_no ?? "";
-      setDone(no);
+      const res = data as any;
+      setDone(res?.pending ? `submitted for approval (${money(Number(res.amount))})` : `posted ${res?.entry_no ?? ""}`);
       // reset for next entry (keep date + cash/bank)
       setNarration(""); setReference(""); setAmount(""); setToAcct(null); setLines([emptyLine(), emptyLine()]);
       router.refresh();
-      if (printAfter && (data as any)?.entry_id) window.open(`/accounting/vouchers/${(data as any).entry_id}`, "_blank");
+      if (printAfter && res?.entry_id) window.open(`/accounting/vouchers/${res.entry_id}`, "_blank");
     } catch (e: any) {
       setError(e.message);
     } finally { setSaving(false); }
@@ -138,7 +138,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold">{TITLES[kind]}</h1>
-        {done && <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">Posted {done}</span>}
+        {done && <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700 capitalize">{done}</span>}
       </div>
       {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
