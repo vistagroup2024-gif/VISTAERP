@@ -77,3 +77,31 @@ export async function loadPickAccounts() {
   const cashBank = accounts.filter((a) => a.subtype === "Cash" || a.subtype === "Bank");
   return { accounts, cashBank };
 }
+
+// Parties (customers/suppliers) for invoice pickers.
+export async function loadParties() {
+  const supabase = createClient();
+  const { data } = await supabase.from("parties")
+    .select("id, name, party_type, phone, currency, credit_limit")
+    .eq("is_active", true).order("name");
+  return (data ?? []) as any[];
+}
+
+// Revenue / expense postable accounts for invoice line accounts.
+export async function loadIncomeExpenseAccounts() {
+  const supabase = createClient();
+  const { data } = await supabase.from("accounts")
+    .select("id, code, name, type, subtype")
+    .eq("is_postable", true).eq("status", "active")
+    .in("type", ["income", "expense"]).order("code");
+  return (data ?? []).map((a: any) => ({ id: a.id, code: a.code, name: a.name, subtype: a.subtype, nature: a.type }));
+}
+
+// Party ledger accounts (receivable/payable) with any outstanding, for settlement.
+export async function loadPartyAccounts() {
+  const supabase = createClient();
+  const { data } = await supabase.from("accounts")
+    .select("id, code, name, subtype")
+    .eq("is_postable", true).not("party_id", "is", null).order("code");
+  return (data ?? []).map((a: any) => ({ id: a.id, code: a.code, name: a.name, subtype: a.subtype, nature: "" }));
+}
