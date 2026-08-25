@@ -3,6 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import { money } from "@/lib/format";
 import { ALL_PERM_KEYS } from "@/lib/permissions";
 import AgentActions from "./AgentActions";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,12 @@ export default async function AgentsPage() {
               return (
                 <tr key={a.id} className="border-t border-slate-100">
                   <td className="td font-medium">{a.agency_name}</td>
-                  <td className="td text-slate-500">{a.contact_person ?? "—"}</td>
+                  <td className="td text-slate-500">
+                    <div className="flex items-center justify-center gap-2">
+                      <span>{a.contact_person ?? "—"}</span>
+                      {a.mobile && <WhatsAppButton phone={a.mobile} size="icon" message={`Dear ${a.agency_name}, `} />}
+                    </div>
+                  </td>
                   <td className="td font-mono">{a.username}</td>
                   <td className="td">{a.country ?? "—"}</td>
                   <td className="td">{a.credit_limit ? money(a.credit_limit, a.currency ?? "SAR") : "—"}</td>

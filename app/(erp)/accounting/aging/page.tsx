@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { COMPANY_ID } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
+import WhatsAppButton from "@/components/WhatsAppButton";
+import { waMsg } from "@/lib/waMessages";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,7 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
               <th className="px-3 py-2 text-right">61–90</th>
               <th className="px-3 py-2 text-right">91–180</th>
               <th className="px-3 py-2 text-right">180+</th>
+              <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody>
@@ -46,9 +49,13 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
                 <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b2))}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b3))}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums text-red-600">{money(Number(r.b4))}</td>
+                <td className="px-3 py-1.5 text-right">
+                  {kind === "customer" && <WhatsAppButton phone={r.phone} label="Remind"
+                    message={waMsg.paymentReminder({ name: r.name, amount: Number(r.total), currency: "SAR" })} />}
+                </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={7}>Nothing outstanding.</td></tr>}
+            {rows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={8}>Nothing outstanding.</td></tr>}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
@@ -59,6 +66,7 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
               <td className="px-3 py-2 text-right tabular-nums">{money(sum("b2"))}</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(sum("b3"))}</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(sum("b4"))}</td>
+              <td />
             </tr>
           </tfoot>
         </table>

@@ -117,6 +117,9 @@ const GROUPS: Group[] = [
   { label: "Settings", icon: "⚙️", perm: ["system.companies", "system.config", "system.masters"], items: [
     { href: "/settings/companies", label: "Companies" },
   ] },
+  { label: "Notifications", icon: "🔔", perm: ["dashboard.view"], items: [
+    { href: "/settings/notifications", label: "Phone Notifications" },
+  ] },
 ];
 
 function isActive(path: string, href: string, exact?: boolean) {

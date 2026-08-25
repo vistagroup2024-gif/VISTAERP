@@ -36,6 +36,7 @@ function Content({ agencyName, nav, onClose }: { agencyName: string; nav: AgentN
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {nav.map((n) => <NavLink key={n.href} {...n} onClick={onClose} />)}
+        <NavLink href="/agent/settings/notifications" label="Notifications" icon="🔔" onClick={onClose} />
       </nav>
       <button onClick={logout} className="m-3 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Sign out</button>
     </div>

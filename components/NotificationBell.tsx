@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 
 interface Notif {
   id: string; category: string; title: string; body: string | null;
-  module: string | null; group_id: string | null; read: boolean; created_at: string;
+  module: string | null; group_id: string | null; link?: string | null; read: boolean; created_at: string;
 }
 
 const CAT_ICON: Record<string, string> = {
@@ -89,7 +89,9 @@ export default function NotificationBell({
   function openRecord(n: Notif) {
     mark(n.id, "read");
     setOpen(false);
-    if (n.group_id) router.push(`${groupBase}/${n.group_id}`);
+    // Prefer the exact deep-link; fall back to the group route.
+    if (n.link) router.push(n.link);
+    else if (n.group_id) router.push(`${groupBase}/${n.group_id}`);
   }
 
   const unread = items.filter((n) => !n.read).length;
@@ -124,7 +126,7 @@ export default function NotificationBell({
                       {n.module ? ` · ${n.module}` : ""}
                     </p>
                     <div className="mt-1 flex gap-3 text-xs">
-                      {n.group_id && <button onClick={() => openRecord(n)} className="text-brand hover:underline">Open</button>}
+                      {(n.link || n.group_id) && <button onClick={() => openRecord(n)} className="text-brand hover:underline">Open</button>}
                       {!n.read && <button onClick={() => mark(n.id, "read")} className="text-slate-500 hover:underline">Mark read</button>}
                       <button onClick={() => mark(n.id, "dismiss")} className="text-red-500 hover:underline">Dismiss</button>
                     </div>
