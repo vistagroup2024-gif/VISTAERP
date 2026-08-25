@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
-import { fmtTime12 } from "@/lib/format";
+import { fmtTime12, COMPANY_ID } from "@/lib/format";
+import { waHref } from "@/lib/waLink";
 
 interface Trip {
   id: string; booking_id: string; booking_no: string | null; passenger_name: string | null; mobile: string | null;
@@ -109,9 +110,10 @@ function addDays(iso: string, n: number) {
 }
 
 interface Reposition { id: string; from_city: string | null; to_city: string | null; distance_km: number | null; driver_name: string; route: string; trip_time: string | null }
-export default function OperationsBoard({ date, today, trips, drivers, vehicles, vendors, agents, repositions = [], repositionedTripIds = [], canEdit, canAssign }: {
+export default function OperationsBoard({ date, today, trips, drivers, vehicles, vendors, agents, repositions = [], repositionedTripIds = [], canEdit, canAssign, driverGroupUrl = null, agentGroups = {} }: {
   date: string; today: string; trips: Trip[]; drivers: Driver[]; vehicles: Vehicle[]; vendors: Vendor[]; agents: Agent[];
   repositions?: Reposition[]; repositionedTripIds?: string[]; canEdit: boolean; canAssign: boolean;
+  driverGroupUrl?: string | null; agentGroups?: Record<string, string>;
 }) {
   const repositioned = new Set(repositionedTripIds);
   const router = useRouter();
@@ -123,6 +125,12 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // Driver-details modal shown when outsourcing to a supplier vendor.
   const [vendorModal, setVendorModal] = useState<{ tripId: string; vendorId: string; vendorName: string; isDriver: boolean; fare: number | null; driverName: string; driverMobile: string; vendorCost: string } | null>(null);
   const [tripView, setTripView] = useState<Trip | null>(null);
+  // WhatsApp "Send" modal: shows the message and the destinations (a phone number
+  // opens a pre-filled chat; a GROUP can only be opened — the message is copied so
+  // the operator pastes it, because WhatsApp doesn't allow pre-filling groups).
+  const [wa, setWa] = useState<{ title: string; text: string; targets: { label: string; kind: "number" | "group"; value: string }[] } | null>(null);
+  const [waSettings, setWaSettings] = useState(false);
+  const [driverGroupInput, setDriverGroupInput] = useState(driverGroupUrl ?? "");
   const [conflict, setConflict] = useState<{ tripId: string; driverId: string; driverName: string; reason: string } | null>(null);
   const [forceReason, setForceReason] = useState("");
   // Cash-received prompt shown when completing a direct cash customer's trip.
@@ -365,8 +373,8 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
 
   // Copy a driver's details as a shareable text block (WhatsApp etc.). Falls
   // back to the outsourced driver's details when the trip is with a vendor.
-  function copyDriver(t: Trip) {
-    const text = [
+  function driverText(t: Trip) {
+    return [
       `Haji Name : ${t.passenger_name ?? "—"}`,
       `Route : ${t.route_display}`,
       `Trip Date : ${copyDate(t.trip_date)}`,
@@ -379,8 +387,28 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       `Car Reg No : ${t.driver_reg ?? "—"}`,
       ...(t.vendor_name ? [`Vendor : ${t.vendor_name}`] : []),
     ].join("\n");
-    navigator.clipboard?.writeText(text).then(() => setErr("Driver details copied to clipboard."),
+  }
+  function copyDriver(t: Trip) {
+    navigator.clipboard?.writeText(driverText(t)).then(() => setErr("Driver details copied to clipboard."),
       () => setErr("Could not copy — clipboard blocked."));
+  }
+
+  // Open the two "Send" flows. Trip Details → driver group (+ driver's own number if
+  // available). Driver Details → passenger number + the agent's group.
+  function sendTripDetails(t: Trip) {
+    const targets: { label: string; kind: "number" | "group"; value: string }[] = [];
+    if (driverGroupUrl) targets.push({ label: "Driver Group", kind: "group", value: driverGroupUrl });
+    const dNum = t.driver_mobile || t.outsource_driver_mobile;
+    if (dNum) targets.push({ label: `Driver${t.driver_name ? ` · ${t.driver_name}` : ""}`, kind: "number", value: dNum });
+    setWa({ title: "Send Trip Details", text: tripText(t), targets });
+  }
+  function sendDriverDetails(t: Trip) {
+    const targets: { label: string; kind: "number" | "group"; value: string }[] = [];
+    const pNum = t.whatsapp || t.mobile;
+    if (pNum) targets.push({ label: `Passenger${t.passenger_name ? ` · ${t.passenger_name}` : ""}`, kind: "number", value: pNum });
+    const agUrl = t.agent_id ? agentGroups[t.agent_id] : undefined;
+    if (agUrl) targets.push({ label: `Agent Group${t.agent_name ? ` · ${t.agent_name}` : ""}`, kind: "group", value: agUrl });
+    setWa({ title: "Send Driver Details", text: driverText(t), targets });
   }
 
   // Compact date for copied messages, e.g. "08 Aug-26" (TZ-safe, no Date parsing).
@@ -405,7 +433,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // Copy trip details for sharing (WhatsApp-formatted, *bold* payment), split
   // into Passenger / Trip / Payment. Cash bookings show the method + amount to
   // collect; every non-cash booking (agent no-cash, card, bank transfer) shows NO CASH.
-  function copyTrip(t: Trip) {
+  function tripText(t: Trip) {
     const payLabel: Record<string, string> = { cash: "Cash", card: "Card", bank_transfer: "Bank Transfer" };
     const method = payLabel[t.payment_method ?? "cash"] ?? "Cash";
 
@@ -434,8 +462,10 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       isCashCustomer(t) ? `Method : *${method}*\nAmount : ${sar(t.sell_rate)} SAR` : `*NO CASH*`,
     ];
 
-    const text = [passenger.join("\n"), trip.join("\n"), payment.join("\n")].join("\n\n");
-    navigator.clipboard?.writeText(text).then(() => setErr("Trip details copied to clipboard."),
+    return [passenger.join("\n"), trip.join("\n"), payment.join("\n")].join("\n\n");
+  }
+  function copyTrip(t: Trip) {
+    navigator.clipboard?.writeText(tripText(t)).then(() => setErr("Trip details copied to clipboard."),
       () => setErr("Could not copy — clipboard blocked."));
   }
 
@@ -446,6 +476,8 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (canEdit) items.push({ label: "Edit Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) });
     items.push({ label: "Copy Trip Details", onClick: () => copyTrip(t) });
     if (t.driver_id || t.outsource_driver_name) items.push({ label: "Copy Driver Details", onClick: () => copyDriver(t) });
+    items.push({ label: "📲 Send Trip Details", onClick: () => sendTripDetails(t) });
+    if (t.driver_id || t.outsource_driver_name) items.push({ label: "📲 Send Driver Details", onClick: () => sendDriverDetails(t) });
     if (canAssign && open) items.push({ label: t.driver_id ? "Reassign Driver" : "Assign Driver", onClick: () => { setVendorFor(null); setAssignFor(t.id); } });
     if (canAssign && open && vendors.length > 0) items.push({ label: t.vendor_id ? "Change Vendor" : "Assign Vendor", onClick: () => { setAssignFor(null); setVendorFor(t.id); } });
     if (canAssign && t.driver_id && open) items.push({ label: "Unassign Driver", onClick: () => call("transport_unassign_trip", { p_trip: t.id }) });
@@ -500,6 +532,8 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
             }}
             disabled={busy} className="btn bg-green-600 text-sm hover:bg-green-700">✓ Confirm Assignments ({unconfirmedCount})</button>
         )}
+        {canAssign && <button onClick={() => { setDriverGroupInput(driverGroupUrl ?? ""); setWaSettings(true); }}
+          className="btn-outline text-sm" title="Set the WhatsApp group links used by the Send actions">📲 WhatsApp Groups</button>}
         {canAssign && <button
           onClick={async () => {
             if (!confirm(`Reset ALL assignments for ${date}? Every assigned/outsourced trip that day returns to Pending (drivers & vendors cleared). Completed and cancelled trips are untouched.`)) return;
@@ -732,6 +766,65 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
           </div>
         );
       })()}
+
+      {waSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setWaSettings(false)}>
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-800">📲 WhatsApp Groups</h3>
+            <p className="mt-1 text-sm text-slate-500">Paste the WhatsApp <b>group invite links</b> (Group → Invite via link → Copy link).</p>
+            <label className="label mt-3">Driver dispatch group</label>
+            <input className="input" value={driverGroupInput} onChange={(e) => setDriverGroupInput(e.target.value)} placeholder="https://chat.whatsapp.com/XXXXXXXX" />
+            <p className="mt-2 text-xs text-slate-400">Each agent’s own group is set on the agent (Settings → B2B Agents → WhatsApp group link).</p>
+            <div className="mt-4 flex gap-2">
+              <button disabled={busy} onClick={async () => {
+                setBusy(true);
+                const { error } = await supabase.from("transport_wa_config").upsert({ company_id: COMPANY_ID, driver_group_url: driverGroupInput.trim() || null }, { onConflict: "company_id" });
+                setBusy(false);
+                if (error) return setErr(error.message);
+                setWaSettings(false); router.refresh();
+              }} className="btn text-sm">Save</button>
+              <button onClick={() => setWaSettings(false)} className="btn-outline text-sm">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {wa && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setWa(null)}>
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800">📲 {wa.title}</h3>
+              <button onClick={() => setWa(null)} className="text-xl leading-none text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <textarea readOnly value={wa.text} rows={8} className="input w-full whitespace-pre-wrap text-xs" onFocus={(e) => e.currentTarget.select()} />
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button onClick={() => { navigator.clipboard?.writeText(wa.text); setErr("Message copied."); }}
+                className="btn-outline text-sm">Copy message</button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {wa.targets.length === 0 && <p className="text-sm text-amber-600">No destination available. Add the driver/agent WhatsApp group link in Transport settings, or a phone number on the record.</p>}
+              {wa.targets.map((tg, i) => (
+                <div key={i} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+                  <span className="text-sm text-slate-700">{tg.kind === "group" ? "👥" : "👤"} {tg.label}</span>
+                  {tg.kind === "number" ? (
+                    <a href={waHref(tg.value, wa.text) ?? "#"} target="_blank" rel="noopener noreferrer"
+                      onClick={(e) => { if (!waHref(tg.value, wa.text)) { e.preventDefault(); setErr("No valid WhatsApp number."); } }}
+                      className="inline-flex items-center gap-1 rounded-md bg-[#25D366] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1ebe5b]">
+                      Open chat →
+                    </a>
+                  ) : (
+                    <button onClick={() => { navigator.clipboard?.writeText(wa.text); window.open(tg.value, "_blank", "noopener"); }}
+                      className="inline-flex items-center gap-1 rounded-md bg-[#25D366] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1ebe5b]">
+                      Copy &amp; open group →
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[11px] text-slate-400">A phone number opens a pre-filled chat you just send. A WhatsApp <b>group</b> can’t be pre-filled — the message is copied, so paste it (long-press → Paste) after the group opens.</p>
+          </div>
+        </div>
+      )}
 
       {vendorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

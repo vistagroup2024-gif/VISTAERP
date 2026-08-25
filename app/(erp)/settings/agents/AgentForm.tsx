@@ -28,6 +28,7 @@ export default function AgentForm({
     status: existing?.status ?? "active",
     credit_limit: existing?.credit_limit ?? 0,
     logo: existing?.logo ?? "",
+    wa_group_url: existing?.wa_group_url ?? "",
   });
   const [logoErr, setLogoErr] = useState<string | null>(null);
   const [password, setPassword] = useState("");
@@ -86,6 +87,7 @@ export default function AgentForm({
       status: f.status,
       credit_limit: Number(f.credit_limit) || 0,
       logo: f.logo || null,
+      wa_group_url: f.wa_group_url.trim() || null,
       permissions: perms,
     };
     const dup = (e: any) => /duplicate key|unique/i.test(e?.message ?? "") ? "This username already exists." : e.message;
@@ -156,6 +158,10 @@ export default function AgentForm({
             {f.logo && <button type="button" className="text-sm text-red-500 hover:underline" onClick={() => setF({ ...f, logo: "" })}>Remove</button>}
           </div>
           {logoErr && <p className="mt-1 text-xs text-red-600">{logoErr}</p>}
+        </div>
+        <div className="col-span-2 md:col-span-3">
+          <label className="label">WhatsApp group link <span className="text-slate-400">(invite link of this agent’s dispatch group — used by “Send Driver Details”)</span></label>
+          <input className="input" value={f.wa_group_url} onChange={(e) => setF({ ...f, wa_group_url: e.target.value })} placeholder="https://chat.whatsapp.com/XXXXXXXX" />
         </div>
       </div>
 

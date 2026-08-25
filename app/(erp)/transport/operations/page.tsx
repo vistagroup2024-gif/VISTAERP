@@ -39,6 +39,15 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
   const { data: agents } = agentIds.length
     ? await sb.from("parties").select("id, name").in("id", agentIds)
     : { data: [] as any[] };
+  // WhatsApp group links: the company driver dispatch group + each agent's own group
+  // (keyed by the agent's party id so it maps to trip.agent_id).
+  const [{ data: waCfg }, { data: agentGroupRows }] = await Promise.all([
+    sb.from("transport_wa_config").select("driver_group_url").maybeSingle(),
+    agentIds.length ? sb.from("b2b_agents").select("agent_party_id, wa_group_url").in("agent_party_id", agentIds) : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const driverGroupUrl = (waCfg as any)?.driver_group_url ?? null;
+  const agentGroups: Record<string, string> = {};
+  (agentGroupRows ?? []).forEach((r: any) => { if (r.agent_party_id && r.wa_group_url) agentGroups[r.agent_party_id] = r.wa_group_url; });
   const exactExtra = new Map((extraRates ?? []).filter((e: any) => e.vehicle_id).map((e: any) => [`${e.route_id}|${e.vehicle_id}`, Number(e.extra_charge_amount)]));
   // Route-level fallback matching the DB transport_route_extra(): when the exact
   // route+vehicle has no extra row, use the most recent enabled extra on that route
@@ -160,6 +169,8 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
         repositionedTripIds={repositionedTripIds}
         canEdit={canEdit}
         canAssign={canAssign}
+        driverGroupUrl={driverGroupUrl}
+        agentGroups={agentGroups}
       />
     </div>
   );
