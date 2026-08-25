@@ -34,7 +34,7 @@ export default async function AgentsPage() {
               <th className="th">Login</th>
               <th className="th">Permissions</th>
               <th className="th">Status</th>
-              <th className="th">Actions</th>
+              <th className="th sticky right-0 bg-slate-50">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -61,7 +61,7 @@ export default async function AgentsPage() {
                       ? <span className="badge bg-green-100 text-green-700">Active</span>
                       : <span className="badge bg-slate-100 text-slate-500">Inactive</span>}
                   </td>
-                  <td className="td"><AgentActions id={a.id} status={a.status} locked={a.locked} /></td>
+                  <td className="td sticky right-0 bg-white shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]"><AgentActions id={a.id} status={a.status} locked={a.locked} /></td>
                 </tr>
               );
             })}

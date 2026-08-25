@@ -36,7 +36,7 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
               <th className="px-3 py-2 text-right">61–90</th>
               <th className="px-3 py-2 text-right">91–180</th>
               <th className="px-3 py-2 text-right">180+</th>
-              <th className="px-3 py-2" />
+              <th className="sticky right-0 bg-slate-50 px-3 py-2" />
             </tr>
           </thead>
           <tbody>
@@ -49,7 +49,7 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
                 <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b2))}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b3))}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums text-red-600">{money(Number(r.b4))}</td>
-                <td className="px-3 py-1.5 text-right">
+                <td className="sticky right-0 bg-white px-3 py-1.5 text-right shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]">
                   {kind === "customer" && <WhatsAppButton phone={r.phone} label="Remind"
                     message={waMsg.paymentReminder({ name: r.name, amount: Number(r.total), currency: "SAR" })} />}
                 </td>
@@ -66,7 +66,7 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
               <td className="px-3 py-2 text-right tabular-nums">{money(sum("b2"))}</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(sum("b3"))}</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(sum("b4"))}</td>
-              <td />
+              <td className="sticky right-0 bg-slate-50" />
             </tr>
           </tfoot>
         </table>
