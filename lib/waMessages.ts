@@ -20,6 +20,15 @@ export const waMsg = {
   agentBooking: (o: { agent?: string | null; bookingNo?: string | null; status?: string | null }) =>
     `Dear ${o.agent || "Partner"}, your booking ${o.bookingNo ? `#${o.bookingNo}` : ""} status is now ${o.status || "updated"}. Please check your Vista B2B portal for details.`,
 
+  // Transport booking confirmation for the passenger — fixed wording; only the name
+  // and the voucher link vary.
+  transportConfirmed: (o: { name?: string | null; voucherUrl?: string | null }) =>
+    [`Dear ${o.name || "Guest"},`,
+     "Your Vista Group transport booking is confirmed.",
+     o.voucherUrl ? `Please find your voucher here: ${o.voucherUrl}` : null,
+     "For any assistance, our 24/7 helpline is +966 53 004 8282.",
+     "Thank you for travelling with Vista Group."].filter(Boolean).join("\n"),
+
   // Transport driver / trip details for the passenger.
   tripDetails: (o: { name?: string | null; date?: string | null; time?: string | null; route?: string | null; vehicle?: string | null; driver?: string | null; driverPhone?: string | null }) =>
     [`Dear ${o.name || "Guest"}, your transport is confirmed.`,
