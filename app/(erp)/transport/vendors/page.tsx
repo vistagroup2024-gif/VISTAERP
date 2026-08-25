@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function VendorsPage() {
   const sb = createClient();
   const [{ data }, { data: vehicles }] = await Promise.all([
-    sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile, email, notes, username, is_active, vehicle_ids").order("name"),
+    sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile, email, notes, username, is_active, vehicle_ids, wa_group_url").order("name"),
     sb.from("transport_vehicles").select("id, name, seating_capacity").eq("is_active", true).order("name"),
   ]);
   return (

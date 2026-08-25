@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 
-interface Vendor { id: string; name: string; vendor_type: string; contact_person: string | null; mobile: string | null; email: string | null; notes: string | null; username: string | null; is_active: boolean; vehicle_ids: string[] | null }
+interface Vendor { id: string; name: string; vendor_type: string; contact_person: string | null; mobile: string | null; email: string | null; notes: string | null; username: string | null; is_active: boolean; vehicle_ids: string[] | null; wa_group_url: string | null }
 interface Vehicle { id: string; name: string; seating_capacity: number | null }
-const BLANK = { name: "", vendor_type: "vendor", contact_person: "", mobile: "", email: "", notes: "", vehicle_ids: [] as string[] };
+const BLANK = { name: "", vendor_type: "vendor", contact_person: "", mobile: "", email: "", notes: "", vehicle_ids: [] as string[], wa_group_url: "" };
 const TYPE_LABEL: Record<string, string> = { vendor: "Vendor (supplies driver)", vendor_driver: "Vendor Driver (is the driver)" };
 
 export default function VendorManager({ initial, vehicles }: { initial: Vendor[]; vehicles: Vehicle[] }) {
@@ -23,7 +23,7 @@ export default function VendorManager({ initial, vehicles }: { initial: Vendor[]
     const isDriver = (f.vendor_type || "vendor") === "vendor_driver";
     // A vendor-driver operates a single vehicle; keep at most one.
     const vids: string[] = (f.vehicle_ids ?? []).slice(0, isDriver ? 1 : undefined);
-    return { name: f.name.trim(), vendor_type: f.vendor_type || "vendor", contact_person: f.contact_person.trim() || null, mobile: f.mobile.trim() || null, email: f.email.trim() || null, notes: f.notes.trim() || null, vehicle_ids: vids };
+    return { name: f.name.trim(), vendor_type: f.vendor_type || "vendor", contact_person: f.contact_person.trim() || null, mobile: f.mobile.trim() || null, email: f.email.trim() || null, notes: f.notes.trim() || null, vehicle_ids: vids, wa_group_url: isDriver ? null : ((f.wa_group_url ?? "").trim() || null) };
   };
 
   // Vehicle chooser: single-select for vendor-driver, multi-select for vendor.
@@ -59,7 +59,7 @@ export default function VendorManager({ initial, vehicles }: { initial: Vendor[]
     setForm({ ...BLANK }); router.refresh();
   }
   async function toggle(v: Vendor) { await supabase.from("transport_vendors").update({ is_active: !v.is_active }).eq("id", v.id); router.refresh(); }
-  function startEdit(v: Vendor) { setEditId(v.id); setEdit({ name: v.name, vendor_type: v.vendor_type ?? "vendor", contact_person: v.contact_person ?? "", mobile: v.mobile ?? "", email: v.email ?? "", notes: v.notes ?? "", vehicle_ids: v.vehicle_ids ?? [] }); }
+  function startEdit(v: Vendor) { setEditId(v.id); setEdit({ name: v.name, vendor_type: v.vendor_type ?? "vendor", contact_person: v.contact_person ?? "", mobile: v.mobile ?? "", email: v.email ?? "", notes: v.notes ?? "", vehicle_ids: v.vehicle_ids ?? [], wa_group_url: v.wa_group_url ?? "" }); }
   const vehName = (id: string) => vehicles.find((x) => x.id === id)?.name ?? "?";
   async function saveEdit(id: string) { setBusy(true); const { error } = await supabase.from("transport_vendors").update(payload(edit)).eq("id", id); setBusy(false); if (error) return setErr(error.message); setEditId(null); router.refresh(); }
   async function del(v: Vendor) { if (!confirm(`Delete vendor "${v.name}"?`)) return; const { error } = await supabase.from("transport_vendors").delete().eq("id", v.id); if (error) return setErr(error.message); router.refresh(); }
@@ -90,7 +90,11 @@ export default function VendorManager({ initial, vehicles }: { initial: Vendor[]
           <label className="label">{form.vendor_type === "vendor_driver" ? "Vehicle (choose one)" : "Vehicles (choose all they operate)"}</label>
           <VehiclePicker value={form.vehicle_ids} type={form.vendor_type} onChange={(ids) => setForm({ ...form, vehicle_ids: ids })} />
         </div>
-        {form.vendor_type === "vendor_driver" && <p className="text-xs text-slate-500 sm:col-span-6">This vendor is the driver — their name &amp; mobile above are used as the driver details when a trip is assigned to them.</p>}
+        {form.vendor_type !== "vendor_driver" && (
+          <div className="sm:col-span-6"><label className="label">WhatsApp group link <span className="text-slate-400">(this vendor’s dispatch group — used by “Send Trip Details”)</span></label>
+            <input className="input" value={form.wa_group_url} onChange={(e) => setForm({ ...form, wa_group_url: e.target.value })} placeholder="https://chat.whatsapp.com/XXXXXXXX" /></div>
+        )}
+        {form.vendor_type === "vendor_driver" && <p className="text-xs text-slate-500 sm:col-span-6">This vendor is the driver — their name &amp; mobile above are used as the driver details when a trip is assigned to them, and “Send Trip Details” goes straight to their number (no group).</p>}
         {err && <p className="text-sm text-red-600 sm:col-span-6">{err}</p>}
       </form>
 
@@ -104,7 +108,8 @@ export default function VendorManager({ initial, vehicles }: { initial: Vendor[]
                 <td className="td"><select className="input" value={edit.vendor_type} onChange={(e) => setEdit({ ...edit, vendor_type: e.target.value })}><option value="vendor">Vendor</option><option value="vendor_driver">Vendor Driver</option></select></td>
                 <td className="td"><input className="input" value={edit.contact_person} onChange={(e) => setEdit({ ...edit, contact_person: e.target.value })} /></td>
                 <td className="td"><input className="input" value={edit.mobile} onChange={(e) => setEdit({ ...edit, mobile: e.target.value })} /></td>
-                <td className="td"><input className="input" value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} /></td>
+                <td className="td"><input className="input" value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} placeholder="Email" />
+                  {edit.vendor_type !== "vendor_driver" && <input className="input mt-1 text-xs" value={edit.wa_group_url ?? ""} onChange={(e) => setEdit({ ...edit, wa_group_url: e.target.value })} placeholder="WhatsApp group link" />}</td>
                 <td className="td"><VehiclePicker value={edit.vehicle_ids ?? []} type={edit.vendor_type} onChange={(ids) => setEdit({ ...edit, vehicle_ids: ids })} /></td>
                 <td className="td" colSpan={2}><button onClick={() => saveEdit(v.id)} className="text-sm font-medium text-brand hover:underline">Save</button><button onClick={() => setEditId(null)} className="ml-3 text-sm text-slate-500 hover:underline">Cancel</button></td>
               </tr>

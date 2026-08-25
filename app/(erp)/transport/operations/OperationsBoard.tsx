@@ -24,7 +24,7 @@ interface Trip {
 }
 interface Driver { id: string; name: string; vehicle_id: string | null; status: string }
 interface Vehicle { id: string; name: string; category: string | null; upgrade_rank?: number | null; is_active: boolean }
-interface Vendor { id: string; name: string; vendor_type?: string; contact_person?: string | null; mobile?: string | null; vehicle_ids?: string[] | null }
+interface Vendor { id: string; name: string; vendor_type?: string; contact_person?: string | null; mobile?: string | null; vehicle_ids?: string[] | null; wa_group_url?: string | null }
 interface Agent { id: string; agency_name: string }
 
 // Dispatcher status vocabulary. `delayed` and `outsourced` are derived and can
@@ -397,9 +397,26 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   // available). Driver Details → passenger number + the agent's group.
   function sendTripDetails(t: Trip) {
     const targets: { label: string; kind: "number" | "group"; value: string }[] = [];
-    if (driverGroupUrl) targets.push({ label: "Driver Group", kind: "group", value: driverGroupUrl });
-    const dNum = t.driver_mobile || t.outsource_driver_mobile;
-    if (dNum) targets.push({ label: `Driver${t.driver_name ? ` · ${t.driver_name}` : ""}`, kind: "number", value: dNum });
+    const ven = t.vendor_id ? vendors.find((v) => v.id === t.vendor_id) : null;
+    if (ven) {
+      // Outsourced. A vendor-DRIVER is an individual (no group) → send directly to their
+      // number. A supplier VENDOR has its own dispatch group.
+      if (ven.vendor_type === "vendor_driver") {
+        const num = t.outsource_driver_mobile || ven.mobile || t.driver_mobile;
+        if (num) targets.push({ label: `Driver${t.outsource_driver_name ? ` · ${t.outsource_driver_name}` : ""}`, kind: "number", value: num });
+      } else {
+        if (ven.wa_group_url) targets.push({ label: `${ven.name} Group`, kind: "group", value: ven.wa_group_url });
+        const num = t.outsource_driver_mobile || ven.mobile;
+        if (num) targets.push({ label: `Driver${t.outsource_driver_name ? ` · ${t.outsource_driver_name}` : ""}`, kind: "number", value: num });
+      }
+    } else if (t.outsource_driver_name || t.outsource_driver_mobile) {
+      // Outsourced without a linked vendor record → the captured driver number directly.
+      if (t.outsource_driver_mobile) targets.push({ label: `Driver${t.outsource_driver_name ? ` · ${t.outsource_driver_name}` : ""}`, kind: "number", value: t.outsource_driver_mobile });
+    } else {
+      // In-house driver → the driver dispatch group (+ the driver's own number).
+      if (driverGroupUrl) targets.push({ label: "Driver Group", kind: "group", value: driverGroupUrl });
+      if (t.driver_mobile) targets.push({ label: `Driver${t.driver_name ? ` · ${t.driver_name}` : ""}`, kind: "number", value: t.driver_mobile });
+    }
     setWa({ title: "Send Trip Details", text: tripText(t), targets });
   }
   function sendDriverDetails(t: Trip) {

@@ -23,7 +23,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
       .eq("trip_date", date).order("trip_time"),
     sb.from("transport_drivers").select("id, name, mobile, license_no, vehicle_id, status").order("name"),
     sb.from("transport_vehicles").select("id, name, category, vehicle_type, upgrade_rank, is_active").order("name"),
-    sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile, vehicle_ids").eq("is_active", true).order("name"),
+    sb.from("transport_vendors").select("id, name, vendor_type, contact_person, mobile, vehicle_ids, wa_group_url").eq("is_active", true).order("name"),
     sb.from("transport_route_rates").select("route_id, vehicle_id, extra_charge_amount, created_at").eq("extra_charge_enabled", true).order("created_at", { ascending: false }),
   ]);
 
