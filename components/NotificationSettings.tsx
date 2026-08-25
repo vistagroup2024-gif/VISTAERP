@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { pushSupported, permissionState, enablePush, disablePush, listDevices, removeDevice, sendTest, currentEndpoint } from "@/lib/push";
+import { pushSupported, permissionState, enablePush, disablePush, listDevices, removeDevice, sendTest, currentEndpoint, isIos, isStandalone } from "@/lib/push";
 
 type Device = { id: string; endpoint: string; ua: string | null; enabled: boolean; last_notified: string | null; created_at: string };
 
@@ -41,10 +41,18 @@ export default function NotificationSettings({ endpoint = "/api/push" }: { endpo
     refresh();
   }, [refresh]);
 
+  const [needIosInstall, setNeedIosInstall] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
   async function turnOn() {
-    setBusy(true); setErr(null); setMsg(null);
+    setBusy(true); setErr(null); setMsg(null); setDismissed(false); setNeedIosInstall(false);
     try { await enablePush(endpoint); setPerm(permissionState()); setMsg("This device is now set up for notifications."); await refresh(); }
-    catch (e: any) { if (e.message === "denied") setPerm("denied"); else setErr(e.message); }
+    catch (e: any) {
+      if (e.message === "denied") setPerm("denied");
+      else if (e.message === "ios-install") setNeedIosInstall(true);
+      else if (e.message === "dismissed") setDismissed(true);
+      else setErr(e.message);
+    }
     finally { setBusy(false); }
   }
   async function test() {
@@ -74,7 +82,19 @@ export default function NotificationSettings({ endpoint = "/api/push" }: { endpo
 
       <div className="card">
         <h3 className="font-semibold text-slate-700">Phone notifications</h3>
-        {perm === "denied" ? (
+        {needIosInstall || (isIos() && !isStandalone()) ? (
+          <div className="mt-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            On iPhone/iPad, notifications work only after you <b>add this app to your Home Screen</b>: tap the
+            <b> Share</b> icon → <b>Add to Home Screen</b>, then open Vista ERP from the new icon and press Turn On here.
+          </div>
+        ) : dismissed ? (
+          <div className="mt-2 space-y-2">
+            <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              The permission prompt was dismissed. Press <b>Turn On</b> again and choose <b>Allow</b> when the browser asks.
+            </div>
+            <button onClick={turnOn} disabled={busy} className="btn text-sm">{busy ? "Setting up…" : "Turn On"}</button>
+          </div>
+        ) : perm === "denied" ? (
           <div className="mt-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
             Notifications are <b>blocked</b> for this site in your browser. To enable them: open the site settings
             (tap the lock/ⓘ icon next to the address bar → <b>Permissions</b> → <b>Notifications</b> → Allow), then reload and press Turn On.

@@ -14,6 +14,17 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 export function pushSupported(): boolean {
   return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
+// iOS (iPhone/iPad) only allows web push when the site is installed to the Home
+// Screen and opened as a standalone app.
+export function isIos(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && (navigator as any).maxTouchPoints > 1);
+}
+export function isStandalone(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia?.("(display-mode: standalone)").matches || (navigator as any).standalone === true;
+}
 export function permissionState(): NotificationPermission {
   return typeof Notification !== "undefined" ? Notification.permission : "denied";
 }
@@ -27,12 +38,18 @@ async function api(endpoint: string, body: any) {
 
 // Turn on: request permission, register SW, subscribe, save on the server.
 export async function enablePush(endpoint: string): Promise<{ endpoint: string }> {
-  if (!pushSupported()) throw new Error("This browser does not support notifications.");
-  const perm = await Notification.requestPermission();
-  if (perm !== "granted") throw new Error(perm === "denied" ? "denied" : "Permission not granted.");
+  if (!pushSupported()) {
+    if (isIos() && !isStandalone()) throw new Error("ios-install");
+    throw new Error("This browser does not support notifications.");
+  }
+  if (isIos() && !isStandalone()) throw new Error("ios-install");
 
+  // Register the service worker first so the browser has an active SW for the prompt.
   const reg = await navigator.serviceWorker.register("/sw.js");
   await navigator.serviceWorker.ready;
+
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") throw new Error(perm === "denied" ? "denied" : "dismissed");
 
   const { key, configured } = await api(endpoint, { action: "vapid" });
   if (!configured) throw new Error("Push is not configured on the server yet (VAPID keys).");
