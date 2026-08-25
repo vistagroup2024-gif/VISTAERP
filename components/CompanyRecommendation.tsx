@@ -13,6 +13,8 @@ export interface RecoResult {
   available_bed_nights: number;
   min_beds: number;
   reserved_beds: number;
+  recommended?: boolean;
+  is_fallback?: boolean;
 }
 export interface Reservation {
   id: string;
@@ -138,21 +140,24 @@ export default function CompanyRecommendation({
           </div>
           {results.length === 0 && <p className="text-sm text-slate-400">No active companies to evaluate.</p>}
           {top && agentView && (
-            <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4">
+            <div className={`rounded-lg border p-4 ${top.is_fallback ? "border-amber-300 bg-amber-50" : "border-emerald-300 bg-emerald-50"}`}>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recommendation</p>
-              <p className="mt-1 text-xl font-bold text-slate-800">Use Company: {top.name}</p>
+              <p className="mt-1 text-xl font-bold text-slate-800">{top.is_fallback ? `Feed in Company: ${top.name}` : `Use Company: ${top.name}`}</p>
+              {top.is_fallback && <p className="text-sm text-slate-600">No company covers enough of the stay — feed this booking into <b>{top.name}</b>.</p>}
               <button onClick={() => reserve(top.id)} className="btn mt-3 text-sm">Reserve {top.name}</button>
             </div>
           )}
           {top && !agentView && (
-            <div className={`rounded-lg border p-4 ${top.complete ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}>
+            <div className={`rounded-lg border p-4 ${top.complete && !top.is_fallback ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recommended company</p>
               <p className="mt-1 text-xl font-bold text-slate-800">{top.name}</p>
               <p className="text-sm text-slate-600">
-                {top.complete
-                  ? `Can complete the allocation (covers ${top.covered_nights}/${top.total_nights} nights).`
-                  : `Best available — covers ${top.pct}% of the stay (${top.covered_nights}/${top.total_nights} nights).`}
-                {" "}Available inventory: <b>{top.available_bed_nights}</b> bed-nights.
+                {top.is_fallback
+                  ? `No company covers enough of the required stay — feed this booking into ${top.name}.`
+                  : top.complete
+                    ? `Can complete the allocation (covers ${top.covered_nights}/${top.total_nights} nights).`
+                    : `Covers ${top.pct}% of the stay (${top.covered_nights}/${top.total_nights} nights).`}
+                {!top.is_fallback && <> {" "}Available inventory: <b>{top.available_bed_nights}</b> bed-nights.</>}
               </p>
               <button onClick={() => reserve(top.id)} className="btn mt-3 text-sm">Reserve {top.name}</button>
             </div>
