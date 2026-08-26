@@ -1,0 +1,15 @@
+-- 220_fix_sync_trips_ambiguous.sql
+-- Fix: "function transport_sync_trips(uuid, uuid, uuid, uuid, date, jsonb) is
+-- not unique" when saving a transport booking.
+--
+-- There are two overloads:
+--   * a 6-arg delegate  (…, p_trips jsonb)                  -- migration 158
+--   * the 7-arg engine  (…, p_trips jsonb, p_units int DEFAULT 1)  -- migration 106
+--
+-- Because the 7-arg version defaults p_units, a 6-argument call is a valid match
+-- for BOTH overloads, so PostgreSQL/PostgREST cannot pick one and raises
+-- "is not unique". The 6-arg delegate only forwarded to the 7-arg engine with
+-- p_units = 1, which is exactly what the 7-arg default already does — so it is
+-- redundant. Drop it; every 6-argument call now resolves uniquely to the 7-arg
+-- engine via its default.
+drop function if exists transport_sync_trips(uuid, uuid, uuid, uuid, date, jsonb);
