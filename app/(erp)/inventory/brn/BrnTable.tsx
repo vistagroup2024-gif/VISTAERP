@@ -26,6 +26,7 @@ export interface BrnRow {
 type SortKey = keyof BrnRow;
 
 const COLS: { key: SortKey; label: string; num?: boolean }[] = [
+  { key: "created_at", label: "Added" },
   { key: "company", label: "Company" },
   { key: "brn", label: "BRN" },
   { key: "hotel_name", label: "Hotel" },
@@ -188,6 +189,7 @@ export default function BrnTable({ rows, isAdmin = false }: { rows: BrnRow[]; is
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id} className="border-t border-slate-100">
+                <td className="td whitespace-nowrap text-slate-500">{dateStr(r.created_at)}</td>
                 <td className="td text-slate-500">{r.company}</td>
                 <td className="td font-mono font-medium">
                   <Link href={`/inventory/brn/${r.id}`} className="text-brand hover:underline">{r.brn}</Link>
