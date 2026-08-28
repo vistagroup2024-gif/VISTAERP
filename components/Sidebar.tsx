@@ -33,13 +33,13 @@ const GROUPS: Group[] = [
     { href: "/inventory/planning", label: "Purchase Planning", perm: ["brn.planning"] },
     { href: "/inventory/history", label: "History", perm: ["brn.view"] },
   ] },
-  { label: "Sales", icon: "🧾", perm: ["sales.view"], items: [
-    { href: "/bookings", label: "Sales Orders" },
-    { href: "/sales/catalog", label: "Service Catalog" },
-    { href: "/sales/visas", label: "Visa Tracking" },
-    { href: "/packages", label: "Packages" },
-    { href: "/invoices", label: "Invoices" },
-    { href: "/parties", label: "Customers / Agents" },
+  { label: "Sales", icon: "🧾", perm: ["sales.view", "parties.manage"], items: [
+    { href: "/bookings", label: "Sales Orders", perm: ["sales.view"] },
+    { href: "/sales/catalog", label: "Service Catalog", perm: ["sales.view"] },
+    { href: "/sales/visas", label: "Visa Tracking", perm: ["sales.view"] },
+    { href: "/packages", label: "Packages", perm: ["sales.view"] },
+    { href: "/invoices", label: "Invoices", perm: ["sales.view"] },
+    { href: "/parties", label: "Customers / Suppliers", perm: ["sales.view", "parties.manage"] },
   ] },
   { label: "Hotels", icon: "🏨", perm: ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.reports"], items: [
     { href: "/hotels/dashboard", label: "Dashboard", perm: ["hotels.reports"] },
