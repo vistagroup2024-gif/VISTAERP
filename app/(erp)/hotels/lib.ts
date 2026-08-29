@@ -114,6 +114,17 @@ export const ROOM_TYPES: { value: string; label: string; extra: number }[] = [
 export const ROOM_EXTRA: Record<string, number> = Object.fromEntries(ROOM_TYPES.map((r) => [r.value, r.extra]));
 export const ROOM_LABEL: Record<string, string> = Object.fromEntries(ROOM_TYPES.map((r) => [r.value, r.label]));
 
+// Summarise a stay's rooms by type for vouchers, e.g. [quad,quad,tpl] -> "2 Quad · 1 Triple (TPL)".
+export function roomSummary(rooms: { room_type?: string | null }[]): string {
+  const order = ROOM_TYPES.map((r) => r.value);
+  const counts = new Map<string, number>();
+  for (const r of rooms) { const t = r.room_type || "dbl"; counts.set(t, (counts.get(t) ?? 0) + 1); }
+  return Array.from(counts.entries())
+    .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
+    .map(([t, c]) => `${c} ${ROOM_LABEL[t] ?? t}`)
+    .join(" · ");
+}
+
 export interface RoomRates {
   room_type: string;
   sale_dbl?: number | string; sale_extra?: number | string; sale_suite?: number | string;

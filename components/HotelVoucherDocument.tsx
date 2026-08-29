@@ -5,12 +5,12 @@ export interface HotelVoucherProvider {
 }
 export interface HotelVoucherStay {
   hotel_name?: string | null; city?: string | null; check_in?: string | null; check_out?: string | null;
-  nights?: number | null; room_type?: string | null; rooms?: number | null; meal_plan?: string | null; hcn?: string | null;
+  nights?: number | null; room_type?: string | null; room_summary?: string | null; rooms?: number | null; meal_plan?: string | null; hcn?: string | null;
 }
 export interface HotelVoucherData {
   booking_no: string; guest_name: string; group_no?: string | null; agent?: string | null;
   hotel_name?: string | null; city?: string | null; check_in?: string | null; check_out?: string | null;
-  nights?: number | null; room_type?: string | null; rooms?: number | null; guests?: number | null;
+  nights?: number | null; room_type?: string | null; room_summary?: string | null; rooms?: number | null; guests?: number | null;
   meal_plan?: string | null; hcn?: string | null;
   stays?: HotelVoucherStay[];
 }
@@ -75,7 +75,7 @@ export default function HotelVoucherDocument({ provider, booking, qr }: { provid
                   <td className="py-1.5 pr-2">{dateStr(s.check_out)}</td>
                   <td className="py-1.5 pr-2 text-right">{s.nights ?? "—"}</td>
                   <td className="py-1.5 pr-2 text-right">{s.rooms ?? "—"}</td>
-                  <td className="py-1.5 pr-2">{[s.room_type, s.meal_plan].filter(Boolean).join(" · ") || "—"}</td>
+                  <td className="py-1.5 pr-2">{[s.room_summary || s.room_type, s.meal_plan].filter(Boolean).join(" · ") || "—"}</td>
                   <td className="py-1.5 font-mono">{s.hcn || "Pending"}</td>
                 </tr>
               ))}
@@ -88,7 +88,7 @@ export default function HotelVoucherDocument({ provider, booking, qr }: { provid
             <div>
               <Row l="Hotel" v={booking.hotel_name} />
               <Row l="City" v={booking.city ? String(booking.city).replace(/^\w/, (c) => c.toUpperCase()) : "—"} />
-              <Row l="Room Type" v={booking.room_type} />
+              <Row l="Room Type" v={booking.room_summary || booking.room_type} />
             </div>
             <div>
               <Row l="Check-in" v={dateStr(booking.check_in)} />
