@@ -26,7 +26,7 @@ export default async function EditHotelBookingPage({ params }: { params: { id: s
   return (
     <div className="max-w-4xl">
       <PageHeader title={`Edit ${b.booking_no}`} />
-      <HotelBookingForm existing={b} stays={(stays ?? []) as any} hotels={(hotels ?? []) as any} agents={(agents ?? []) as any} suppliers={(suppliers ?? []) as any} salespeople={salespeople} />
+      <HotelBookingForm existing={b} stays={staysWithRooms as any} hotels={(hotels ?? []) as any} agents={(agents ?? []) as any} suppliers={(suppliers ?? []) as any} salespeople={salespeople} />
     </div>
   );
 }
