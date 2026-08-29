@@ -16,8 +16,10 @@ const MODES: { key: PlanMode; label: string; hint: string }[] = [
   { key: "overall", label: "Overall (no city)", hint: "All demand pooled across cities — a single combined plan." },
 ];
 
-function PlanningTabs({ mode, company }: { mode: PlanMode; company: string }) {
+type PlanScope = "all" | "pending";
+function PlanningTabs({ mode, company, scope }: { mode: PlanMode; company: string; scope: PlanScope }) {
   const q = (m: PlanMode) => `/inventory/planning?mode=${m}${company ? `&company=${company}` : ""}`;
+  const sub = (s: PlanScope) => `/inventory/planning?mode=overall&scope=${s}${company ? `&company=${company}` : ""}`;
   const active = MODES.find((m) => m.key === mode) ?? MODES[0];
   return (
     <div className="space-y-2">
@@ -29,7 +31,22 @@ function PlanningTabs({ mode, company }: { mode: PlanMode; company: string }) {
           </a>
         ))}
       </div>
-      <p className="text-xs text-slate-500">{active.hint}</p>
+      {mode === "overall" && (
+        <div className="inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-50/60 p-0.5">
+          {([{ k: "all", label: "All" }, { k: "pending", label: "Pending Groups" }] as { k: PlanScope; label: string }[]).map((s) => (
+            <a key={s.k} href={sub(s.k)}
+              className={`rounded-md px-3 py-1 text-xs font-medium ${scope === s.k ? "bg-brand text-white" : "text-slate-600 hover:bg-white"}`}>
+              {s.label}
+            </a>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-slate-500">
+        {active.hint}
+        {mode === "overall" && (scope === "pending"
+          ? " Showing only groups still pending BRN purchase (package updates excluded)."
+          : " Showing all pending groups plus package updates.")}
+      </p>
     </div>
   );
 }
@@ -91,13 +108,17 @@ function planFor(id: string, name: string, items: CItem[], brns: Brn[], consByBr
   };
 }
 
-export default async function PlanningPage({ searchParams }: { searchParams: { company?: string; mode?: string } }) {
+export default async function PlanningPage({ searchParams }: { searchParams: { company?: string; mode?: string; scope?: string } }) {
   await guardStaffPage("brn.planning");
   const company = searchParams.company ?? "";
   const mode: PlanMode = (["city", "pending", "overall"].includes(searchParams.mode ?? "") ? searchParams.mode : "city") as PlanMode;
+  // Overall (no city) has a secondary scope: "all" (default, includes package
+  // updates) or "pending" (only groups still pending BRN purchase).
+  const scope: PlanScope = mode === "overall" && searchParams.scope === "pending" ? "pending" : "all";
   // "Pending groups only" plans just the pending-BRN groups; the other modes also
-  // fold in groups whose package needs updating (their uncovered nights).
-  const includeUpdates = mode !== "pending";
+  // fold in groups whose package needs updating (their uncovered nights) — except
+  // the Overall view narrowed to "Pending Groups".
+  const includeUpdates = mode !== "pending" && !(mode === "overall" && scope === "pending");
   const supabase = createClient();
   const [{ data: pendGroups }, { data: updGroups }, { data: brns }, { data: cons }, { data: companies }] = await Promise.all([
     supabase.from("umrah_groups")
@@ -207,7 +228,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
       <div className="space-y-6">
         <PageHeader title={`BRN Purchase Planning — ${p.name}`} />
         <CompanyFilter companies={comps} value={company} />
-        <PlanningTabs mode={mode} company={company} />
+        <PlanningTabs mode={mode} company={company} scope={scope} />
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
           <Kpi label={mode === "pending" ? "Pending Groups" : "Groups (new + updates)"} value={p.count} />
@@ -330,7 +351,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
     <div className="space-y-6">
       <PageHeader title="BRN Purchase Planning" />
       <CompanyFilter companies={comps} value={company} />
-      <PlanningTabs mode={mode} company={company} />
+      <PlanningTabs mode={mode} company={company} scope={scope} />
       <p className="text-sm text-slate-500">
         {mode === "pending"
           ? "Only groups still pending BRN purchase are planned (package updates excluded). "
@@ -364,7 +385,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
                 <td className="td">{p.capacity}</td>
                 <td className="td font-semibold text-red-600">{gapOf(p) || ""}</td>
                 <td className="td">{recsOf(p).length}</td>
-                <td className="td"><a href={`/inventory/planning?mode=${mode}&company=${p.id}`} className="text-brand text-sm hover:underline">Open plan →</a></td>
+                <td className="td"><a href={`/inventory/planning?mode=${mode}&company=${p.id}${mode === "overall" && scope === "pending" ? "&scope=pending" : ""}`} className="text-brand text-sm hover:underline">Open plan →</a></td>
               </tr>
             ))}
             {plans.length === 0 && <tr><td className="td text-slate-400" colSpan={7}>No pending groups to plan for.</td></tr>}
