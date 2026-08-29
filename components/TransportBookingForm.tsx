@@ -448,6 +448,11 @@ export default function TransportBookingForm({
             ...rest,
             id: u === 0 ? rest.id : "", // extra vehicles are always new trip rows
             seq,
+            // Package legs all use the single selected package vehicle — write it
+            // explicitly so changing the vehicle on an existing booking re-points
+            // every leg (the server prefers the trip's own vehicle_id over the
+            // header package vehicle, so a stale leg vehicle would otherwise stick).
+            vehicle_id: (type === "package" && !t.is_extra) ? pkgVehicleId : rest.vehicle_id,
             // Package legs price from the package (0 here → distributed server-side);
             // extra trips and non-package trips carry their individual fare.
             sell_rate: (type === "package" && !t.is_extra) ? 0 : overriddenRate(t),
