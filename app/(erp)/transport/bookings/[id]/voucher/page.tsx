@@ -21,7 +21,7 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
 
   const [{ data: booking }, { data: trips }] = await Promise.all([
     sb.from("transport_bookings").select("*").eq("id", params.id).maybeSingle(),
-    sb.from("transport_trip_sched").select("seq, route_name, route_label, trip_date, trip_time, pickup_location, drop_location, vehicle_id, requested_vehicle_id, hajj_terminal, sell_rate, extra_charge, flight_no").eq("booking_id", params.id).order("seq"),
+    sb.from("transport_trip_sched").select("seq, route_name, route_label, trip_date, trip_time, pickup_location, drop_location, vehicle_id, requested_vehicle_id, hajj_terminal, sell_rate, extra_charge, flight_no, status").eq("booking_id", params.id).neq("status", "cancelled").order("seq"),
   ]);
   if (!booking) return <div className="card text-slate-500">Booking not found. <Link href="/transport/bookings" className="text-brand hover:underline">Back</Link></div>;
   const b = booking as any;
