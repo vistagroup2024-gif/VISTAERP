@@ -29,6 +29,21 @@ export default function BookingStatusBar({ id, status }: { id: string; status: s
     router.refresh();
   }
 
+  // Cancel via the dedicated RPC so completed trips are preserved. If the booking
+  // has a completed trip it is NOT fully cancelled — only the remaining trips are.
+  async function cancelBooking() {
+    if (!confirm("Cancel this booking? Completed trips are kept; only the remaining trips will be cancelled.")) return;
+    setBusy(true); setErr(null);
+    const { data, error } = await supabase.rpc("transport_cancel_booking", { p_id: id });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    const r: any = data ?? {};
+    if (r.partial) {
+      alert(`This booking has ${r.completed} completed trip(s), so it was not fully cancelled. ${r.cancelled_trips} remaining trip(s) were cancelled; the booking stays confirmed.`);
+    }
+    router.refresh();
+  }
+
   const idx = FLOW.indexOf(status);
   const next = idx >= 0 && idx < FLOW.length - 1 ? FLOW[idx + 1] : null;
 
@@ -41,7 +56,7 @@ export default function BookingStatusBar({ id, status }: { id: string; status: s
           <button onClick={() => setStatus(next)} disabled={busy} className="btn text-sm">→ {LABEL[next]}</button>
         )}
         {status !== "cancelled" && status !== "completed" && (
-          <button onClick={() => { if (confirm("Cancel this booking?")) setStatus("cancelled"); }} disabled={busy} className="btn-outline text-sm text-red-600">Cancel booking</button>
+          <button onClick={cancelBooking} disabled={busy} className="btn-outline text-sm text-red-600">Cancel booking</button>
         )}
         {status === "cancelled" && (
           <button onClick={() => setStatus("pending")} disabled={busy} className="btn-outline text-sm">Reopen</button>
