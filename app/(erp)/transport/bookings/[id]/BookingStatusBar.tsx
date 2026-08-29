@@ -15,7 +15,7 @@ const COLOR: Record<string, string> = {
   completed: "bg-green-100 text-green-700", cancelled: "bg-red-100 text-red-700",
 };
 
-export default function BookingStatusBar({ id, status }: { id: string; status: string }) {
+export default function BookingStatusBar({ id, status, lockCancel = false }: { id: string; status: string; lockCancel?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
@@ -55,8 +55,11 @@ export default function BookingStatusBar({ id, status }: { id: string; status: s
         {next && status !== "cancelled" && (
           <button onClick={() => setStatus(next)} disabled={busy} className="btn text-sm">→ {LABEL[next]}</button>
         )}
-        {status !== "cancelled" && status !== "completed" && (
+        {status !== "cancelled" && status !== "completed" && !lockCancel && (
           <button onClick={cancelBooking} disabled={busy} className="btn-outline text-sm text-red-600">Cancel booking</button>
+        )}
+        {status !== "cancelled" && status !== "completed" && lockCancel && (
+          <span className="text-xs text-slate-500">A trip is completed — cancel remaining trips individually in the Trips section below.</span>
         )}
         {status === "cancelled" && (
           <button onClick={() => setStatus("pending")} disabled={busy} className="btn-outline text-sm">Reopen</button>

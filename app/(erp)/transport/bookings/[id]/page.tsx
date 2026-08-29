@@ -26,6 +26,10 @@ export default async function EditBookingPage({ params }: { params: { id: string
     return <div className="card text-slate-500">Booking not found. <Link href="/transport/bookings" className="text-brand hover:underline">Back</Link></div>;
   }
   const b = booking as any;
+  const tripRows = (trips as any[]) ?? [];
+  // Once any trip in a multi-trip booking is completed, the whole booking can no
+  // longer be cancelled — the remaining trips are cancelled individually below.
+  const lockCancel = tripRows.length > 1 && tripRows.some((t: any) => t.status === "completed");
 
   return (
     <div className="max-w-5xl">
@@ -41,7 +45,7 @@ export default async function EditBookingPage({ params }: { params: { id: string
         <DeleteBookingButton bookingId={b.id} bookingNo={b.booking_no ?? b.id} />
       </PageHeader>
       {b.cancel_requested && b.status !== "cancelled" && <CancelRequestBar id={b.id} reason={b.cancel_reason ?? null} />}
-      <BookingStatusBar id={b.id} status={b.status} />
+      <BookingStatusBar id={b.id} status={b.status} lockCancel={lockCancel} />
       <BookingExtras
         booking={{ id: b.id, booking_no: b.booking_no, passenger_name: b.passenger_name, mobile: b.mobile, whatsapp: b.whatsapp, status: b.status }}
         driverId={((trips as any[]) ?? []).find((t: any) => t.driver_id)?.driver_id ?? null}
@@ -51,7 +55,7 @@ export default async function EditBookingPage({ params }: { params: { id: string
         <TransportBookingForm existing={b} existingTrips={(trips as any[]) ?? []} {...masters} />
       </div>
 
-      <BookingTripsCancel bookingId={b.id} trips={(trips as any[]) ?? []} isPackage={b.booking_type === "package"} />
+      <BookingTripsCancel bookingId={b.id} trips={tripRows} isPackage={b.booking_type === "package"} />
 
 
       {b.booking_type === "package" && ((trips as any[]) ?? []).length > 0 && (

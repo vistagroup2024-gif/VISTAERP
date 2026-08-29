@@ -29,7 +29,16 @@ export default function BookingTripsCancel({ bookingId, trips, isPackage }: { bo
     router.refresh();
   }
 
-  const active = trips.filter((t) => t.status !== "cancelled");
+  async function reopen(id: string) {
+    if (!confirm("Reopen this trip? It is added back at the agent's single-route fare and the booking total is recalculated.")) return;
+    setBusy(id); setErr(null);
+    const { error } = await supabase.rpc("transport_reopen_trip", { p_trip: id });
+    setBusy(null);
+    if (error) return setErr(error.message);
+    router.refresh();
+  }
+
+  const nonCancelled = trips.filter((t) => t.status !== "cancelled");
   if (trips.length <= 1) return null; // single-trip booking: use delete/cancel booking instead
 
   return (
@@ -53,9 +62,14 @@ export default function BookingTripsCancel({ bookingId, trips, isPackage }: { bo
                   <td className="px-3 py-2 text-right">{Number(t.sell_rate ?? 0).toFixed(2)}</td>
                   <td className="px-3 py-2">{cancelled ? "Cancelled" : t.status}</td>
                   <td className="px-3 py-2 text-right">
-                    {!cancelled && t.status !== "completed" && active.length > 1 && (
+                    {!cancelled && t.status !== "completed" && nonCancelled.length > 1 && (
                       <button disabled={busy === t.id} className="rounded border border-red-300 px-2 py-0.5 text-xs font-medium text-red-600 hover:bg-red-50" onClick={() => cancel(t.id)}>
                         {busy === t.id ? "…" : "Cancel trip"}
+                      </button>
+                    )}
+                    {cancelled && (
+                      <button disabled={busy === t.id} className="rounded border border-emerald-300 px-2 py-0.5 text-xs font-medium text-emerald-700 no-underline hover:bg-emerald-50" onClick={() => reopen(t.id)}>
+                        {busy === t.id ? "…" : "Reopen trip"}
                       </button>
                     )}
                   </td>
