@@ -168,7 +168,7 @@ export default function TransportBookingForm({
     nusuk_group_no: existing?.nusuk_group_no ?? prefill?.nusuk_group_no ?? "",
     passenger_name: existing?.passenger_name ?? prefill?.passenger_name ?? "", mobile: existing?.mobile ?? "",
     whatsapp: existing?.whatsapp ?? "", nationality: existing?.nationality ?? "", remarks: existing?.remarks ?? "",
-    payment_method: existing?.payment_method ?? "cash",
+    payment_method: existing?.payment_method ?? (variant === "agent" ? "no_cash" : "cash"),
     // Amount to collect from the passenger (may differ from the fare — e.g. the
     // agent asks us to collect 250 on a 200 trip). Only meaningful for cash.
     collect_amount: existing?.collect_amount != null ? String(existing.collect_amount) : "",
@@ -501,11 +501,12 @@ export default function TransportBookingForm({
             }}>
               <option value="">— direct —</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}
             </select></div>}
-          {!isAgent && <div><label className="label">Payment method</label>
+          <div><label className="label">Payment method</label>
             <select className="input" value={h.payment_method} onChange={(e) => setH({ ...h, payment_method: e.target.value })}>
-              <option value="no_cash">No Cash</option><option value="cash">Cash</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option>
-            </select></div>}
-          {!isAgent && h.payment_method === "cash" && (
+              <option value="no_cash">No Cash</option><option value="cash">Cash</option>
+              {!isAgent && <><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option></>}
+            </select></div>
+          {h.payment_method === "cash" && (
             <div><label className="label">Collect from passenger <span className="text-slate-400">(SAR)</span></label>
               <input className="input" type="number" min="0" step="0.01" value={h.collect_amount}
                 placeholder={netTotal ? netTotal.toFixed(2) : "e.g. 250"}
