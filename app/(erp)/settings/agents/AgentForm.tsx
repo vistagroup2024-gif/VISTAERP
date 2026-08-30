@@ -28,6 +28,7 @@ export default function AgentForm({
     status: existing?.status ?? "active",
     credit_limit: existing?.credit_limit ?? 0,
     logo: existing?.logo ?? "",
+    voucher_show_name: existing?.voucher_show_name ?? true,
     wa_group_url: existing?.wa_group_url ?? "",
   });
   const [logoErr, setLogoErr] = useState<string | null>(null);
@@ -87,6 +88,7 @@ export default function AgentForm({
       status: f.status,
       credit_limit: Number(f.credit_limit) || 0,
       logo: f.logo || null,
+      voucher_show_name: !!f.voucher_show_name,
       wa_group_url: f.wa_group_url.trim() || null,
       permissions: perms,
     };
@@ -158,6 +160,10 @@ export default function AgentForm({
             {f.logo && <button type="button" className="text-sm text-red-500 hover:underline" onClick={() => setF({ ...f, logo: "" })}>Remove</button>}
           </div>
           {logoErr && <p className="mt-1 text-xs text-red-600">{logoErr}</p>}
+          <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" checked={!!f.voucher_show_name} onChange={(e) => setF({ ...f, voucher_show_name: e.target.checked })} />
+            Voucher with name <span className="text-xs text-slate-400">(tick = show logo + agency name; untick = show logo only)</span>
+          </label>
         </div>
         <div className="col-span-2 md:col-span-3">
           <label className="label">WhatsApp group link <span className="text-slate-400">(invite link of this agent’s dispatch group — used by “Send Driver Details”)</span></label>

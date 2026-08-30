@@ -13,6 +13,10 @@ export interface VoucherProvider {
   // When true the logo is a full lockup that already includes the company name,
   // so the header renders it alone (no separate name text beside it).
   logoLockup?: boolean;
+  // When true the header prints ONLY the logo and omits the name text (for agents
+  // whose uploaded logo already contains their name). Falls back to the name when
+  // there is no logo, so the header is never blank.
+  hideName?: boolean;
 }
 export interface VoucherTrip {
   seq?: number | null; route?: string | null; trip_date?: string | null; trip_time?: string | null;
@@ -90,6 +94,11 @@ export default function VoucherDocument({ provider, booking: b, trips, qr, showF
             {provider.logo ? <img src={provider.logo} alt={provider.name} className="h-14 w-auto object-contain" style={exact} /> : null}
             <div className="text-2xl font-bold leading-none tracking-tight text-brand" style={exact}>{provider.name}</div>
             {provider.tagline && <div className="text-[11px] font-medium tracking-wide text-slate-500">{provider.tagline}</div>}
+          </div>
+        ) : provider.hideName && provider.logo ? (
+          // Logo-only branding: the agent's logo already includes their name.
+          <div className="flex items-center gap-3">
+            <img src={provider.logo} alt={provider.name} className="h-16 w-auto object-contain" style={exact} />
           </div>
         ) : (
           <div className="flex items-center gap-3">

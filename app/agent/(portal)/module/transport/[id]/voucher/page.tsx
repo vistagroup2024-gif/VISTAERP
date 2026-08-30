@@ -63,7 +63,7 @@ export default async function AgentVoucherPage({ params, searchParams }: { param
 
   const br: any = branding ?? null;
   const provider = brand === "agent" && br
-    ? { name: br.agency_name, tagline: null as string | null, contact: br.contact_person, mobile: br.mobile ?? agent.mobile, email: br.email ?? agent.email, address: br.address, logo: br.logo, note: br.voucher_note }
+    ? { name: br.agency_name, tagline: null as string | null, contact: br.contact_person, mobile: br.mobile ?? agent.mobile, email: br.email ?? agent.email, address: br.address, logo: br.logo, note: br.voucher_note, hideName: br.voucher_show_name === false }
     : { ...VISTA, tagline: VISTA.tagline as string | null, note: null as string | null };
 
   const h = headers();
