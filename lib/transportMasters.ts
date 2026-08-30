@@ -26,6 +26,10 @@ export async function loadBookingMasters() {
       sb.from("transport_route_rates").select("route_id, vehicle_id, extra_charge_desc, extra_charge_amount")
         .eq("extra_charge_enabled", true),
     ]);
+  // Global Hajj Terminal fee — used as the fallback in the live total when the
+  // ticked trip's route has no per-route extra rate configured.
+  const { data: hajjFeeStr } = await sb.rpc("get_setting", { p_key: "hajj_terminal_fee", p_default: "90" });
+  const hajjFee = Number(hajjFeeStr) || 90;
 
   const legsByPkg = new Map<string, any[]>();
   (legs ?? []).forEach((l: any) => {
@@ -56,5 +60,6 @@ export async function loadBookingMasters() {
     // the payment method (b2b_agent → No Cash on credit; customer → Cash).
     agents: (agents ?? []).map((p: any) => ({ id: p.id, agency_name: p.name, party_type: p.party_type })),
     extraCharges,
+    hajjFee,
   };
 }

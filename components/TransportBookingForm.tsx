@@ -97,11 +97,11 @@ function buildInitialTrips(rows: any[]): Trip[] {
 const TYPE_LABEL: Record<string, string> = { with_ziyarat: "With Ziyarat", without_ziyarat: "Without Ziyarat" };
 
 export default function TransportBookingForm({
-  existing, existingTrips, routes, vehicles, packages, rates, packagePrices = [], extraCharges = [], agents,
+  existing, existingTrips, routes, vehicles, packages, rates, packagePrices = [], extraCharges = [], agents, hajjFee = 90,
   variant = "admin", endpoint, basePath = "/transport/bookings", prefill,
 }: {
   existing: any | null; existingTrips: any[];
-  routes: Route[]; vehicles: Vehicle[]; packages: Pkg[]; rates: Rate[]; packagePrices?: PkgPrice[]; extraCharges?: ExtraCharge[]; companies?: Company[]; agents: Agent[];
+  routes: Route[]; vehicles: Vehicle[]; packages: Pkg[]; rates: Rate[]; packagePrices?: PkgPrice[]; extraCharges?: ExtraCharge[]; companies?: Company[]; agents: Agent[]; hajjFee?: number;
   variant?: "admin" | "agent"; endpoint?: string; basePath?: string;
   prefill?: { nusuk_group_no?: string; pax?: string | number; passenger_name?: string };
 }) {
@@ -149,7 +149,9 @@ export default function TransportBookingForm({
     const veh = (type === "package" && !t.is_extra) ? pkgVehicleId : t.vehicle_id;
     if (!t.route_id) return 0;
     const exact = veh ? extraMap.get(`${t.route_id}|${veh}`)?.amount : undefined;
-    return exact ?? routeExtraMap.get(t.route_id) ?? 0;
+    // Fall back to the global Hajj Terminal fee when the route has no configured
+    // extra rate (mirrors transport_route_extra server-side).
+    return exact ?? routeExtraMap.get(t.route_id) ?? hajjFee;
   };
 
   const [type, setType] = useState<string>(existing?.booking_type ?? "single");

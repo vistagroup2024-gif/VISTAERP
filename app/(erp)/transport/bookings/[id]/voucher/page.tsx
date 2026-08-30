@@ -76,8 +76,11 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
   const vBases: number[] = (trips ?? []).map((t: any) => Number(t.sell_rate) || 0);
   const vGross = vBases.reduce((a, n) => a + n, 0);
   const vSurcharge = Math.max(0, Number(b.surcharge_amount) || 0);
-  const vDiscount = Math.max(0, Number(b.discount) || 0);
-  const vFares = distributeWhole(vBases, Math.max(0, vGross + vSurcharge - vDiscount));
+  // Per-trip fare = the ORIGINAL route+vehicle rate + the customer surcharge,
+  // distributed across the trips as whole SAR. The booking discount is shown as
+  // its own line in the totals below (not baked into the per-trip fares), so the
+  // customer can see the discount they were given.
+  const vFares = distributeWhole(vBases, Math.max(0, vGross + vSurcharge));
   const docTrips = (trips ?? []).map((t: any, i: number) => ({
     seq: t.seq, route: t.route_name ?? t.route_label, trip_date: t.trip_date, trip_time: t.trip_time,
     pickup_location: t.pickup_location, drop_location: t.drop_location,
@@ -105,9 +108,9 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
   const depTrip = (trips ?? []).find((t: any) => airportRe.test(t.drop_location ?? "") || routeEnds(t.route_name ?? t.route_label).to);
   const arrivalFlight = arrTrip ? (b.arrival_flight || arrTrip.flight_no || null) : null;
   const departureFlight = depTrip ? (b.departure_flight || depTrip.flight_no || null) : null;
-  // Discount is already distributed into the per-trip fares above, so hide the
-  // separate discount line and let the subtotal fall back to the sum of trip fares.
-  const docBooking = { ...b, arrival_flight: arrivalFlight, departure_flight: departureFlight, discount: 0, sell_amount: null };
+  // Keep the real discount so it shows as its own line in the totals; the subtotal
+  // is derived from the sum of the (undiscounted) per-trip fares.
+  const docBooking = { ...b, arrival_flight: arrivalFlight, departure_flight: departureFlight, sell_amount: null };
 
   return (
     <div className="mx-auto max-w-3xl">
