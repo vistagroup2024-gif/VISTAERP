@@ -92,6 +92,8 @@ const GROUPS: Group[] = [
     { href: "/accounting/masters/car-expenses", label: "Car Purchase Expense" },
     { href: "/accounting/masters/currencies", label: "Currencies" },
     { href: "/accounting/masters/salespersons", label: "Salespersons & Commission" },
+    { href: "/accounting/masters/visa-rates", label: "Visa Rates" },
+    { href: "/accounting/masters/visa-suppliers", label: "Visa Supplier Accounts" },
   ] },
   { label: "Accounting", icon: "📚", perm: ["accounting.view"], items: [
     { href: "/accounting", label: "Dashboard" },
