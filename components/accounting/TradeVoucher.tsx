@@ -36,19 +36,25 @@ export default function TradeVoucher({ cfg }: { cfg: TradeDocCfg }) {
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
   const [costCenters, setCostCenters] = useState<{ id: string; name: string }[]>([]);
   const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
+  const [warehouse, setWarehouse] = useState("");
+  const [posted, setPosted] = useState(false);
   const prodByName = useMemo(() => new Map(products.map((p) => [p.name, p.id])), [products]);
+  // These trade documents post to the GL (+ stock); the rest are paperwork only.
+  const canPost = ["purchase_voucher", "purchase_return", "sales_return"].includes(cfg.type);
 
   useEffect(() => {
     (async () => {
       const types = cfg.party === "supplier" ? ["supplier"] : cfg.party === "customer" ? ["customer", "b2b_agent"] : ["customer", "supplier", "b2b_agent"];
-      const [{ data: pa }, { data: pr }, { data: cc }, { data: ta }] = await Promise.all([
+      const [{ data: pa }, { data: pr }, { data: cc }, { data: ta }, { data: wh }] = await Promise.all([
         supabase.from("parties").select("id, name").in("party_type", types).eq("is_active", true).order("name"),
         supabase.from("acct_products").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
+        supabase.from("warehouses").select("id, name").eq("is_active", true).order("name"),
       ]);
       setParties((pa as any[]) ?? []); setProducts((pr as any[]) ?? []);
-      setCostCenters((cc as any[]) ?? []); setTagAreas((ta as any[]) ?? []);
+      setCostCenters((cc as any[]) ?? []); setTagAreas((ta as any[]) ?? []); setWarehouses((wh as any[]) ?? []);
     })();
   }, [supabase, cfg.party]);
 
@@ -56,7 +62,7 @@ export default function TradeVoucher({ cfg }: { cfg: TradeDocCfg }) {
     setId(null); setDocNo(""); setDone(null); setErr(null);
     setDate(new Date().toISOString().slice(0, 10)); setParty(""); setCostCenter(""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff("");
-    setRows([blankRow(), blankRow()]);
+    setRows([blankRow(), blankRow()]); setWarehouse(""); setPosted(false);
   }
   function setRow(i: number, patch: Partial<Row>) {
     setRows((rs) => {
@@ -79,6 +85,7 @@ export default function TradeVoucher({ cfg }: { cfg: TradeDocCfg }) {
     setDate(v.doc_date ?? ""); setParty(v.party_id ?? ""); setCostCenter(v.cost_center ?? ""); setTagArea(v.tag_area ?? "");
     setReference(v.reference ?? ""); setMode(v.mode_of_payment ?? ""); setDueDate(v.due_date ?? ""); setDeliveryDate(v.delivery_date ?? "");
     setTerms(v.terms ?? ""); setNarration(v.narration ?? ""); setRoundOff(v.round_off ? String(v.round_off) : "");
+    setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry);
     const ls: Row[] = (v.lines ?? []).map((l: any) => ({
       product_id: l.product_id ?? null, item_name: l.item_name ?? "", units: l.units ?? "",
       quantity: l.quantity ? String(Number(l.quantity)) : "", rate: l.rate ? String(Number(l.rate)) : "",
@@ -135,10 +142,21 @@ export default function TradeVoucher({ cfg }: { cfg: TradeDocCfg }) {
     if (lines.length === 0) return setErr("Enter at least one item line.");
     setBusy(true);
     const { data, error } = await supabase.rpc("trade_doc_save", { p_type: cfg.type, p_prefix: cfg.prefix, p_id: id, p_header: header, p_lines: lines });
+    if (error) { setBusy(false); return setErr(error.message); }
+    const r = data as any;
+    if (canPost) await supabase.from("trade_documents").update({ warehouse_id: warehouse || null }).eq("id", r.id);
+    setBusy(false);
+    setId(r.id); setDocNo(r.doc_no); setDone(`saved ${r.doc_no}`); router.refresh();
+  }
+
+  async function post() {
+    if (!id) return setErr("Save the document first.");
+    if (!confirm(`Post ${cfg.title} ${docNo} to the accounts? This books the GL and stock.`)) return;
+    setBusy(true); setErr(null);
+    const { data, error } = await supabase.rpc("trade_doc_post", { p_id: id });
     setBusy(false);
     if (error) return setErr(error.message);
-    const r = data as any;
-    setId(r.id); setDocNo(r.doc_no); setDone(`saved ${r.doc_no}`); router.refresh();
+    setPosted(true); setDone(`posted to GL (${(data as any)?.entry_no ?? ""})`); router.refresh();
   }
 
   return (
@@ -153,8 +171,10 @@ export default function TradeVoucher({ cfg }: { cfg: TradeDocCfg }) {
         <button onClick={() => nav("prev")} disabled={busy} className="btn-outline text-sm">‹ Previous</button>
         <button onClick={() => nav("next")} disabled={busy} className="btn-outline text-sm">Next ›</button>
         <div className="ml-auto flex items-center gap-2">
+          {posted && <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium uppercase text-green-700">posted</span>}
+          {canPost && id && !posted && <button onClick={post} disabled={busy} className="btn text-sm">Post to GL</button>}
           <button onClick={printDoc} disabled={!id} className="btn-outline text-sm disabled:opacity-40">🖨 Print</button>
-          <button onClick={del} disabled={!id || busy} className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
+          <button onClick={del} disabled={!id || busy || posted} className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
         </div>
       </div>
 
@@ -181,6 +201,12 @@ export default function TradeVoucher({ cfg }: { cfg: TradeDocCfg }) {
               <option value="">—</option>{tagAreas.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
             </select></div>
           <div><label className="label">Reference</label><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} /></div>
+          {canPost && (
+            <div><label className="label">Warehouse</label>
+              <select className="input" value={warehouse} onChange={(e) => setWarehouse(e.target.value)}>
+                <option value="">— none (no stock) —</option>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select></div>
+          )}
           {cfg.showMode && <div><label className="label">Mode of Payment</label><input className="input" value={mode} onChange={(e) => setMode(e.target.value)} /></div>}
           {cfg.showDue && <div><label className="label">Due Date</label><input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>}
           {cfg.showDelivery && <div><label className="label">Delivery Date</label><input type="date" className="input" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} /></div>}
@@ -226,7 +252,7 @@ export default function TradeVoucher({ cfg }: { cfg: TradeDocCfg }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={save} disabled={busy} className="btn">{busy ? "Saving…" : id ? "Save changes" : "Save"}</button>
+          <button onClick={save} disabled={busy || posted} className="btn disabled:opacity-40">{busy ? "Saving…" : posted ? "Posted (locked)" : id ? "Save changes" : "Save"}</button>
           <button onClick={() => setRows((r) => [...r, blankRow()])} className="btn-outline text-sm">+ Line</button>
           <span className="ml-auto text-xs text-slate-400">{id ? `Editing ${docNo}` : "New document — number auto-assigned on save."}</span>
         </div>
