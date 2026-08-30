@@ -84,9 +84,16 @@ const GROUPS: Group[] = [
     { href: "/purchase/bills", label: "Supplier Bills" },
     { href: "/purchase/payments", label: "Supplier Payments" },
   ] },
+  { label: "Masters", icon: "🗂️", perm: ["accounting.view"], items: [
+    { href: "/accounting/accounts", label: "Chart of Accounts" },
+    { href: "/accounting/masters/products", label: "Product Tree" },
+    { href: "/accounting/masters/tag-areas", label: "Tag Area" },
+    { href: "/accounting/masters/cost-centers", label: "Cost Center" },
+    { href: "/accounting/masters/car-expenses", label: "Car Purchase Expense" },
+    { href: "/accounting/masters/currencies", label: "Currencies" },
+  ] },
   { label: "Accounting", icon: "📚", perm: ["accounting.view"], items: [
     { href: "/accounting", label: "Dashboard" },
-    { href: "/accounting/accounts", label: "Chart of Accounts" },
     { href: "/accounting/receipts", label: "Receipt" },
     { href: "/accounting/payments", label: "Payment" },
     { href: "/accounting/contra", label: "Contra" },
