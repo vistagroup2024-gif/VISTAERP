@@ -67,3 +67,14 @@ table td {
   .print-doc { box-shadow: none !important; padding: 8mm !important; }
   table th, table td { text-align: left !important; }
 }
+
+/* Mobile safety net: never let the whole page scroll sideways (inner
+   overflow-x-auto containers still scroll their own content), and keep media
+   within the viewport. */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+img, video {
+  max-width: 100%;
+}
