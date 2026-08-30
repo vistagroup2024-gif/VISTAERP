@@ -14,6 +14,8 @@ export interface PartyRow {
   email: string | null;
   currency: string | null;
   credit_limit: number | null;
+  credit_days?: number | null;
+  sales_target?: number | null;
 }
 
 export default function PartyForm({ existing }: { existing?: PartyRow | null }) {
@@ -28,6 +30,8 @@ export default function PartyForm({ existing }: { existing?: PartyRow | null }) 
     email: existing?.email ?? "",
     currency: existing?.currency ?? "PKR",
     credit_limit: existing?.credit_limit ?? 0,
+    credit_days: existing?.credit_days ?? 0,
+    sales_target: existing?.sales_target ?? 0,
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -44,6 +48,8 @@ export default function PartyForm({ existing }: { existing?: PartyRow | null }) 
       email: form.email || null,
       currency: form.currency,
       credit_limit: Number(form.credit_limit),
+      credit_days: Number(form.credit_days),
+      sales_target: Number(form.sales_target),
     };
     const { error } = isEdit
       ? await supabase.from("parties").update(payload).eq("id", existing!.id)
@@ -94,6 +100,16 @@ export default function PartyForm({ existing }: { existing?: PartyRow | null }) 
             <label className="label">Credit limit</label>
             <input className="input" type="number" value={form.credit_limit} onChange={(e) => setForm({ ...form, credit_limit: Number(e.target.value) })} />
           </div>
+          <div>
+            <label className="label">Credit days</label>
+            <input className="input" type="number" value={form.credit_days} onChange={(e) => setForm({ ...form, credit_days: Number(e.target.value) })} />
+          </div>
+          {form.party_type !== "supplier" && (
+            <div>
+              <label className="label">Sales target</label>
+              <input className="input" type="number" value={form.sales_target} onChange={(e) => setForm({ ...form, sales_target: Number(e.target.value) })} />
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save"}</button>

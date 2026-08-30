@@ -110,6 +110,7 @@ const GROUPS: Group[] = [
     { href: "/accounting/ledger", label: "Ledger / Statement" },
     { href: "/accounting/journal", label: "Voucher Register" },
     { href: "/accounting/trial-balance", label: "Trial Balance" },
+    { href: "/accounting/targets", label: "Targets & Budget" },
     { href: "/accounting/profit-loss", label: "Profit & Loss" },
     { href: "/accounting/balance-sheet", label: "Balance Sheet" },
     { href: "/accounting/vat", label: "VAT Return" },
