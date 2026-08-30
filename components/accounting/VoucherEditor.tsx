@@ -79,15 +79,25 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant }: {
   const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
   const [costCenter, setCostCenter] = useState("");
   const [tagArea, setTagArea] = useState("");
+  // Multi-currency (Journal only): foreign amounts × rate → base (SAR) for the GL.
+  const [currencies, setCurrencies] = useState<{ code: string; rate_to_base: number }[]>([]);
+  const [currency, setCurrency] = useState("SAR");
+  const [fxRate, setFxRate] = useState("");
   useEffect(() => {
     (async () => {
-      const [{ data: cc }, { data: ta }] = await Promise.all([
+      const [{ data: cc }, { data: ta }, { data: cu }] = await Promise.all([
         supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
+        supabase.from("currencies").select("code, rate_to_base").eq("is_active", true).order("code"),
       ]);
-      setCostCenters((cc as any[]) ?? []); setTagAreas((ta as any[]) ?? []);
+      setCostCenters((cc as any[]) ?? []); setTagAreas((ta as any[]) ?? []); setCurrencies((cu as any[]) ?? []);
     })();
   }, [supabase]);
+  function pickCurrency(code: string) {
+    setCurrency(code);
+    const c = currencies.find((x) => x.code === code);
+    setFxRate(code === "SAR" ? "" : (c ? String(Number(c.rate_to_base)) : ""));
+  }
   const dims = () => ({ cost_center: costCenter || null, tag_area: tagArea || null });
 
   // Bill-wise adjustment is available on Receipt, Payment and Journal (party lines).
@@ -340,8 +350,15 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant }: {
           return;
         }
         const payload = rows.map((l) => ({ account: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, remarks: l.remarks || null, ...dims() }));
-        rpc = "gl_journal";
-        args = { p_company: COMPANY_ID, p_date: date, p_narration: narration || null, p_reference: reference || null, p_lines: payload };
+        if (currency !== "SAR") {
+          const rate = calc(fxRate);
+          if (!rate || rate <= 0) throw new Error("Enter the exchange rate for " + currency);
+          rpc = "gl_journal_fx";
+          args = { p_company: COMPANY_ID, p_date: date, p_narration: narration || null, p_reference: reference || null, p_currency: currency, p_rate: rate, p_lines: payload };
+        } else {
+          rpc = "gl_journal";
+          args = { p_company: COMPANY_ID, p_date: date, p_narration: narration || null, p_reference: reference || null, p_lines: payload };
+        }
       } else if (isContra) {
         const amt = calc(amount);
         if (!cash || !toAcct) throw new Error("Choose both accounts");
@@ -458,6 +475,19 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant }: {
               <select className="input" value={tagArea} disabled={readOnly} onChange={(e) => setTagArea(e.target.value)}>
                 <option value="">—</option>{tagAreas.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
               </select></div>
+          )}
+          {isJournal && !entryId && (
+            <>
+              <div><label className="label">Currency</label>
+                <select className="input" value={currency} onChange={(e) => pickCurrency(e.target.value)}>
+                  <option value="SAR">SAR (base)</option>
+                  {currencies.filter((c) => c.code !== "SAR").map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+                </select></div>
+              {currency !== "SAR" && (
+                <div><label className="label">Rate → SAR</label>
+                  <input className="input text-right tabular-nums" inputMode="decimal" value={fxRate} onChange={(e) => setFxRate(e.target.value)} placeholder="0.00" /></div>
+              )}
+            </>
           )}
           <div className={isContra ? "md:col-span-4" : "md:col-span-2"}><label className="label">Narration</label>
             <input className="input" value={narration} disabled={readOnly} onChange={(e) => setNarration(e.target.value)} placeholder="Description" /></div>

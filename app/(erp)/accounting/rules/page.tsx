@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 
 type Rule = { id?: string; doc_type: string; min_amount: number; approvals_needed: number; active: boolean };
+type Authorizer = { user_id: string; name: string; is_admin: boolean; limit: number | null };
 const DOC_TYPES = [
   ["gl_receipt", "Receipt"], ["gl_payment", "Payment"], ["gl_contra", "Contra"], ["gl_journal", "Journal Entry"],
 ];
@@ -16,11 +17,24 @@ export default function RulesPage() {
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [authorizers, setAuthorizers] = useState<Authorizer[]>([]);
   async function load() {
     const { data } = await supabase.from("acct_approval_rules").select("*").order("doc_type");
     setRules((data ?? []) as Rule[]);
+    const { data: az } = await supabase.rpc("acct_list_authorizers");
+    setAuthorizers((az as Authorizer[]) ?? []);
   }
   useEffect(() => { load(); }, []); // eslint-disable-line
+
+  async function setLimit(u: Authorizer) {
+    const cur = u.limit == null ? "" : String(u.limit);
+    const v = prompt(`Authorisation limit for ${u.name} (blank = no limit):`, cur);
+    if (v === null) return;
+    const lim = v.trim() === "" ? null : Number(v) || 0;
+    const { error } = await supabase.rpc("acct_set_authorize_limit", { p_user: u.user_id, p_limit: lim });
+    if (error) return setErr(error.message);
+    load();
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setErr(null);
@@ -73,6 +87,26 @@ export default function RulesPage() {
               </tr>
             ))}
             {rules.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={5}>No rules — all vouchers post immediately.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="pt-2 text-xl font-bold">User Authorisation Limits</h2>
+      <p className="text-sm text-slate-500">The maximum voucher amount each authoriser may approve. Blank = no limit. Admins (super-admin) bypass all limits. Only an admin can change these.</p>
+      <div className="card overflow-hidden p-0">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <tr><th className="px-3 py-2 text-left">User</th><th className="px-3 py-2 text-right">Limit (SAR)</th><th /></tr>
+          </thead>
+          <tbody>
+            {authorizers.map((u) => (
+              <tr key={u.user_id} className="border-t border-slate-100">
+                <td className="px-3 py-2">{u.name}{u.is_admin && <span className="ml-2 rounded bg-brand/10 px-1.5 text-[10px] uppercase text-brand">admin</span>}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{u.is_admin ? "—" : (u.limit == null ? "No limit" : Number(u.limit).toLocaleString())}</td>
+                <td className="px-3 py-2 text-right">{!u.is_admin && <button onClick={() => setLimit(u)} className="text-brand hover:underline">Set limit</button>}</td>
+              </tr>
+            ))}
+            {authorizers.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={3}>No authorisers, or you are not an admin.</td></tr>}
           </tbody>
         </table>
       </div>
