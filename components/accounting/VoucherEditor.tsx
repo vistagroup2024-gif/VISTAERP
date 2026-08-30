@@ -59,7 +59,11 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   const [bills, setBills] = useState<Bill[]>([]);
   const [allocInput, setAllocInput] = useState<Record<string, string>>({});
   const [billErr, setBillErr] = useState<string | null>(null);
-  const canBillwise = kind === "receipt" || kind === "payment";
+  // Bill-wise adjustment is available on Receipt, Payment and Journal (party lines).
+  const canBillwise = kind === "receipt" || kind === "payment" || kind === "journal";
+  // The allocatable amount of a line: the amount cell (receipt/payment) or the
+  // debit/credit (journal).
+  const lineAmt = (l: Line) => (kind === "journal" ? (calc(l.debit) || calc(l.credit) || 0) : (calc(l.amount) || 0));
 
   // Header memory: remember cash/bank per user per kind.
   useEffect(() => {
@@ -157,7 +161,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
     setAllocInput(seed);
     setAdjustFor(i);
   }
-  const adjTarget = adjustFor != null ? (calc(lines[adjustFor]?.amount) || 0) : 0;
+  const adjTarget = adjustFor != null && lines[adjustFor] ? lineAmt(lines[adjustFor]) : 0;
   const adjDone = Object.values(allocInput).reduce((s, v) => s + (Number(v) || 0), 0);
   function fillFifo() {
     let remaining = adjTarget; const next: Record<string, string> = {};
@@ -269,10 +273,24 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
       let rpc: string; let args: any;
       if (isJournal) {
         if (Math.abs(totals.diff) > 0.005) throw new Error(`Out of balance by ${money(Math.abs(totals.diff))}`);
-        const payload = lines
-          .filter((l) => l.account && (calc(l.debit) || calc(l.credit)))
-          .map((l) => ({ account: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, remarks: l.remarks || null }));
-        if (payload.length < 2) throw new Error("Enter at least two lines");
+        const rows = lines.filter((l) => l.account && (calc(l.debit) || calc(l.credit)));
+        if (rows.length < 2) throw new Error("Enter at least two lines");
+        const hasAlloc = rows.some((l) => (l.alloc?.length ?? 0) > 0);
+        if (hasAlloc) {
+          const payload = rows.map((l) => ({
+            account: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, remarks: l.remarks || null,
+            allocations: (l.alloc ?? []).map((a) => ({ open_item_id: a.open_item_id, amount: a.amount })),
+          }));
+          const { data, error } = await supabase.rpc("gl_journal_billwise", {
+            p_company: COMPANY_ID, p_date: date, p_narration: narration || null, p_reference: reference || null, p_lines: payload,
+          });
+          if (error) throw new Error(error.message);
+          setDone(`posted ${(data as any)?.entry_no ?? ""} (bill-wise)`);
+          resetToNew(); router.refresh();
+          if (printAfter && (data as any)?.entry_id) window.open(`/accounting/vouchers/${(data as any).entry_id}`, "_blank");
+          return;
+        }
+        const payload = rows.map((l) => ({ account: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, remarks: l.remarks || null }));
         rpc = "gl_journal";
         args = { p_company: COMPANY_ID, p_date: date, p_narration: narration || null, p_reference: reference || null, p_lines: payload };
       } else if (isContra) {
