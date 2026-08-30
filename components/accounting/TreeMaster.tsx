@@ -5,14 +5,20 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 
-type Node = { id: string; parent_id: string | null; name: string; is_group: boolean; is_active: boolean; sort: number };
+type Node = { id: string; parent_id: string | null; name: string; is_group: boolean; is_active: boolean; sort: number; [k: string]: any };
+type Extra = { key: string; label: string };
 
-export default function ProductTree({ initial }: { initial: Node[] }) {
+// Reusable hierarchical master (Product Tree, Cost Center, Tag Area). Supports
+// groups + items and an optional numeric `extra` field shown on item rows.
+export default function TreeMaster({ table, initial, extra, note }: {
+  table: string; initial: Node[]; extra?: Extra; note?: string;
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [name, setName] = useState("");
-  const [parent, setParent] = useState<string>("");
+  const [parent, setParent] = useState("");
   const [isGroup, setIsGroup] = useState(true);
+  const [extraVal, setExtraVal] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -29,22 +35,26 @@ export default function ProductTree({ initial }: { initial: Node[] }) {
     e.preventDefault(); setErr(null);
     if (!name.trim()) return setErr("Name is required");
     setBusy(true);
-    const { error } = await supabase.from("acct_products").insert({
-      company_id: COMPANY_ID, name: name.trim(), parent_id: parent || null, is_group: isGroup,
-    });
+    const payload: any = { company_id: COMPANY_ID, name: name.trim(), parent_id: parent || null, is_group: isGroup };
+    if (extra && !isGroup) payload[extra.key] = extraVal === "" ? 0 : Number(extraVal);
+    const { error } = await supabase.from(table).insert(payload);
     setBusy(false);
     if (error) return setErr(error.message);
-    setName(""); router.refresh();
+    setName(""); setExtraVal(""); router.refresh();
   }
   async function rename(n: Node) {
-    const v = prompt("Rename:", n.name); if (v === null) return;
-    if (!v.trim()) return;
-    await supabase.from("acct_products").update({ name: v.trim() }).eq("id", n.id); router.refresh();
+    const v = prompt("Rename:", n.name); if (v === null || !v.trim()) return;
+    await supabase.from(table).update({ name: v.trim() }).eq("id", n.id); router.refresh();
+  }
+  async function setExtra(n: Node) {
+    if (!extra) return;
+    const v = prompt(`${extra.label}:`, String(n[extra.key] ?? 0)); if (v === null) return;
+    await supabase.from(table).update({ [extra.key]: Number(v) || 0 }).eq("id", n.id); router.refresh();
   }
   async function del(n: Node) {
     if ((byParent.get(n.id)?.length ?? 0) > 0) return setErr(`"${n.name}" has children — remove them first.`);
     if (!confirm(`Delete "${n.name}"?`)) return;
-    const { error } = await supabase.from("acct_products").delete().eq("id", n.id);
+    const { error } = await supabase.from(table).delete().eq("id", n.id);
     if (error) return setErr(error.message);
     router.refresh();
   }
@@ -61,9 +71,11 @@ export default function ProductTree({ initial }: { initial: Node[] }) {
           <span className={n.is_group ? "font-semibold text-slate-700" : "text-slate-600"}>{n.name}</span>
           {n.is_group && <span className="rounded bg-slate-100 px-1.5 text-[10px] uppercase text-slate-500">group</span>}
           {!n.is_active && <span className="rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">inactive</span>}
+          {extra && !n.is_group && <span className="ml-2 text-xs text-slate-500">{extra.label}: <b className="tabular-nums">{Number(n[extra.key] ?? 0).toLocaleString()}</b></span>}
           <span className="ml-auto flex gap-2 pr-3 text-xs">
             <button onClick={() => rename(n)} className="text-brand hover:underline">Rename</button>
-            <button onClick={() => supabase.from("acct_products").update({ is_active: !n.is_active }).eq("id", n.id).then(() => router.refresh())} className="text-slate-500 hover:underline">{n.is_active ? "Disable" : "Enable"}</button>
+            {extra && !n.is_group && <button onClick={() => setExtra(n)} className="text-brand hover:underline">{extra.label}</button>}
+            <button onClick={() => supabase.from(table).update({ is_active: !n.is_active }).eq("id", n.id).then(() => router.refresh())} className="text-slate-500 hover:underline">{n.is_active ? "Disable" : "Enable"}</button>
             <button onClick={() => del(n)} className="text-red-600 hover:underline">Delete</button>
           </span>
         </div>
@@ -75,7 +87,7 @@ export default function ProductTree({ initial }: { initial: Node[] }) {
   const roots = byParent.get(null) ?? [];
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">A hierarchical catalogue of products / service items. Create groups, then items under them.</p>
+      {note && <p className="text-sm text-slate-500">{note}</p>}
       <form onSubmit={add} className="card grid grid-cols-1 gap-3 sm:grid-cols-6">
         <div className="sm:col-span-2"><label className="label">Name *</label>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
@@ -84,12 +96,16 @@ export default function ProductTree({ initial }: { initial: Node[] }) {
             <option value="">— top level —</option>
             {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select></div>
+        {extra && !isGroup && (
+          <div className="sm:col-span-1"><label className="label">{extra.label}</label>
+            <input className="input" type="number" step="any" value={extraVal} onChange={(e) => setExtraVal(e.target.value)} /></div>
+        )}
         <div className="flex items-end"><label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={isGroup} onChange={(e) => setIsGroup(e.target.checked)} /> Is a group</label></div>
-        <div className="flex items-end"><button className="btn w-full" disabled={busy}>{busy ? "…" : "+ Add"}</button></div>
+        <div className="flex items-end sm:col-span-1"><button className="btn w-full" disabled={busy}>{busy ? "…" : "+ Add"}</button></div>
         {err && <p className="text-sm text-red-600 sm:col-span-6">{err}</p>}
       </form>
       <div className="card p-0 text-sm">
-        {roots.length === 0 ? <p className="p-4 text-slate-400">No products yet.</p> : roots.map((n) => <Row key={n.id} n={n} depth={0} />)}
+        {roots.length === 0 ? <p className="p-4 text-slate-400">Nothing yet.</p> : roots.map((n) => <Row key={n.id} n={n} depth={0} />)}
       </div>
     </div>
   );

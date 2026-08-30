@@ -13,8 +13,11 @@ export default async function CarPurchaseExpensesPage() {
     <div className="max-w-3xl">
       <PageHeader title="Car Purchase Expenses" />
       <MasterList table="acct_car_purchase_expenses" initial={(data as any[]) ?? []}
-        note="Expense heads that can be added onto a vehicle's purchase cost (e.g. transport, customs, refurbishment)."
-        fields={[{ key: "name", label: "Expense Head", width: "sm:col-span-4" }]} />
+        note="Expense heads that can be added onto a vehicle's purchase cost (e.g. transport, customs, refurbishment), with a default amount."
+        fields={[
+          { key: "name", label: "Expense Head", width: "sm:col-span-3" },
+          { key: "amount", label: "Amount", type: "number", width: "sm:col-span-2", required: false },
+        ]} />
     </div>
   );
 }

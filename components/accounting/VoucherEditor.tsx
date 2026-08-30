@@ -68,8 +68,8 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   useEffect(() => {
     (async () => {
       const [{ data: cc }, { data: ta }] = await Promise.all([
-        supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).order("name"),
-        supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).order("name"),
+        supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
+        supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
       ]);
       setCostCenters((cc as any[]) ?? []); setTagAreas((ta as any[]) ?? []);
     })();

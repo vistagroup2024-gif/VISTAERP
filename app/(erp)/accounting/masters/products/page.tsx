@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
-import ProductTree from "@/components/accounting/ProductTree";
+import TreeMaster from "@/components/accounting/TreeMaster";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,8 @@ export default async function ProductTreePage() {
   return (
     <div className="max-w-4xl">
       <PageHeader title="Product Tree" />
-      <ProductTree initial={(data as any[]) ?? []} />
+      <TreeMaster table="acct_products" initial={(data as any[]) ?? []}
+        note="A hierarchical catalogue of products / service items. Create groups, then items under them." />
     </div>
   );
 }
