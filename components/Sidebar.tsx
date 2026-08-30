@@ -97,6 +97,8 @@ const GROUPS: Group[] = [
     { href: "/accounting/receipts", label: "Receipt" },
     { href: "/accounting/payments", label: "Payment" },
     { href: "/accounting/contra", label: "Contra" },
+    { href: "/accounting/petty-cash", label: "Petty Cash" },
+    { href: "/accounting/commission", label: "Commission" },
     { href: "/accounting/journal/new", label: "Journal Entry" },
     { href: "/accounting/recurring", label: "Recurring Vouchers" },
     { href: "/accounting/bank", label: "Bank Reconciliation" },

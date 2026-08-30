@@ -28,13 +28,27 @@ const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDig
 
 const TITLES: Record<VoucherKind, string> = { journal: "Journal Entry", receipt: "Receipt", payment: "Payment", contra: "Contra" };
 
-export default function VoucherEditor({ kind, accounts, cashBank }: {
-  kind: VoucherKind; accounts: PickAccount[]; cashBank: PickAccount[];
+// An optional preset that turns the Payment voucher into a distinct payment-style
+// voucher (Petty Cash, Commission …). Purely additive — when absent the editor
+// behaves exactly as before. `source` gives the voucher its own document series
+// and register; `postRpc` is the SECURITY DEFINER function used to post it.
+export type VoucherVariant = {
+  source: string; title: string; postRpc: string;
+  cashLabel?: string; cashMatch?: string; lineLabel?: string;
+};
+
+export default function VoucherEditor({ kind, accounts, cashBank, variant }: {
+  kind: VoucherKind; accounts: PickAccount[]; cashBank: PickAccount[]; variant?: VoucherVariant;
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const memKey = `voucher:${kind}`;
-  const source = `gl_${kind}`; // gl_receipt / gl_payment / gl_contra / gl_journal
+  const memKey = `voucher:${variant?.source ?? kind}`;
+  const source = variant?.source ?? `gl_${kind}`; // gl_receipt / gl_payment / gl_contra / gl_journal / gl_petty …
+  const title = variant?.title ?? TITLES[kind];
+  // For a variant, offer only the matching cash/bank accounts (e.g. Petty Cash).
+  const payAccounts = useMemo(
+    () => (variant?.cashMatch ? cashBank.filter((a) => a.name.toUpperCase().includes(variant.cashMatch!.toUpperCase())) : cashBank),
+    [cashBank, variant?.cashMatch]);
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [narration, setNarration] = useState("");
@@ -77,7 +91,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   const dims = () => ({ cost_center: costCenter || null, tag_area: tagArea || null });
 
   // Bill-wise adjustment is available on Receipt, Payment and Journal (party lines).
-  const canBillwise = kind === "receipt" || kind === "payment" || kind === "journal";
+  const canBillwise = !variant && (kind === "receipt" || kind === "payment" || kind === "journal");
   // The allocatable amount of a line: the amount cell (receipt/payment) or the
   // debit/credit (journal).
   const lineAmt = (l: Line) => (kind === "journal" ? (calc(l.debit) || calc(l.credit) || 0) : (calc(l.amount) || 0));
@@ -159,7 +173,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
     const { data, error } = await supabase.rpc("gl_voucher_find", { p_entry_no: no, p_source: source });
     setBusy(false);
     if (error) return setError(error.message);
-    if (!data) return setError(`No ${TITLES[kind]} with document no. ${no}.`);
+    if (!data) return setError(`No ${title} with document no. ${no}.`);
     await load(data as string);
   }
 
@@ -218,7 +232,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   }
   async function del() {
     if (!entryId) return;
-    if (!confirm(`Delete (void) ${TITLES[kind]} ${entryNo ?? ""}? It will be removed from the ledger. This cannot be undone.`)) return;
+    if (!confirm(`Delete (void) ${title} ${entryNo ?? ""}? It will be removed from the ledger. This cannot be undone.`)) return;
     const reason = prompt("Reason (optional, recorded in the audit log):", "") ?? "";
     setBusy(true); setError(null);
     const { error } = await supabase.rpc("gl_voucher_void", { p_entry: entryId, p_reason: reason || null });
@@ -358,7 +372,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
         const payload = lines.filter((l) => l.account && calc(l.amount))
           .map((l) => ({ account: l.account, amount: calc(l.amount) || 0, remarks: l.remarks || null, ...dims() }));
         if (payload.length < 1) throw new Error("Enter at least one line");
-        rpc = kind === "receipt" ? "gl_receipt" : "gl_payment";
+        rpc = variant ? variant.postRpc : (kind === "receipt" ? "gl_receipt" : "gl_payment");
         args = { p_company: COMPANY_ID, p_date: date, p_cash_bank: cash, p_narration: narration || null, p_reference: reference || null, p_lines: payload };
       }
       const { data, error } = await supabase.rpc(rpc, args);
@@ -389,7 +403,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">{TITLES[kind]}</h1>
+        <h1 className="text-2xl font-bold">{title}</h1>
         {readOnly && <span className="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-600">locked</span>}
         {done && <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700 capitalize">{done}</span>}
       </div>
@@ -418,8 +432,8 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
           <div><label className="label">Date</label>
             <input type="date" className="input" value={date} disabled={readOnly} onChange={(e) => setDate(e.target.value)} /></div>
           {!isJournal && (
-            <div className="md:col-span-1"><label className="label">{isContra ? "From (cash/bank)" : "Cash / Bank"}</label>
-              <AccountPicker accounts={cashBank} value={cash} onChange={setCash} placeholder="Cash / bank…" /></div>
+            <div className="md:col-span-1"><label className="label">{isContra ? "From (cash/bank)" : (variant?.cashLabel ?? "Cash / Bank")}</label>
+              <AccountPicker accounts={payAccounts} value={cash} onChange={setCash} placeholder={variant?.cashLabel ?? "Cash / bank…"} /></div>
           )}
           {isContra && (
             <div><label className="label">To (cash/bank)</label>
@@ -456,7 +470,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
               <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 <tr>
                   <th className="px-2 py-2 text-left">#</th>
-                  <th className="px-2 py-2 text-left">Account</th>
+                  <th className="px-2 py-2 text-left">{variant?.lineLabel ?? "Account"}</th>
                   {isJournal ? <>
                     <th className="px-2 py-2 text-right">Debit</th>
                     <th className="px-2 py-2 text-right">Credit</th>
