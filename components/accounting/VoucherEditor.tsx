@@ -59,6 +59,23 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   const [bills, setBills] = useState<Bill[]>([]);
   const [allocInput, setAllocInput] = useState<Record<string, string>>({});
   const [billErr, setBillErr] = useState<string | null>(null);
+
+  // Masters: Cost Center + Tag Area (loaded once). Applied to the voucher's lines.
+  const [costCenters, setCostCenters] = useState<{ id: string; name: string }[]>([]);
+  const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
+  const [costCenter, setCostCenter] = useState("");
+  const [tagArea, setTagArea] = useState("");
+  useEffect(() => {
+    (async () => {
+      const [{ data: cc }, { data: ta }] = await Promise.all([
+        supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).order("name"),
+        supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).order("name"),
+      ]);
+      setCostCenters((cc as any[]) ?? []); setTagAreas((ta as any[]) ?? []);
+    })();
+  }, [supabase]);
+  const dims = () => ({ cost_center: costCenter || null, tag_area: tagArea || null });
+
   // Bill-wise adjustment is available on Receipt, Payment and Journal (party lines).
   const canBillwise = kind === "receipt" || kind === "payment" || kind === "journal";
   // The allocatable amount of a line: the amount cell (receipt/payment) or the
@@ -82,7 +99,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   function resetToNew() {
     setEntryId(null); setEntryNo(null); setEditable(true); setDone(null); setError(null); setDocField("");
     setDate(new Date().toISOString().slice(0, 10));
-    setNarration(""); setReference(""); setAmount(""); setToAcct(null);
+    setNarration(""); setReference(""); setAmount(""); setToAcct(null); setCostCenter(""); setTagArea("");
     setLines([emptyLine(), emptyLine()]);
     try { const m = JSON.parse(localStorage.getItem(memKey) || "{}"); setCash(m.cash ?? null); } catch { setCash(null); }
   }
@@ -93,6 +110,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
     setEntryId(v.id); setEntryNo(v.entry_no); setEditable(!!v.editable); setDocField(v.entry_no ?? "");
     setDate(v.entry_date); setNarration(v.memo ?? ""); setReference(v.reference ?? "");
     const raw: any[] = v.lines ?? [];
+    setCostCenter(raw.find((l) => l.cost_center)?.cost_center ?? ""); setTagArea(raw.find((l) => l.tag_area)?.tag_area ?? "");
     if (kind === "journal") {
       const ls: Line[] = raw.map((l) => ({ account: l.account_id, debit: Number(l.debit) ? String(Number(l.debit)) : "", credit: Number(l.credit) ? String(Number(l.credit)) : "", amount: "", remarks: l.description ?? "" }));
       setLines(ls.length ? [...ls, emptyLine()] : [emptyLine(), emptyLine()]);
@@ -238,7 +256,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   function buildJournalLines(): any[] {
     if (isJournal) {
       return lines.filter((l) => l.account && (calc(l.debit) || calc(l.credit)))
-        .map((l) => ({ account_id: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, description: l.remarks || null }));
+        .map((l) => ({ account_id: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, description: l.remarks || null, ...dims() }));
     }
     if (isContra) {
       const amt = calc(amount);
@@ -295,7 +313,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
         const hasAlloc = rows.some((l) => (l.alloc?.length ?? 0) > 0);
         if (hasAlloc) {
           const payload = rows.map((l) => ({
-            account: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, remarks: l.remarks || null,
+            account: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, remarks: l.remarks || null, ...dims(),
             allocations: (l.alloc ?? []).map((a) => ({ open_item_id: a.open_item_id, amount: a.amount })),
           }));
           const { data, error } = await supabase.rpc("gl_journal_billwise", {
@@ -307,7 +325,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
           if (printAfter && (data as any)?.entry_id) window.open(`/accounting/vouchers/${(data as any).entry_id}`, "_blank");
           return;
         }
-        const payload = rows.map((l) => ({ account: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, remarks: l.remarks || null }));
+        const payload = rows.map((l) => ({ account: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, remarks: l.remarks || null, ...dims() }));
         rpc = "gl_journal";
         args = { p_company: COMPANY_ID, p_date: date, p_narration: narration || null, p_reference: reference || null, p_lines: payload };
       } else if (isContra) {
@@ -323,7 +341,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
         if (hasAlloc) {
           // Bill-wise: post + settle specific outstanding bills in one step.
           const payload = lines.filter((l) => l.account && calc(l.amount)).map((l) => ({
-            account: l.account, amount: calc(l.amount) || 0, remarks: l.remarks || null,
+            account: l.account, amount: calc(l.amount) || 0, remarks: l.remarks || null, ...dims(),
             allocations: (l.alloc ?? []).map((a) => ({ open_item_id: a.open_item_id, amount: a.amount })),
           }));
           if (payload.length < 1) throw new Error("Enter at least one line");
@@ -338,7 +356,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
           return;
         }
         const payload = lines.filter((l) => l.account && calc(l.amount))
-          .map((l) => ({ account: l.account, amount: calc(l.amount) || 0, remarks: l.remarks || null }));
+          .map((l) => ({ account: l.account, amount: calc(l.amount) || 0, remarks: l.remarks || null, ...dims() }));
         if (payload.length < 1) throw new Error("Enter at least one line");
         rpc = kind === "receipt" ? "gl_receipt" : "gl_payment";
         args = { p_company: COMPANY_ID, p_date: date, p_cash_bank: cash, p_narration: narration || null, p_reference: reference || null, p_lines: payload };
@@ -414,6 +432,18 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
           {!isContra && (
             <div><label className="label">Reference</label>
               <input className="input" value={reference} disabled={readOnly} onChange={(e) => setReference(e.target.value)} placeholder="Cheque / ref no" /></div>
+          )}
+          {!isContra && (
+            <div><label className="label">Cost Center</label>
+              <select className="input" value={costCenter} disabled={readOnly} onChange={(e) => setCostCenter(e.target.value)}>
+                <option value="">—</option>{costCenters.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </select></div>
+          )}
+          {!isContra && (
+            <div><label className="label">Tag Area</label>
+              <select className="input" value={tagArea} disabled={readOnly} onChange={(e) => setTagArea(e.target.value)}>
+                <option value="">—</option>{tagAreas.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+              </select></div>
           )}
           <div className={isContra ? "md:col-span-4" : "md:col-span-2"}><label className="label">Narration</label>
             <input className="input" value={narration} disabled={readOnly} onChange={(e) => setNarration(e.target.value)} placeholder="Description" /></div>
