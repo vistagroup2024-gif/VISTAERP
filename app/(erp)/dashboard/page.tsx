@@ -91,6 +91,7 @@ export default async function Dashboard() {
             View all
           </Link>
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100">
@@ -122,6 +123,7 @@ export default async function Dashboard() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -32,6 +32,7 @@ export default async function ReceiptDoc({ params }: { params: { id: string } })
       </div>
       <div className="mt-6">
         <div className="mb-2 font-semibold text-slate-700">Allocation</div>
+        <div className="overflow-x-auto">
         <table className="w-full border border-slate-200 text-sm">
           <thead><tr className="bg-slate-50 text-left"><th className="border border-slate-200 px-2 py-1">Applied To</th><th className="border border-slate-200 px-2 py-1 text-right">Amount</th></tr></thead>
           <tbody>
@@ -40,6 +41,7 @@ export default async function ReceiptDoc({ params }: { params: { id: string } })
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       <div className="mt-6 flex justify-end">
         <div className="rounded-lg bg-slate-50 px-6 py-3 text-right">

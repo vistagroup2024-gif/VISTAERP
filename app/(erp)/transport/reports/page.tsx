@@ -11,7 +11,7 @@ function monthStart() { const d = new Date(); return new Date(d.getFullYear(), d
 
 function Table({ title, cols, rows }: { title: string; cols: string[]; rows: any[][] }) {
   return (
-    <div className="card p-0">
+    <div className="card overflow-x-auto p-0">
       <div className="border-b border-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">{title}</div>
       <table className="w-full text-sm">
         <thead className="bg-slate-50"><tr>{cols.map((c) => <th key={c} className="th">{c}</th>)}</tr></thead>

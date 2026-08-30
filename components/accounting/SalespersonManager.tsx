@@ -121,7 +121,7 @@ export default function SalespersonManager({ initialSalespersons, initialRules, 
               </span>
             </div>
 
-            <div className="rounded-lg border border-slate-100">
+            <div className="overflow-x-auto rounded-lg border border-slate-100">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                   <tr><th className="px-2 py-1.5 text-left">Cost Center</th><th className="px-2 py-1.5 text-left">Method</th>

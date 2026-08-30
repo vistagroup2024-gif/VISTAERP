@@ -48,6 +48,7 @@ export default async function BookingDetail({ params }: { params: { id: string }
 
       <div className="card">
         <h2 className="mb-3 font-semibold">Passengers</h2>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-slate-100"><th className="th">Name</th><th className="th">Passport</th><th className="th">Nationality</th></tr></thead>
           <tbody>
@@ -60,10 +61,12 @@ export default async function BookingDetail({ params }: { params: { id: string }
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="card">
         <h2 className="mb-3 font-semibold">Services</h2>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-slate-100"><th className="th">Service</th><th className="th">Description</th><th className="th text-right">Qty</th><th className="th text-right">Sell</th></tr></thead>
           <tbody>
@@ -77,6 +80,7 @@ export default async function BookingDetail({ params }: { params: { id: string }
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {invoice && (

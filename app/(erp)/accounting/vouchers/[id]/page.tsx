@@ -39,6 +39,7 @@ export default async function VoucherPage({ params }: { params: { id: string } }
         {je.memo && <div className="mt-4 text-sm"><span className="text-slate-400">Narration: </span>{je.memo}</div>}
         {je.reference && <div className="text-sm"><span className="text-slate-400">Reference: </span>{je.reference}</div>}
 
+        <div className="overflow-x-auto">
         <table className="mt-5 w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -64,6 +65,7 @@ export default async function VoucherPage({ params }: { params: { id: string } }
             </tr>
           </tfoot>
         </table>
+        </div>
       </div>
     </div>
   );

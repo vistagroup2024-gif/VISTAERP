@@ -18,7 +18,7 @@ export default async function ProfitLossPage({ searchParams }: { searchParams: {
   const net = totInc - totExp;
 
   const Section = ({ title, rows, total }: { title: string; rows: any[]; total: number }) => (
-    <div className="card p-0">
+    <div className="card overflow-x-auto p-0">
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 font-semibold text-slate-700">{title}</div>
       <table className="w-full text-sm">
         <tbody>

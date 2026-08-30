@@ -48,6 +48,7 @@ export default async function InvoiceDetail({ params }: { params: { id: string }
           <p className="text-sm text-slate-500">{c.parties?.address}</p>
         </div>
 
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="border-b border-slate-200">
             <tr>
@@ -68,6 +69,7 @@ export default async function InvoiceDetail({ params }: { params: { id: string }
             ))}
           </tbody>
         </table>
+        </div>
 
         <div className="ml-auto w-64 space-y-1 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span>{money(c.subtotal, c.currency)}</span></div>

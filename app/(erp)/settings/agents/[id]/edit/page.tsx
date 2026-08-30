@@ -19,6 +19,7 @@ export default async function EditAgentPage({ params }: { params: { id: string }
       <div className="max-w-3xl rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 font-semibold text-slate-800">Portal Users ({userRows.length})</h2>
         <p className="mb-3 text-xs text-slate-500">The Owner is created from the login above. Staff sub-users are created by the agency Owner — shown here for visibility.</p>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50"><tr>
             <th className="th">Name</th><th className="th">Username</th><th className="th">Role</th><th className="th">Status</th><th className="th">Access</th>
@@ -36,6 +37,7 @@ export default async function EditAgentPage({ params }: { params: { id: string }
             {userRows.length === 0 && <tr><td className="td text-slate-400" colSpan={5}>No users yet — save a username &amp; password above to create the Owner.</td></tr>}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

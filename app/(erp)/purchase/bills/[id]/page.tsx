@@ -35,6 +35,7 @@ export default async function BillDetail({ params }: { params: { id: string } })
           </div>
         </div>
 
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="border-b border-slate-200">
             <tr><th className="th">Description</th><th className="th text-right">Qty</th><th className="th text-right">Unit</th><th className="th text-right">Total</th></tr>
@@ -50,6 +51,7 @@ export default async function BillDetail({ params }: { params: { id: string } })
             ))}
           </tbody>
         </table>
+        </div>
 
         <div className="ml-auto w-64 space-y-1 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span>{money(c.subtotal, c.currency)}</span></div>

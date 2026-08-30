@@ -50,6 +50,7 @@ export default function ApprovalList({ items, canAuthorize }: { items: PV[]; can
             <button onClick={() => setOpen(open === v.id ? null : v.id)} className="ml-auto text-brand hover:underline">{open === v.id ? "Hide lines" : "View lines"}</button>
           </div>
           {open === v.id && (
+            <div className="overflow-x-auto">
             <table className="w-full border-t border-slate-100 text-sm">
               <tbody>
                 {v.lines.map((l, i) => (
@@ -62,6 +63,7 @@ export default function ApprovalList({ items, canAuthorize }: { items: PV[]; can
                 ))}
               </tbody>
             </table>
+            </div>
           )}
           {v.status === "pending" && (
             <div className="flex items-center gap-2 border-t border-slate-100 p-3">

@@ -25,7 +25,7 @@ export default async function VatPage({ searchParams }: { searchParams: { from?:
         <div><label className="label">To</label><input type="date" name="to" defaultValue={to} className="input" /></div>
         <button className="btn">Run</button>
       </form>
-      <div className="card p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <tbody>
             {row("Standard-rated sales (base)", v.taxable_sales ?? 0)}

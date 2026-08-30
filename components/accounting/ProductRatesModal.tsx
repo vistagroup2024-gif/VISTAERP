@@ -110,7 +110,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
 
           {tab === "customers" && (
             <div className="space-y-3">
-              <div className="rounded-lg border border-slate-100 text-sm">
+              <div className="overflow-x-auto rounded-lg border border-slate-100 text-sm">
                 {custRates.length === 0 ? <p className="p-3 text-slate-400">All customers use the default sell rate.</p> : (
                   <table className="w-full"><tbody>
                     {custRates.map((r) => (
@@ -149,7 +149,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
 
           {tab === "suppliers" && (
             <div className="space-y-3">
-              <div className="rounded-lg border border-slate-100 text-sm">
+              <div className="overflow-x-auto rounded-lg border border-slate-100 text-sm">
                 {supRates.length === 0 ? <p className="p-3 text-slate-400">All suppliers use the default purchase rate.</p> : (
                   <table className="w-full"><tbody>
                     {supRates.map((r) => (

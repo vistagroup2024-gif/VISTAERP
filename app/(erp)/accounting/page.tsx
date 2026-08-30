@@ -38,14 +38,14 @@ export default async function AccountingHome() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="card p-0">
+        <div className="card overflow-x-auto p-0">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 font-semibold text-slate-700">Top Debtors</div>
           <table className="w-full text-sm"><tbody>
             {(d.top_debtors ?? []).map((t: any, i: number) => (<tr key={i} className="border-b border-slate-50"><td className="px-4 py-1.5">{t.name}</td><td className="px-4 py-1.5 text-right tabular-nums">{money(t.amount)}</td></tr>))}
             {(d.top_debtors ?? []).length === 0 && <tr><td className="px-4 py-3 text-slate-400">None</td><td /></tr>}
           </tbody></table>
         </div>
-        <div className="card p-0">
+        <div className="card overflow-x-auto p-0">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 font-semibold text-slate-700">Top Creditors</div>
           <table className="w-full text-sm"><tbody>
             {(d.top_creditors ?? []).map((t: any, i: number) => (<tr key={i} className="border-b border-slate-50"><td className="px-4 py-1.5">{t.name}</td><td className="px-4 py-1.5 text-right tabular-nums">{money(t.amount)}</td></tr>))}

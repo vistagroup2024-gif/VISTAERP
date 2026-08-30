@@ -45,6 +45,7 @@ export default async function AgreementDoc({ params }: { params: { id: string } 
 
       <div className="mt-6">
         <div className="mb-2 font-semibold text-slate-700">Installment Schedule</div>
+        <div className="overflow-x-auto">
         <table className="w-full border border-slate-200 text-sm">
           <thead><tr className="bg-slate-50 text-left"><th className="border border-slate-200 px-2 py-1">No.</th><th className="border border-slate-200 px-2 py-1">Due Date</th><th className="border border-slate-200 px-2 py-1 text-right">Amount</th></tr></thead>
           <tbody>
@@ -54,6 +55,7 @@ export default async function AgreementDoc({ params }: { params: { id: string } 
             <tr className="font-semibold"><td className="border border-slate-200 px-2 py-1" colSpan={2}>Total</td><td className="border border-slate-200 px-2 py-1 text-right tabular-nums">{sar(total)}</td></tr>
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="mt-6 text-xs leading-relaxed text-slate-600">

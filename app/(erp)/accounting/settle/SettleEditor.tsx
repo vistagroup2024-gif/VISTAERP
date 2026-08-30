@@ -97,7 +97,7 @@ export default function SettleEditor({ partyAccounts, cashBank }: { partyAccount
         </div>
 
         {party && (
-          <div className="rounded-lg border border-slate-200">
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm">
               <span className="font-semibold text-slate-600">Outstanding items (FIFO)</span>
               <span className="tabular-nums">Total {money(totalOut)}</span>

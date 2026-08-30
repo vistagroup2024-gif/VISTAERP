@@ -50,6 +50,7 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
           {d.delivery_date && <div><span className="text-slate-400">Delivery: </span>{dateStr(d.delivery_date)}</div>}
         </div>
 
+        <div className="overflow-x-auto">
         <table className="mt-5 w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -75,6 +76,7 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
             <tr className="border-t-2 border-slate-200 font-bold"><td colSpan={5} className="py-2 text-right">Net Total</td><td className="py-2 text-right tabular-nums text-brand">{money(Number(d.total))}</td></tr>
           </tfoot>
         </table>
+        </div>
 
         {d.terms && <div className="mt-4 text-xs text-slate-500"><span className="font-semibold">Terms: </span>{d.terms}</div>}
         {d.narration && <div className="mt-1 text-xs text-slate-500"><span className="font-semibold">Narration: </span>{d.narration}</div>}

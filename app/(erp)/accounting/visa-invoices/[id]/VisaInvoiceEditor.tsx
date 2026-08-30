@@ -86,6 +86,7 @@ export default function VisaInvoiceEditor({ invoice, agentName, supplierName }: 
           <div><span className="text-slate-400">Visa Type: </span>{invoice.visa_type} · {invoice.nights} nights</div>
         </div>
 
+        <div className="overflow-x-auto">
         <table className="mt-5 w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -114,6 +115,7 @@ export default function VisaInvoiceEditor({ invoice, agentName, supplierName }: 
               <td className="py-2 text-right tabular-nums text-brand">{money(net)}</td></tr>
           </tfoot>
         </table>
+        </div>
 
         <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
           <div className="no-print"><label className="label">Date</label><input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
