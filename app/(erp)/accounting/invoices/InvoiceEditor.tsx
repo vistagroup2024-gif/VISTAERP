@@ -9,11 +9,16 @@ import AccountPicker, { type PickAccount } from "@/components/accounting/Account
 type Party = { id: string; name: string; party_type: string; phone: string | null };
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
-export default function InvoiceEditor({ parties, accounts }: { parties: Party[]; accounts: PickAccount[] }) {
+type Named = { id: string; name: string };
+export default function InvoiceEditor({ parties, accounts, costCenters = [], salespersons = [] }: {
+  parties: Party[]; accounts: PickAccount[]; costCenters?: Named[]; salespersons?: Named[];
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [kind, setKind] = useState<"customer" | "supplier">("customer");
   const [party, setParty] = useState("");
+  const [costCenter, setCostCenter] = useState("");
+  const [salesperson, setSalesperson] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [due, setDue] = useState("");
   const [amount, setAmount] = useState("");
@@ -50,10 +55,12 @@ export default function InvoiceEditor({ parties, accounts }: { parties: Party[];
       p_company: COMPANY_ID, p_party: party, p_kind: kind, p_date: date, p_due: due || null,
       p_narration: narration || null, p_amount: amt, p_income_expense_account: account,
       p_tax: tax, p_reference: reference || null, p_override_credit: override,
+      p_cost_center: costCenter || null, p_salesperson: (kind === "customer" && salesperson) ? salesperson : null,
     });
     setSaving(false);
     if (error) return setErr(error.message);
-    setDone(`${(data as any)?.entry_no ?? ""} · total ${money((data as any)?.total ?? total)}`);
+    const comm = Number((data as any)?.commission) || 0;
+    setDone(`${(data as any)?.entry_no ?? ""} · total ${money((data as any)?.total ?? total)}${comm > 0 ? ` · commission ${money(comm)}` : ""}`);
     setParty(""); setAmount(""); setNarration(""); setReference(""); setDue("");
     router.refresh();
   }
@@ -96,6 +103,17 @@ export default function InvoiceEditor({ parties, accounts }: { parties: Party[];
           </div>
           <div><label className="label">Reference</label><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} /></div>
           <div><label className="label">Narration</label><input className="input" value={narration} onChange={(e) => setNarration(e.target.value)} /></div>
+          <div><label className="label">Cost Center</label>
+            <select className="input" value={costCenter} onChange={(e) => setCostCenter(e.target.value)}>
+              <option value="">—</option>{costCenters.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+            </select></div>
+          {kind === "customer" && (
+            <div><label className="label">Salesperson</label>
+              <select className="input" value={salesperson} onChange={(e) => setSalesperson(e.target.value)}>
+                <option value="">— none —</option>{salespersons.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <p className="mt-1 text-xs text-slate-400">Commission auto-posts if a rule exists for this salesperson + cost center.</p></div>
+          )}
         </div>
         {kind === "customer" && (
           <label className="flex items-center gap-2 text-sm text-slate-600">

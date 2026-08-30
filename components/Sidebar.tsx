@@ -91,6 +91,7 @@ const GROUPS: Group[] = [
     { href: "/accounting/masters/cost-centers", label: "Cost Center" },
     { href: "/accounting/masters/car-expenses", label: "Car Purchase Expense" },
     { href: "/accounting/masters/currencies", label: "Currencies" },
+    { href: "/accounting/masters/salespersons", label: "Salespersons & Commission" },
   ] },
   { label: "Accounting", icon: "📚", perm: ["accounting.view"], items: [
     { href: "/accounting", label: "Dashboard" },
@@ -98,7 +99,6 @@ const GROUPS: Group[] = [
     { href: "/accounting/payments", label: "Payment" },
     { href: "/accounting/contra", label: "Contra" },
     { href: "/accounting/petty-cash", label: "Petty Cash" },
-    { href: "/accounting/commission", label: "Commission" },
     { href: "/accounting/journal/new", label: "Journal Entry" },
     { href: "/accounting/recurring", label: "Recurring Vouchers" },
     { href: "/accounting/bank", label: "Bank Reconciliation" },
