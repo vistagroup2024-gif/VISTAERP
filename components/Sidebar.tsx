@@ -129,6 +129,11 @@ const GROUPS: Group[] = [
     { href: "/accounting/sales/delivery-notes", label: "Delivery Note" },
     { href: "/accounting/sales/returns", label: "Sales Return" },
   ] },
+  { label: "Store", icon: "📦", perm: ["accounting.view"], items: [
+    { href: "/store/movement", label: "Stock Movement" },
+    { href: "/store/balance", label: "Stock Balance" },
+    { href: "/store/warehouses", label: "Warehouses" },
+  ] },
   { label: "Users", icon: "👤", perm: ["users.view", "users.manage_roles"], items: [
     { href: "/settings/users", label: "Staff Users" },
     { href: "/settings/agents", label: "B2B Agents" },

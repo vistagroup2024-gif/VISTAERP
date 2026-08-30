@@ -17,11 +17,12 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const [tab, setTab] = useState<"default" | "customers" | "suppliers">("default");
+  const [tab, setTab] = useState<"default" | "customers" | "suppliers" | "stock">("default");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const [dSell, setDSell] = useState(""); const [dPur, setDPur] = useState("");
+  const [isStock, setIsStock] = useState(false); const [uom, setUom] = useState(""); const [reorder, setReorder] = useState("");
   const [customers, setCustomers] = useState<Named[]>([]);
   const [suppliers, setSuppliers] = useState<Named[]>([]);
   const [custRates, setCustRates] = useState<CustRate[]>([]);
@@ -34,13 +35,16 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
 
   async function reload() {
     const [{ data: p }, { data: cs }, { data: ss }, { data: cr }, { data: sr }] = await Promise.all([
-      supabase.from("acct_products").select("sell_rate, purchase_rate").eq("id", productId).single(),
+      supabase.from("acct_products").select("sell_rate, purchase_rate, is_stock, uom, reorder_level").eq("id", productId).single(),
       supabase.from("parties").select("id, name").in("party_type", ["customer", "b2b_agent"]).eq("is_active", true).order("name"),
       supabase.from("accounts").select("id, name").eq("is_postable", true).eq("is_group", false).like("code", "2-01-%").order("code"),
       supabase.from("product_customer_rates").select("id, party_id, sell_rate").eq("product_id", productId),
       supabase.from("product_supplier_rates").select("id, account_id, purchase_rate").eq("product_id", productId),
     ]);
-    if (p) { setDSell(String(Number(p.sell_rate))); setDPur(String(Number(p.purchase_rate))); }
+    if (p) {
+      setDSell(String(Number(p.sell_rate))); setDPur(String(Number(p.purchase_rate)));
+      setIsStock(!!p.is_stock); setUom(p.uom ?? ""); setReorder(String(Number(p.reorder_level ?? 0)));
+    }
     setCustomers((cs as any[]) ?? []); setSuppliers((ss as any[]) ?? []);
     setCustRates((cr as any[]) ?? []); setSupRates((sr as any[]) ?? []);
   }
@@ -70,6 +74,12 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
     setNewSup(""); setNewSupRate(""); reload(); router.refresh();
   }
   async function delSup(id: string) { await supabase.from("product_supplier_rates").delete().eq("id", id); reload(); router.refresh(); }
+  async function saveStock() {
+    setBusy(true); setErr(null);
+    const { error } = await supabase.from("acct_products")
+      .update({ is_stock: isStock, uom: uom || null, reorder_level: Number(reorder) || 0 }).eq("id", productId);
+    setBusy(false); if (error) return setErr(error.message); router.refresh();
+  }
 
   const TabBtn = ({ id, label }: { id: typeof tab; label: string }) => (
     <button onClick={() => setTab(id)} className={`px-3 py-1.5 text-sm rounded-t ${tab === id ? "bg-white font-semibold text-brand border-x border-t border-slate-200" : "text-slate-500"}`}>{label}</button>
@@ -83,7 +93,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700">✕</button>
         </div>
         <div className="flex gap-1 border-b border-slate-200 bg-slate-50 px-4 pt-2">
-          <TabBtn id="default" label="Default" /><TabBtn id="customers" label="Specific Customer" /><TabBtn id="suppliers" label="Specific Supplier" />
+          <TabBtn id="default" label="Default" /><TabBtn id="customers" label="Specific Customer" /><TabBtn id="suppliers" label="Specific Supplier" /><TabBtn id="stock" label="Stock" />
         </div>
         <div className="max-h-[60vh] overflow-y-auto p-4">
           {err && <p className="mb-2 text-sm text-red-600">{err}</p>}
@@ -120,6 +130,20 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
                 <input className="input w-28 text-right tabular-nums" inputMode="decimal" placeholder="rate" value={newCustRate} onChange={(e) => setNewCustRate(e.target.value)} />
                 <button onClick={addCust} disabled={busy} className="btn-outline text-sm">+ Add</button>
               </div>
+            </div>
+          )}
+
+          {tab === "stock" && (
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={isStock} onChange={(e) => setIsStock(e.target.checked)} /> This is a stock (inventory) item</label>
+              {isStock && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="label">Unit of measure</label><input className="input" value={uom} onChange={(e) => setUom(e.target.value)} placeholder="e.g. pcs, kg, box" /></div>
+                  <div><label className="label">Reorder level</label><input className="input text-right tabular-nums" inputMode="decimal" value={reorder} onChange={(e) => setReorder(e.target.value)} /></div>
+                </div>
+              )}
+              <button onClick={saveStock} disabled={busy} className="btn">{busy ? "…" : "Save"}</button>
+              <p className="text-xs text-slate-400">Stock items appear in Store → Stock Movement and carry quantity + value balances.</p>
             </div>
           )}
 
