@@ -8,12 +8,13 @@ export const dynamic = "force-dynamic";
 export default async function ProductTreePage() {
   await guardStaffPage("accounting.view");
   const sb = createClient();
-  const { data } = await sb.from("acct_products").select("id, parent_id, name, is_group, is_active, sort").order("sort").order("name");
+  const { data } = await sb.from("acct_products").select("id, parent_id, name, is_group, is_active, sort, purchase_rate, sell_rate").order("sort").order("name");
   return (
     <div className="max-w-4xl">
       <PageHeader title="Product Tree" />
       <TreeMaster table="acct_products" initial={(data as any[]) ?? []}
-        note="A hierarchical catalogue of products / service items. Create groups, then items under them." />
+        extras={[{ key: "purchase_rate", label: "Purchase Rate" }, { key: "sell_rate", label: "Sell Rate" }]}
+        note="A hierarchical catalogue of products / service items. Create groups, then items under them. Set a Purchase Rate (supplier cost) and Sell Rate (customer / agent price) on each item — these price the module invoices automatically." />
     </div>
   );
 }

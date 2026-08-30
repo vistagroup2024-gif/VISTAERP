@@ -9,16 +9,18 @@ type Node = { id: string; parent_id: string | null; name: string; is_group: bool
 type Extra = { key: string; label: string };
 
 // Reusable hierarchical master (Product Tree, Cost Center, Tag Area). Supports
-// groups + items and an optional numeric `extra` field shown on item rows.
-export default function TreeMaster({ table, initial, extra, note }: {
-  table: string; initial: Node[]; extra?: Extra; note?: string;
+// groups + items and optional numeric `extra` field(s) shown on item rows.
+// Pass a single `extra` or several via `extras`.
+export default function TreeMaster({ table, initial, extra, extras, note }: {
+  table: string; initial: Node[]; extra?: Extra; extras?: Extra[]; note?: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const exs = useMemo<Extra[]>(() => extras ?? (extra ? [extra] : []), [extras, extra]);
   const [name, setName] = useState("");
   const [parent, setParent] = useState("");
   const [isGroup, setIsGroup] = useState(true);
-  const [extraVal, setExtraVal] = useState("");
+  const [extraVals, setExtraVals] = useState<Record<string, string>>({});
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -36,20 +38,19 @@ export default function TreeMaster({ table, initial, extra, note }: {
     if (!name.trim()) return setErr("Name is required");
     setBusy(true);
     const payload: any = { company_id: COMPANY_ID, name: name.trim(), parent_id: parent || null, is_group: isGroup };
-    if (extra && !isGroup) payload[extra.key] = extraVal === "" ? 0 : Number(extraVal);
+    if (!isGroup) for (const e of exs) payload[e.key] = extraVals[e.key] ? Number(extraVals[e.key]) : 0;
     const { error } = await supabase.from(table).insert(payload);
     setBusy(false);
     if (error) return setErr(error.message);
-    setName(""); setExtraVal(""); router.refresh();
+    setName(""); setExtraVals({}); router.refresh();
   }
   async function rename(n: Node) {
     const v = prompt("Rename:", n.name); if (v === null || !v.trim()) return;
     await supabase.from(table).update({ name: v.trim() }).eq("id", n.id); router.refresh();
   }
-  async function setExtra(n: Node) {
-    if (!extra) return;
-    const v = prompt(`${extra.label}:`, String(n[extra.key] ?? 0)); if (v === null) return;
-    await supabase.from(table).update({ [extra.key]: Number(v) || 0 }).eq("id", n.id); router.refresh();
+  async function setExtra(n: Node, e: Extra) {
+    const v = prompt(`${e.label}:`, String(n[e.key] ?? 0)); if (v === null) return;
+    await supabase.from(table).update({ [e.key]: Number(v) || 0 }).eq("id", n.id); router.refresh();
   }
   async function del(n: Node) {
     if ((byParent.get(n.id)?.length ?? 0) > 0) return setErr(`"${n.name}" has children — remove them first.`);
@@ -71,10 +72,10 @@ export default function TreeMaster({ table, initial, extra, note }: {
           <span className={n.is_group ? "font-semibold text-slate-700" : "text-slate-600"}>{n.name}</span>
           {n.is_group && <span className="rounded bg-slate-100 px-1.5 text-[10px] uppercase text-slate-500">group</span>}
           {!n.is_active && <span className="rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">inactive</span>}
-          {extra && !n.is_group && <span className="ml-2 text-xs text-slate-500">{extra.label}: <b className="tabular-nums">{Number(n[extra.key] ?? 0).toLocaleString()}</b></span>}
+          {!n.is_group && exs.map((e) => <span key={e.key} className="ml-2 text-xs text-slate-500">{e.label}: <b className="tabular-nums">{Number(n[e.key] ?? 0).toLocaleString()}</b></span>)}
           <span className="ml-auto flex gap-2 pr-3 text-xs">
             <button onClick={() => rename(n)} className="text-brand hover:underline">Rename</button>
-            {extra && !n.is_group && <button onClick={() => setExtra(n)} className="text-brand hover:underline">{extra.label}</button>}
+            {!n.is_group && exs.map((e) => <button key={e.key} onClick={() => setExtra(n, e)} className="text-brand hover:underline">{e.label}</button>)}
             <button onClick={() => supabase.from(table).update({ is_active: !n.is_active }).eq("id", n.id).then(() => router.refresh())} className="text-slate-500 hover:underline">{n.is_active ? "Disable" : "Enable"}</button>
             <button onClick={() => del(n)} className="text-red-600 hover:underline">Delete</button>
           </span>
@@ -96,10 +97,10 @@ export default function TreeMaster({ table, initial, extra, note }: {
             <option value="">— top level —</option>
             {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select></div>
-        {extra && !isGroup && (
-          <div className="sm:col-span-1"><label className="label">{extra.label}</label>
-            <input className="input" type="number" step="any" value={extraVal} onChange={(e) => setExtraVal(e.target.value)} /></div>
-        )}
+        {!isGroup && exs.map((e) => (
+          <div key={e.key} className="sm:col-span-1"><label className="label">{e.label}</label>
+            <input className="input" type="number" step="any" value={extraVals[e.key] ?? ""} onChange={(ev) => setExtraVals((o) => ({ ...o, [e.key]: ev.target.value }))} /></div>
+        ))}
         <div className="flex items-end"><label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={isGroup} onChange={(e) => setIsGroup(e.target.checked)} /> Is a group</label></div>
         <div className="flex items-end sm:col-span-1"><button className="btn w-full" disabled={busy}>{busy ? "…" : "+ Add"}</button></div>
         {err && <p className="text-sm text-red-600 sm:col-span-6">{err}</p>}
