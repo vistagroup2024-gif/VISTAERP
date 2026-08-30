@@ -118,13 +118,11 @@ const GROUPS: Group[] = [
     { href: "/accounting/rules", label: "Approval Rules" },
     { href: "/accounting/audit", label: "Audit Trail" },
   ] },
-  { label: "Purchases", icon: "🛒", perm: ["accounting.view"], items: [
+  { label: "Trade Vouchers", icon: "📄", perm: ["accounting.view"], items: [
     { href: "/accounting/purchases/orders", label: "Purchase Order" },
     { href: "/accounting/purchases/vouchers", label: "Purchase Voucher" },
     { href: "/accounting/purchases/mrn", label: "Material Receipt (MRN)" },
     { href: "/accounting/purchases/returns", label: "Purchase Return" },
-  ] },
-  { label: "Sales", icon: "🧾", perm: ["accounting.view"], items: [
     { href: "/accounting/sales/quotations", label: "Sales Quotation" },
     { href: "/accounting/sales/orders", label: "Sale Order" },
     { href: "/accounting/sales/delivery-notes", label: "Delivery Note" },
