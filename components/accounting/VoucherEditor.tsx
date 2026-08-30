@@ -146,20 +146,37 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   }
 
   // ----- Bill-wise adjustment -----
-  async function openAdjust(i: number) {
-    const acct = lines[i].account;
-    if (!acct) { setError("Choose the account on this line first."); return; }
-    setBillErr(null); setBusy(true);
+  async function fetchBills(acct: string): Promise<Bill[]> {
     const { data, error } = await supabase.rpc("party_outstanding", { p_company: COMPANY_ID, p_account_id: acct });
-    setBusy(false);
-    if (error) { setError(error.message); return; }
-    const bl = (data as Bill[]) ?? [];
+    if (error) { setError(error.message); return []; }
+    return (data as Bill[]) ?? [];
+  }
+  function openWith(i: number, bl: Bill[]) {
     setBills(bl);
-    // seed inputs from any existing allocation on this line
     const seed: Record<string, string> = {};
     (lines[i].alloc ?? []).forEach((a) => { seed[a.open_item_id] = String(a.amount); });
     setAllocInput(seed);
-    setAdjustFor(i);
+    setBillErr(null); setAdjustFor(i);
+  }
+  async function openAdjust(i: number) {
+    const acct = lines[i].account;
+    if (!acct) { setError("Choose the account on this line first."); return; }
+    setBusy(true); const bl = await fetchBills(acct); setBusy(false);
+    openWith(i, bl);
+  }
+  // Auto-open the bill-wise popup when an amount is entered on a party line that
+  // actually has outstanding bills — so no manual button press is needed.
+  const autoRef = useRef<string>("");
+  async function maybeAutoAdjust(i: number) {
+    if (!canBillwise || readOnly || entryId) return;
+    const l = lines[i]; if (!l?.account) return;
+    if ((l.alloc?.length ?? 0) > 0) return;      // already allocated — don't nag
+    if (lineAmt(l) <= 0) return;
+    const key = `${i}:${l.account}:${lineAmt(l)}`;
+    if (autoRef.current === key) return;         // don't re-open for the same value
+    autoRef.current = key;
+    const bl = await fetchBills(l.account);
+    if (bl.length > 0) openWith(i, bl);          // silent when the account has no bills
   }
   const adjTarget = adjustFor != null && lines[adjustFor] ? lineAmt(lines[adjustFor]) : 0;
   const adjDone = Object.values(allocInput).reduce((s, v) => s + (Number(v) || 0), 0);
@@ -427,19 +444,19 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
                     </td>
                     {isJournal ? <>
                       <td className="px-2 py-1"><input className="input text-right tabular-nums" inputMode="decimal" value={l.debit} disabled={readOnly}
-                        onChange={(e) => setLine(i, { debit: e.target.value, credit: e.target.value ? "" : l.credit })} /></td>
+                        onChange={(e) => setLine(i, { debit: e.target.value, credit: e.target.value ? "" : l.credit })} onBlur={() => maybeAutoAdjust(i)} /></td>
                       <td className="px-2 py-1"><input className="input text-right tabular-nums" inputMode="decimal" value={l.credit} disabled={readOnly}
-                        onChange={(e) => setLine(i, { credit: e.target.value, debit: e.target.value ? "" : l.debit })} /></td>
+                        onChange={(e) => setLine(i, { credit: e.target.value, debit: e.target.value ? "" : l.debit })} onBlur={() => maybeAutoAdjust(i)} /></td>
                     </> : (
                       <td className="px-2 py-1"><input className="input text-right tabular-nums" inputMode="decimal" value={l.amount} disabled={readOnly}
-                        onChange={(e) => setLine(i, { amount: e.target.value })} /></td>
+                        onChange={(e) => setLine(i, { amount: e.target.value })} onBlur={() => maybeAutoAdjust(i)} /></td>
                     )}
                     <td className="px-2 py-1"><input className="input" value={l.remarks} disabled={readOnly} onChange={(e) => setLine(i, { remarks: e.target.value })} /></td>
                     <td className="px-1 whitespace-nowrap text-center">
-                      {canBillwise && !entryId && (
-                        <button type="button" onClick={() => openAdjust(i)} disabled={readOnly || !l.account}
-                          className={`mr-1 rounded border px-1.5 py-0.5 text-[11px] font-medium disabled:opacity-30 ${(l.alloc?.length ?? 0) > 0 ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-300 text-slate-500 hover:bg-slate-50"}`}
-                          title="Bill-wise adjustment">Adjust{(l.alloc?.length ?? 0) > 0 ? ` (${l.alloc!.length})` : ""}</button>
+                      {canBillwise && !entryId && (l.alloc?.length ?? 0) > 0 && (
+                        <button type="button" onClick={() => openAdjust(i)}
+                          className="mr-1 rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700"
+                          title="Bill-wise adjustment — click to review">✓ {l.alloc!.length}</button>
                       )}
                       <button type="button" onClick={() => removeLine(i)} disabled={readOnly} className="text-slate-300 hover:text-red-500 disabled:opacity-30" title="Delete line">×</button>
                     </td>
