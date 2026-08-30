@@ -8,8 +8,10 @@ import AccountPicker, { type PickAccount } from "./AccountPicker";
 
 export type VoucherKind = "journal" | "receipt" | "payment" | "contra";
 
-type Line = { account: string | null; debit: string; credit: string; amount: string; remarks: string };
+type Alloc = { open_item_id: string; amount: number };
+type Line = { account: string | null; debit: string; credit: string; amount: string; remarks: string; alloc?: Alloc[] };
 const emptyLine = (): Line => ({ account: null, debit: "", credit: "", amount: "", remarks: "" });
+type Bill = { id: string; doc_no: string | null; doc_date: string | null; due_date: string | null; amount: number; outstanding: number };
 
 // Evaluate a simple arithmetic expression in an amount cell ("1200*3+50"). Returns
 // the number, or NaN if it contains anything other than digits and + - * / . ( ).
@@ -49,8 +51,15 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   const [entryId, setEntryId] = useState<string | null>(null);
   const [entryNo, setEntryNo] = useState<string | null>(null);
   const [editable, setEditable] = useState(true);
-  const [gotoNo, setGotoNo] = useState("");
+  const [docField, setDocField] = useState(""); // header Document No. box (also used to load by number)
   const [busy, setBusy] = useState(false);
+
+  // Bill-wise adjustment modal state.
+  const [adjustFor, setAdjustFor] = useState<number | null>(null);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [allocInput, setAllocInput] = useState<Record<string, string>>({});
+  const [billErr, setBillErr] = useState<string | null>(null);
+  const canBillwise = kind === "receipt" || kind === "payment";
 
   // Header memory: remember cash/bank per user per kind.
   useEffect(() => {
@@ -67,7 +76,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   const isContra = kind === "contra";
 
   function resetToNew() {
-    setEntryId(null); setEntryNo(null); setEditable(true); setDone(null); setError(null);
+    setEntryId(null); setEntryNo(null); setEditable(true); setDone(null); setError(null); setDocField("");
     setDate(new Date().toISOString().slice(0, 10));
     setNarration(""); setReference(""); setAmount(""); setToAcct(null);
     setLines([emptyLine(), emptyLine()]);
@@ -77,7 +86,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
   // Populate the kind-specific fields from a loaded voucher's raw journal lines.
   const loadVoucher = useCallback((v: any) => {
     setError(null); setDone(null);
-    setEntryId(v.id); setEntryNo(v.entry_no); setEditable(!!v.editable);
+    setEntryId(v.id); setEntryNo(v.entry_no); setEditable(!!v.editable); setDocField(v.entry_no ?? "");
     setDate(v.entry_date); setNarration(v.memo ?? ""); setReference(v.reference ?? "");
     const raw: any[] = v.lines ?? [];
     if (kind === "journal") {
@@ -120,15 +129,53 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
     if (!data) return setError(dir === "prev" ? "This is the first voucher." : "This is the last voucher.");
     await load(data as string);
   }
-  async function gotoDoc() {
-    if (!gotoNo.trim()) return;
+  async function loadByDoc() {
+    const no = docField.trim();
+    if (!no) return;
+    if (no === entryNo) return; // already showing it
     setBusy(true); setError(null);
-    const { data, error } = await supabase.rpc("gl_voucher_find", { p_entry_no: gotoNo.trim(), p_source: source });
+    const { data, error } = await supabase.rpc("gl_voucher_find", { p_entry_no: no, p_source: source });
     setBusy(false);
     if (error) return setError(error.message);
-    if (!data) return setError(`No ${TITLES[kind]} with document no. ${gotoNo.trim()}.`);
-    setGotoNo("");
+    if (!data) return setError(`No ${TITLES[kind]} with document no. ${no}.`);
     await load(data as string);
+  }
+
+  // ----- Bill-wise adjustment -----
+  async function openAdjust(i: number) {
+    const acct = lines[i].account;
+    if (!acct) { setError("Choose the account on this line first."); return; }
+    setBillErr(null); setBusy(true);
+    const { data, error } = await supabase.rpc("party_outstanding", { p_company: COMPANY_ID, p_account_id: acct });
+    setBusy(false);
+    if (error) { setError(error.message); return; }
+    const bl = (data as Bill[]) ?? [];
+    setBills(bl);
+    // seed inputs from any existing allocation on this line
+    const seed: Record<string, string> = {};
+    (lines[i].alloc ?? []).forEach((a) => { seed[a.open_item_id] = String(a.amount); });
+    setAllocInput(seed);
+    setAdjustFor(i);
+  }
+  const adjTarget = adjustFor != null ? (calc(lines[adjustFor]?.amount) || 0) : 0;
+  const adjDone = Object.values(allocInput).reduce((s, v) => s + (Number(v) || 0), 0);
+  function fillFifo() {
+    let remaining = adjTarget; const next: Record<string, string> = {};
+    for (const b of bills) {
+      if (remaining <= 0) break;
+      const take = Math.min(remaining, Number(b.outstanding) || 0);
+      if (take > 0) { next[b.id] = String(+take.toFixed(2)); remaining -= take; }
+    }
+    setAllocInput(next);
+  }
+  function saveAdjust() {
+    if (adjustFor == null) return;
+    if (adjDone - adjTarget > 0.005) { setBillErr(`Adjusted ${money(adjDone)} exceeds the amount ${money(adjTarget)}.`); return; }
+    const alloc: Alloc[] = bills
+      .map((b) => ({ open_item_id: b.id, amount: +(Number(allocInput[b.id]) || 0).toFixed(2) }))
+      .filter((a) => a.amount > 0);
+    setLines((ls) => ls.map((l, j) => (j === adjustFor ? { ...l, alloc: alloc.length ? alloc : undefined } : l)));
+    setAdjustFor(null); setBills([]); setAllocInput({}); setBillErr(null);
   }
   async function del() {
     if (!entryId) return;
@@ -237,6 +284,24 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
         args = { p_company: COMPANY_ID, p_date: date, p_from: cash, p_to: toAcct, p_amount: amt, p_narration: narration || null };
       } else {
         if (!cash) throw new Error(`Choose the cash / bank account`);
+        const hasAlloc = lines.some((l) => (l.alloc?.length ?? 0) > 0);
+        if (hasAlloc) {
+          // Bill-wise: post + settle specific outstanding bills in one step.
+          const payload = lines.filter((l) => l.account && calc(l.amount)).map((l) => ({
+            account: l.account, amount: calc(l.amount) || 0, remarks: l.remarks || null,
+            allocations: (l.alloc ?? []).map((a) => ({ open_item_id: a.open_item_id, amount: a.amount })),
+          }));
+          if (payload.length < 1) throw new Error("Enter at least one line");
+          const { data, error } = await supabase.rpc("gl_receipt_billwise", {
+            p_company: COMPANY_ID, p_kind: kind === "receipt" ? "customer" : "supplier",
+            p_date: date, p_cash_bank: cash, p_narration: narration || null, p_reference: reference || null, p_lines: payload,
+          });
+          if (error) throw new Error(error.message);
+          setDone(`posted ${(data as any)?.entry_no ?? ""} (bill-wise)`);
+          resetToNew(); router.refresh();
+          if (printAfter && (data as any)?.entry_id) window.open(`/accounting/vouchers/${(data as any).entry_id}`, "_blank");
+          return;
+        }
         const payload = lines.filter((l) => l.account && calc(l.amount))
           .map((l) => ({ account: l.account, amount: calc(l.amount) || 0, remarks: l.remarks || null }));
         if (payload.length < 1) throw new Error("Enter at least one line");
@@ -272,9 +337,7 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">{TITLES[kind]}</h1>
-        {entryNo
-          ? <span className={`rounded-full px-3 py-1 text-sm font-semibold ${readOnly ? "bg-slate-200 text-slate-600" : "bg-blue-100 text-blue-700"}`}>Doc No. {entryNo}{readOnly ? " · locked" : ""}</span>
-          : <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-500">New — Doc No. auto</span>}
+        {readOnly && <span className="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-600">locked</span>}
         {done && <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700 capitalize">{done}</span>}
       </div>
 
@@ -283,11 +346,6 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
         <button type="button" onClick={resetToNew} disabled={busy} className="btn-outline text-sm">＋ New</button>
         <button type="button" onClick={() => nav("prev")} disabled={busy} className="btn-outline text-sm">‹ Previous</button>
         <button type="button" onClick={() => nav("next")} disabled={busy} className="btn-outline text-sm">Next ›</button>
-        <div className="flex items-center gap-1">
-          <input className="input w-32 text-sm" placeholder="Go to Doc No." value={gotoNo}
-            onChange={(e) => setGotoNo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") gotoDoc(); }} />
-          <button type="button" onClick={gotoDoc} disabled={busy} className="btn-outline text-sm">Load</button>
-        </div>
         <div className="ml-auto flex items-center gap-2">
           <button type="button" onClick={printVoucher} disabled={!entryId} className="btn-outline text-sm disabled:opacity-40">🖨 Print</button>
           <button type="button" onClick={del} disabled={!entryId || !editable || busy} className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
@@ -300,6 +358,10 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
       <div className="card space-y-4">
         {/* Header */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div><label className="label">Document No.</label>
+            <input className="input font-mono" value={docField} placeholder="Auto (type a no. + Enter to open)"
+              onChange={(e) => setDocField(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); loadByDoc(); } }}
+              title="Auto-assigned on save. Type an existing number and press Enter to open it." /></div>
           <div><label className="label">Date</label>
             <input type="date" className="input" value={date} disabled={readOnly} onChange={(e) => setDate(e.target.value)} /></div>
           {!isJournal && (
@@ -355,7 +417,12 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
                         onChange={(e) => setLine(i, { amount: e.target.value })} /></td>
                     )}
                     <td className="px-2 py-1"><input className="input" value={l.remarks} disabled={readOnly} onChange={(e) => setLine(i, { remarks: e.target.value })} /></td>
-                    <td className="px-1 text-center">
+                    <td className="px-1 whitespace-nowrap text-center">
+                      {canBillwise && !entryId && (
+                        <button type="button" onClick={() => openAdjust(i)} disabled={readOnly || !l.account}
+                          className={`mr-1 rounded border px-1.5 py-0.5 text-[11px] font-medium disabled:opacity-30 ${(l.alloc?.length ?? 0) > 0 ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-300 text-slate-500 hover:bg-slate-50"}`}
+                          title="Bill-wise adjustment">Adjust{(l.alloc?.length ?? 0) > 0 ? ` (${l.alloc!.length})` : ""}</button>
+                      )}
                       <button type="button" onClick={() => removeLine(i)} disabled={readOnly} className="text-slate-300 hover:text-red-500 disabled:opacity-30" title="Delete line">×</button>
                     </td>
                   </tr>
@@ -388,6 +455,56 @@ export default function VoucherEditor({ kind, accounts, cashBank }: {
           <span className="ml-auto text-xs text-slate-400">{entryId ? "Editing an existing voucher — the document number is kept." : "Posts to the ledger immediately — no separate posting step."}</span>
         </div>
       </div>
+
+      {/* Bill-wise adjustment modal */}
+      {adjustFor != null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAdjustFor(null)}>
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-auto rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-bold text-slate-800">Bill-wise Adjustment</h2>
+              <button onClick={() => setAdjustFor(null)} className="text-slate-400 hover:text-slate-700 text-xl leading-none">✕</button>
+            </div>
+            {billErr && <div className="mb-2 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{billErr}</div>}
+            {bills.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-500">No outstanding bills for this account. The full amount will post <b>on account</b>.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    <tr><th className="px-2 py-2 text-left">Reference</th><th className="px-2 py-2">Due date</th>
+                      <th className="px-2 py-2 text-right">Bill</th><th className="px-2 py-2 text-right">Outstanding</th><th className="px-2 py-2 text-right">Adjust</th></tr>
+                  </thead>
+                  <tbody>
+                    {bills.map((b) => (
+                      <tr key={b.id} className="border-t border-slate-100">
+                        <td className="px-2 py-1">{b.doc_no ?? "—"}{b.doc_date ? <span className="text-slate-400"> · {b.doc_date}</span> : ""}</td>
+                        <td className="px-2 py-1 text-center">{b.due_date ?? "—"}</td>
+                        <td className="px-2 py-1 text-right tabular-nums">{money(Number(b.amount))}</td>
+                        <td className="px-2 py-1 text-right tabular-nums">{money(Number(b.outstanding))}</td>
+                        <td className="px-2 py-1">
+                          <input className="input text-right tabular-nums" inputMode="decimal" value={allocInput[b.id] ?? ""}
+                            onChange={(e) => setAllocInput((m) => ({ ...m, [b.id]: e.target.value }))} placeholder="0.00" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
+              <span>Amount to adjust: <b className="tabular-nums">{money(adjTarget)}</b></span>
+              <span>Adjusted: <b className="tabular-nums">{money(adjDone)}</b></span>
+              <span className={Math.abs(adjTarget - adjDone) < 0.005 ? "text-emerald-700" : "text-amber-700"}>On account: <b className="tabular-nums">{money(Math.max(0, adjTarget - adjDone))}</b></span>
+              {bills.length > 0 && <button onClick={fillFifo} className="btn-outline text-xs">Auto FIFO</button>}
+              {bills.length > 0 && <button onClick={() => setAllocInput({})} className="btn-outline text-xs">Clear</button>}
+              <div className="ml-auto flex gap-2">
+                <button onClick={() => setAdjustFor(null)} className="btn-outline text-sm">Cancel</button>
+                <button onClick={saveAdjust} className="btn text-sm">OK</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
