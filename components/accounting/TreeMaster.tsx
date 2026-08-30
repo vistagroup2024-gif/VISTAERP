@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import ProductRatesModal from "./ProductRatesModal";
 
 type Node = { id: string; parent_id: string | null; name: string; is_group: boolean; is_active: boolean; sort: number; [k: string]: any };
 type Extra = { key: string; label: string };
@@ -11,11 +12,12 @@ type Extra = { key: string; label: string };
 // Reusable hierarchical master (Product Tree, Cost Center, Tag Area). Supports
 // groups + items and optional numeric `extra` field(s) shown on item rows.
 // Pass a single `extra` or several via `extras`.
-export default function TreeMaster({ table, initial, extra, extras, note }: {
-  table: string; initial: Node[]; extra?: Extra; extras?: Extra[]; note?: string;
+export default function TreeMaster({ table, initial, extra, extras, note, rateEditor }: {
+  table: string; initial: Node[]; extra?: Extra; extras?: Extra[]; note?: string; rateEditor?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const [ratesFor, setRatesFor] = useState<Node | null>(null);
   const exs = useMemo<Extra[]>(() => extras ?? (extra ? [extra] : []), [extras, extra]);
   const [name, setName] = useState("");
   const [parent, setParent] = useState("");
@@ -75,6 +77,7 @@ export default function TreeMaster({ table, initial, extra, extras, note }: {
           {!n.is_group && exs.map((e) => <span key={e.key} className="ml-2 text-xs text-slate-500">{e.label}: <b className="tabular-nums">{Number(n[e.key] ?? 0).toLocaleString()}</b></span>)}
           <span className="ml-auto flex gap-2 pr-3 text-xs">
             <button onClick={() => rename(n)} className="text-brand hover:underline">Rename</button>
+            {rateEditor && !n.is_group && <button onClick={() => setRatesFor(n)} className="text-brand hover:underline">Rates</button>}
             {!n.is_group && exs.map((e) => <button key={e.key} onClick={() => setExtra(n, e)} className="text-brand hover:underline">{e.label}</button>)}
             <button onClick={() => supabase.from(table).update({ is_active: !n.is_active }).eq("id", n.id).then(() => router.refresh())} className="text-slate-500 hover:underline">{n.is_active ? "Disable" : "Enable"}</button>
             <button onClick={() => del(n)} className="text-red-600 hover:underline">Delete</button>
@@ -108,6 +111,7 @@ export default function TreeMaster({ table, initial, extra, extras, note }: {
       <div className="card p-0 text-sm">
         {roots.length === 0 ? <p className="p-4 text-slate-400">Nothing yet.</p> : roots.map((n) => <Row key={n.id} n={n} depth={0} />)}
       </div>
+      {ratesFor && <ProductRatesModal productId={ratesFor.id} productName={ratesFor.name} onClose={() => setRatesFor(null)} />}
     </div>
   );
 }

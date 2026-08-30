@@ -12,9 +12,8 @@ export default async function ProductTreePage() {
   return (
     <div className="max-w-4xl">
       <PageHeader title="Product Tree" />
-      <TreeMaster table="acct_products" initial={(data as any[]) ?? []}
-        extras={[{ key: "purchase_rate", label: "Purchase Rate" }, { key: "sell_rate", label: "Sell Rate" }]}
-        note="A hierarchical catalogue of products / service items. Create groups, then items under them. Set a Purchase Rate (supplier cost) and Sell Rate (customer / agent price) on each item — these price the module invoices automatically." />
+      <TreeMaster table="acct_products" initial={(data as any[]) ?? []} rateEditor
+        note="A hierarchical catalogue of products / service items. Create groups, then items under them. Click 'Rates' on an item to set the default Purchase/Sell rate and per-customer / per-supplier overrides — these price the module invoices automatically." />
     </div>
   );
 }
