@@ -108,7 +108,6 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
               {isOpen ? "▾" : "▸"}
             </button>
           ) : <span className="w-4 shrink-0" />}
-          <span className="w-24 shrink-0 font-mono text-xs text-slate-500">{n.code}</span>
           <span className="flex-1 truncate">
             {n.is_postable ? (
               <Link href={`/accounting/ledger?account=${n.id}`} className="hover:text-brand hover:underline">{n.name}</Link>
