@@ -134,6 +134,10 @@ const GROUPS: Group[] = [
     { href: "/store/balance", label: "Stock Balance" },
     { href: "/store/warehouses", label: "Warehouses" },
   ] },
+  { label: "Payroll / HR", icon: "🧑‍💼", perm: ["accounting.view"], items: [
+    { href: "/hr/employees", label: "Employees" },
+    { href: "/hr/payroll", label: "Payroll" },
+  ] },
   { label: "Users", icon: "👤", perm: ["users.view", "users.manage_roles"], items: [
     { href: "/settings/users", label: "Staff Users" },
     { href: "/settings/agents", label: "B2B Agents" },
