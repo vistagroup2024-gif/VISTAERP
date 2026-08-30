@@ -23,7 +23,7 @@ export default async function PackageDetail({ params }: { params: { id: string }
         <h1 className="text-2xl font-bold">{pkg.name}</h1>
         <p className="text-slate-500">{pkg.description}</p>
       </div>
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>

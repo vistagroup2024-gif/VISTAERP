@@ -56,7 +56,7 @@ export default async function UsersPage() {
       <p className="mb-4 text-sm text-slate-500">
         Manage staff accounts and permission roles. Login ID is the username — no email needed.
       </p>
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>

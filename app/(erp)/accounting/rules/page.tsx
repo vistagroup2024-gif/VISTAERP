@@ -71,7 +71,7 @@ export default function RulesPage() {
         <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save rule"}</button>
       </form>
 
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             <tr><th className="px-3 py-2 text-left">Document</th><th className="px-3 py-2 text-right">Min amount</th><th className="px-3 py-2 text-right">Approvals</th><th className="px-3 py-2 text-center">Active</th><th /></tr>
@@ -93,7 +93,7 @@ export default function RulesPage() {
 
       <h2 className="pt-2 text-xl font-bold">User Authorisation Limits</h2>
       <p className="text-sm text-slate-500">The maximum voucher amount each authoriser may approve. Blank = no limit. Admins (super-admin) bypass all limits. Only an admin can change these.</p>
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             <tr><th className="px-3 py-2 text-left">User</th><th className="px-3 py-2 text-right">Limit (SAR)</th><th /></tr>

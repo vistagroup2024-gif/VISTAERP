@@ -61,7 +61,7 @@ export default async function PortalPage() {
 
       <section>
         <h2 className="mb-3 font-semibold">My bookings</h2>
-        <div className="card overflow-hidden p-0">
+        <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">
             <thead className="bg-slate-50"><tr><th className="th">Booking</th><th className="th">Status</th><th className="th">Travel</th><th className="th text-right">Total</th></tr></thead>
             <tbody>
@@ -81,7 +81,7 @@ export default async function PortalPage() {
 
       <section>
         <h2 className="mb-3 font-semibold">My invoices &amp; ledger</h2>
-        <div className="card overflow-hidden p-0">
+        <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">
             <thead className="bg-slate-50"><tr><th className="th">Invoice</th><th className="th">Status</th><th className="th text-right">Total</th><th className="th text-right">Balance</th></tr></thead>
             <tbody>

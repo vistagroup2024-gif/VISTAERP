@@ -61,7 +61,7 @@ export default function CompaniesManager({ companies, supplierAccounts }: {
         {err && <p className="w-full text-sm text-red-600">{err}</p>}
       </form>
 
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             <tr><th className="px-3 py-2 text-left">Company</th><th className="px-3 py-2 text-left">Supplier Ledger</th><th className="px-3 py-2" /></tr>

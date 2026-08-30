@@ -101,22 +101,22 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
     const net = rollup.get(n.id) ?? 0;
     return (
       <>
-        <div className={`group flex items-center gap-2 border-b border-slate-50 py-1.5 pr-3 hover:bg-slate-50 ${n.is_group ? "font-semibold" : ""}`}
-          style={{ paddingLeft: 8 + depth * 18 }}>
+        <div className={`group flex items-center gap-1.5 border-b border-slate-50 py-1.5 pr-2 hover:bg-slate-50 sm:gap-2 sm:pr-3 ${n.is_group ? "font-semibold" : ""}`}
+          style={{ paddingLeft: `calc(0.5rem + ${depth} * var(--tree-indent, 18px))` }}>
           {hasKids ? (
             <button onClick={() => toggle(n.id)} className="w-4 shrink-0 text-slate-400 hover:text-slate-700">
               {isOpen ? "▾" : "▸"}
             </button>
           ) : <span className="w-4 shrink-0" />}
-          <span className="flex-1 truncate">
+          <span className="min-w-0 flex-1 truncate">
             {n.is_postable ? (
               <Link href={`/accounting/ledger?account=${n.id}`} className="hover:text-brand hover:underline">{n.name}</Link>
             ) : n.name}
             {n.status !== "active" && <span className="ml-2 rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">{n.status}</span>}
           </span>
           {!n.is_group && <span className={`badge ${NATURE_BADGE[n.nature]} hidden shrink-0 sm:inline-flex`}>{n.subtype ?? n.nature}</span>}
-          <span className="w-40 shrink-0 text-right tabular-nums text-sm">{drcr(net)}</span>
-          <span className="w-16 shrink-0 text-right">
+          <span className="w-20 shrink-0 text-right tabular-nums text-xs sm:w-40 sm:text-sm">{drcr(net)}</span>
+          <span className="hidden w-16 shrink-0 text-right sm:block">
             <Link href={`/accounting/accounts/new?parent=${n.id}`} className="invisible text-xs text-brand group-hover:visible" title="Add sub-account">+ add</Link>
           </span>
         </div>
@@ -138,7 +138,7 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
         <span className="w-4" /><span className="w-24">Code</span><span className="flex-1">Account</span>
         <span className="w-40 text-right">Balance</span><span className="w-16" />
       </div>
-      <div className="max-h-[70vh] overflow-auto text-sm">
+      <div className="max-h-[70vh] overflow-auto text-sm [--tree-indent:11px] sm:[--tree-indent:18px]">
         {roots.map((r) => <Row key={r.id} n={r} depth={0} />)}
         {roots.length === 0 && <div className="p-6 text-center text-slate-400">No accounts.</div>}
       </div>

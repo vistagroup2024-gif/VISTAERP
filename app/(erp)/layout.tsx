@@ -18,7 +18,7 @@ export default async function ErpLayout({
         name={access.fullName || user.email || "User"}
         access={{ unrestricted: access.unrestricted, permissions: access.permissions }}
       />
-      <main className="flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-8">{children}</main>
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-8">{children}</main>
     </div>
   );
 }

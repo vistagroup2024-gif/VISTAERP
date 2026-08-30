@@ -24,7 +24,7 @@ export default async function BillsPage() {
   return (
     <div>
       <PageHeader title="Supplier Bills" action={{ href: "/purchase/bills/new", label: "+ New Bill" }} />
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>

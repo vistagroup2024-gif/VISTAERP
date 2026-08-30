@@ -28,7 +28,7 @@ export default async function JournalDetail({ params }: { params: { id: string }
         <p className="text-slate-500">{dateStr(e.entry_date)} · {e.memo}</p>
         <span className="badge mt-1 bg-green-100 capitalize text-green-700">{e.status}</span>
       </div>
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr><th className="th">Account</th><th className="th">Description</th><th className="th text-right">Debit</th><th className="th text-right">Credit</th></tr>

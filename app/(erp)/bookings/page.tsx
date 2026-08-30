@@ -23,7 +23,7 @@ export default async function BookingsPage() {
   return (
     <div>
       <PageHeader title="Sales Orders" action={{ href: "/bookings/new", label: "+ New Order" }} />
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>

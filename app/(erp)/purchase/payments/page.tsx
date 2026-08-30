@@ -22,7 +22,7 @@ export default async function SupplierPaymentsPage() {
         <p className="text-sm text-slate-500">Total paid to suppliers (mixed currency, indicative)</p>
         <p className="text-2xl font-bold text-brand-dark">{money(total, "PKR")}</p>
       </div>
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>
