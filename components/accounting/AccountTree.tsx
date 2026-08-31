@@ -107,7 +107,7 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
         <div className={`group flex items-stretch border-b border-slate-100 hover:bg-brand-50/40 ${groupBg}`}>
           {/* Tree guide lines: one per ancestor level */}
           {Array.from({ length: depth }).map((_, i) => (
-            <span key={i} className="shrink-0 border-l border-slate-200/80" style={{ width: "var(--tree-indent, 18px)" }} />
+            <span key={i} className="shrink-0 border-l border-slate-400" style={{ width: "var(--tree-indent, 18px)" }} />
           ))}
           <div className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pl-1 pr-2 sm:gap-2 sm:pr-3">
             {hasKids ? (
@@ -126,7 +126,6 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
                 <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeLinecap="round" />
               </svg>
             )}
-            <span className={`hidden shrink-0 font-mono text-[11px] text-slate-400 sm:inline sm:w-24`}>{n.code}</span>
             <span className={`min-w-0 flex-1 truncate ${n.is_group ? "font-semibold text-slate-800" : "text-slate-700"}`}>
               {n.is_postable ? (
                 <Link href={`/accounting/ledger?account=${n.id}`} className="hover:text-brand hover:underline">{n.name}</Link>
@@ -155,7 +154,7 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
         <span className="ml-auto text-xs text-slate-400">{nodes.length} accounts</span>
       </div>
       <div className="hidden items-center gap-2 border-b border-slate-200 bg-slate-50 py-2 pr-3 pl-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:flex">
-        <span className="w-4" /><span className="w-24">Code</span><span className="flex-1">Account</span>
+        <span className="w-4" /><span className="flex-1">Account</span>
         <span className="w-40 text-right">Balance</span><span className="w-16" />
       </div>
       <div className="max-h-[70vh] overflow-auto text-sm [--tree-indent:11px] sm:[--tree-indent:18px]">

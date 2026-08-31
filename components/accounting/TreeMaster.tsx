@@ -70,7 +70,7 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
       <div>
         <div className={`group flex items-stretch border-b border-slate-100 hover:bg-brand-50/40 ${groupBg}`}>
           {Array.from({ length: depth }).map((_, i) => (
-            <span key={i} className="shrink-0 border-l border-slate-200/80" style={{ width: 18 }} />
+            <span key={i} className="shrink-0 border-l border-slate-400" style={{ width: 18 }} />
           ))}
           <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-1 pr-3">
             {n.is_group && kids.length > 0
