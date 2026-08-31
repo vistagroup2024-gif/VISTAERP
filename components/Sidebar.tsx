@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import Icon from "@/components/ui/Icon";
-import { GROUPS, DASHBOARD, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
+import { GROUPS, SECTIONS, DASHBOARD, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
 
 export type { StaffNavAccess };
 
@@ -62,6 +62,37 @@ function CollapsibleGroup({ group, open, onToggle, onClose, activeHref }: { grou
   );
 }
 
+// A section is a second accordion level: the parent shows its modules, each of
+// which is itself collapsible. Only one module inside a section is open at a
+// time, matching the behaviour of the top-level groups.
+function CollapsibleSection({ label, icon, groups, open, onToggle, openGroup, onToggleGroup, onClose, activeHref }: {
+  label: string; icon: Group["icon"]; groups: Group[]; open: boolean; onToggle: () => void;
+  openGroup: string | null; onToggleGroup: (l: string) => void; onClose?: () => void; activeHref: string | null;
+}) {
+  const hasActive = groups.some((g) => g.items.some((i) => i.href === activeHref));
+  return (
+    <div>
+      <button onClick={onToggle}
+        className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+          hasActive ? "text-brand-700" : "text-slate-700 hover:bg-slate-100"
+        }`}>
+        <Icon name={icon} size={18} className={hasActive ? "text-brand-600" : "text-slate-400"} />
+        <span className="flex-1 truncate text-left">{label}</span>
+        <Icon name="chevronRight" size={14}
+          className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+      {open && (
+        <div className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2">
+          {groups.map((g) => (
+            <CollapsibleGroup key={g.label} group={g} onClose={onClose} activeHref={activeHref}
+              open={openGroup === g.label} onToggle={() => onToggleGroup(g.label)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function visibleGroups(access?: StaffNavAccess) {
   if (!access || access.unrestricted) return GROUPS;
   return GROUPS
@@ -87,6 +118,23 @@ function SidebarContent({ name, access, onClose, onCollapse }: { name: string; a
   const activeLabel = groups.find((g) => g.items.some((i) => i.href === activeHref))?.label ?? null;
   const [openGroup, setOpenGroup] = useState<string | null>(activeLabel);
   useEffect(() => { if (activeLabel) setOpenGroup(activeLabel); }, [activeLabel]);
+
+  // Sections keep their place in the sidebar: a section sits where its first
+  // module was declared, so the overall order of the nav is unchanged.
+  const sectionOf = new Map(SECTIONS.map((x) => [x.label, x]));
+  const rendered = new Set<string>();
+  const entries: ({ kind: "group"; group: Group } | { kind: "section"; label: string; icon: Group["icon"]; groups: Group[] })[] = [];
+  for (const g of groups) {
+    const sec = g.section ? sectionOf.get(g.section) : undefined;
+    if (!sec) { entries.push({ kind: "group", group: g }); continue; }
+    if (rendered.has(sec.label)) continue;
+    rendered.add(sec.label);
+    entries.push({ kind: "section", label: sec.label, icon: sec.icon, groups: groups.filter((x) => x.section === sec.label) });
+  }
+  // Open the section that owns the active link.
+  const activeSection = groups.find((g) => g.items.some((i) => i.href === activeHref))?.section ?? null;
+  const [openSection, setOpenSection] = useState<string | null>(activeSection);
+  useEffect(() => { if (activeSection) setOpenSection(activeSection); }, [activeSection]);
 
   async function signOut() {
     // Local scope: end only THIS device's session, leaving the user's other
@@ -126,11 +174,20 @@ function SidebarContent({ name, access, onClose, onCollapse }: { name: string; a
         {(!access || access.unrestricted || access.permissions["dashboard.view"]) && (
           <NavLink {...DASHBOARD} activeHref={activeHref} onClick={onClose} />
         )}
-        {groups.map((g) => (
-          <CollapsibleGroup key={g.label} group={g} onClose={onClose} activeHref={activeHref}
-            open={openGroup === g.label}
-            onToggle={() => setOpenGroup((o) => (o === g.label ? null : g.label))} />
-        ))}
+        {entries.map((e) =>
+          e.kind === "group" ? (
+            <CollapsibleGroup key={e.group.label} group={e.group} onClose={onClose} activeHref={activeHref}
+              open={openGroup === e.group.label}
+              onToggle={() => setOpenGroup((o) => (o === e.group.label ? null : e.group.label))} />
+          ) : (
+            <CollapsibleSection key={e.label} label={e.label} icon={e.icon} groups={e.groups}
+              onClose={onClose} activeHref={activeHref}
+              open={openSection === e.label}
+              onToggle={() => setOpenSection((o) => (o === e.label ? null : e.label))}
+              openGroup={openGroup}
+              onToggleGroup={(l) => setOpenGroup((o) => (o === l ? null : l))} />
+          )
+        )}
       </nav>
       <div className="border-t border-slate-200 p-3">
         <button onClick={signOut}

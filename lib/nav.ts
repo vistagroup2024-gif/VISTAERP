@@ -6,19 +6,28 @@ import type { IconName } from "@/components/ui/Icon";
 // `perm` (any-of) on an Item gates that link individually. Omit to always show.
 export interface NavItem { href: string; label: string; icon?: IconName; perm?: string[]; exact?: boolean }
 // `perm` (any-of) gates the whole module. Omit to always show.
-export interface NavGroup { label: string; icon: IconName; items: NavItem[]; perm?: string[] }
+// `section` nests the module under a parent heading in the sidebar (see SECTIONS).
+export interface NavGroup { label: string; icon: IconName; items: NavItem[]; perm?: string[]; section?: string }
+
+// Parent headings that collect several modules. A section is shown only when at
+// least one of its modules survives the permission filter, and it keeps its own
+// order — the modules appear in the order they are declared in GROUPS.
+export interface NavSection { label: string; icon: IconName }
+export const SECTIONS: NavSection[] = [
+  { label: "Umrah Package", icon: "visa" },
+];
 
 export interface StaffNavAccess { unrestricted: boolean; permissions: Record<string, boolean> }
 
 export const DASHBOARD: NavItem = { href: "/dashboard", label: "Dashboard", icon: "dashboard" };
 
 export const GROUPS: NavGroup[] = [
-  { label: "Visa", icon: "visa", perm: ["visa.view", "visa.package_update", "visa.invoices"], items: [
+  { label: "Visa", icon: "visa", section: "Umrah Package", perm: ["visa.view", "visa.package_update", "visa.invoices"], items: [
     { href: "/groups", label: "Visa Groups", perm: ["visa.view"] },
     { href: "/visa/invoices", label: "Visa Invoices", perm: ["visa.invoices"] },
     { href: "/groups/package-updates", label: "Package Updates", perm: ["visa.package_update"] },
   ] },
-  { label: "BRN Inventory", icon: "inventory", perm: ["brn.view", "brn.planning"], items: [
+  { label: "BRN Inventory", icon: "inventory", section: "Umrah Package", perm: ["brn.view", "brn.planning"], items: [
     { href: "/inventory", label: "BRN Dashboard", perm: ["brn.view"] },
     { href: "/inventory/brn", label: "BRN List", perm: ["brn.view"] },
     { href: "/inventory/archived", label: "Archived BRNs", perm: ["brn.view"] },
@@ -27,7 +36,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/inventory/planning", label: "Purchase Planning", perm: ["brn.planning"] },
     { href: "/inventory/history", label: "History", perm: ["brn.view"] },
   ] },
-  { label: "Hotels", icon: "hotel", perm: ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.reports"], items: [
+  { label: "Hotels", icon: "hotel", section: "Umrah Package", perm: ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.reports"], items: [
     { href: "/hotels/dashboard", label: "Dashboard", perm: ["hotels.reports"] },
     { href: "/hotels/bookings", label: "Hotel Bookings", perm: ["hotels.bookings"] },
     { href: "/hotels/nusuk", label: "Nusuk Agreements", perm: ["hotels.bookings"] },
@@ -37,7 +46,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/hotels", label: "Hotel Master", perm: ["hotels.masters"], exact: true },
     { href: "/hotels/reports", label: "Reports", perm: ["hotels.reports"] },
   ] },
-  { label: "Transport", icon: "transport", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.trip_ledger"], items: [
+  { label: "Transport", icon: "transport", section: "Umrah Package", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.trip_ledger"], items: [
     { href: "/transport", label: "Overview", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.driver_assign"] },
     { href: "/transport/operations", label: "Operations", perm: ["transport.operations", "transport.driver_assign"] },
     { href: "/transport/arrivals", label: "Arrival Service", perm: ["transport.operations", "transport.bookings"] },
