@@ -8,7 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
 
 interface Opt { id: string; name: string }
-interface VehicleOpt { id: string; label: string }
+interface VehicleOpt { id: string; label: string; is_trading?: boolean }
 interface Inst { due_date: string; amount: string; notes: string; paid?: number }
 
 function addMonthsISO(iso: string, n: number) {
@@ -43,6 +43,10 @@ export default function ContractForm({ existing, installments = [], customers, v
     : []);
   const [gen, setGen] = useState({ months: "12", start: new Date().toISOString().slice(0, 10) });
 
+  // "Keep in Vista's name" only applies to CAR TRADING vehicles. Installment
+  // vehicles are always retained in Vista's name (monthly charges always apply),
+  // so the choice is hidden and forced on for them.
+  const isTrading = useMemo(() => !!vehicles.find((v) => v.id === h.vehicle_id)?.is_trading, [vehicles, h.vehicle_id]);
   const remaining = useMemo(() => (Number(h.sale_price) || 0) - (Number(h.advance) || 0), [h.sale_price, h.advance]);
   const schedTotal = useMemo(() => rows.reduce((a, r) => a + (Number(r.amount) || 0), 0), [rows]);
   const diff = useMemo(() => Math.round(((Number(h.sale_price) || 0) - (Number(h.advance) || 0) - schedTotal) * 100) / 100, [h.sale_price, h.advance, schedTotal]);
@@ -65,7 +69,9 @@ export default function ContractForm({ existing, installments = [], customers, v
     e.preventDefault();
     if (diff !== 0) { setErr(`Advance + installments must equal the sale price. Difference: ${sar(diff)}.`); return; }
     setSaving(true); setErr(null);
-    const payload = { ...h, sale_price: String(h.sale_price || 0), advance: String(h.advance || 0) };
+    // Installment vehicles are always kept in Vista's name; only a trading
+    // vehicle can be handed over (keep_vista unchecked).
+    const payload = { ...h, keep_vista: isTrading ? h.keep_vista : true, sale_price: String(h.sale_price || 0), advance: String(h.advance || 0) };
     const p_inst = rows.map((r) => ({ due_date: r.due_date, amount: String(r.amount || 0), notes: r.notes }));
     const { data, error } = await supabase.rpc("car_contract_save", { p_id: existing?.id ?? null, p_header: payload, p_installments: p_inst });
     setSaving(false);
@@ -103,12 +109,14 @@ export default function ContractForm({ existing, installments = [], customers, v
         <FormSection title="Financials" cols={3}>
           <Field label="Installment Sale Price (SAR)" required><input type="number" step="0.01" className="input" value={h.sale_price} onChange={(e) => setH({ ...h, sale_price: e.target.value })} /></Field>
           <Field label="Advance (SAR)"><input type="number" step="0.01" className="input" value={h.advance} onChange={(e) => setH({ ...h, advance: e.target.value })} /></Field>
-          <Field label="Registration" full>
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input type="checkbox" checked={h.keep_vista} onChange={(e) => setH({ ...h, keep_vista: e.target.checked })} />
-              Keep registered in Vista's name — monthly service charges apply until transferred
-            </label>
-          </Field>
+          {isTrading && (
+            <Field label="Registration" full>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={h.keep_vista} onChange={(e) => setH({ ...h, keep_vista: e.target.checked })} />
+                Keep registered in Vista's name — monthly service charges apply until transferred
+              </label>
+            </Field>
+          )}
           <Field label="Installment Balance (auto)"><input className="input bg-slate-50" value={remaining.toFixed(2)} readOnly tabIndex={-1} /></Field>
           <div className="flex items-end">
             <span className={`text-sm ${diff === 0 ? "text-emerald-700" : "text-red-600"}`}>

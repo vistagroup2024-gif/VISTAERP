@@ -11,12 +11,14 @@ export default async function NewContractPage() {
   const supabase = createClient();
   const [{ data: customers }, { data: vehicles }] = await Promise.all([
     supabase.from("parties").select("id, name").eq("party_type", "customer").eq("is_active", true).order("name"),
-    supabase.from("car_vehicles").select("id, vehicle_no, make, model, variant, model_year, plate_no").eq("status", "in_stock").order("created_at", { ascending: false }),
+    // select("*") so is_trading (added by migration 259) is available when
+    // present, without breaking before the column exists.
+    supabase.from("car_vehicles").select("*").eq("status", "in_stock").order("created_at", { ascending: false }),
   ]);
-  const vOpts = (vehicles ?? []).map((v: any) => ({ id: v.id, label: `${vehicleTitle(v)} · ${v.plate_no ?? v.vehicle_no}` }));
+  const vOpts = (vehicles ?? []).map((v: any) => ({ id: v.id, label: `${vehicleTitle(v)} · ${v.plate_no ?? v.vehicle_no}`, is_trading: !!v.is_trading }));
   return (
     <div>
-      <PageHeader title="New Installment Contract" />
+      <PageHeader title="New Car Invoice" />
       <ContractForm existing={null} installments={[]} customers={(customers ?? []) as any} vehicles={vOpts} />
     </div>
   );
