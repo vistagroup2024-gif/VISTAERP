@@ -23,7 +23,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: { c
   return (
     <div className="max-w-6xl">
       <RealtimeRefresh tables={["transport_bookings", "transport_trips"]} />
-      <PageHeader title="Transport Bookings" action={{ href: "/transport/bookings/new", label: "+ New Booking" }} />
+      <PageHeader title="Transport Bookings" action={{ href: "/transport/bookings/new", label: "New Booking" }} />
       {searchParams.created && (
         <div className="mb-4 rounded-md bg-green-50 px-4 py-2 text-sm text-green-700">✓ Booking created successfully.</div>
       )}

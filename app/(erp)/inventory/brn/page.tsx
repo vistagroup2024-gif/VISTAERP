@@ -51,7 +51,7 @@ export default async function BrnListPage() {
 
   return (
     <div>
-      <PageHeader title="BRN Inventory" action={{ href: "/inventory/brn/new", label: "+ Add BRN" }} />
+      <PageHeader title="BRN Inventory" action={{ href: "/inventory/brn/new", label: "Add BRN" }} />
       <p className="mb-4 text-sm text-slate-500">
         Active BRNs with beds still available. Fully consumed BRNs move to <b>Archived BRNs</b> automatically.
       </p>

@@ -24,7 +24,7 @@ export default async function AccountingHome() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Accounting" action={{ href: "/accounting/receipts", label: "+ Receipt" }} />
+      <PageHeader title="Accounting" action={{ href: "/accounting/receipts", label: "Receipt" }} />
       {d.closed_through && <div className="rounded bg-slate-100 px-3 py-2 text-sm text-slate-600">Books closed through <b>{d.closed_through}</b> — postings on or before this date are blocked.</div>}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Tile label="Cash & Bank" value={`SAR ${money(d.cash_bank ?? 0)}`} href="/accounting/ledger" />

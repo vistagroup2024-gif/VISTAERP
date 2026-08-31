@@ -82,7 +82,7 @@ export default async function InventoryDashboard({ searchParams }: { searchParam
   return (
     <div>
       <RealtimeRefresh tables={["brn_inventory", "brn_consumption", "group_brn_allocation"]} />
-      <PageHeader title="BRN Inventory Dashboard" action={{ href: "/inventory/brn/new", label: "+ Add BRN" }} />
+      <PageHeader title="BRN Inventory Dashboard" action={{ href: "/inventory/brn/new", label: "Add BRN" }} />
       <CompanyFilter companies={companies ?? []} value={company} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">

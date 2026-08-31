@@ -13,7 +13,7 @@ export default async function AllotmentsPage() {
 
   return (
     <div>
-      <PageHeader title="Hotel Allotments (held inventory)" action={{ href: "/allotments/new", label: "+ New Allotment" }} />
+      <PageHeader title="Hotel Allotments (held inventory)" action={{ href: "/allotments/new", label: "New Allotment" }} />
       <div className="card overflow-x-auto p-0">
         <table className="w-full">
           <thead className="bg-slate-50">

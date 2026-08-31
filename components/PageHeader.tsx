@@ -31,7 +31,9 @@ export default function PageHeader({
         {children}
         {action && (
           <Link href={action.href} className="btn">
-            <Icon name="plus" size={16} /> {action.label}
+            {/* The button draws its own plus, so drop one the caller also typed
+                rather than showing "+ + New". */}
+            <Icon name="plus" size={16} /> {action.label.replace(/^\s*[+＋]\s*/, "")}
           </Link>
         )}
       </div>

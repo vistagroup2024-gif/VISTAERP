@@ -20,7 +20,7 @@ export default async function CatalogPage() {
 
   return (
     <div>
-      <PageHeader title="Service Catalog" action={{ href: "/sales/catalog/new", label: "+ New Service" }} />
+      <PageHeader title="Service Catalog" action={{ href: "/sales/catalog/new", label: "New Service" }} />
       <p className="mb-4 text-sm text-slate-500">Master list of sellable services. List price is the default; per-customer rates override it on orders.</p>
       <div className="card overflow-x-auto p-0">
         <table className="w-full">

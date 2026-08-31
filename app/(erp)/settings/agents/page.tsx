@@ -18,7 +18,7 @@ export default async function AgentsPage() {
 
   return (
     <div>
-      <PageHeader title="B2B Agent Users" action={{ href: "/settings/agents/new", label: "+ New Agent" }} />
+      <PageHeader title="B2B Agent Users" action={{ href: "/settings/agents/new", label: "New Agent" }} />
       <p className="mb-4 text-sm text-slate-500">
         Partner travel-agent accounts with configurable, module-level permissions (RBAC). Each agent only accesses the modules you enable.
       </p>

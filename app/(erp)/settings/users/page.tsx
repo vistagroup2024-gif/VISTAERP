@@ -52,7 +52,7 @@ export default async function UsersPage() {
 
   return (
     <div>
-      <PageHeader title="Staff Users" action={canCreate ? { href: "/settings/users/new", label: "+ New User" } : undefined} />
+      <PageHeader title="Staff Users" action={canCreate ? { href: "/settings/users/new", label: "New User" } : undefined} />
       <p className="mb-4 text-sm text-slate-500">
         Manage staff accounts and permission roles. Login ID is the username — no email needed.
       </p>

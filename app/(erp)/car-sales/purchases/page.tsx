@@ -28,7 +28,7 @@ export default async function PurchaseOrdersPage() {
   return (
     <div>
       <RealtimeRefresh tables={["car_purchase_orders", "car_purchase_order_items"]} />
-      <PageHeader title="Purchase Orders" action={canManage ? { href: "/car-sales/purchases/new", label: "+ New Purchase Order" } : undefined} />
+      <PageHeader title="Purchase Orders" action={canManage ? { href: "/car-sales/purchases/new", label: "New Purchase Order" } : undefined} />
       <PurchaseOrdersTable rows={rows} canManage={canManage} />
     </div>
   );

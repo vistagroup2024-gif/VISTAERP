@@ -15,7 +15,7 @@ export default async function JournalPage() {
 
   return (
     <div>
-      <PageHeader title="Journal" action={{ href: "/accounting/journal/new", label: "+ Manual Entry" }} />
+      <PageHeader title="Journal" action={{ href: "/accounting/journal/new", label: "Manual Entry" }} />
       <div className="card overflow-x-auto p-0">
         <table className="w-full">
           <thead className="bg-slate-50">

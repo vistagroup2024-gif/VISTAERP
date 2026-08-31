@@ -57,7 +57,7 @@ export default async function HotelBookingsPage() {
   return (
     <div>
       <RealtimeRefresh tables={["hotel_bookings", "hotel_purchase_bookings"]} />
-      <PageHeader title="Hotel Bookings" action={{ href: "/hotels/bookings/new", label: "+ New Hotel Booking" }} />
+      <PageHeader title="Hotel Bookings" action={{ href: "/hotels/bookings/new", label: "New Hotel Booking" }} />
       <HotelBookingsTable rows={rows} />
     </div>
   );

@@ -36,7 +36,7 @@ export default async function ContractsPage() {
   return (
     <div>
       <RealtimeRefresh tables={["car_contracts", "car_installments"]} />
-      <PageHeader title="Installment Contracts" action={staffCan(access, "carsales.installments") ? { href: "/car-sales/contracts/new", label: "+ New Contract" } : undefined} />
+      <PageHeader title="Installment Contracts" action={staffCan(access, "carsales.installments") ? { href: "/car-sales/contracts/new", label: "New Contract" } : undefined} />
       <ContractsTable rows={rows} canManage={staffCan(access, "carsales.installments")} />
     </div>
   );

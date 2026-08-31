@@ -12,7 +12,7 @@ export default async function AccountsPage() {
 
   return (
     <div>
-      <PageHeader title="Chart of Accounts" action={{ href: "/accounting/accounts/new", label: "+ New Account" }} />
+      <PageHeader title="Chart of Accounts" action={{ href: "/accounting/accounts/new", label: "New Account" }} />
       <AccountTree nodes={nodes} />
     </div>
   );

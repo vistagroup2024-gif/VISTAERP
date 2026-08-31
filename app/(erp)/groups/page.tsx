@@ -80,7 +80,7 @@ export default async function GroupsPage() {
   return (
     <div>
       <RealtimeRefresh tables={["umrah_groups", "group_brn_allocation"]} />
-      <PageHeader title="Visa Groups" action={perms.canCreate ? { href: "/groups/new", label: "+ New Group" } : undefined}>
+      <PageHeader title="Visa Groups" action={perms.canCreate ? { href: "/groups/new", label: "New Group" } : undefined}>
         {(isAdmin || perms.canProcess) && <CompanyInquiryButton endpoint="/api/recommendation" canRelease />}
       </PageHeader>
       <GroupsTable rows={rows} perms={perms} />

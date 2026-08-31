@@ -13,7 +13,7 @@ export default async function HotelsPage() {
 
   return (
     <div>
-      <PageHeader title="Hotels" action={{ href: "/hotels/new", label: "+ New Hotel" }} />
+      <PageHeader title="Hotels" action={{ href: "/hotels/new", label: "New Hotel" }} />
       <div className="card overflow-x-auto p-0">
         <table className="w-full">
           <thead className="bg-slate-50">
