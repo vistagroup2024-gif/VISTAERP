@@ -119,10 +119,6 @@ export default function VehiclesTable({ rows, perms }: { rows: VehicleRow[]; per
                 <td className="td text-right">
                   <RowMenu items={[
                     { label: "Open", onClick: () => router.push(`/car-sales/vehicles/${r.id}`) },
-                    ...(perms.canManage ? [
-                      { label: "Edit", onClick: () => router.push(`/car-sales/vehicles/${r.id}/edit`) },
-                      { label: "Delete", onClick: () => del(r), danger: true },
-                    ] : []),
                   ]} />
                 </td>
               </tr>

@@ -30,7 +30,7 @@ export default async function VehiclesPage() {
   return (
     <div>
       <RealtimeRefresh tables={["car_vehicles"]} />
-      <PageHeader title="Vehicles / Stock" action={perms.canManage ? { href: "/car-sales/vehicles/new", label: "+ New Vehicle" } : undefined} />
+      <PageHeader title="Vehicles / Stock" subtitle="View only — new vehicles arrive from Inventory when a Purchase Voucher is created" />
       <VehiclesTable rows={rows} perms={perms} />
     </div>
   );
