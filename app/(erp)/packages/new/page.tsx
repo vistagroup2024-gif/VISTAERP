@@ -75,9 +75,9 @@ export default function NewPackagePage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="mb-6 text-2xl font-bold">New Package</h1>
+      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Package</h1>
       <form onSubmit={save} className="space-y-6">
-        {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
         <div className="card grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <label className="label">Package name</label>

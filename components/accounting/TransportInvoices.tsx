@@ -45,7 +45,7 @@ export default function TransportInvoices() {
         <div><label className="label">To</label><input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} /></div>
         <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={onlyUnposted} onChange={(e) => setOnlyUnposted(e.target.checked)} /> Only un-posted</label>
       </div>
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       <div className="card overflow-x-auto p-0 text-sm">
         <table className="w-full">
           <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">

@@ -22,7 +22,7 @@ export default async function HotelDetail({ params }: { params: { id: string } }
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">{hotel.name}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">{hotel.name}</h1>
         <p className="capitalize text-slate-500">
           {hotel.city} · {hotel.rating ? `${hotel.rating}★` : "unrated"}
           {hotel.distance_haram_m ? ` · ${hotel.distance_haram_m} m to Haram` : ""}

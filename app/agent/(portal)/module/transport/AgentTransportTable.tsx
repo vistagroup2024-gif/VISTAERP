@@ -81,7 +81,7 @@ export default function AgentTransportTable({ rows, token, canRequest }: { rows:
 
   return (
     <div className="space-y-3">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       <div className="flex flex-wrap items-center gap-2">
         <input className="input max-w-xs" placeholder="Search booking, haji, date…" value={q} onChange={(e) => setQ(e.target.value)} />
         {types.length > 0 && <MultiSelectFilter label="Type" options={types.map((t) => ({ value: t, label: t }))} selected={type} onChange={setType} />}

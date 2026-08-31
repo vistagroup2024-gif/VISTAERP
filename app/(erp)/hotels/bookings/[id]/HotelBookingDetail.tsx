@@ -49,7 +49,7 @@ export default function HotelBookingDetail({
 
   return (
     <div className="space-y-6">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       {/* Header + lifecycle actions */}
       <div className="card flex flex-wrap items-center gap-3">

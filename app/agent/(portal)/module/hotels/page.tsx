@@ -26,7 +26,7 @@ export default async function AgentHotelList({ searchParams }: { searchParams: {
     <div className="max-w-4xl">
       <RealtimeRefresh tables={["hotel_bookings"]} pollMs={20000} />
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">Hotel Bookings</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">Hotel Bookings</h1>
         {can(agent, "hotel.create") && <Link href="/agent/module/hotels/new" className="btn">+ New Hotel Booking</Link>}
       </div>
       {searchParams.created && <div className="mb-4 rounded-md bg-green-50 px-4 py-2 text-sm text-green-700">✓ Booking request submitted.</div>}

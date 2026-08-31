@@ -18,7 +18,7 @@ export default async function ServiceDetail({ params }: { params: { id: string }
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">{svc.name}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">{svc.name}</h1>
         <p className="text-slate-500 capitalize">{svc.service_type.replace("_", " ")} · {svc.code}</p>
         <p className="mt-2 text-sm">
           Cost <b>{money(svc.default_cost, svc.cost_currency)}</b> · List price <b>{money(svc.list_price, svc.sell_currency)}</b>

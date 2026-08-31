@@ -69,7 +69,7 @@ export default function DriverDashboard({ rows, locations }: { rows: Row[]; loca
         {fStatus && <button onClick={() => setFStatus("")} className="text-sm text-slate-500 hover:underline">Clear</button>}
         <span className="ml-auto text-sm text-slate-500">{filtered.length} of {rows.length} drivers</span>
       </div>
-      {err && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded-md border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {filtered.map((r) => {

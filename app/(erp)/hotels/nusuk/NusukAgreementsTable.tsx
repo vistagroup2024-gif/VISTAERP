@@ -127,7 +127,7 @@ export default function NusukAgreementsTable({ rows, companies }: { rows: Row[];
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setModal(null)}>
           <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-3 font-semibold text-slate-800">Agreement Details — {modal.guest_name}</h3>
-            {err && <div className="mb-2 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+            {err && <div className="mb-2 rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
             <div className="grid grid-cols-2 gap-3">
               <div><label className="label">Agreement No *</label><input className="input" value={form.agreement_no} onChange={(e) => setForm({ ...form, agreement_no: e.target.value })} /></div>
               <div><label className="label">Hotel Name</label><input className="input" value={form.hotel_name} onChange={(e) => setForm({ ...form, hotel_name: e.target.value })} /></div>

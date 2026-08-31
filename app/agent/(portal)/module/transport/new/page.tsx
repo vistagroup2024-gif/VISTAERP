@@ -17,7 +17,7 @@ export default async function AgentNewTransport({ searchParams }: { searchParams
 
   return (
     <div className="max-w-5xl">
-      <h1 className="mb-6 text-2xl font-bold text-slate-800">New Transport Booking</h1>
+      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Transport Booking</h1>
       <TransportBookingForm
         existing={null} existingTrips={[]}
         routes={m.routes ?? []} vehicles={m.vehicles ?? []} packages={m.packages ?? []} rates={m.rates ?? []}

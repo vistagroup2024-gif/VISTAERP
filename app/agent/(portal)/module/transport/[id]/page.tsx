@@ -35,7 +35,7 @@ export default async function AgentTransportDetail({ params }: { params: { id: s
   if (editable) {
     return (
       <div className="max-w-5xl">
-        <h1 className="mb-6 text-2xl font-bold text-slate-800">Booking {b.booking_no}</h1>
+        <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">Booking {b.booking_no}</h1>
         <TransportBookingForm
           existing={b} existingTrips={trips}
           routes={m.routes ?? []} vehicles={m.vehicles ?? []} packages={m.packages ?? []} rates={m.rates ?? []}
@@ -53,7 +53,7 @@ export default async function AgentTransportDetail({ params }: { params: { id: s
   return (
     <div className="max-w-4xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-slate-800">Booking {b.booking_no}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">Booking {b.booking_no}</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Link href={`/agent/module/transport/${b.id}/voucher?brand=vista`} className="btn-outline text-sm">Vista Voucher</Link>
           <Link href={`/agent/module/transport/${b.id}/voucher?brand=agent`} className="btn-outline text-sm">Agent Voucher</Link>

@@ -60,7 +60,7 @@ export default function PayrollRun() {
         {runId && status !== "posted" && <button onClick={post} disabled={busy} className="btn-outline">Post to GL</button>}
         {status && <span className={`rounded-full px-3 py-1 text-sm ${status === "posted" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{status}</span>}
       </div>
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       {done && <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">{done}</div>}
 
       {slips.length > 0 && (

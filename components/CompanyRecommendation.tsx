@@ -123,7 +123,7 @@ export default function CompanyRecommendation({
           </div>
         </div>
         {nights > 0 && <p className="text-xs text-slate-500">Stay: <b>{nights}</b> night(s).</p>}
-        {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
         {msg && <div className="rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{msg}</div>}
       </form>
 

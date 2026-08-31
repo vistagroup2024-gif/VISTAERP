@@ -36,7 +36,7 @@ export default function AgentHotelForm({ hotels }: { hotels: HotelOpt[] }) {
   const cities = ["makkah", "madinah", "jeddah", "other"];
   return (
     <form onSubmit={submit} className="space-y-6">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       <section className="card space-y-4">
         <h2 className="font-semibold text-slate-700">Guest / Group</h2>
         <div className="grid gap-4 md:grid-cols-3">

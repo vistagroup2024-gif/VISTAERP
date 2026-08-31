@@ -162,7 +162,7 @@ export default function TradeVoucher({ cfg }: { cfg: TradeDocCfg }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">{cfg.title}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">{cfg.title}</h1>
         {done && <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700 capitalize">{done}</span>}
       </div>
 
@@ -178,7 +178,7 @@ export default function TradeVoucher({ cfg }: { cfg: TradeDocCfg }) {
         </div>
       </div>
 
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <div className="card space-y-4">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

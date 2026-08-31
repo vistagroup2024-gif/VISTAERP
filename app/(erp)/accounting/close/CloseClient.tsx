@@ -28,7 +28,7 @@ export default function CloseClient({ closedThrough }: { closedThrough: string |
 
   return (
     <div className="max-w-lg space-y-4">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       {msg && <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
       {closedThrough && <div className="rounded bg-slate-100 px-3 py-2 text-sm text-slate-600">Books are currently closed through <b>{closedThrough}</b>.</div>}
       <div className="card space-y-3">

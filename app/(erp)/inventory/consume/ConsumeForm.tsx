@@ -64,7 +64,7 @@ export default function ConsumeForm({
 
   return (
     <form onSubmit={save} className="space-y-5">
-      {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
       <div className="card space-y-4">
         <div>

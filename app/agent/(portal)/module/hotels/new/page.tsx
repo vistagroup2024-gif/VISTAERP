@@ -15,7 +15,7 @@ export default async function AgentNewHotel() {
   const { data: hotels } = await sb.from("hotels").select("id, name, city").eq("is_active", true).order("name");
   return (
     <div className="max-w-5xl">
-      <h1 className="mb-6 text-2xl font-bold text-slate-800">New Hotel Booking</h1>
+      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Hotel Booking</h1>
       <AgentHotelForm hotels={(hotels ?? []) as any} />
     </div>
   );

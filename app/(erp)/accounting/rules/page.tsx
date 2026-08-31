@@ -54,9 +54,9 @@ export default function RulesPage() {
 
   return (
     <div className="max-w-3xl space-y-4">
-      <h1 className="text-2xl font-bold">Approval Rules</h1>
+      <h1 className="text-xl font-bold tracking-tight text-slate-900">Approval Rules</h1>
       <p className="text-sm text-slate-500">A voucher of the given type whose amount is at least the threshold needs the stated number of authorisations before it posts. No rule = posts immediately on save.</p>
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <form onSubmit={save} className="card grid grid-cols-2 items-end gap-3 md:grid-cols-5">
         <div><label className="label">Document</label>

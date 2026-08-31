@@ -163,7 +163,7 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
           </button>
         ))}
       </div>
-      {err && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded-md border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       {tab === "agent" ? (
         <>

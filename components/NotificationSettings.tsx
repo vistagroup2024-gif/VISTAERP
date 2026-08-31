@@ -78,7 +78,7 @@ export default function NotificationSettings({ endpoint = "/api/push" }: { endpo
   return (
     <div className="space-y-4">
       {msg && <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <div className="card">
         <h3 className="font-semibold text-slate-700">Phone notifications</h3>

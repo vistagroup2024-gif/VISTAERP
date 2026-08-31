@@ -68,12 +68,12 @@ export default function NewBrnForm({ suppliers, companies }: { suppliers: { id: 
 
   return (
     <div className="max-w-lg">
-      <h1 className="mb-1 text-2xl font-bold">Add BRN Inventory</h1>
+      <h1 className="mb-1 text-xl font-bold tracking-tight text-slate-900">Add BRN Inventory</h1>
       <p className="mb-6 text-sm text-slate-500">
         Register a bulk hotel bed purchase. Beds are available every night from check-in until the night before check-out.
       </p>
       <form onSubmit={save} className="space-y-5">
-        {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
         <div className="card space-y-4">
           <h2 className="font-semibold text-slate-700">Agreement</h2>

@@ -277,7 +277,7 @@ export default function GroupForm({
   return (
     <div className="max-w-3xl">
       <div className="mb-1 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">{isEdit ? (isAgent ? (existing?.group_no ?? "Visa Group") : "Edit Visa Group") : "New Visa Group"}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">{isEdit ? (isAgent ? (existing?.group_no ?? "Visa Group") : "Edit Visa Group") : "New Visa Group"}</h1>
         {isEdit && (
           <span className="badge bg-brand/10 text-brand-dark">
             {visaType === "long_stay" ? "Long Stay Visa" : visaType === "masar" ? "Masar Visa" : "Non Masar Visa"}
@@ -290,7 +290,7 @@ export default function GroupForm({
       <form onSubmit={save} className="space-y-5">
         {lockAll && <div className="rounded-lg bg-blue-50 px-4 py-2 text-sm text-blue-700">This group is being processed by Vista Group and can no longer be edited.</div>}
         {hotelOnly && <div className="rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-700">Visa issued — you may update <b>Hotel Details</b> only. All other fields are read-only.</div>}
-        {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
         {showVisaType && (
           <div className="card space-y-3">

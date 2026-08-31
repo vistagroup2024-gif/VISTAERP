@@ -44,7 +44,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
 
   return (
     <div className="space-y-6">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <div className="card flex flex-wrap items-center gap-3">
         <span className={`badge ${CONTRACT_STATUS_TONE[st] ?? "bg-slate-100"}`}>{CONTRACT_STATUS_LABEL[st] ?? st}</span>
@@ -220,7 +220,7 @@ function LifecyclePanel({ contract, onDone }: { contract: any; onDone: () => voi
           {owner === "transferred" && <span className="badge bg-green-100 text-green-700">Transferred — charges stopped</span>}
         </div>
       </div>
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setModal(null)}>
@@ -295,7 +295,7 @@ function CommissionPanel({ contractId, commission, salePrice, onDone }: { contra
       </div>
       {open && (
         <div className="space-y-3">
-          {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+          {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
           <div className="grid gap-3 md:grid-cols-4">
             <div><label className="label">Reference / Introducer</label><input className="input" value={f.reference_name} onChange={(e) => setF({ ...f, reference_name: e.target.value })} /></div>
             <div><label className="label">Type</label><select className="input" value={f.comm_type} onChange={(e) => setF({ ...f, comm_type: e.target.value })}><option value="fixed">Fixed</option><option value="percentage">Percentage</option></select></div>
@@ -348,7 +348,7 @@ function PaymentPanel({ contractId, installments, onDone }: { contractId: string
       </div>
       {open && (
         <div className="space-y-3">
-          {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+          {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
           <div className="grid gap-3 md:grid-cols-4">
             <div><label className="label">Date</label><input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
             <div><label className="label">Method</label>

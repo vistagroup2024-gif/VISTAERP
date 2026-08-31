@@ -39,7 +39,7 @@ export default async function PortalPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-8 p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-brand-dark">Vista Group — Partner Portal</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">Vista Group — Partner Portal</h1>
         <form action={signOut}>
           <button className="btn-outline">Sign out</button>
         </form>

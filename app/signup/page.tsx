@@ -42,13 +42,13 @@ export default function SignupPage() {
     <main className="flex min-h-screen items-center justify-center px-6">
       <form onSubmit={onSubmit} className="card w-full max-w-sm space-y-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-brand-dark">Create account</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">Create account</h1>
           <p className="text-sm text-slate-500">
             New staff accounts need a role assigned by an admin.
           </p>
         </div>
         {error && (
-          <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="rounded-md border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">
             {error}
           </div>
         )}

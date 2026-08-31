@@ -39,7 +39,7 @@ export default function AssetsClient({ assets, assetAccounts }: { assets: FA[]; 
 
   return (
     <div className="space-y-4">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       {msg && <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
 
       <form onSubmit={add} className="card grid grid-cols-2 gap-3 md:grid-cols-6">

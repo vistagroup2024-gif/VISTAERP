@@ -55,9 +55,9 @@ export default function NewAllotmentPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="mb-6 text-2xl font-bold">New Allotment</h1>
+      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Allotment</h1>
       <form onSubmit={save} className="card space-y-4">
-        {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
         <div>
           <label className="label">Hotel</label>
           <select className="input" value={form.hotel_id} onChange={(e) => setForm({ ...form, hotel_id: e.target.value, room_type_id: "" })} required>

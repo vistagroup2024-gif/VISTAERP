@@ -23,7 +23,7 @@ export default async function BrnDetail({ params }: { params: { id: string } }) 
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{b.hotel_name}</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">{b.hotel_name}</h1>
           <p className="text-slate-500">
             <span className="font-mono">{b.brn}</span>
             {b.city ? ` · ${b.city}` : ""} · {dateStr(b.check_in)} → {dateStr(b.check_out)} · {b.beds} beds

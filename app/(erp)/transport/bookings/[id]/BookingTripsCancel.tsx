@@ -45,7 +45,7 @@ export default function BookingTripsCancel({ bookingId, trips, isPackage }: { bo
     <div className="card mt-4">
       <h2 className="font-semibold text-slate-700">Trips</h2>
       <p className="mt-1 text-xs text-slate-500">Cancel an individual trip without cancelling the whole booking.</p>
-      {err && <div className="mt-2 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="mt-2 rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">

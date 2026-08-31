@@ -162,10 +162,10 @@ export default function NewBookingPage() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="mb-1 text-2xl font-bold">New Sales Order</h1>
+      <h1 className="mb-1 text-xl font-bold tracking-tight text-slate-900">New Sales Order</h1>
       <p className="mb-6 text-sm text-slate-500">Sell anything from a single visa to a full package. Prices auto-fill from the customer's rate or the list price.</p>
       <form onSubmit={save} className="space-y-6">
-        {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
         <div className="card grid grid-cols-2 gap-4">
           <div className="col-span-2">

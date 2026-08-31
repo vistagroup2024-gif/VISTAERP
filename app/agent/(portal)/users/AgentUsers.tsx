@@ -80,7 +80,7 @@ export default function AgentUsers({ users, grantable }: { users: User[]; granta
 
       <form onSubmit={submit} className="card space-y-3">
         <h2 className="font-semibold text-slate-800">{editId ? "Edit User" : "Add Staff User"}</h2>
-        {err && <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
+        {err && <p className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</p>}
         {msg && <p className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</p>}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div><label className="label">Full name *</label><input className="input" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required /></div>

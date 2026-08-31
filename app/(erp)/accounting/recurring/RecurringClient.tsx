@@ -61,7 +61,7 @@ export default function RecurringClient({ schedules, accounts }: { schedules: Sc
 
   return (
     <div className="space-y-4">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       {msg && <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
 
       <div className="card flex items-center gap-3">

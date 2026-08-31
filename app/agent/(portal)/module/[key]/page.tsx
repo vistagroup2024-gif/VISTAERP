@@ -27,7 +27,7 @@ export default async function AgentModulePage({ params }: { params: { key: strin
 
   return (
     <div className="space-y-3">
-      <h1 className="text-2xl font-bold text-slate-800">{moduleName}</h1>
+      <h1 className="text-xl font-bold tracking-tight text-slate-900">{moduleName}</h1>
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <p className="text-slate-600">The <b>{moduleName}</b> module is enabled for your account.</p>
         <p className="mt-1 text-sm text-slate-400">Booking features for this module are coming soon.</p>

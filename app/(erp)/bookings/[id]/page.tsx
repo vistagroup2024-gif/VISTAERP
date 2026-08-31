@@ -27,7 +27,7 @@ export default async function BookingDetail({ params }: { params: { id: string }
     <div className="max-w-3xl space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{c.booking_no}</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">{c.booking_no}</h1>
           <p className="text-slate-500">
             {c.parties?.name} · {c.packages?.name ?? "Ad-hoc"} · {dateStr(c.travel_date)}
           </p>

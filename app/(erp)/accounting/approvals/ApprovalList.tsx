@@ -33,7 +33,7 @@ export default function ApprovalList({ items, canAuthorize }: { items: PV[]; can
 
   return (
     <div className="space-y-3">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       {items.map((v) => (
         <div key={v.id} className="card p-0">
           <div className="flex flex-wrap items-center gap-3 p-3">

@@ -36,7 +36,7 @@ export default function PurchaseOrdersTable({ rows, canManage }: { rows: PORow[]
 
   return (
     <div className="space-y-4">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       <div className="flex flex-wrap items-center gap-2">
         <input className="input max-w-xs" placeholder="Search PO / supplier…" value={q} onChange={(e) => setQ(e.target.value)} />
         <MultiSelectFilter label="Status" options={Object.keys(PO_STATUS_LABEL).map((k) => ({ value: k, label: PO_STATUS_LABEL[k] }))} selected={status} onChange={setStatus} />

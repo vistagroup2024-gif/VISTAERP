@@ -50,7 +50,7 @@ export default async function AgentGroups() {
     <div className="space-y-4">
       <RealtimeRefresh tables={["umrah_groups"]} pollMs={15000} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">My Visa Groups</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">My Visa Groups</h1>
         <div className="flex items-center gap-2">
           {can(agent, "visa.recommend") && <CompanyInquiryButton endpoint="/api/agent/recommendation" agentView />}
           {can(agent, "visa.create") && <Link href="/agent/groups/new" className="btn text-sm">+ New Visa Group</Link>}

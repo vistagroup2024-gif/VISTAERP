@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function PortalBook() {
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-8">
-      <h1 className="text-2xl font-bold text-brand-dark">Create a booking request</h1>
+      <h1 className="text-xl font-bold tracking-tight text-slate-900">Create a booking request</h1>
       <div className="card text-sm text-slate-600">
         <p>
           Self-service agent booking is part of the B2B portal roadmap. For now,

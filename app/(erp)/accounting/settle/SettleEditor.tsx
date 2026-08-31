@@ -67,10 +67,10 @@ export default function SettleEditor({ partyAccounts, cashBank }: { partyAccount
   return (
     <div className="max-w-2xl space-y-4">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold">{kind === "customer" ? "Receive from Customer" : "Pay Supplier"}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">{kind === "customer" ? "Receive from Customer" : "Pay Supplier"}</h1>
         {done && <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">{done}</span>}
       </div>
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <div className="flex gap-2">
         {(["customer", "supplier"] as const).map((k) => (

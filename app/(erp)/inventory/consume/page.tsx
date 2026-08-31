@@ -15,7 +15,7 @@ export default async function ConsumePage({ searchParams }: { searchParams: { br
 
   return (
     <div className="max-w-lg">
-      <h1 className="mb-1 text-2xl font-bold">Consume Inventory</h1>
+      <h1 className="mb-1 text-xl font-bold tracking-tight text-slate-900">Consume Inventory</h1>
       <p className="mb-6 text-sm text-slate-500">
         Assign beds from a BRN to a Nusuk Masar package. Availability is checked for every night — overbooking is blocked.
       </p>

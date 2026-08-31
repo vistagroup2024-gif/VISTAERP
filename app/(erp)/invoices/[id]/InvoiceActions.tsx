@@ -70,7 +70,7 @@ export default function InvoiceActions({
   return (
     <div className="card space-y-4">
       <h2 className="font-semibold">Accounting actions</h2>
-      {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
       {msg && <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
 
       <div className="flex flex-wrap items-center gap-3">

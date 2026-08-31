@@ -22,7 +22,7 @@ export default async function EditUserPage({ params }: { params: { id: string } 
 
   return (
     <div className="max-w-3xl">
-      <h1 className="mb-1 text-2xl font-bold">{p.full_name ?? "User"}</h1>
+      <h1 className="mb-1 text-xl font-bold tracking-tight text-slate-900">{p.full_name ?? "User"}</h1>
       <p className="mb-6 text-sm text-slate-500">
         Login ID: <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-slate-700">{p.username}</span>
       </p>

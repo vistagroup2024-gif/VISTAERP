@@ -43,7 +43,7 @@ export default function PdcClient({ list, partyAccounts, banks }: { list: Pdc[];
 
   return (
     <div className="space-y-4">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       <form onSubmit={create} className="card grid grid-cols-2 gap-3 md:grid-cols-4">
         <div><label className="label">Direction</label>
           <select className="input" value={f.direction} onChange={(e) => setF({ ...f, direction: e.target.value, party: "" })}>

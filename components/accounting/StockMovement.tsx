@@ -69,7 +69,7 @@ export default function StockMovement({ counterAccounts }: { counterAccounts: Pi
             className={`rounded-full px-3 py-1 text-sm capitalize ${type === t ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>{t}</button>
         ))}
       </div>
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       {done && <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">Posted {done}</div>}
 
       <div className="card grid grid-cols-2 gap-4">

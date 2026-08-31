@@ -23,7 +23,7 @@ export default async function AgentUsersPage() {
   return (
     <div className="max-w-4xl space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Users</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">Users</h1>
         <p className="text-sm text-slate-500">Create staff logins for {agent.agency_name}. You can only grant access you have yourself.</p>
       </div>
       <AgentUsers users={(data as any[]) ?? []} grantable={grantable} />

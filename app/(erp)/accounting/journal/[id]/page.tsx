@@ -24,7 +24,7 @@ export default async function JournalDetail({ params }: { params: { id: string }
   return (
     <div className="max-w-2xl space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">{e.entry_no}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">{e.entry_no}</h1>
         <p className="text-slate-500">{dateStr(e.entry_date)} · {e.memo}</p>
         <span className="badge mt-1 bg-green-100 capitalize text-green-700">{e.status}</span>
       </div>

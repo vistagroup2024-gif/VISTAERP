@@ -32,7 +32,7 @@ export default async function AgentTransportSchedule({ searchParams }: { searchP
     <div className="max-w-4xl space-y-5">
       <RealtimeRefresh tables={["transport_trips", "transport_bookings"]} pollMs={30000} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">Transport Schedule</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">Transport Schedule</h1>
         <Link href="/agent/module/transport" className="btn-outline text-sm">All Bookings</Link>
       </div>
 

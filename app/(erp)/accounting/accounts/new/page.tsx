@@ -52,9 +52,9 @@ export default function NewAccountPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="mb-6 text-2xl font-bold">New Account</h1>
+      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Account</h1>
       <form onSubmit={save} className="card space-y-4">
-        {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
         <div>
           <label className="label">Parent group</label>

@@ -57,7 +57,7 @@ export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
 
   return (
     <div className="space-y-4">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         <Stat label="This Month" value={sar(totals.thisMonth)} />
@@ -129,7 +129,7 @@ function PayModal({ charge, onClose, onDone }: { charge: { id: string; vehicle: 
       <div className="w-full max-w-sm rounded-lg bg-white p-5" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold">Service Charge Payment</h3>
         <p className="mb-3 text-xs text-slate-500">{charge.vehicle} · {monthLabel(charge.month)} · remaining {sar(charge.remaining)}</p>
-        {err && <div className="mb-2 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+        {err && <div className="mb-2 rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
         <div className="space-y-3">
           <div><label className="label">Amount (SAR)</label><input type="number" step="0.01" className="input" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
           <div className="grid grid-cols-2 gap-3">

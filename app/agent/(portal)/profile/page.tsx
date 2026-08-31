@@ -14,7 +14,7 @@ export default async function AgentProfile() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-800">My Profile</h1>
+      <h1 className="text-xl font-bold tracking-tight text-slate-900">My Profile</h1>
       <div className="grid grid-cols-2 gap-4 rounded-xl bg-white p-5 shadow-sm md:grid-cols-3">
         <Row label="Agency" value={agent.agency_name} />
         <Row label="Email" value={agent.email} />

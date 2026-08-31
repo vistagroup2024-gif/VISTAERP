@@ -65,14 +65,14 @@ export default function BrnEditForm({
 
   return (
     <div className="max-w-lg">
-      <h1 className="mb-1 text-2xl font-bold">Edit BRN</h1>
+      <h1 className="mb-1 text-xl font-bold tracking-tight text-slate-900">Edit BRN</h1>
       {locked && (
         <div className="mb-4 rounded bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
           This BRN has consumed inventory. Dates, beds, and city can only be changed by a Super Admin.
         </div>
       )}
       <form onSubmit={save} className="card space-y-4">
-        {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <label className="label">Company</label>

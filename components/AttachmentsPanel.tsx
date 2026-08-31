@@ -117,7 +117,7 @@ export default function AttachmentsPanel({
           <div className="text-xs text-slate-400">PDF, JPG, PNG or DOCX · up to 6 MB each</div>
         </div>
       )}
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       {files.length === 0 ? (
         <p className="text-sm text-slate-400">No attachments yet.</p>
       ) : (

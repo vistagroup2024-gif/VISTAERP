@@ -47,7 +47,7 @@ export default function CustomerRatesManager({
     <div className="card">
       <h2 className="mb-3 font-semibold">Per-customer rates</h2>
       <p className="mb-3 text-sm text-slate-500">Negotiated prices override the list price for that customer on new orders.</p>
-      {error && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+      {error && <div className="mb-3 rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
       <ul className="mb-4 divide-y divide-slate-100">
         {rows.map((r) => (
           <li key={r.id} className="flex items-center justify-between py-2 text-sm">

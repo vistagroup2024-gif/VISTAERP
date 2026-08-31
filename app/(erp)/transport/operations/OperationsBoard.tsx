@@ -560,7 +560,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
           }}
           disabled={busy} className="btn-outline text-sm text-red-600">↺ Reset Assignments</button>}
       </div>
-      {err && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded-md border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       {/* Long-reposition approvals raised by auto-assign (>100km empty move) */}
       {canAssign && repositions.length > 0 && (

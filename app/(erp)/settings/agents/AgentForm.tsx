@@ -113,8 +113,8 @@ export default function AgentForm({
 
   return (
     <form onSubmit={save} className="max-w-3xl space-y-5">
-      <h1 className="text-2xl font-bold">{isEdit ? "Edit B2B Agent" : "New B2B Agent"}</h1>
-      {error && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+      <h1 className="text-xl font-bold tracking-tight text-slate-900">{isEdit ? "Edit B2B Agent" : "New B2B Agent"}</h1>
+      {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
       <div className="card grid grid-cols-2 gap-4 md:grid-cols-3">
         <div className="col-span-2">

@@ -34,7 +34,7 @@ export default async function AgentDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Welcome, {agent.agency_name}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">Welcome, {agent.agency_name}</h1>
         <p className="text-sm text-slate-500">Your visa operations at a glance.</p>
       </div>
 

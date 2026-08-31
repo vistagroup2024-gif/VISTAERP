@@ -22,11 +22,11 @@ function NavLink({ href, label, icon, exact, onClick }: Item & { onClick?: () =>
   return (
     <Link href={href} onClick={onClick}
       className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
-        active ? "bg-brand-50 font-semibold text-brand-700" : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+        active ? "bg-brand-50 font-semibold text-brand-700 shadow-[inset_3px_0_0_#e63c13]" : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
       }`}>
       {icon
         ? <Icon name={icon} size={18} className={active ? "text-brand-600" : "text-slate-400"} />
-        : <span className={`ml-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${active ? "bg-brand-600" : "bg-slate-300"}`} />}
+        : <span className={`ml-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${active ? "bg-brand-orange" : "bg-slate-300"}`} />}
       <span className="truncate">{label}</span>
     </Link>
   );

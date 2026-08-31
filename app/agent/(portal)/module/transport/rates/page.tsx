@@ -45,7 +45,7 @@ export default async function AgentRatesPage() {
   return (
     <div className="max-w-5xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">Transport Rates</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">Transport Rates</h1>
         <Link href="/agent/module/transport" className="btn-outline text-sm">Back</Link>
       </div>
       <p className="text-sm text-slate-500">Your active rates by vehicle.</p>

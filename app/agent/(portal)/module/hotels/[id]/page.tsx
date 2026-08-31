@@ -24,7 +24,7 @@ export default async function AgentHotelView({ params }: { params: { id: string 
   return (
     <div className="max-w-2xl">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">{v.booking_no}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">{v.booking_no}</h1>
         <span className={`rounded-full px-3 py-1 text-sm font-medium ${COLOR[v.status] ?? "bg-slate-200"}`}>{v.status}</span>
       </div>
       <div className="card">

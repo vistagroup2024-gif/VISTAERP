@@ -53,7 +53,7 @@ export default function ContractsTable({ rows, canManage }: { rows: ContractRow[
 
   return (
     <div className="space-y-4">
-      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Active" value={totals.active} tone="text-blue-700" />
