@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import AppHeader from "@/components/AppHeader";
 import { getSessionUser, getStaffAccess } from "@/lib/staffSession";
 
 export default async function ErpLayout({
@@ -18,7 +19,13 @@ export default async function ErpLayout({
         name={access.fullName || user.email || "User"}
         access={{ unrestricted: access.unrestricted, permissions: access.permissions }}
       />
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-8">{children}</main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AppHeader
+          name={access.fullName || user.email || "User"}
+          access={{ unrestricted: access.unrestricted, permissions: access.permissions }}
+        />
+        <main className="min-w-0 flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-6">{children}</main>
+      </div>
     </div>
   );
 }
