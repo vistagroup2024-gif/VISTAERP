@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import Icon from "@/components/ui/Icon";
-import { searchIndex, type StaffNavAccess } from "@/lib/nav";
+import { QUICK_MENU, navAllows, searchIndex, type StaffNavAccess } from "@/lib/nav";
 
-// Slim desktop utility bar: working global navigation search + user menu.
-// Notifications stay in the sidebar header (not duplicated here). Hidden on
-// mobile, which has its own top bar from the Sidebar.
+// Slim desktop utility bar. The left of the bar is the quick menu — the vouchers
+// and the ledger are opened many times a day, so they sit one click away instead
+// of three clicks deep in the Accounting group. Search moved over to the right,
+// next to the user menu. Notifications stay in the sidebar header (not duplicated
+// here). Hidden on mobile, which has its own top bar from the Sidebar.
 export default function AppHeader({ name, access }: { name: string; access?: StaffNavAccess }) {
   const router = useRouter();
   const supabase = createClient();
@@ -19,6 +21,7 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
   const [openList, setOpenList] = useState(false);
   const [active, setActive] = useState(0);
   const [menu, setMenu] = useState(false);
+  const [quick, setQuick] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +48,7 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
   // Close popovers on outside click.
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) { setOpenList(false); setMenu(false); }
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) { setOpenList(false); setMenu(false); setQuick(null); }
     }
     window.addEventListener("mousedown", onClick);
     return () => window.removeEventListener("mousedown", onClick);
@@ -69,9 +72,44 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
   const initials = (name || "U").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
   return (
-    <header className="app-header no-print sticky top-0 z-20 hidden h-14 items-center gap-4 border-b border-slate-200 bg-white/95 px-6 backdrop-blur lg:flex">
-      {/* Global search */}
-      <div ref={wrapRef} className="relative w-full max-w-md">
+    <header ref={wrapRef} className="app-header no-print sticky top-0 z-20 hidden h-14 items-center gap-4 border-b border-slate-200 bg-white/95 px-6 backdrop-blur lg:flex">
+      {/* Quick menu — daily-use vouchers and the ledger */}
+      <nav className="flex items-center gap-1">
+        {QUICK_MENU.filter((m) => navAllows(access, m.perm)).map((m) =>
+          m.items ? (
+            <div key={m.label} className="relative">
+              <button
+                onClick={() => setQuick((c) => (c === m.label ? null : m.label))}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${quick === m.label ? "bg-brand-50 text-brand" : "text-slate-600 hover:bg-slate-100"}`}
+              >
+                <Icon name={m.icon} size={16} className="text-slate-400" />
+                {m.label}
+                <Icon name="chevronDown" size={13} className="text-slate-400" />
+              </button>
+              {quick === m.label && (
+                <div className="absolute left-0 top-full mt-1.5 w-48 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-pop">
+                  {m.items.map((it) => (
+                    <Link key={it.href} href={it.href} onClick={() => setQuick(null)}
+                      className="block px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-brand">
+                      {it.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link key={m.label} href={m.href!} onClick={() => setQuick(null)}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100">
+              <Icon name={m.icon} size={16} className="text-slate-400" />
+              {m.label}
+            </Link>
+          )
+        )}
+      </nav>
+
+      <div className="ml-auto flex items-center gap-2">
+      {/* Global search — now sits right before the user menu */}
+      <div className="relative w-72">
         <div className="relative">
           <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
             <Icon name="search" size={16} />
@@ -104,7 +142,6 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
         )}
       </div>
 
-      <div className="ml-auto flex items-center gap-2">
         {/* User menu */}
         <div className="relative">
           <button onClick={() => setMenu((m) => !m)}

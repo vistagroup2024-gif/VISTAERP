@@ -115,7 +115,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/vat", label: "VAT Return" },
     { href: "/accounting/assets", label: "Fixed Assets" },
     { href: "/accounting/close", label: "Year-End Close" },
-    { href: "/accounting/rules", label: "Approval Rules" },
+    { href: "/accounting/rules", label: "Voucher Authorisation" },
     { href: "/accounting/audit", label: "Audit Trail" },
   ] },
   { label: "Store", icon: "store", perm: ["accounting.view"], items: [
@@ -141,6 +141,23 @@ export const GROUPS: NavGroup[] = [
 ];
 
 // Flattened, permission-filtered index for global search.
+// Quick-access bar in the header: the vouchers and the ledger are opened many
+// times a day, so they get a permanent spot instead of living three clicks deep
+// in the Accounting group.
+export const QUICK_MENU: { label: string; icon: IconName; perm?: string[]; href?: string; items?: NavItem[] }[] = [
+  { label: "Vouchers", icon: "accounting", perm: ["accounting.view"], items: [
+    { href: "/accounting/receipts", label: "Receipt" },
+    { href: "/accounting/payments", label: "Payment" },
+    { href: "/accounting/journal/new", label: "Journal Entry" },
+  ] },
+  { label: "Ledger", icon: "accounting", perm: ["accounting.view"], href: "/accounting/ledger" },
+];
+
+/** Same permission test the sidebar and search use. */
+export function navAllows(access: StaffNavAccess | undefined, perm?: string[]) {
+  return !perm || !access || access.unrestricted || perm.some((k) => access.permissions[k]);
+}
+
 export function searchIndex(access?: StaffNavAccess): { label: string; href: string; group: string; icon: IconName }[] {
   const out: { label: string; href: string; group: string; icon: IconName }[] = [];
   const allow = (perm?: string[]) => !perm || !access || access.unrestricted || perm.some((k) => access.permissions[k]);
