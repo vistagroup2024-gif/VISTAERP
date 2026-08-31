@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { isCarCostCenter, type HeaderExtra, type LineExtra, type TradeDocCfg } from "@/lib/tradeDocs";
+import { TRADE_DOCS, isCarCostCenter, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
 
 type Row = {
   product_id: string | null; item_name: string; units: string; quantity: string; rate: string; amount: string;
@@ -14,7 +14,11 @@ const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDig
 const num = (s: string) => (s?.trim?.() === "" || s == null ? 0 : Number(s) || 0);
 const r2 = (n: number) => String(+n.toFixed(2));
 
-export default function TradeVoucher({ cfg }: { cfg: TradeDocCfg }) {
+// Takes the doc-type key rather than the config object: the config carries the
+// derived-value functions for the car costing block, and functions cannot cross
+// the server -> client component boundary. The client resolves it locally.
+export default function TradeVoucher({ type }: { type: string }) {
+  const cfg = TRADE_DOCS[type];
   const router = useRouter();
   const supabase = createClient();
 
