@@ -109,9 +109,19 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
   const depTrip = (trips ?? []).find((t: any) => airportRe.test(t.drop_location ?? "") || routeEnds(t.route_name ?? t.route_label).to);
   const arrivalFlight = arrTrip ? (b.arrival_flight || arrTrip.flight_no || null) : null;
   const departureFlight = depTrip ? (b.departure_flight || depTrip.flight_no || null) : null;
-  // Keep the real discount so it shows as its own line in the totals; the subtotal
-  // is derived from the sum of the (undiscounted) per-trip fares.
-  const docBooking = { ...b, arrival_flight: arrivalFlight, departure_flight: departureFlight, sell_amount: null };
+  // Hajj-terminal charge: prefer the header value, but fall back to the sum of the
+  // trips' own extra_charge (the value Operations shows) so a stale/missing header
+  // never drops it from the voucher. Recompute the grand total from the
+  // authoritative sell_amount (package price + extra-trip fares) so packages —
+  // whose per-trip fares are 0 — still total correctly:
+  //   total = sell_amount − discount + Hajj + surcharge.
+  const hajjFromTrips = (trips ?? []).reduce((s: number, t: any) => s + (t.hajj_terminal ? Number(t.extra_charge) || 0 : 0), 0);
+  const hajj = Math.max(Math.max(0, Number(b.additional_charges) || 0), hajjFromTrips);
+  const vDiscount = Math.max(0, Number(b.discount) || 0);
+  const vSell = Number(b.sell_amount) || 0;
+  const vTotal = vSell - vDiscount + hajj + vSurcharge;
+  const docBooking = { ...b, arrival_flight: arrivalFlight, departure_flight: departureFlight,
+    sell_amount: null, additional_charges: hajj, total_amount: vTotal };
 
   return (
     <div className="mx-auto max-w-3xl">
