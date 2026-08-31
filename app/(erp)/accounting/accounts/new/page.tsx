@@ -18,7 +18,7 @@ export default function NewAccountPage() {
   const [groups, setGroups] = useState<Grp[]>([]);
   const [form, setForm] = useState({
     parent: sp.get("parent") ?? "",
-    name: "", name_ar: "", is_group: false, subtype: "",
+    name: "", name_ar: "", is_group: sp.get("group") === "1", subtype: "",
     nature: "expense", currency: "SAR", opening: "", opening_dr: true, code: "",
   });
   const [error, setError] = useState<string | null>(null);
