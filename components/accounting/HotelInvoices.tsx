@@ -12,10 +12,15 @@ const y = new Date().getFullYear();
 // Hotel invoices = vendor-confirmed purchase bookings posted to the GL per stay
 // (Dr Agent / Cr Hotel Sales = sale; Dr Hotel Cost / Cr Supplier = purchase).
 // Auto-posts on vendor confirmation; this screen also posts older ones on demand.
+//
+// The list is filtered on CHECK-IN, and a hotel is confirmed well before the
+// guest arrives — so the window has to run forward, not stop at today the way a
+// report of completed work does. Ending it today hid every upcoming stay, which
+// is exactly the set this screen exists to act on.
 export default function HotelInvoices() {
   const supabase = createClient();
   const [from, setFrom] = useState(`${y}-01-01`);
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState(`${y + 1}-12-31`);
   const [onlyUnposted, setOnlyUnposted] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -41,8 +46,8 @@ export default function HotelInvoices() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
-        <div><label className="label">From</label><input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-        <div><label className="label">To</label><input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+        <div><label className="label">Check-in from</label><input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+        <div><label className="label">Check-in to</label><input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} /></div>
         <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={onlyUnposted} onChange={(e) => setOnlyUnposted(e.target.checked)} /> Only un-posted</label>
       </div>
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
