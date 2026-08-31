@@ -105,6 +105,7 @@ const GROUPS: Group[] = [
     { href: "/accounting/invoices", label: "Invoice / Bill" },
     { href: "/accounting/visa-invoices", label: "Visa Invoices" },
     { href: "/accounting/transport-invoices", label: "Transport Invoices" },
+    { href: "/accounting/hotel-invoices", label: "Hotel Invoices" },
     { href: "/accounting/pdc", label: "PDC Register" },
     { href: "/accounting/approvals", label: "Approval Inbox" },
     { href: "/accounting/aging", label: "Aging (AR/AP)" },
