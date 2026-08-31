@@ -11,14 +11,18 @@ import { GROUPS, DASHBOARD, type NavItem as Item, type NavGroup as Group, type S
 
 export type { StaffNavAccess };
 
-function isActive(path: string, href: string, exact?: boolean) {
-  if (exact) return path === href;
-  return path === href || path.startsWith(href + "/");
+// How well `href` matches the current path: exact hit or a "/"-boundary prefix
+// hit returns the href length (longer = more specific); no match returns -1.
+// The sidebar picks the single longest match so a parent route (e.g. /transport)
+// never highlights alongside its child (/transport/operations).
+function matchLen(path: string, href: string, exact?: boolean) {
+  if (path === href) return href.length;
+  if (!exact && path.startsWith(href + "/")) return href.length;
+  return -1;
 }
 
-function NavLink({ href, label, icon, exact, onClick }: Item & { onClick?: () => void }) {
-  const path = usePathname();
-  const active = isActive(path, href, exact);
+function NavLink({ href, label, icon, activeHref, onClick }: Item & { activeHref: string | null; onClick?: () => void }) {
+  const active = activeHref === href;
   return (
     <Link href={href} onClick={onClick}
       className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
@@ -35,9 +39,8 @@ function NavLink({ href, label, icon, exact, onClick }: Item & { onClick?: () =>
 // Accordion group: `open` and `onToggle` are controlled by the sidebar so only
 // one group is expanded at a time. `hasActive` (a child on the current route)
 // drives the parent highlight.
-function CollapsibleGroup({ group, open, onToggle, onClose }: { group: Group; open: boolean; onToggle: () => void; onClose?: () => void }) {
-  const path = usePathname();
-  const hasActive = group.items.some((i) => isActive(path, i.href, i.exact));
+function CollapsibleGroup({ group, open, onToggle, onClose, activeHref }: { group: Group; open: boolean; onToggle: () => void; onClose?: () => void; activeHref: string | null }) {
+  const hasActive = group.items.some((i) => i.href === activeHref);
 
   return (
     <div>
@@ -52,7 +55,7 @@ function CollapsibleGroup({ group, open, onToggle, onClose }: { group: Group; op
       </button>
       {open && (
         <div className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2">
-          {group.items.map((i) => <NavLink key={i.href} {...i} onClick={onClose} />)}
+          {group.items.map((i) => <NavLink key={i.href} {...i} activeHref={activeHref} onClick={onClose} />)}
         </div>
       )}
     </div>
@@ -72,9 +75,16 @@ function SidebarContent({ name, access, onClose, onCollapse }: { name: string; a
   const supabase = createClient();
   const path = usePathname();
   const groups = visibleGroups(access);
-  // Accordion: only one group open at a time. Initialise to whichever group owns
-  // the current route, and re-open that group when navigating into another one.
-  const activeLabel = groups.find((g) => g.items.some((i) => isActive(path, i.href, i.exact)))?.label ?? null;
+  // Resolve exactly ONE active link: the longest matching href across every nav
+  // item, so a parent route never lights up together with its child.
+  const allItems = [DASHBOARD, ...groups.flatMap((g) => g.items)];
+  let activeHref: string | null = null; let best = -1;
+  for (const it of allItems) {
+    const l = matchLen(path, it.href, it.exact);
+    if (l > best) { best = l; activeHref = it.href; }
+  }
+  // Accordion: open the group that owns the active link; re-open on navigation.
+  const activeLabel = groups.find((g) => g.items.some((i) => i.href === activeHref))?.label ?? null;
   const [openGroup, setOpenGroup] = useState<string | null>(activeLabel);
   useEffect(() => { if (activeLabel) setOpenGroup(activeLabel); }, [activeLabel]);
 
@@ -114,10 +124,10 @@ function SidebarContent({ name, access, onClose, onCollapse }: { name: string; a
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
         {(!access || access.unrestricted || access.permissions["dashboard.view"]) && (
-          <NavLink {...DASHBOARD} onClick={onClose} />
+          <NavLink {...DASHBOARD} activeHref={activeHref} onClick={onClose} />
         )}
         {groups.map((g) => (
-          <CollapsibleGroup key={g.label} group={g} onClose={onClose}
+          <CollapsibleGroup key={g.label} group={g} onClose={onClose} activeHref={activeHref}
             open={openGroup === g.label}
             onToggle={() => setOpenGroup((o) => (o === g.label ? null : g.label))} />
         ))}
