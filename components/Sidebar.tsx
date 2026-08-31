@@ -32,34 +32,16 @@ function NavLink({ href, label, icon, exact, onClick }: Item & { onClick?: () =>
   );
 }
 
-function CollapsibleGroup({ group, onClose }: { group: Group; onClose?: () => void }) {
+// Accordion group: `open` and `onToggle` are controlled by the sidebar so only
+// one group is expanded at a time. `hasActive` (a child on the current route)
+// drives the parent highlight.
+function CollapsibleGroup({ group, open, onToggle, onClose }: { group: Group; open: boolean; onToggle: () => void; onClose?: () => void }) {
   const path = usePathname();
-  // A child on the current route decides both the initial expand and the parent
-  // highlight. `hasActive` is deterministic on server + client (usePathname),
-  // so there is no hydration mismatch; sessionStorage is applied after mount.
   const hasActive = group.items.some((i) => isActive(path, i.href, i.exact));
-  const [open, setOpen] = useState(hasActive);
-
-  useEffect(() => {
-    const stored = sessionStorage.getItem("nav:" + group.label);
-    if (stored !== null) setOpen(stored === "1");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Auto-expand when navigating into this group.
-  useEffect(() => { if (hasActive) setOpen(true); }, [hasActive]);
-
-  function toggle() {
-    setOpen((o) => {
-      const n = !o;
-      try { sessionStorage.setItem("nav:" + group.label, n ? "1" : "0"); } catch {}
-      return n;
-    });
-  }
 
   return (
     <div>
-      <button onClick={toggle}
+      <button onClick={onToggle}
         className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
           hasActive ? "text-brand-700" : "text-slate-700 hover:bg-slate-100"
         }`}>
@@ -88,6 +70,13 @@ function visibleGroups(access?: StaffNavAccess) {
 function SidebarContent({ name, access, onClose, onCollapse }: { name: string; access?: StaffNavAccess; onClose?: () => void; onCollapse?: () => void }) {
   const router = useRouter();
   const supabase = createClient();
+  const path = usePathname();
+  const groups = visibleGroups(access);
+  // Accordion: only one group open at a time. Initialise to whichever group owns
+  // the current route, and re-open that group when navigating into another one.
+  const activeLabel = groups.find((g) => g.items.some((i) => isActive(path, i.href, i.exact)))?.label ?? null;
+  const [openGroup, setOpenGroup] = useState<string | null>(activeLabel);
+  useEffect(() => { if (activeLabel) setOpenGroup(activeLabel); }, [activeLabel]);
 
   async function signOut() {
     // Local scope: end only THIS device's session, leaving the user's other
@@ -127,7 +116,11 @@ function SidebarContent({ name, access, onClose, onCollapse }: { name: string; a
         {(!access || access.unrestricted || access.permissions["dashboard.view"]) && (
           <NavLink {...DASHBOARD} onClick={onClose} />
         )}
-        {visibleGroups(access).map((g) => <CollapsibleGroup key={g.label} group={g} onClose={onClose} />)}
+        {groups.map((g) => (
+          <CollapsibleGroup key={g.label} group={g} onClose={onClose}
+            open={openGroup === g.label}
+            onToggle={() => setOpenGroup((o) => (o === g.label ? null : g.label))} />
+        ))}
       </nav>
       <div className="border-t border-slate-200 p-3">
         <button onClick={signOut}

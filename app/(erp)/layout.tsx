@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import AppHeader from "@/components/AppHeader";
+import SplashScreen from "@/components/SplashScreen";
 import { getSessionUser, getStaffAccess } from "@/lib/staffSession";
 
 export default async function ErpLayout({
@@ -15,6 +16,7 @@ export default async function ErpLayout({
 
   return (
     <div className="flex min-h-screen">
+      <SplashScreen />
       <Sidebar
         name={access.fullName || user.email || "User"}
         access={{ unrestricted: access.unrestricted, permissions: access.permissions }}

@@ -1,11 +1,11 @@
 {
-  "name": "Vista ERP",
+  "name": "VISTA GROUP ERP",
   "short_name": "Vista ERP",
   "description": "Vista Group — Umrah Services & Trading ERP",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#1a6b5a",
+  "theme_color": "#0b6a58",
   "orientation": "portrait-primary",
   "icons": [
     {
