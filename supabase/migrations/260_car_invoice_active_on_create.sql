@@ -76,7 +76,7 @@ begin
     current_customer_id = (p_header->>'customer_id')::uuid, contract_id = v_id,
     status = case when v_new then (case when status in ('in_stock','reserved') then 'sold' else status end)
                   when status = 'in_stock' then 'reserved' else status end,
-    ownership = case when v_new then (case when v_keep then 'vista' else 'transferred' end) else ownership end
+    ownership = case when v_new then (case when v_keep then 'vista' else 'transferred' end)::car_ownership_status else ownership end
   where id = v_vehicle and company_id = v_company;
 
   if v_new then
