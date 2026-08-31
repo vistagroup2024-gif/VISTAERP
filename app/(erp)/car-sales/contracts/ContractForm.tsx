@@ -34,6 +34,9 @@ export default function ContractForm({ existing, installments = [], customers, v
     reference_name: existing?.reference_name ?? "",
     salesperson: existing?.salesperson ?? "",
     notes: existing?.notes ?? "",
+    // Keep the vehicle registered in Vista's name → monthly service charges apply.
+    // Uncheck for a cash/trading sale handed over in the customer's name.
+    keep_vista: (existing as any)?.keep_vista ?? true,
   });
   const [rows, setRows] = useState<Inst[]>(installments.length
     ? installments.map((i) => ({ due_date: i.due_date ?? "", amount: String(i.amount ?? ""), notes: i.notes ?? "", paid: Number(i.paid_amount || 0) }))
@@ -100,6 +103,12 @@ export default function ContractForm({ existing, installments = [], customers, v
         <FormSection title="Financials" cols={3}>
           <Field label="Installment Sale Price (SAR)" required><input type="number" step="0.01" className="input" value={h.sale_price} onChange={(e) => setH({ ...h, sale_price: e.target.value })} /></Field>
           <Field label="Advance (SAR)"><input type="number" step="0.01" className="input" value={h.advance} onChange={(e) => setH({ ...h, advance: e.target.value })} /></Field>
+          <Field label="Registration" full>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={h.keep_vista} onChange={(e) => setH({ ...h, keep_vista: e.target.checked })} />
+              Keep registered in Vista's name — monthly service charges apply until transferred
+            </label>
+          </Field>
           <Field label="Installment Balance (auto)"><input className="input bg-slate-50" value={remaining.toFixed(2)} readOnly tabIndex={-1} /></Field>
           <div className="flex items-end">
             <span className={`text-sm ${diff === 0 ? "text-emerald-700" : "text-red-600"}`}>

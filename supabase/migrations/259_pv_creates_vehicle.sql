@@ -3,10 +3,12 @@
 -- vehicle in Car Sales stock (details are completed on the stock record):
 --   'CAR SALES INSTALLMENT' -> vehicle retained in Vista's name, sold on
 --        installment; gets monthly service charges while in our name.
---   'CAR TRADING'           -> a trading vehicle (is_trading); NO monthly
---        service charges.
--- Also excludes trading vehicles from monthly-charge generation (cron + the
--- on-contract trigger from 258).
+--   'CAR TRADING'           -> a trading vehicle (is_trading). Monthly charges
+--        still apply while it is kept in Vista's name (ownership='vista').
+-- Monthly service charges apply to ANY vehicle kept in Vista's name
+-- (ownership = 'vista') — installment or trading alike — and stop when the
+-- vehicle is transferred. is_trading is a classification only; it does NOT
+-- gate charges.
 
 alter table car_vehicles add column if not exists is_trading boolean not null default false;
 alter table car_vehicles add column if not exists source_trade_doc uuid;
@@ -51,7 +53,7 @@ create trigger trg_car_pv_vehicle_autocreate after insert or update on trade_doc
 
 grant execute on function car_vehicle_from_trade_doc(uuid) to authenticated;
 
--- Exclude trading vehicles from monthly service-charge generation (company cron).
+-- Monthly service-charge generation for any Vista-name vehicle (company cron).
 create or replace function public.car_gen_charges_company(p_company uuid, p_asof date default current_date)
 returns int language plpgsql security definer set search_path to 'public' as $$
 declare m date; v_end date; n int := 0; v_rec record;
@@ -59,8 +61,7 @@ begin
   v_end := date_trunc('month', p_asof)::date;
   for v_rec in
     select id, purchase_date, coalesce(monthly_charge,1000) as amt, current_customer_id, contract_id
-    from car_vehicles where company_id = p_company and ownership = 'vista'
-      and not coalesce(is_trading, false) and purchase_date is not null
+    from car_vehicles where company_id = p_company and ownership = 'vista' and purchase_date is not null
   loop
     m := date_trunc('month', v_rec.purchase_date)::date;
     while m <= v_end loop
@@ -74,7 +75,7 @@ begin
   return n;
 end $$;
 
--- Same exclusion for the per-vehicle generator (from 258).
+-- Same gate for the per-vehicle generator (from 258): ownership = 'vista'.
 create or replace function car_gen_charges_vehicle(
   p_vehicle uuid, p_asof date default current_date,
   p_contract uuid default null, p_customer uuid default null)
@@ -82,7 +83,7 @@ returns int language plpgsql security definer set search_path = public as $$
 declare m date; v_end date; n int := 0; v car_vehicles%rowtype;
 begin
   select * into v from car_vehicles
-    where id = p_vehicle and ownership = 'vista' and not coalesce(is_trading, false) and purchase_date is not null;
+    where id = p_vehicle and ownership = 'vista' and purchase_date is not null;
   if not found then return 0; end if;
   v_end := date_trunc('month', p_asof)::date;
   m := date_trunc('month', v.purchase_date)::date;
