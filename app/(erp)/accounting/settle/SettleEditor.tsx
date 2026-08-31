@@ -88,7 +88,7 @@ export default function SettleEditor({ partyAccounts, cashBank }: { partyAccount
           <div className="col-span-2"><label className="label">{kind === "customer" ? "Customer account" : "Supplier account"}</label>
             <select className="input" value={party ?? ""} onChange={(e) => setParty(e.target.value || null)}>
               <option value="">— select —</option>
-              {options.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
+              {options.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select></div>
           <div><label className="label">Amount</label>
             <input className="input text-right tabular-nums" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" /></div>

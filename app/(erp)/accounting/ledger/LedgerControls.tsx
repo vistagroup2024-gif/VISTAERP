@@ -28,7 +28,7 @@ export default function LedgerControls({ accounts, account, from, to }: {
         <label className="label">Account</label>
         <select className="input" value={a} onChange={(e) => setA(e.target.value)}>
           <option value="">— select account —</option>
-          {accounts.map((o) => <option key={o.id} value={o.id}>{o.code} · {o.name}</option>)}
+          {accounts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
       </div>
       <div><label className="label">From</label><input type="date" className="input" value={f} onChange={(e) => setF(e.target.value)} /></div>

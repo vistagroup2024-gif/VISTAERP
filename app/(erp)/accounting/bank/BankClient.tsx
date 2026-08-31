@@ -63,7 +63,7 @@ export default function BankClient({ banks, contras, statement, lines }: { banks
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             <div><label className="label">Bank account</label>
               <select className="input" value={bank} onChange={(e) => setBank(e.target.value)}>
-                <option value="">—</option>{banks.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                <option value="">—</option>{banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select></div>
             <div><label className="label">Statement date</label><input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           </div>
@@ -99,7 +99,7 @@ export default function BankClient({ banks, contras, statement, lines }: { banks
                         ? <button onClick={() => unmatch(l.id)} className="text-xs text-slate-500 hover:underline">Unmatch</button>
                         : <select className="input h-8 py-0 text-xs" defaultValue="" onChange={(e) => createEntry(l.id, e.target.value)}>
                             <option value="">Create entry → contra…</option>
-                            {contras.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}
+                            {contras.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>}
                     </td>
                   </tr>

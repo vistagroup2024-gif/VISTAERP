@@ -26,7 +26,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: { acc
     const d = (data ?? {}) as any;
     opening = Number(d.opening ?? 0);
     rows = (d.rows ?? []) as any[];
-    acctName = accounts.find((a) => a.id === account) ? `${accounts.find((a) => a.id === account).code} · ${accounts.find((a) => a.id === account).name}` : "";
+    acctName = accounts.find((a) => a.id === account) ? accounts.find((a) => a.id === account).name : "";
   }
 
   let running = opening;

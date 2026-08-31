@@ -52,12 +52,12 @@ export default function PdcClient({ list, partyAccounts, banks }: { list: Pdc[];
         <div><label className="label">{f.direction === "received" ? "Customer" : "Supplier"} account</label>
           <select className="input" value={f.party} onChange={(e) => setF({ ...f, party: e.target.value })}>
             <option value="">—</option>
-            {partyAccounts.filter((a) => a.subtype === (f.direction === "received" ? "Receivable" : "Payable")).map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
+            {partyAccounts.filter((a) => a.subtype === (f.direction === "received" ? "Receivable" : "Payable")).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select></div>
         <div><label className="label">Bank (on clearance)</label>
           <select className="input" value={f.bank} onChange={(e) => setF({ ...f, bank: e.target.value })}>
             <option value="">—</option>
-            {banks.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
+            {banks.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select></div>
         <div><label className="label">Cheque no</label><input className="input" value={f.cheque_no} onChange={(e) => setF({ ...f, cheque_no: e.target.value })} /></div>
         <div><label className="label">Bank name</label><input className="input" value={f.bank_name} onChange={(e) => setF({ ...f, bank_name: e.target.value })} /></div>

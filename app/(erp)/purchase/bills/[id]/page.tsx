@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { dateStr, money } from "@/lib/format";
-import BillActions from "./BillActions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +18,6 @@ export default async function BillDetail({ params }: { params: { id: string } })
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <BillActions billId={c.id} currency={c.currency} balance={Number(c.total) - Number(c.amount_paid)} />
 
       <div className="card space-y-6">
         <div className="flex justify-between">

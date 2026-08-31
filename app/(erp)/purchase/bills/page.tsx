@@ -18,7 +18,7 @@ export default async function BillsPage() {
   const supabase = createClient();
   const { data: rows } = await supabase
     .from("bills")
-    .select("id, bill_no, bill_date, currency, total, amount_paid, status, parties:supplier_id(name), bookings:booking_id(booking_no)")
+    .select("id, bill_no, bill_date, currency, total, amount_paid, status, parties:supplier_id(name)")
     .order("bill_date", { ascending: false });
 
   return (
@@ -30,7 +30,6 @@ export default async function BillsPage() {
             <tr>
               <th className="th">Bill #</th>
               <th className="th">Supplier</th>
-              <th className="th">Booking</th>
               <th className="th">Date</th>
               <th className="th text-right">Total</th>
               <th className="th text-right">Balance</th>
@@ -45,7 +44,6 @@ export default async function BillsPage() {
                   <Link href={`/purchase/bills/${r.id}`} className="text-brand hover:underline">{r.bill_no}</Link>
                 </td>
                 <td className="td">{r.parties?.name ?? "—"}</td>
-                <td className="td">{r.bookings?.booking_no ?? "—"}</td>
                 <td className="td">{dateStr(r.bill_date)}</td>
                 <td className="td text-right">{money(r.total, r.currency)}</td>
                 <td className="td text-right">{money(Number(r.total) - Number(r.amount_paid), r.currency)}</td>

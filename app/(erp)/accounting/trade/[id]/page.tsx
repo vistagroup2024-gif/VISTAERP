@@ -30,7 +30,7 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
   // Resolve the chosen Purchase / Sale Account to its name for the printout.
   const acctId = meta.purchase_account || meta.sale_account || null;
   const { data: acct } = acctId
-    ? await sb.from("accounts").select("code, name").eq("id", acctId).maybeSingle()
+    ? await sb.from("accounts").select("name").eq("id", acctId).maybeSingle()
     : { data: null as any };
 
   const costCols = lineExtras.filter((x) => x.cost);
@@ -61,7 +61,7 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
           {d.reference && <div><span className="text-slate-400">Reference: </span>{d.reference}</div>}
           {d.cost_center && <div><span className="text-slate-400">Cost Center: </span>{d.cost_center}</div>}
           {d.tag_area && <div><span className="text-slate-400">Tag Area: </span>{d.tag_area}</div>}
-          {acct && <div><span className="text-slate-400">{meta.sale_account ? "Sale" : "Purchase"} Account: </span>{acct.code} · {acct.name}</div>}
+          {acct && <div><span className="text-slate-400">{meta.sale_account ? "Sale" : "Purchase"} Account: </span>{acct.name}</div>}
           {d.mode_of_payment && <div><span className="text-slate-400">Mode: </span>{d.mode_of_payment}</div>}
           {d.due_date && <div><span className="text-slate-400">Due: </span>{dateStr(d.due_date)}</div>}
           {d.delivery_date && <div><span className="text-slate-400">Delivery: </span>{dateStr(d.delivery_date)}</div>}

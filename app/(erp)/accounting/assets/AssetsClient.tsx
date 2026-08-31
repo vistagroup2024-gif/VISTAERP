@@ -46,7 +46,7 @@ export default function AssetsClient({ assets, assetAccounts }: { assets: FA[]; 
         <div className="col-span-2"><label className="label">Asset name</label><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required /></div>
         <div className="col-span-2"><label className="label">Asset account</label>
           <select className="input" value={f.asset_account_id} onChange={(e) => setF({ ...f, asset_account_id: e.target.value })}>
-            <option value="">—</option>{assetAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
+            <option value="">—</option>{assetAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select></div>
         <div><label className="label">Cost</label><input className="input text-right tabular-nums" inputMode="decimal" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} required /></div>
         <div><label className="label">Salvage</label><input className="input text-right tabular-nums" inputMode="decimal" value={f.salvage} onChange={(e) => setF({ ...f, salvage: e.target.value })} /></div>

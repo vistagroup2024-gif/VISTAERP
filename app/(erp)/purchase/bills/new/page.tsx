@@ -14,9 +14,7 @@ export default function NewBillPage() {
   const router = useRouter();
   const supabase = createClient();
   const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [bookings, setBookings] = useState<any[]>([]);
   const [supplierId, setSupplierId] = useState("");
-  const [bookingId, setBookingId] = useState("");
   const [billDate, setBillDate] = useState(new Date().toISOString().slice(0, 10));
   const [currency, setCurrency] = useState("SAR");
   const [fxRate, setFxRate] = useState(75);
@@ -27,7 +25,6 @@ export default function NewBillPage() {
 
   useEffect(() => {
     supabase.from("parties").select("id, name").eq("party_type", "supplier").order("name").then(({ data }) => setSuppliers(data ?? []));
-    supabase.from("bookings").select("id, booking_no").order("created_at", { ascending: false }).limit(100).then(({ data }) => setBookings(data ?? []));
   }, [supabase]);
 
   function update(i: number, patch: Partial<Line>) {
@@ -51,7 +48,6 @@ export default function NewBillPage() {
         company_id: COMPANY_ID,
         bill_no: no,
         supplier_id: supplierId,
-        booking_id: bookingId || null,
         bill_date: billDate,
         currency,
         fx_rate: Number(fxRate),
@@ -90,12 +86,6 @@ export default function NewBillPage() {
               <select className="input" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} required>
                 <option value="">Select…</option>
                 {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </Field>
-            <Field label="Link to booking (optional)" full>
-              <select className="input" value={bookingId} onChange={(e) => setBookingId(e.target.value)}>
-                <option value="">— None —</option>
-                {bookings.map((b) => <option key={b.id} value={b.id}>{b.booking_no}</option>)}
               </select>
             </Field>
             <Field label="Bill date">

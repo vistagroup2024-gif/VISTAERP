@@ -16,7 +16,7 @@ export default async function PdcPage() {
     loadPartyAccounts(),
   ]);
   const list = (pdcs ?? []).map((p: any) => ({
-    ...p, party: p.party ? `${p.party.code} · ${p.party.name}` : null, bank: p.bank ? `${p.bank.code} · ${p.bank.name}` : null,
+    ...p, party: p.party ? p.party.name : null, bank: p.bank ? p.bank.name : null,
   }));
 
   return (

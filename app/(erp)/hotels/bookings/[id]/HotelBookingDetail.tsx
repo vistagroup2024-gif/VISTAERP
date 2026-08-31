@@ -272,8 +272,6 @@ function StayCard({ stay, index, booking, suppliers, hotels, perms, rpc, busy }:
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <button disabled={busy} className="btn" onClick={() => rpc("hotel_purchase_save", { p_id: stay.id, p_booking: booking.id, p: { supplier_id: pf.supplier_id, supplier_ref: pf.supplier_ref, notes: pf.notes, option_date: pf.option_date, vendor_option_date: pf.vendor_option_date } })}>Save vendor / dates</button>
-            {perms.canPayable && !stay.bill_id &&
-              <button disabled={busy} className="btn-outline" onClick={() => rpc("hotel_purchase_post_payable", { p_id: stay.id })}>Post Supplier Payable</button>}
             {stay.bill_id && <Link href={`/purchase/bills/${stay.bill_id}`} className="btn-outline">View Payable →</Link>}
           </div>
         </div>

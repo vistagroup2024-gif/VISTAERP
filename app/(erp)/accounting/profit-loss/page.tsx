@@ -23,7 +23,7 @@ export default async function ProfitLossPage({ searchParams }: { searchParams: {
       <table className="w-full text-sm">
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="border-b border-slate-50"><td className="px-4 py-1.5"><span className="font-mono text-xs text-slate-400">{r.code}</span> {r.name}</td><td className="px-4 py-1.5 text-right tabular-nums">{money(r.amt)}</td></tr>
+            <tr key={r.id} className="border-b border-slate-50"><td className="px-4 py-1.5">{r.name}</td><td className="px-4 py-1.5 text-right tabular-nums">{money(r.amt)}</td></tr>
           ))}
           {rows.length === 0 && <tr><td className="px-4 py-3 text-slate-400">None</td><td /></tr>}
         </tbody>

@@ -64,7 +64,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/car-sales/reports", label: "Reports", perm: ["carsales.reports"] },
   ] },
   { label: "Sales", icon: "sales", perm: ["sales.view", "parties.manage"], items: [
-    { href: "/bookings", label: "Sales Orders", perm: ["sales.view"] },
     { href: "/sales/catalog", label: "Service Catalog", perm: ["sales.view"] },
     { href: "/sales/visas", label: "Visa Tracking", perm: ["sales.view"] },
     { href: "/packages", label: "Packages", perm: ["sales.view"] },
@@ -76,7 +75,6 @@ export const GROUPS: NavGroup[] = [
   ] },
   { label: "Purchase", icon: "purchase", perm: ["purchase.view"], items: [
     { href: "/purchase/bills", label: "Supplier Bills" },
-    { href: "/purchase/payments", label: "Supplier Payments" },
     { href: "/accounting/purchases/orders", label: "Purchase Order" },
     { href: "/accounting/purchases/vouchers", label: "Purchase Voucher" },
     { href: "/accounting/purchases/mrn", label: "Material Receipt (MRN)" },

@@ -54,7 +54,7 @@ const LANDING: [string, string][] = [
   ["transport.reports", "/transport"],
   ["hotels.bookings", "/hotels"],
   ["hotels.masters", "/hotels"],
-  ["sales.view", "/bookings"],
+  ["sales.view", "/invoices"],
   ["accounting.view", "/accounting/accounts"],
   ["purchase.view", "/purchase/bills"],
   ["users.view", "/settings/users"],

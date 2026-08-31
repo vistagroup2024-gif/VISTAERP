@@ -91,7 +91,7 @@ export default function InvoiceActions({
           <div className="col-span-3">
             <label className="label">Deposit to</label>
             <select className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-              {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
           <div className="col-span-3">

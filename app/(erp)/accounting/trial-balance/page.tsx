@@ -36,7 +36,6 @@ export default async function TrialBalancePage({ searchParams }: { searchParams:
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             <tr>
-              <th className="px-3 py-2 text-left">Code</th>
               <th className="px-3 py-2 text-left">Account</th>
               <th className="px-3 py-2 text-right">Opening Dr</th>
               <th className="px-3 py-2 text-right">Opening Cr</th>
@@ -49,7 +48,6 @@ export default async function TrialBalancePage({ searchParams }: { searchParams:
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-t border-slate-100">
-                <td className="px-3 py-1.5 font-mono text-xs text-slate-400">{r.code}</td>
                 <td className="px-3 py-1.5"><Link href={`/accounting/ledger?account=${r.id}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{Number(r.opening_debit) ? money(Number(r.opening_debit)) : ""}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{Number(r.opening_credit) ? money(Number(r.opening_credit)) : ""}</td>

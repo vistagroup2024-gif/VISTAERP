@@ -33,8 +33,8 @@ export default async function Dashboard() {
   const { data: prof } = await supabase.from("profiles").select("company_id").eq("id", user!.id).maybeSingle();
   const noCompany = !(prof as any)?.company_id;
 
-  const [bookings, groups, hotelsN, invoicesN] = await Promise.all([
-    count("bookings"), count("umrah_groups"), count("hotels"), count("invoices"),
+  const [groups, hotelsN, invoicesN] = await Promise.all([
+    count("umrah_groups"), count("hotels"), count("invoices"),
   ]);
 
   // Real receivables / payables from the accounting open-items ledger.
@@ -50,10 +50,10 @@ export default async function Dashboard() {
     else if ((r as any).direction === "C") ap += amt;
   }
 
-  // 6-month booking trend (real, from created_at).
+  // 6-month invoice trend (real, from created_at).
   const since = new Date(); since.setMonth(since.getMonth() - 5); since.setDate(1);
   const { data: trendRows } = await supabase
-    .from("bookings").select("created_at").gte("created_at", since.toISOString());
+    .from("invoices").select("created_at").gte("created_at", since.toISOString());
   const buckets: { label: string; value: number }[] = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(); d.setMonth(d.getMonth() - i); d.setDate(1);
@@ -67,8 +67,8 @@ export default async function Dashboard() {
   }
 
   const { data: recent } = await supabase
-    .from("bookings")
-    .select("id, booking_no, status, total_sell, sell_currency, travel_date")
+    .from("invoices")
+    .select("id, invoice_no, status, total, currency, invoice_date")
     .order("created_at", { ascending: false }).limit(6);
 
   const statusBadge = (s: string) => {
@@ -106,8 +106,7 @@ export default async function Dashboard() {
       </div>
 
       {/* Operational counts */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile label="Sales Orders" value={compact(bookings)} icon="sales" tone="neutral" href="/bookings" />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatTile label="Visa Groups" value={compact(groups)} icon="visa" tone="neutral" href="/groups" />
         <StatTile label="Hotels" value={compact(hotelsN)} icon="hotel" tone="neutral" href="/hotels" />
         <StatTile label="Invoices" value={compact(invoicesN)} icon="receipt" tone="neutral" href="/invoices" />
@@ -117,8 +116,8 @@ export default async function Dashboard() {
         {/* Trend chart */}
         <div className="panel lg:col-span-2">
           <div className="panel-head">
-            <h2 className="text-sm font-semibold text-slate-700">Sales orders · last 6 months</h2>
-            <Link href="/bookings" className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline">
+            <h2 className="text-sm font-semibold text-slate-700">Invoices · last 6 months</h2>
+            <Link href="/invoices" className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline">
               View all <Icon name="chevronRight" size={12} />
             </Link>
           </div>
@@ -127,29 +126,29 @@ export default async function Dashboard() {
           </div>
         </div>
 
-        {/* Recent bookings */}
+        {/* Recent invoices */}
         <div className="panel lg:col-span-1">
           <div className="panel-head">
-            <h2 className="text-sm font-semibold text-slate-700">Recent orders</h2>
-            <Link href="/bookings" className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline">
+            <h2 className="text-sm font-semibold text-slate-700">Recent invoices</h2>
+            <Link href="/invoices" className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline">
               All <Icon name="chevronRight" size={12} />
             </Link>
           </div>
           <div className="divide-y divide-slate-100">
             {(recent ?? []).map((b) => (
-              <Link key={b.id} href={`/bookings/${b.id}`} className="flex items-center justify-between gap-3 px-5 py-2.5 transition-colors hover:bg-slate-50">
+              <Link key={b.id} href={`/invoices/${b.id}`} className="flex items-center justify-between gap-3 px-5 py-2.5 transition-colors hover:bg-slate-50">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-800">{b.booking_no}</p>
-                  <p className="text-xs text-slate-400">{b.travel_date ? dateStr(b.travel_date) : "—"}</p>
+                  <p className="truncate text-sm font-medium text-slate-800">{b.invoice_no}</p>
+                  <p className="text-xs text-slate-400">{b.invoice_date ? dateStr(b.invoice_date) : "—"}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-sm font-semibold tabular-nums text-slate-700">{money(b.total_sell, b.sell_currency || "SAR")}</span>
+                  <span className="text-sm font-semibold tabular-nums text-slate-700">{money(b.total, b.currency || "SAR")}</span>
                   <span className={`badge ${statusBadge(b.status)} capitalize`}>{b.status}</span>
                 </div>
               </Link>
             ))}
             {(recent ?? []).length === 0 && (
-              <p className="px-5 py-8 text-center text-sm text-slate-400">No orders yet.</p>
+              <p className="px-5 py-8 text-center text-sm text-slate-400">No invoices yet.</p>
             )}
           </div>
         </div>

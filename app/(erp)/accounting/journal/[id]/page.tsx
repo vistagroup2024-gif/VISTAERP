@@ -36,7 +36,7 @@ export default async function JournalDetail({ params }: { params: { id: string }
           <tbody>
             {(lines ?? []).map((l: any) => (
               <tr key={l.id} className="border-t border-slate-100">
-                <td className="td"><span className="font-mono text-slate-500">{l.accounts?.code}</span> {l.accounts?.name}</td>
+                <td className="td">{l.accounts?.name}</td>
                 <td className="td text-slate-500">{l.description}</td>
                 <td className="td text-right">{Number(l.debit) ? money(l.debit, "PKR") : ""}</td>
                 <td className="td text-right">{Number(l.credit) ? money(l.credit, "PKR") : ""}</td>

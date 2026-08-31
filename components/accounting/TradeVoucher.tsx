@@ -259,7 +259,7 @@ export default function TradeVoucher({ type }: { type: string }) {
         <div key={f.key}><label className="label">{f.label}</label>
           <select className="input" value={val} onChange={(e) => setExtra(f, e.target.value)}>
             <option value="">— default —</option>
-            {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select></div>
       );
     }

@@ -218,7 +218,7 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
 
       <div className="no-print flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)}
-          placeholder="Search code, name, Arabic, type…" className="input max-w-xs" />
+          placeholder="Search name, Arabic, type…" className="input max-w-xs" />
         {opErr && <span className="text-xs text-danger">{opErr}</span>}
       </div>
 
@@ -247,7 +247,7 @@ function PropsModal({ node, busy, onCancel, onSave }: {
     currency: node.currency ?? "SAR", status: node.status ?? "active",
   });
   return (
-    <Modal title={`Properties · ${node.code}`} onClose={onCancel}>
+    <Modal title={`Properties · ${node.name}`} onClose={onCancel}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2"><label className="label">Account name</label>
           <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus /></div>
@@ -287,9 +287,9 @@ function MoveModal({ node, targets, busy, onCancel, onMove }: {
       <label className="label">New parent group</label>
       <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
         <option value="">— top level (root) —</option>
-        {targets.map((g) => <option key={g.id} value={g.id}>{g.code} · {g.name}</option>)}
+        {targets.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
       </select>
-      <p className="mt-2 text-xs text-slate-400">The account keeps its code; balances and history are unaffected.</p>
+      <p className="mt-2 text-xs text-slate-400">Balances and history are unaffected.</p>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="btn-outline">Cancel</button>
         <button onClick={() => onMove(target)} disabled={busy} className="btn">{busy ? "Moving…" : "Move"}</button>

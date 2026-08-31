@@ -50,7 +50,7 @@ export default async function VoucherPage({ params }: { params: { id: string } }
           <tbody>
             {rows.map((l, i) => (
               <tr key={i} className="border-b border-slate-100">
-                <td className="py-2"><span className="font-mono text-xs text-slate-400">{l.accounts?.code}</span> {l.accounts?.name}</td>
+                <td className="py-2">{l.accounts?.name}</td>
                 <td className="py-2 text-slate-500">{l.description}</td>
                 <td className="py-2 text-right tabular-nums">{Number(l.debit) ? money(Number(l.debit)) : ""}</td>
                 <td className="py-2 text-right tabular-nums">{Number(l.credit) ? money(Number(l.credit)) : ""}</td>

@@ -45,7 +45,7 @@ export default function NewAccountPage() {
       p_currency: form.currency,
       p_opening: form.opening ? Number(form.opening) : 0,
       p_opening_is_debit: form.opening_dr,
-      p_code: form.code || null,
+      p_code: null,  // codes are hidden ERP-wide; always auto-generated
     });
     setSaving(false);
     if (error) return setError(error.message);
@@ -62,9 +62,9 @@ export default function NewAccountPage() {
           <Field label="Parent group" full>
             <select className="input" value={form.parent} onChange={(e) => setForm({ ...form, parent: e.target.value })}>
               <option value="">— none (root) —</option>
-              {groups.map((g) => <option key={g.id} value={g.id}>{g.code} · {g.name}</option>)}
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
-            {parent && <p className="mt-1 text-xs text-slate-500">Nature inherited: <b>{parent.type}</b>. Code auto-generated under {parent.code}.</p>}
+            {parent && <p className="mt-1 text-xs text-slate-500">Nature inherited: <b>{parent.type}</b>.</p>}
           </Field>
 
           {!form.parent && (
@@ -75,9 +75,6 @@ export default function NewAccountPage() {
                   <option value="equity">Equity</option><option value="income">Income</option>
                   <option value="expense">Expense</option><option value="control">Control</option>
                 </select>
-              </Field>
-              <Field label="Code (optional)">
-                <input className="input font-mono" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="auto" />
               </Field>
             </>
           )}
