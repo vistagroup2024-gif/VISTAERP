@@ -65,23 +65,37 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
   function Row({ n, depth }: { n: Node; depth: number }) {
     const kids = byParent.get(n.id) ?? [];
     const isOpen = open[n.id] ?? true;
+    const groupBg = n.is_group ? (depth === 0 ? "bg-slate-100" : depth === 1 ? "bg-slate-50" : "bg-slate-50/60") : "";
     return (
       <div>
-        <div className="flex items-center gap-2 border-b border-slate-50 py-1.5 hover:bg-slate-50" style={{ paddingLeft: 8 + depth * 18 }}>
-          {n.is_group && kids.length > 0
-            ? <button onClick={() => setOpen((o) => ({ ...o, [n.id]: !isOpen }))} className="w-4 text-slate-400">{isOpen ? "▾" : "▸"}</button>
-            : <span className="w-4" />}
-          <span className={n.is_group ? "font-semibold text-slate-700" : "text-slate-600"}>{n.name}</span>
-          {n.is_group && <span className="rounded bg-slate-100 px-1.5 text-[10px] uppercase text-slate-500">group</span>}
-          {!n.is_active && <span className="rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">inactive</span>}
-          {!n.is_group && exs.map((e) => <span key={e.key} className="ml-2 text-xs text-slate-500">{e.label}: <b className="tabular-nums">{Number(n[e.key] ?? 0).toLocaleString()}</b></span>)}
-          <span className="ml-auto flex gap-2 pr-3 text-xs">
-            <button onClick={() => rename(n)} className="text-brand hover:underline">Rename</button>
-            {rateEditor && !n.is_group && <button onClick={() => setRatesFor(n)} className="text-brand hover:underline">Rates</button>}
-            {!n.is_group && exs.map((e) => <button key={e.key} onClick={() => setExtra(n, e)} className="text-brand hover:underline">{e.label}</button>)}
-            <button onClick={() => supabase.from(table).update({ is_active: !n.is_active }).eq("id", n.id).then(() => router.refresh())} className="text-slate-500 hover:underline">{n.is_active ? "Disable" : "Enable"}</button>
-            <button onClick={() => del(n)} className="text-red-600 hover:underline">Delete</button>
-          </span>
+        <div className={`group flex items-stretch border-b border-slate-100 hover:bg-brand-50/40 ${groupBg}`}>
+          {Array.from({ length: depth }).map((_, i) => (
+            <span key={i} className="shrink-0 border-l border-slate-200/80" style={{ width: 18 }} />
+          ))}
+          <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-1 pr-3">
+            {n.is_group && kids.length > 0
+              ? <button onClick={() => setOpen((o) => ({ ...o, [n.id]: !isOpen }))} className="w-4 shrink-0 text-slate-400 hover:text-slate-700">{isOpen ? "▾" : "▸"}</button>
+              : <span className="w-4 shrink-0" />}
+            {n.is_group ? (
+              <svg viewBox="0 0 24 24" width="16" height="16" className="shrink-0 text-amber-500" fill="currentColor" aria-hidden>
+                <path d="M3 8a2 2 0 012-2h4l2 2h8a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="14" height="14" className="shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeLinecap="round" />
+              </svg>
+            )}
+            <span className={`min-w-0 truncate ${n.is_group ? "font-semibold text-slate-800" : "text-slate-700"}`}>{n.name}</span>
+            {!n.is_active && <span className="shrink-0 rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">inactive</span>}
+            {!n.is_group && exs.map((e) => <span key={e.key} className="ml-2 shrink-0 text-xs text-slate-500">{e.label}: <b className="tabular-nums">{Number(n[e.key] ?? 0).toLocaleString()}</b></span>)}
+            <span className="ml-auto flex shrink-0 gap-2 text-xs">
+              <button onClick={() => rename(n)} className="text-brand hover:underline">Rename</button>
+              {rateEditor && !n.is_group && <button onClick={() => setRatesFor(n)} className="text-brand hover:underline">Rates</button>}
+              {!n.is_group && exs.map((e) => <button key={e.key} onClick={() => setExtra(n, e)} className="text-brand hover:underline">{e.label}</button>)}
+              <button onClick={() => supabase.from(table).update({ is_active: !n.is_active }).eq("id", n.id).then(() => router.refresh())} className="text-slate-500 hover:underline">{n.is_active ? "Disable" : "Enable"}</button>
+              <button onClick={() => del(n)} className="text-danger hover:underline">Delete</button>
+            </span>
+          </div>
         </div>
         {n.is_group && isOpen && kids.map((k) => <Row key={k.id} n={k} depth={depth + 1} />)}
       </div>
