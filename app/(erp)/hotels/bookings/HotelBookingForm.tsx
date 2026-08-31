@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { money } from "@/lib/format";
 import { nightsBetween, ROOM_TYPES, roomNightly } from "../lib";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 interface Opt { id: string; name: string }
 interface HotelOpt { id: string; name: string; city: string | null }
@@ -164,30 +165,27 @@ export default function HotelBookingForm({
     <form onSubmit={save} className="space-y-6">
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
-      <section className="card space-y-4">
-        <h2 className="font-semibold text-slate-700">Booking Information</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <label className="label">Agent / Customer</label>
+      <section className="card">
+        <FormSection title="Booking Information" cols={3}>
+          <Field label="Agent / Customer">
             <select className="input" value={h.agent_id} onChange={(e) => setHeader("agent_id", e.target.value)}>
               <option value="">— Direct / none —</option>
               {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
-          </div>
+          </Field>
           <Combo label="Managed By / Salesperson" value={h.managed_by} onChange={(v) => setHeader("managed_by", v)} options={salespeople} listId="dl-salespeople" placeholder="Select or type" />
           <Combo label="Booking Source" value={h.source} onChange={(v) => setHeader("source", v)} options={SOURCES} listId="dl-source" placeholder="Select or type" />
-        </div>
+        </FormSection>
       </section>
 
-      <section className="card space-y-4">
-        <h2 className="font-semibold text-slate-700">Guest Details</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div><label className="label">Passenger / Group Name *</label><input required className="input" value={h.guest_name} onChange={(e) => setHeader("guest_name", e.target.value)} /></div>
+      <section className="card">
+        <FormSection title="Guest Details" cols={3}>
+          <Field label="Passenger / Group Name" required><input required className="input" value={h.guest_name} onChange={(e) => setHeader("guest_name", e.target.value)} /></Field>
           <Combo label="Nationality" value={h.nationality} onChange={(v) => setHeader("nationality", v)} options={NATIONALITIES} listId="dl-nationality" placeholder="Select or type" />
-          <div><label className="label">Guests</label><input type="number" min={1} className="input" value={h.guests} onChange={(e) => setHeader("guests", e.target.value)} /></div>
-          <div><label className="label">Mobile</label><input className="input" value={h.mobile} onChange={(e) => setHeader("mobile", e.target.value)} /></div>
-          <div><label className="label">WhatsApp</label><input className="input" value={h.whatsapp} onChange={(e) => setHeader("whatsapp", e.target.value)} /></div>
-        </div>
+          <Field label="Guests"><input type="number" min={1} className="input" value={h.guests} onChange={(e) => setHeader("guests", e.target.value)} /></Field>
+          <Field label="Mobile"><input className="input" value={h.mobile} onChange={(e) => setHeader("mobile", e.target.value)} /></Field>
+          <Field label="WhatsApp"><input className="input" value={h.whatsapp} onChange={(e) => setHeader("whatsapp", e.target.value)} /></Field>
+        </FormSection>
         <p className="text-xs text-slate-400">Attachments can be added from the booking page after saving.</p>
       </section>
 

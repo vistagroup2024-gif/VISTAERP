@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Brn, Consumption, nightsBetween, usedOnNight, fmtDay, cellClass } from "@/lib/brn";
 import { dateStr } from "@/lib/format";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 export default function ConsumeForm({
   brns, cons, preselect,
@@ -63,12 +64,11 @@ export default function ConsumeForm({
   }
 
   return (
-    <form onSubmit={save} className="space-y-5">
+    <form onSubmit={save} className="card space-y-6">
       {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
-      <div className="card space-y-4">
-        <div>
-          <label className="label">BRN (hotel agreement)</label>
+      <FormSection title="Consumption">
+        <Field label="BRN (hotel agreement)" full>
           <select className="input" value={brnId} onChange={(e) => setBrnId(e.target.value)} required>
             <option value="">Select a BRN…</option>
             {brns.map((b) => (
@@ -82,31 +82,24 @@ export default function ConsumeForm({
               Valid stay window: {dateStr(brn.check_in)} → {dateStr(brn.check_out)}
             </p>
           )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="label">Check-in</label>
-            <input className="input" type="date" value={checkIn} min={brn?.check_in}
-              max={brn?.check_out} onChange={(e) => setCheckIn(e.target.value)} required />
-          </div>
-          <div>
-            <label className="label">Check-out</label>
-            <input className="input" type="date" value={checkOut} min={checkIn || brn?.check_in}
-              max={brn?.check_out} onChange={(e) => setCheckOut(e.target.value)} required />
-          </div>
-          <div>
-            <label className="label">Beds required (pilgrims)</label>
-            <input className="input" type="number" min={1} value={beds || ""}
-              onChange={(e) => setBeds(Number(e.target.value))} required />
-          </div>
-          <div>
-            <label className="label">Reference (package / group)</label>
-            <input className="input" value={reference} placeholder="Optional"
-              onChange={(e) => setReference(e.target.value)} />
-          </div>
-        </div>
-      </div>
+        </Field>
+        <Field label="Check-in">
+          <input className="input" type="date" value={checkIn} min={brn?.check_in}
+            max={brn?.check_out} onChange={(e) => setCheckIn(e.target.value)} required />
+        </Field>
+        <Field label="Check-out">
+          <input className="input" type="date" value={checkOut} min={checkIn || brn?.check_in}
+            max={brn?.check_out} onChange={(e) => setCheckOut(e.target.value)} required />
+        </Field>
+        <Field label="Beds required (pilgrims)">
+          <input className="input" type="number" min={1} value={beds || ""}
+            onChange={(e) => setBeds(Number(e.target.value))} required />
+        </Field>
+        <Field label="Reference (package / group)">
+          <input className="input" value={reference} placeholder="Optional"
+            onChange={(e) => setReference(e.target.value)} />
+        </Field>
+      </FormSection>
 
       {preview?.outOfRange && (
         <div className="rounded bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
@@ -148,7 +141,7 @@ export default function ConsumeForm({
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 border-t border-slate-100 pt-4">
         <button className="btn" disabled={saving || !enough}>{saving ? "Booking…" : "Confirm consumption"}</button>
         <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
       </div>

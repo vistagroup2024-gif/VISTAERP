@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PO_STATUS_LABEL, sar } from "../lib";
+import PageHeader from "@/components/PageHeader";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 interface Opt { id: string; name: string }
 interface Line { id?: string; make: string; model: string; variant: string; model_year: string; color: string; vin: string; plate_no: string; engine_no: string; purchase_cost: string; purchase_vat: string; received?: boolean }
@@ -43,31 +45,30 @@ export default function PurchaseOrderForm({ existing, items = [], suppliers }: {
   }
 
   return (
-    <form onSubmit={save} className="max-w-5xl space-y-6">
+    <div className="max-w-5xl">
+      <PageHeader title={existing ? "Edit Purchase Order" : "New Purchase Order"} subtitle="Supplier order and vehicle lines" />
+      <form onSubmit={save} className="space-y-6">
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
-      <section className="card space-y-4">
-        <h2 className="font-semibold text-slate-700">Purchase Order</h2>
-        <div className="grid gap-4 md:grid-cols-4">
-          <div>
-            <label className="label">Supplier</label>
+      <div className="card space-y-6">
+        <FormSection title="Purchase Order" cols={3}>
+          <Field label="Supplier">
             <select className="input" value={h.supplier_id} onChange={(e) => setH({ ...h, supplier_id: e.target.value })}>
               <option value="">— none —</option>
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-          </div>
-          <div><label className="label">PO Date</label><input type="date" className="input" value={h.po_date} onChange={(e) => setH({ ...h, po_date: e.target.value })} /></div>
-          <div><label className="label">Expected Date</label><input type="date" className="input" value={h.expected_date} onChange={(e) => setH({ ...h, expected_date: e.target.value })} /></div>
-          <div>
-            <label className="label">Status</label>
+          </Field>
+          <Field label="PO Date"><input type="date" className="input" value={h.po_date} onChange={(e) => setH({ ...h, po_date: e.target.value })} /></Field>
+          <Field label="Expected Date"><input type="date" className="input" value={h.expected_date} onChange={(e) => setH({ ...h, expected_date: e.target.value })} /></Field>
+          <Field label="Status">
             <select className="input" value={h.status} onChange={(e) => setH({ ...h, status: e.target.value })} disabled={existing?.status === "received"}>
               {["draft", "ordered"].map((s) => <option key={s} value={s}>{PO_STATUS_LABEL[s]}</option>)}
               {existing?.status === "received" && <option value="received">Received</option>}
             </select>
-          </div>
-          <div className="md:col-span-4"><label className="label">Notes</label><input className="input" value={h.notes} onChange={(e) => setH({ ...h, notes: e.target.value })} /></div>
-        </div>
-      </section>
+          </Field>
+          <Field label="Notes" full><input className="input" value={h.notes} onChange={(e) => setH({ ...h, notes: e.target.value })} /></Field>
+        </FormSection>
+      </div>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -98,10 +99,11 @@ export default function PurchaseOrderForm({ existing, items = [], suppliers }: {
         <div className="card flex justify-end text-sm">PO Total: <b className="ml-2">{sar(total)}</b></div>
       </section>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 border-t border-slate-100 pt-4">
         <button className="btn" disabled={saving}>{saving ? "Saving…" : existing ? "Save changes" : "Create purchase order"}</button>
         <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
       </div>
-    </form>
+      </form>
+    </div>
   );
 }

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import PageHeader from "@/components/PageHeader";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 type Grp = { id: string; code: string; name: string; type: string };
 
@@ -52,73 +54,74 @@ export default function NewAccountPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Account</h1>
-      <form onSubmit={save} className="card space-y-4">
+      <PageHeader title="New Account" subtitle="Create a ledger account or group in the chart of accounts" />
+      <form onSubmit={save} className="card space-y-6">
         {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
-        <div>
-          <label className="label">Parent group</label>
-          <select className="input" value={form.parent} onChange={(e) => setForm({ ...form, parent: e.target.value })}>
-            <option value="">— none (root) —</option>
-            {groups.map((g) => <option key={g.id} value={g.id}>{g.code} · {g.name}</option>)}
-          </select>
-          {parent && <p className="mt-1 text-xs text-slate-500">Nature inherited: <b>{parent.type}</b>. Code auto-generated under {parent.code}.</p>}
-        </div>
+        <FormSection title="Account Details">
+          <Field label="Parent group" full>
+            <select className="input" value={form.parent} onChange={(e) => setForm({ ...form, parent: e.target.value })}>
+              <option value="">— none (root) —</option>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.code} · {g.name}</option>)}
+            </select>
+            {parent && <p className="mt-1 text-xs text-slate-500">Nature inherited: <b>{parent.type}</b>. Code auto-generated under {parent.code}.</p>}
+          </Field>
 
-        {!form.parent && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Nature (root only)</label>
-              <select className="input" value={form.nature} onChange={(e) => setForm({ ...form, nature: e.target.value })}>
-                <option value="asset">Asset</option><option value="liability">Liability</option>
-                <option value="equity">Equity</option><option value="income">Income</option>
-                <option value="expense">Expense</option><option value="control">Control</option>
-              </select>
-            </div>
-            <div><label className="label">Code (optional)</label>
-              <input className="input font-mono" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="auto" /></div>
-          </div>
-        )}
+          {!form.parent && (
+            <>
+              <Field label="Nature (root only)">
+                <select className="input" value={form.nature} onChange={(e) => setForm({ ...form, nature: e.target.value })}>
+                  <option value="asset">Asset</option><option value="liability">Liability</option>
+                  <option value="equity">Equity</option><option value="income">Income</option>
+                  <option value="expense">Expense</option><option value="control">Control</option>
+                </select>
+              </Field>
+              <Field label="Code (optional)">
+                <input className="input font-mono" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="auto" />
+              </Field>
+            </>
+          )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <div><label className="label">Account name (EN)</label>
-            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus /></div>
-          <div><label className="label">Name (AR)</label>
-            <input className="input text-right" dir="rtl" value={form.name_ar} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} /></div>
-        </div>
+          <Field label="Account name (EN)">
+            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus />
+          </Field>
+          <Field label="Name (AR)">
+            <input className="input text-right" dir="rtl" value={form.name_ar} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} />
+          </Field>
 
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={form.is_group} onChange={(e) => setForm({ ...form, is_group: e.target.checked })} />
-          This is a <b>group</b> (container — cannot be posted to)
-        </label>
+          <label className="flex items-center gap-2 text-sm sm:col-span-full">
+            <input type="checkbox" checked={form.is_group} onChange={(e) => setForm({ ...form, is_group: e.target.checked })} />
+            This is a <b>group</b> (container — cannot be posted to)
+          </label>
+        </FormSection>
 
         {!form.is_group && (
-          <>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="label">Sub-type</label>
-                <select className="input" value={form.subtype} onChange={(e) => setForm({ ...form, subtype: e.target.value })}>
-                  <option value="">—</option>
-                  {SUBTYPES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select></div>
-              <div><label className="label">Currency</label>
-                <select className="input" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
-                  <option>SAR</option><option>PKR</option><option>USD</option>
-                </select></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="label">Opening balance</label>
-                <input className="input text-right tabular-nums" inputMode="decimal" value={form.opening}
-                  onChange={(e) => setForm({ ...form, opening: e.target.value })} placeholder="0.00" /></div>
-              <div><label className="label">Opening side</label>
-                <select className="input" value={form.opening_dr ? "dr" : "cr"} onChange={(e) => setForm({ ...form, opening_dr: e.target.value === "dr" })}>
-                  <option value="dr">Debit</option><option value="cr">Credit</option>
-                </select></div>
-            </div>
-            <p className="text-xs text-slate-400">Opening balance posts an opening entry against <b>9-01 Opening Balance Control</b>, so the trial balance stays balanced.</p>
-          </>
+          <FormSection title="Posting Details">
+            <Field label="Sub-type">
+              <select className="input" value={form.subtype} onChange={(e) => setForm({ ...form, subtype: e.target.value })}>
+                <option value="">—</option>
+                {SUBTYPES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Currency">
+              <select className="input" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                <option>SAR</option><option>PKR</option><option>USD</option>
+              </select>
+            </Field>
+            <Field label="Opening balance">
+              <input className="input text-right tabular-nums" inputMode="decimal" value={form.opening}
+                onChange={(e) => setForm({ ...form, opening: e.target.value })} placeholder="0.00" />
+            </Field>
+            <Field label="Opening side">
+              <select className="input" value={form.opening_dr ? "dr" : "cr"} onChange={(e) => setForm({ ...form, opening_dr: e.target.value === "dr" })}>
+                <option value="dr">Debit</option><option value="cr">Credit</option>
+              </select>
+            </Field>
+            <p className="text-xs text-slate-400 sm:col-span-full">Opening balance posts an opening entry against <b>9-01 Opening Balance Control</b>, so the trial balance stays balanced.</p>
+          </FormSection>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 border-t border-slate-100 pt-4">
           <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save account"}</button>
           <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
         </div>

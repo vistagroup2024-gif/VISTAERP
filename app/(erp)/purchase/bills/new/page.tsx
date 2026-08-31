@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID, money } from "@/lib/format";
+import PageHeader from "@/components/PageHeader";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 type Line = { description: string; qty: number; unit_price: number };
 const blank: Line = { description: "", qty: 1, unit_price: 0 };
@@ -79,40 +81,35 @@ export default function NewBillPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Supplier Bill</h1>
+      <PageHeader title="New Supplier Bill" subtitle="Record a supplier bill and its line items" />
       <form onSubmit={save} className="space-y-4">
         {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
-        <div className="card grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="label">Supplier</label>
-            <select className="input" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} required>
-              <option value="">Select…</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div className="col-span-2">
-            <label className="label">Link to booking (optional)</label>
-            <select className="input" value={bookingId} onChange={(e) => setBookingId(e.target.value)}>
-              <option value="">— None —</option>
-              {bookings.map((b) => <option key={b.id} value={b.id}>{b.booking_no}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Bill date</label>
-            <input className="input" type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} required />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="label">Currency</label>
+        <div className="card">
+          <FormSection title="Bill Information">
+            <Field label="Supplier" full>
+              <select className="input" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} required>
+                <option value="">Select…</option>
+                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Link to booking (optional)" full>
+              <select className="input" value={bookingId} onChange={(e) => setBookingId(e.target.value)}>
+                <option value="">— None —</option>
+                {bookings.map((b) => <option key={b.id} value={b.id}>{b.booking_no}</option>)}
+              </select>
+            </Field>
+            <Field label="Bill date">
+              <input className="input" type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} required />
+            </Field>
+            <Field label="Currency">
               <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
                 <option>SAR</option><option>USD</option><option>PKR</option><option>AED</option>
               </select>
-            </div>
-            <div>
-              <label className="label">FX → PKR</label>
+            </Field>
+            <Field label="FX → PKR">
               <input className="input" type="number" step="0.0001" value={fxRate} onChange={(e) => setFxRate(Number(e.target.value))} />
-            </div>
-          </div>
+            </Field>
+          </FormSection>
         </div>
 
         <div className="card">
@@ -140,7 +137,7 @@ export default function NewBillPage() {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 border-t border-slate-100 pt-4">
           <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save bill"}</button>
           <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
         </div>

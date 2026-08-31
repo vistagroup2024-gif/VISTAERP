@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import PageHeader from "@/components/PageHeader";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 export default function NewServicePage() {
   const router = useRouter();
@@ -38,16 +40,14 @@ export default function NewServicePage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Service</h1>
-      <form onSubmit={save} className="card space-y-4">
+      <PageHeader title="New Service" subtitle="Add a service to the catalog" />
+      <form onSubmit={save} className="card space-y-6">
         {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="label">Code</label>
+        <FormSection title="Service Details">
+          <Field label="Code">
             <input className="input" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="SVC-VISA" />
-          </div>
-          <div>
-            <label className="label">Type</label>
+          </Field>
+          <Field label="Type">
             <select className="input" value={form.service_type} onChange={(e) => setForm({ ...form, service_type: e.target.value })}>
               <option value="visa">Visa</option>
               <option value="transport">Transport</option>
@@ -57,33 +57,32 @@ export default function NewServicePage() {
               <option value="ziyarat">Ziyarat</option>
               <option value="other">Other</option>
             </select>
-          </div>
-        </div>
-        <div>
-          <label className="label">Service name</label>
-          <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="label">Default cost</label>
+          </Field>
+          <Field label="Service name" full>
+            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          </Field>
+        </FormSection>
+
+        <FormSection title="Pricing">
+          <Field label="Default cost">
             <div className="flex gap-2">
               <input className="input" type="number" value={form.default_cost} onChange={(e) => setForm({ ...form, default_cost: Number(e.target.value) })} />
               <select className="input w-24" value={form.cost_currency} onChange={(e) => setForm({ ...form, cost_currency: e.target.value })}>
                 <option>SAR</option><option>USD</option><option>PKR</option><option>AED</option>
               </select>
             </div>
-          </div>
-          <div>
-            <label className="label">List (sell) price</label>
+          </Field>
+          <Field label="List (sell) price">
             <div className="flex gap-2">
               <input className="input" type="number" value={form.list_price} onChange={(e) => setForm({ ...form, list_price: Number(e.target.value) })} />
               <select className="input w-24" value={form.sell_currency} onChange={(e) => setForm({ ...form, sell_currency: e.target.value })}>
                 <option>PKR</option><option>SAR</option><option>USD</option><option>AED</option>
               </select>
             </div>
-          </div>
-        </div>
-        <div className="flex gap-2">
+          </Field>
+        </FormSection>
+
+        <div className="flex gap-2 border-t border-slate-100 pt-4">
           <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save service"}</button>
           <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
         </div>

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import PageHeader from "@/components/PageHeader";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 export default function NewAllotmentPage() {
   const router = useRouter();
@@ -55,48 +57,43 @@ export default function NewAllotmentPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Allotment</h1>
-      <form onSubmit={save} className="card space-y-4">
+      <PageHeader title="New Allotment" subtitle="Reserve a block of hotel rooms" />
+      <form onSubmit={save} className="card space-y-6">
         {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
-        <div>
-          <label className="label">Hotel</label>
-          <select className="input" value={form.hotel_id} onChange={(e) => setForm({ ...form, hotel_id: e.target.value, room_type_id: "" })} required>
-            <option value="">Select…</option>
-            {hotels.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">Room type</label>
-          <select className="input" value={form.room_type_id} onChange={(e) => setForm({ ...form, room_type_id: e.target.value })} required>
-            <option value="">Select…</option>
-            {roomTypes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="label">Rooms held</label>
+        <FormSection title="Room Block">
+          <Field label="Hotel" full>
+            <select className="input" value={form.hotel_id} onChange={(e) => setForm({ ...form, hotel_id: e.target.value, room_type_id: "" })} required>
+              <option value="">Select…</option>
+              {hotels.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Room type" full>
+            <select className="input" value={form.room_type_id} onChange={(e) => setForm({ ...form, room_type_id: e.target.value })} required>
+              <option value="">Select…</option>
+              {roomTypes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Rooms held">
             <input className="input" type="number" value={form.rooms_held} onChange={(e) => setForm({ ...form, rooms_held: Number(e.target.value) })} />
-          </div>
-          <div>
-            <label className="label">Cost / night</label>
+          </Field>
+          <Field label="Cost / night">
             <input className="input" type="number" value={form.cost_price} onChange={(e) => setForm({ ...form, cost_price: Number(e.target.value) })} />
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="label">Start</label>
+          </Field>
+        </FormSection>
+
+        <FormSection title="Dates" cols={3}>
+          <Field label="Start">
             <input className="input" type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required />
-          </div>
-          <div>
-            <label className="label">End</label>
+          </Field>
+          <Field label="End">
             <input className="input" type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required />
-          </div>
-          <div>
-            <label className="label">Release by</label>
+          </Field>
+          <Field label="Release by">
             <input className="input" type="date" value={form.release_date} onChange={(e) => setForm({ ...form, release_date: e.target.value })} />
-          </div>
-        </div>
-        <div className="flex gap-2">
+          </Field>
+        </FormSection>
+
+        <div className="flex gap-2 border-t border-slate-100 pt-4">
           <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
           <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
         </div>

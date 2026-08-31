@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import PageHeader from "@/components/PageHeader";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 type Item = {
   service_type: string;
@@ -75,26 +77,24 @@ export default function NewPackagePage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Package</h1>
+      <PageHeader title="New Package" subtitle="Define a package and its component services" />
       <form onSubmit={save} className="space-y-6">
         {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
-        <div className="card grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="label">Package name</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
-          </div>
-          <div>
-            <label className="label">Code</label>
-            <input className="input" value={code} onChange={(e) => setCode(e.target.value)} />
-          </div>
-          <div>
-            <label className="label">Duration (days)</label>
-            <input className="input" type="number" value={days} onChange={(e) => setDays(Number(e.target.value))} />
-          </div>
-          <div className="col-span-2">
-            <label className="label">Description</label>
-            <textarea className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
+        <div className="card space-y-6">
+          <FormSection title="Package Details">
+            <Field label="Package name" full>
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
+            </Field>
+            <Field label="Code">
+              <input className="input" value={code} onChange={(e) => setCode(e.target.value)} />
+            </Field>
+            <Field label="Duration (days)">
+              <input className="input" type="number" value={days} onChange={(e) => setDays(Number(e.target.value))} />
+            </Field>
+            <Field label="Description" full>
+              <textarea className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
+            </Field>
+          </FormSection>
         </div>
 
         <div className="card">
@@ -126,7 +126,7 @@ export default function NewPackagePage() {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 border-t border-slate-100 pt-4">
           <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save package"}</button>
           <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
         </div>

@@ -8,6 +8,7 @@ import AirportSelect, { Airport } from "@/components/AirportSelect";
 import ReservationSelect, { ResOption } from "@/components/ReservationSelect";
 import AttachmentsPanel from "@/components/AttachmentsPanel";
 import { useUnsavedChanges, confirmDiscardIfDirty } from "@/lib/useUnsavedChanges";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 export interface GroupInitial {
   id?: string;
@@ -307,44 +308,36 @@ export default function GroupForm({
           </div>
         )}
 
-        <div className="card space-y-4">
-          <h2 className="font-semibold text-slate-700">Group Information</h2>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            <div>
-              <label className="label">Group number</label>
+        <div className="card">
+          <FormSection title="Group Information" cols={3}>
+            <Field label="Group number">
               <input className="input font-mono" value={f.group_no} onChange={(e) => set("group_no", e.target.value)} disabled={disNonHotel} placeholder="Enter group number" />
-            </div>
-            <div>
-              <label className="label">Date</label>
+            </Field>
+            <Field label="Date">
               <input className="input" type="date" value={f.group_date} onChange={(e) => set("group_date", e.target.value)} disabled={isAgent || disNonHotel} />
-            </div>
-            <div>
-              <label className="label">Pax (pilgrims)</label>
+            </Field>
+            <Field label="Pax (pilgrims)">
               <input className="input" type="number" min={1} value={f.pax || ""} onChange={(e) => set("pax", Number(e.target.value))} disabled={disNonHotel} required />
-            </div>
-            <div className="md:col-span-3">
-              <label className="label">Group name</label>
+            </Field>
+            <Field label="Group name" full>
               <input className="input" value={f.group_name} onChange={(e) => set("group_name", e.target.value)} placeholder="Optional" disabled={disNonHotel} />
-            </div>
+            </Field>
             {!isAgent && (
-              <div>
-                <label className="label">Agent</label>
+              <Field label="Agent">
                 <select className="input" value={f.agent_id} onChange={(e) => set("agent_id", e.target.value)}>
                   <option value="">—</option>
                   {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
-              </div>
+              </Field>
             )}
-            <div>
-              <label className="label">Company</label>
+            <Field label="Company">
               <select className="input" value={f.group_company_id} onChange={(e) => set("group_company_id", e.target.value)} disabled={disNonHotel}>
                 <option value="">—</option>
                 {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-            </div>
+            </Field>
             {showReservation && (
-              <div>
-                <label className="label">Reserved Groups <span className="text-red-500">*</span></label>
+              <Field label="Reserved Groups" required hint="Required for Non Masar Visa. Create one via Company Inquiry.">
                 <ReservationSelect
                   options={reservations.map((r): ResOption => ({
                     id: r.id,
@@ -355,10 +348,9 @@ export default function GroupForm({
                   placeholder={f.group_company_id ? "Select reservation" : "Select a company first"}
                   disabled={!f.group_company_id}
                 />
-                <p className="mt-1 text-xs text-slate-400">Required for Non Masar Visa. Create one via Company Inquiry.</p>
-              </div>
+              </Field>
             )}
-          </div>
+          </FormSection>
         </div>
 
         <div className="card space-y-4">
@@ -410,25 +402,18 @@ export default function GroupForm({
         </div>
 
         {isLongStay && (
-          <div className="card space-y-4">
-            <div>
-              <h2 className="font-semibold text-slate-700">🧍 Host Details</h2>
-              <p className="text-xs text-slate-500">Required for Long Stay Visa. No hotel details are needed.</p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <label className="label">Iqama Number <span className="text-red-500">*</span></label>
+          <div className="card">
+            <FormSection title="🧍 Host Details" description="Required for Long Stay Visa. No hotel details are needed." cols={3}>
+              <Field label="Iqama Number" required>
                 <input className="input" value={host.iqama} onChange={(e) => { setDirty(true); setHost((h) => ({ ...h, iqama: e.target.value })); }} disabled={disNonHotel} />
-              </div>
-              <div>
-                <label className="label">Mobile Number <span className="text-red-500">*</span></label>
+              </Field>
+              <Field label="Mobile Number" required>
                 <input className="input" value={host.mobile} onChange={(e) => { setDirty(true); setHost((h) => ({ ...h, mobile: e.target.value })); }} disabled={disNonHotel} />
-              </div>
-              <div>
-                <label className="label">Relation <span className="text-red-500">*</span></label>
+              </Field>
+              <Field label="Relation" required>
                 <input className="input" value={host.relation} onChange={(e) => { setDirty(true); setHost((h) => ({ ...h, relation: e.target.value })); }} disabled={disNonHotel} />
-              </div>
-            </div>
+              </Field>
+            </FormSection>
           </div>
         )}
 

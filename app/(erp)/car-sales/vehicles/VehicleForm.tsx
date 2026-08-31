@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { VEHICLE_STATUS_LABEL, VEHICLE_STATUSES } from "../lib";
+import PageHeader from "@/components/PageHeader";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 interface Opt { id: string; name: string }
 
@@ -44,67 +46,58 @@ export default function VehicleForm({ existing, suppliers }: { existing: any | n
   }
 
   return (
-    <form onSubmit={save} className="max-w-4xl space-y-6">
-      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
+    <div className="max-w-4xl">
+      <PageHeader title={existing ? "Edit Vehicle" : "New Vehicle"} subtitle="Vehicle master record, purchase and stock status" />
+      <form onSubmit={save} className="card space-y-6">
+        {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
-      <section className="card space-y-4">
-        <h2 className="font-semibold text-slate-700">Vehicle</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div><label className="label">Make</label><input className="input" value={f.make} onChange={(e) => set("make", e.target.value)} /></div>
-          <div><label className="label">Model</label><input className="input" value={f.model} onChange={(e) => set("model", e.target.value)} /></div>
-          <div><label className="label">Variant</label><input className="input" value={f.variant} onChange={(e) => set("variant", e.target.value)} /></div>
-          <div><label className="label">Model Year</label><input type="number" className="input" value={f.model_year} onChange={(e) => set("model_year", e.target.value)} /></div>
-          <div><label className="label">Color</label><input className="input" value={f.color} onChange={(e) => set("color", e.target.value)} /></div>
-          <div><label className="label">Plate Number</label><input className="input" value={f.plate_no} onChange={(e) => set("plate_no", e.target.value)} /></div>
-          <div><label className="label">VIN / Chassis</label><input className="input" value={f.vin} onChange={(e) => set("vin", e.target.value)} /></div>
-          <div><label className="label">Engine Number</label><input className="input" value={f.engine_no} onChange={(e) => set("engine_no", e.target.value)} /></div>
-          <div><label className="label">Current Location</label><input className="input" value={f.current_location} onChange={(e) => set("current_location", e.target.value)} /></div>
-        </div>
-      </section>
+        <FormSection title="Vehicle" cols={3}>
+          <Field label="Make"><input className="input" value={f.make} onChange={(e) => set("make", e.target.value)} /></Field>
+          <Field label="Model"><input className="input" value={f.model} onChange={(e) => set("model", e.target.value)} /></Field>
+          <Field label="Variant"><input className="input" value={f.variant} onChange={(e) => set("variant", e.target.value)} /></Field>
+          <Field label="Model Year"><input type="number" className="input" value={f.model_year} onChange={(e) => set("model_year", e.target.value)} /></Field>
+          <Field label="Color"><input className="input" value={f.color} onChange={(e) => set("color", e.target.value)} /></Field>
+          <Field label="Plate Number"><input className="input" value={f.plate_no} onChange={(e) => set("plate_no", e.target.value)} /></Field>
+          <Field label="VIN / Chassis"><input className="input" value={f.vin} onChange={(e) => set("vin", e.target.value)} /></Field>
+          <Field label="Engine Number"><input className="input" value={f.engine_no} onChange={(e) => set("engine_no", e.target.value)} /></Field>
+          <Field label="Current Location"><input className="input" value={f.current_location} onChange={(e) => set("current_location", e.target.value)} /></Field>
+        </FormSection>
 
-      <section className="card space-y-4">
-        <h2 className="font-semibold text-slate-700">Purchase</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <label className="label">Supplier</label>
+        <FormSection title="Purchase" cols={3}>
+          <Field label="Supplier">
             <select className="input" value={f.supplier_id} onChange={(e) => set("supplier_id", e.target.value)}>
               <option value="">— none —</option>
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-          </div>
-          <div><label className="label">Purchase Date</label><input type="date" className="input" value={f.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} /></div>
+          </Field>
+          <Field label="Purchase Date"><input type="date" className="input" value={f.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} /></Field>
           <div></div>
-          <div><label className="label">Purchase Cost (SAR)</label><input type="number" step="0.01" className="input" value={f.purchase_cost} onChange={(e) => set("purchase_cost", e.target.value)} /></div>
-          <div><label className="label">Purchase VAT (SAR)</label><input type="number" step="0.01" className="input" value={f.purchase_vat} onChange={(e) => set("purchase_vat", e.target.value)} /></div>
-          <div><label className="label">Total Cost <span className="text-slate-400">(auto)</span></label><input className="input bg-slate-50" value={totalCost.toFixed(2)} readOnly tabIndex={-1} /></div>
-        </div>
-      </section>
+          <Field label="Purchase Cost (SAR)"><input type="number" step="0.01" className="input" value={f.purchase_cost} onChange={(e) => set("purchase_cost", e.target.value)} /></Field>
+          <Field label="Purchase VAT (SAR)"><input type="number" step="0.01" className="input" value={f.purchase_vat} onChange={(e) => set("purchase_vat", e.target.value)} /></Field>
+          <Field label="Total Cost (auto)"><input className="input bg-slate-50" value={totalCost.toFixed(2)} readOnly tabIndex={-1} /></Field>
+        </FormSection>
 
-      <section className="card space-y-4">
-        <h2 className="font-semibold text-slate-700">Status</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <label className="label">Stock Status</label>
+        <FormSection title="Status" cols={3}>
+          <Field label="Stock Status">
             <select className="input" value={f.status} onChange={(e) => set("status", e.target.value)}>
               {VEHICLE_STATUSES.map((s) => <option key={s} value={s}>{VEHICLE_STATUS_LABEL[s]}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="label">Ownership</label>
+          </Field>
+          <Field label="Ownership">
             <select className="input" value={f.ownership} onChange={(e) => set("ownership", e.target.value)}>
               <option value="vista">Vista-owned</option>
               <option value="transferred">Transferred</option>
             </select>
-          </div>
-          <div className="md:col-span-3"><label className="label">Notes</label><textarea className="input" rows={2} value={f.notes} onChange={(e) => set("notes", e.target.value)} /></div>
-        </div>
-        <p className="text-xs text-slate-400">Reserved / Sold / Delivered / Held statuses are normally set automatically by the sale, delivery and holding flows in later steps.</p>
-      </section>
+          </Field>
+          <Field label="Notes" full><textarea className="input" rows={2} value={f.notes} onChange={(e) => set("notes", e.target.value)} /></Field>
+          <p className="text-xs text-slate-400 sm:col-span-full">Reserved / Sold / Delivered / Held statuses are normally set automatically by the sale, delivery and holding flows in later steps.</p>
+        </FormSection>
 
-      <div className="flex gap-2">
-        <button className="btn" disabled={saving}>{saving ? "Saving…" : existing ? "Save changes" : "Create vehicle"}</button>
-        <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
-      </div>
-    </form>
+        <div className="flex gap-2 border-t border-slate-100 pt-4">
+          <button className="btn" disabled={saving}>{saving ? "Saving…" : existing ? "Save changes" : "Create vehicle"}</button>
+          <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
+        </div>
+      </form>
+    </div>
   );
 }

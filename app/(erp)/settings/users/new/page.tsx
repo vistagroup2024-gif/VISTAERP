@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import StaffPermissionPicker from "@/components/StaffPermissionPicker";
+import PageHeader from "@/components/PageHeader";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 export default function NewUserPage() {
   const router = useRouter();
@@ -46,57 +48,43 @@ export default function NewUserPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="mb-6 text-xl font-bold tracking-tight text-slate-900">New Staff User</h1>
-      <form onSubmit={save} className="space-y-5">
+      <PageHeader title="New Staff User" subtitle="Create a login and set module permissions" />
+      <form onSubmit={save} className="space-y-6">
         {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
-        <div className="card space-y-4">
-          <h2 className="font-semibold text-slate-700">Account Details</h2>
-          <div>
-            <label className="label">Username (login ID)</label>
-            <input
-              className="input"
-              placeholder="e.g. ahmed.ali"
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
-              required
-            />
-            <p className="mt-1 text-xs text-slate-400">
-              User will log in with this username — no email needed.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label">Full name</label>
+        <div className="card space-y-6">
+          <FormSection title="Account Details">
+            <Field label="Username (login ID)" full hint="User will log in with this username — no email needed.">
+              <input
+                className="input"
+                placeholder="e.g. ahmed.ali"
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                required
+              />
+            </Field>
+            <Field label="Full name">
               <input className="input" placeholder="Ahmed Ali" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
-            </div>
-            <div>
-              <label className="label">Email</label>
+            </Field>
+            <Field label="Email">
               <input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            </div>
-            <div>
-              <label className="label">Mobile</label>
+            </Field>
+            <Field label="Mobile">
               <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            </div>
-            <div>
-              <label className="label">Department</label>
+            </Field>
+            <Field label="Department">
               <input className="input" placeholder="Operations / Visa / Finance" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
-            </div>
-            <div>
-              <label className="label">Designation</label>
+            </Field>
+            <Field label="Designation">
               <input className="input" placeholder="Officer / Manager" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label">Password</label>
+            </Field>
+            <Field label="Password">
               <input className="input" type="password" placeholder="Min. 6 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-            </div>
-            <div>
-              <label className="label">Confirm password</label>
+            </Field>
+            <Field label="Confirm password">
               <input className="input" type="password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} required />
-            </div>
-          </div>
+            </Field>
+          </FormSection>
         </div>
 
         <div className="card space-y-3">
@@ -105,7 +93,7 @@ export default function NewUserPage() {
           <StaffPermissionPicker value={perms} onChange={setPerms} />
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 border-t border-slate-100 pt-4">
           <button className="btn" disabled={saving}>{saving ? "Creating…" : "Create user"}</button>
           <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
         </div>

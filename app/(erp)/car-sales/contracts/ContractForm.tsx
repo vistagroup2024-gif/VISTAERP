@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { sar } from "../lib";
+import PageHeader from "@/components/PageHeader";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 interface Opt { id: string; name: string }
 interface VehicleOpt { id: string; label: string }
@@ -70,46 +72,42 @@ export default function ContractForm({ existing, installments = [], customers, v
   }
 
   return (
-    <form onSubmit={save} className="max-w-5xl space-y-6">
+    <div className="max-w-5xl">
+      <PageHeader title={existing ? "Edit Contract" : "New Contract"} subtitle="Installment sale contract and payment schedule" />
+      <form onSubmit={save} className="space-y-6">
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
-      <section className="card space-y-4">
-        <h2 className="font-semibold text-slate-700">Contract</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <label className="label">Customer *</label>
+      <div className="card space-y-6">
+        <FormSection title="Contract" cols={3}>
+          <Field label="Customer" required>
             <select required className="input" value={h.customer_id} onChange={(e) => setH({ ...h, customer_id: e.target.value })}>
               <option value="">— select —</option>
               {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="label">Vehicle *</label>
+          </Field>
+          <Field label="Vehicle" required>
             <select required className="input" value={h.vehicle_id} onChange={(e) => setH({ ...h, vehicle_id: e.target.value })}>
               <option value="">— select —</option>
               {vehicles.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
             </select>
-          </div>
-          <div><label className="label">Contract Date</label><input type="date" className="input" value={h.contract_date} onChange={(e) => setH({ ...h, contract_date: e.target.value })} /></div>
-          <div><label className="label">Reference / Introducer</label><input className="input" value={h.reference_name} onChange={(e) => setH({ ...h, reference_name: e.target.value })} /></div>
-          <div><label className="label">Salesperson</label><input className="input" value={h.salesperson} onChange={(e) => setH({ ...h, salesperson: e.target.value })} /></div>
-          <div><label className="label">Delivery Date</label><input type="date" className="input" value={h.delivery_date} onChange={(e) => setH({ ...h, delivery_date: e.target.value })} /></div>
-        </div>
-      </section>
+          </Field>
+          <Field label="Contract Date"><input type="date" className="input" value={h.contract_date} onChange={(e) => setH({ ...h, contract_date: e.target.value })} /></Field>
+          <Field label="Reference / Introducer"><input className="input" value={h.reference_name} onChange={(e) => setH({ ...h, reference_name: e.target.value })} /></Field>
+          <Field label="Salesperson"><input className="input" value={h.salesperson} onChange={(e) => setH({ ...h, salesperson: e.target.value })} /></Field>
+          <Field label="Delivery Date"><input type="date" className="input" value={h.delivery_date} onChange={(e) => setH({ ...h, delivery_date: e.target.value })} /></Field>
+        </FormSection>
 
-      <section className="card space-y-4">
-        <h2 className="font-semibold text-slate-700">Financials</h2>
-        <div className="grid gap-4 md:grid-cols-4">
-          <div><label className="label">Installment Sale Price (SAR) *</label><input type="number" step="0.01" className="input" value={h.sale_price} onChange={(e) => setH({ ...h, sale_price: e.target.value })} /></div>
-          <div><label className="label">Advance (SAR)</label><input type="number" step="0.01" className="input" value={h.advance} onChange={(e) => setH({ ...h, advance: e.target.value })} /></div>
-          <div><label className="label">Installment Balance <span className="text-slate-400">(auto)</span></label><input className="input bg-slate-50" value={remaining.toFixed(2)} readOnly tabIndex={-1} /></div>
+        <FormSection title="Financials" cols={3}>
+          <Field label="Installment Sale Price (SAR)" required><input type="number" step="0.01" className="input" value={h.sale_price} onChange={(e) => setH({ ...h, sale_price: e.target.value })} /></Field>
+          <Field label="Advance (SAR)"><input type="number" step="0.01" className="input" value={h.advance} onChange={(e) => setH({ ...h, advance: e.target.value })} /></Field>
+          <Field label="Installment Balance (auto)"><input className="input bg-slate-50" value={remaining.toFixed(2)} readOnly tabIndex={-1} /></Field>
           <div className="flex items-end">
             <span className={`text-sm ${diff === 0 ? "text-emerald-700" : "text-red-600"}`}>
               {diff === 0 ? "✓ Schedule balances" : `Difference: ${sar(diff)}`}
             </span>
           </div>
-        </div>
-      </section>
+        </FormSection>
+      </div>
 
       <section className="card space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -149,10 +147,11 @@ export default function ContractForm({ existing, installments = [], customers, v
         </div>
       </section>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 border-t border-slate-100 pt-4">
         <button className="btn" disabled={saving || diff !== 0}>{saving ? "Saving…" : existing ? "Save changes" : "Create contract"}</button>
         <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
       </div>
-    </form>
+      </form>
+    </div>
   );
 }

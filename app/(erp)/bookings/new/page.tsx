@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID, money } from "@/lib/format";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 type Pax = { full_name: string; passport_no: string; nationality: string; visa_type: string };
 type Line = {
@@ -167,35 +168,32 @@ export default function NewBookingPage() {
       <form onSubmit={save} className="space-y-6">
         {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
-        <div className="card grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="label">Customer / Agent</label>
-            <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
-              <option value="">Select…</option>
-              {customers.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.party_type})</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Travel date</label>
-            <input className="input" type="date" value={travelDate} onChange={(e) => setTravelDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="label">Return date</label>
-            <input className="input" type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="label">Sell currency</label>
-            <select className="input" value={sellCurrency} onChange={(e) => setSellCurrency(e.target.value)}>
-              <option>PKR</option><option>SAR</option><option>USD</option><option>AED</option>
-            </select>
-          </div>
-          <div>
-            <label className="label">Use a package template (optional)</label>
-            <select className="input" value={packageId} onChange={(e) => applyPackage(e.target.value)}>
-              <option value="">— None —</option>
-              {packages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
+        <div className="card">
+          <FormSection title="Order Details">
+            <Field label="Customer / Agent" full>
+              <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
+                <option value="">Select…</option>
+                {customers.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.party_type})</option>)}
+              </select>
+            </Field>
+            <Field label="Travel date">
+              <input className="input" type="date" value={travelDate} onChange={(e) => setTravelDate(e.target.value)} />
+            </Field>
+            <Field label="Return date">
+              <input className="input" type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
+            </Field>
+            <Field label="Sell currency">
+              <select className="input" value={sellCurrency} onChange={(e) => setSellCurrency(e.target.value)}>
+                <option>PKR</option><option>SAR</option><option>USD</option><option>AED</option>
+              </select>
+            </Field>
+            <Field label="Use a package template (optional)">
+              <select className="input" value={packageId} onChange={(e) => applyPackage(e.target.value)}>
+                <option value="">— None —</option>
+                {packages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </Field>
+          </FormSection>
         </div>
 
         <div className="card">

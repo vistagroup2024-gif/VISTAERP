@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import CountrySelect from "@/components/CountrySelect";
 import AttachmentsPanel from "@/components/AttachmentsPanel";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 interface Route { id: string; name: string; is_airport?: boolean; from_location?: string | null; to_location?: string | null }
 interface Vehicle { id: string; name: string; seating_capacity?: number | null }
@@ -488,11 +489,10 @@ export default function TransportBookingForm({
       {err && <div className="rounded-md border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       {/* Booking Information */}
-      <section className="card space-y-3">
-        <h2 className="font-semibold text-slate-700">Booking Information</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <div><label className="label">Booking date</label><input className="input" type="date" value={h.booking_date} onChange={(e) => setH({ ...h, booking_date: e.target.value })} /></div>
-          {!isAgent && <div><label className="label">Agent</label>
+      <section className="card">
+        <FormSection title="Booking Information" cols={3}>
+          <Field label="Booking date"><input className="input" type="date" value={h.booking_date} onChange={(e) => setH({ ...h, booking_date: e.target.value })} /></Field>
+          {!isAgent && <Field label="Agent">
             <select className="input" value={h.agent_id} onChange={(e) => {
               const id = e.target.value;
               // Default the payment method: any agency bills on credit (No Cash); the
@@ -502,29 +502,29 @@ export default function TransportBookingForm({
               setH({ ...h, agent_id: id, payment_method: isCash ? "cash" : "no_cash" });
             }}>
               <option value="">— direct —</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}
-            </select></div>}
-          <div><label className="label">Payment method</label>
+            </select></Field>}
+          <Field label="Payment method">
             <select className="input" value={h.payment_method} onChange={(e) => setH({ ...h, payment_method: e.target.value })}>
               <option value="no_cash">No Cash</option><option value="cash">Cash</option>
               {!isAgent && <><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option></>}
-            </select></div>
+            </select></Field>
           {h.payment_method === "cash" && (
-            <div><label className="label">Collect from passenger <span className="text-slate-400">(SAR)</span></label>
+            <Field label="Collect from passenger (SAR)">
               <input className="input" type="number" min="0" step="0.01" value={h.collect_amount}
                 placeholder={netTotal ? netTotal.toFixed(2) : "e.g. 250"}
                 onChange={(e) => setH({ ...h, collect_amount: e.target.value })} />
               <p className="text-[11px] text-slate-400">Leave blank to use the fare ({netTotal.toFixed(2)}). Set when the agent asks to collect a different amount.</p>
-            </div>
+            </Field>
           )}
-          <div><label className="label">Haji name</label><input className="input" value={h.passenger_name} onChange={(e) => setH({ ...h, passenger_name: e.target.value })} /></div>
-          <div><label className="label">Mobile</label><input className="input" value={h.mobile} onChange={(e) => setH({ ...h, mobile: e.target.value })} /></div>
-          <div><label className="label">WhatsApp</label><input className="input" value={h.whatsapp} onChange={(e) => setH({ ...h, whatsapp: e.target.value })} /></div>
-          <div><label className="label">Total passengers *</label><input className="input" type="number" min="1" value={h.pax} onChange={(e) => setH({ ...h, pax: e.target.value })} /></div>
-          <div><label className="label">Nusuk Group Number</label><input className="input" value={h.nusuk_group_no} onChange={(e) => setH({ ...h, nusuk_group_no: e.target.value })} placeholder="optional" /></div>
-          <div className="sm:col-span-2"><label className="label">Nationality</label>
-            <CountrySelect value={h.nationality} onChange={(v) => setH({ ...h, nationality: v })} /></div>
-        </div>
-        <div><label className="label">Remarks</label><input className="input" value={h.remarks} onChange={(e) => setH({ ...h, remarks: e.target.value })} /></div>
+          <Field label="Haji name"><input className="input" value={h.passenger_name} onChange={(e) => setH({ ...h, passenger_name: e.target.value })} /></Field>
+          <Field label="Mobile"><input className="input" value={h.mobile} onChange={(e) => setH({ ...h, mobile: e.target.value })} /></Field>
+          <Field label="WhatsApp"><input className="input" value={h.whatsapp} onChange={(e) => setH({ ...h, whatsapp: e.target.value })} /></Field>
+          <Field label="Total passengers" required><input className="input" type="number" min="1" value={h.pax} onChange={(e) => setH({ ...h, pax: e.target.value })} /></Field>
+          <Field label="Nusuk Group Number"><input className="input" value={h.nusuk_group_no} onChange={(e) => setH({ ...h, nusuk_group_no: e.target.value })} placeholder="optional" /></Field>
+          <Field label="Nationality" full>
+            <CountrySelect value={h.nationality} onChange={(v) => setH({ ...h, nationality: v })} /></Field>
+          <Field label="Remarks" full><input className="input" value={h.remarks} onChange={(e) => setH({ ...h, remarks: e.target.value })} /></Field>
+        </FormSection>
       </section>
 
       {/* Trip Details */}

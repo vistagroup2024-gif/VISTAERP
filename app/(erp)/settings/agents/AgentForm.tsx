@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { PERMISSION_CATALOG, ALL_PERM_KEYS } from "@/lib/permissions";
+import PageHeader from "@/components/PageHeader";
+import FormSection, { Field } from "@/components/ui/FormSection";
 
 export default function AgentForm({
   parties, existing,
@@ -112,45 +114,46 @@ export default function AgentForm({
   }
 
   return (
-    <form onSubmit={save} className="max-w-3xl space-y-5">
-      <h1 className="text-xl font-bold tracking-tight text-slate-900">{isEdit ? "Edit B2B Agent" : "New B2B Agent"}</h1>
+    <div className="max-w-3xl">
+      <PageHeader title={isEdit ? "Edit B2B Agent" : "New B2B Agent"} subtitle="Agent portal login, profile and module permissions" />
+      <form onSubmit={save} className="space-y-5">
       {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
 
-      <div className="card grid grid-cols-2 gap-4 md:grid-cols-3">
-        <div className="col-span-2">
-          <label className="label">Agency (from Customers / Agent list)</label>
+      <div className="card">
+        <FormSection title="Agency & Login" cols={3}>
+        <Field label="Agency (from Customers / Agent list)" full>
           <input className="input" list="agent-parties" value={parties.find((p) => p.id === f.agent_party_id)?.name ?? f.agency_name}
             onChange={(e) => {
               const p = parties.find((x) => x.name === e.target.value);
               setF({ ...f, agent_party_id: p?.id ?? "", agency_name: e.target.value });
             }} placeholder="Search agency…" />
           <datalist id="agent-parties">{parties.map((p) => <option key={p.id} value={p.name} />)}</datalist>
-        </div>
-        <div><label className="label">Contact person</label>
-          <input className="input" value={f.contact_person} onChange={(e) => setF({ ...f, contact_person: e.target.value })} /></div>
-        <div><label className="label">Username</label>
-          <input className="input font-mono" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} required /></div>
-        <div><label className="label">Password {isEdit && <span className="text-slate-400">(leave blank to keep)</span>}</label>
-          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></div>
-        <div><label className="label">Confirm password</label>
-          <input className="input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" /></div>
-        <div><label className="label">Email</label>
-          <input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
-        <div><label className="label">Mobile</label>
-          <input className="input" value={f.mobile} onChange={(e) => setF({ ...f, mobile: e.target.value })} /></div>
-        <div><label className="label">Country</label>
-          <input className="input" value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></div>
-        <div><label className="label">Currency</label>
+        </Field>
+        <Field label="Contact person">
+          <input className="input" value={f.contact_person} onChange={(e) => setF({ ...f, contact_person: e.target.value })} /></Field>
+        <Field label="Username">
+          <input className="input font-mono" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} required /></Field>
+        <Field label={isEdit ? "Password (leave blank to keep)" : "Password"}>
+          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></Field>
+        <Field label="Confirm password">
+          <input className="input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" /></Field>
+        <Field label="Email">
+          <input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+        <Field label="Mobile">
+          <input className="input" value={f.mobile} onChange={(e) => setF({ ...f, mobile: e.target.value })} /></Field>
+        <Field label="Country">
+          <input className="input" value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></Field>
+        <Field label="Currency">
           <select className="input" value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })}>
             <option>SAR</option><option>USD</option><option>PKR</option><option>AED</option>
-          </select></div>
-        <div><label className="label">Status</label>
+          </select></Field>
+        <Field label="Status">
           <select className="input" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
             <option value="active">Active</option><option value="inactive">Inactive</option>
-          </select></div>
-        <div><label className="label">Credit limit</label>
-          <input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: Number(e.target.value) })} /></div>
-        <div className="col-span-2 md:col-span-3">
+          </select></Field>
+        <Field label="Credit limit">
+          <input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: Number(e.target.value) })} /></Field>
+        <div className="sm:col-span-full">
           <label className="label">Agency Logo <span className="text-slate-400">(shown on their portal & vouchers)</span></label>
           <div className="flex items-center gap-3">
             {f.logo
@@ -165,10 +168,11 @@ export default function AgentForm({
             Voucher with name <span className="text-xs text-slate-400">(tick = show logo + agency name; untick = show logo only)</span>
           </label>
         </div>
-        <div className="col-span-2 md:col-span-3">
+        <div className="sm:col-span-full">
           <label className="label">WhatsApp group link <span className="text-slate-400">(invite link of this agent’s dispatch group — used by “Send Driver Details”)</span></label>
           <input className="input" value={f.wa_group_url} onChange={(e) => setF({ ...f, wa_group_url: e.target.value })} placeholder="https://chat.whatsapp.com/XXXXXXXX" />
         </div>
+        </FormSection>
       </div>
 
       <div className="card space-y-3">
@@ -196,10 +200,11 @@ export default function AgentForm({
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 border-t border-slate-100 pt-4">
         <button className="btn" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save changes" : "Create agent"}</button>
         <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
       </div>
-    </form>
+      </form>
+    </div>
   );
 }
