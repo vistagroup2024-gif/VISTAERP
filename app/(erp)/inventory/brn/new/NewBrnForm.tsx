@@ -35,7 +35,9 @@ export default function NewBrnForm({ suppliers, companies }: { suppliers: { id: 
   const nights =
     form.check_in && form.check_out && form.check_out > form.check_in
       ? totalNights(form.check_in, form.check_out) : 0;
-  const totalCost = Number(form.beds) * Number(form.rate_per_bed);
+  // The rate is per bed PER NIGHT, so the agreement costs nights x beds x rate.
+  // This has to match add_brn, which bills the supplier the same way.
+  const totalCost = nights * Number(form.beds) * Number(form.rate_per_bed);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -134,6 +136,14 @@ export default function NewBrnForm({ suppliers, companies }: { suppliers: { id: 
             <div className="w-full rounded-lg bg-brand/5 px-4 py-2 text-sm">
               Total agreement cost:{" "}
               <b>{money(totalCost, form.cost_currency)}</b>
+              {totalCost > 0 && (
+                <div className="mt-0.5 text-xs text-slate-500">
+                  {nights} night{nights === 1 ? "" : "s"} × {Number(form.beds)} bed{Number(form.beds) === 1 ? "" : "s"} × {money(Number(form.rate_per_bed), form.cost_currency)}
+                </div>
+              )}
+              {totalCost === 0 && Number(form.rate_per_bed) > 0 && nights === 0 && (
+                <div className="mt-0.5 text-xs text-slate-500">Set the check-in and check-out dates.</div>
+              )}
             </div>
           </div>
         </FormSection>
