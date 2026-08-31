@@ -119,6 +119,10 @@ export default function VehiclesTable({ rows, perms }: { rows: VehicleRow[]; per
                 <td className="td text-right">
                   <RowMenu items={[
                     { label: "Open", onClick: () => router.push(`/car-sales/vehicles/${r.id}`) },
+                    // No "New" (vehicles arrive from a Purchase Voucher); Edit stays so a
+                    // PV-created vehicle's details (reg / chassis / model / monthly charge)
+                    // can be completed on the stock record.
+                    ...(perms.canManage ? [{ label: "Edit details", onClick: () => router.push(`/car-sales/vehicles/${r.id}/edit`) }] : []),
                   ]} />
                 </td>
               </tr>
