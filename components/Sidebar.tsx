@@ -78,7 +78,6 @@ const GROUPS: Group[] = [
     { href: "/sales/visas", label: "Visa Tracking", perm: ["sales.view"] },
     { href: "/packages", label: "Packages", perm: ["sales.view"] },
     { href: "/invoices", label: "Invoices", perm: ["sales.view"] },
-    { href: "/parties", label: "Customers / Suppliers", perm: ["sales.view", "parties.manage"] },
     { href: "/accounting/sales/quotations", label: "Sales Quotation", perm: ["sales.view"] },
     { href: "/accounting/sales/orders", label: "Sale Order", perm: ["sales.view"] },
     { href: "/accounting/sales/delivery-notes", label: "Delivery Note", perm: ["sales.view"] },
