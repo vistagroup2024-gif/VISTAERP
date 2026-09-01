@@ -8,7 +8,8 @@ export type IconName =
   | "car" | "purchase" | "masters" | "accounting" | "store" | "payroll"
   | "users" | "settings" | "bell" | "search" | "chevronRight" | "chevronDown"
   | "menu" | "close" | "logout" | "plus" | "collapse" | "expand" | "external"
-  | "trendUp" | "trendDown" | "wallet" | "receipt" | "clock" | "check";
+  | "trendUp" | "trendDown" | "wallet" | "receipt" | "clock" | "check"
+  | "assistant";
 
 const P: Record<IconName, string> = {
   dashboard: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
@@ -42,6 +43,7 @@ const P: Record<IconName, string> = {
   receipt: "M5 3v18l2-1 2 1 2-1 2 1 2-1 2 1V3l-2 1-2-1-2 1-2-1-2 1zM9 8h6M9 12h6",
   clock: "M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v5l3 2",
   check: "M20 6L9 17l-5-5",
+  assistant: "M21 12a8 8 0 01-8 8H7l-4 3v-5.6A8 8 0 1121 12zM12 8.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z",
 };
 
 export default function Icon({

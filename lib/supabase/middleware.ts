@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Unlisted routes are not permission-gated. Mirrors the sidebar gating.
 const ROUTE_PERMS: [string, string[]][] = [
   ["/dashboard", ["dashboard.view"]],
+  ["/ai", ["ai.use"]],
   ["/groups", ["visa.view"]],
   ["/visa/invoices", ["visa.invoices"]],
   ["/inventory", ["brn.view", "brn.planning", "visa.view"]],

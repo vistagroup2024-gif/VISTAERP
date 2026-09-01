@@ -76,6 +76,11 @@ export const STAFF_PERMISSION_CATALOG: StaffPermGroup[] = [
     { key: "carsales.reports", label: "Reports & Dashboard" },
     { key: "carsales.manage", label: "Approvals & Price/Schedule Changes" },
   ] },
+  { module: "Vista AI", perms: [
+    { key: "ai.use", label: "Use Vista AI (ask questions, read own modules)" },
+    { key: "ai.actions", label: "Allow Vista AI to perform actions (still confirmed, still per-module)" },
+    { key: "ai.dev", label: "Commission ERP development tasks" },
+  ] },
   { module: "User Management", perms: [
     { key: "users.view", label: "View Users" },
     { key: "users.create", label: "Create Users" },

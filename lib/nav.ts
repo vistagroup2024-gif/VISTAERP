@@ -23,6 +23,11 @@ export interface StaffNavAccess { unrestricted: boolean; permissions: Record<str
 
 export const DASHBOARD: NavItem = { href: "/dashboard", label: "Dashboard", icon: "dashboard" };
 
+// Vista AI sits above the modules rather than inside one: she is a way into
+// all of them, not a screen belonging to any. Gated on ai.use like everything
+// else, so an account without it never sees the link.
+export const VISTA_AI: NavItem = { href: "/ai", label: "Vista AI", icon: "assistant", perm: ["ai.use"] };
+
 /**
  * Screens taken out of the sidebar but LEFT BUILT AND WORKING. They keep their
  * routes, their data and their code.
@@ -219,6 +224,7 @@ export function searchIndex(access?: StaffNavAccess): { label: string; href: str
   const out: { label: string; href: string; group: string; icon: IconName }[] = [];
   const allow = (perm?: string[]) => !perm || !access || access.unrestricted || perm.some((k) => access.permissions[k]);
   if (allow(["dashboard.view"])) out.push({ label: "Dashboard", href: "/dashboard", group: "General", icon: "dashboard" });
+  if (allow(VISTA_AI.perm)) out.push({ label: "Vista AI", href: "/ai", group: "General", icon: "assistant" });
   for (const g of GROUPS) {
     if (!allow(g.perm)) continue;
     for (const it of g.items) if (allow(it.perm)) out.push({ label: it.label, href: it.href, group: g.label, icon: g.icon });

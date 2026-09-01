@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import Icon from "@/components/ui/Icon";
-import { GROUPS, SECTIONS, DASHBOARD, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
+import { GROUPS, SECTIONS, DASHBOARD, VISTA_AI, navAllows, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
 
 export type { StaffNavAccess };
 
@@ -108,7 +108,7 @@ function SidebarContent({ access, onClose, onCollapse }: { access?: StaffNavAcce
   const groups = visibleGroups(access);
   // Resolve exactly ONE active link: the longest matching href across every nav
   // item, so a parent route never lights up together with its child.
-  const allItems = [DASHBOARD, ...groups.flatMap((g) => g.items)];
+  const allItems = [DASHBOARD, VISTA_AI, ...groups.flatMap((g) => g.items)];
   let activeHref: string | null = null; let best = -1;
   for (const it of allItems) {
     const l = matchLen(path, it.href, it.exact);
@@ -172,6 +172,9 @@ function SidebarContent({ access, onClose, onCollapse }: { access?: StaffNavAcce
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
         {(!access || access.unrestricted || access.permissions["dashboard.view"]) && (
           <NavLink {...DASHBOARD} activeHref={activeHref} onClick={onClose} />
+        )}
+        {navAllows(access, VISTA_AI.perm) && (
+          <NavLink {...VISTA_AI} activeHref={activeHref} onClick={onClose} />
         )}
         {entries.map((e) =>
           e.kind === "group" ? (
