@@ -127,10 +127,26 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/rules", label: "Voucher Authorisation" },
     { href: "/accounting/audit", label: "Audit Trail" },
   ] },
-  { label: "Store", icon: "store", perm: ["accounting.view"], items: [
-    { href: "/store/movement", label: "Stock Movement" },
-    { href: "/store/balance", label: "Stock Balance" },
-    { href: "/store/warehouses", label: "Warehouses" },
+  // Inventory (goods). Mirrors the order of the desktop Inventory menu; the BRN
+  // bed inventory under Umrah Package is a different thing and keeps its name.
+  { label: "Inventory", icon: "store", perm: ["accounting.view"], items: [
+    { href: "/stock/documents", label: "Document Processing" },
+    { href: "/stock/query", label: "Query" },
+    { href: "/stock/ledger", label: "Stock Ledger" },
+    { href: "/stock/opening", label: "Opening Stocks Register" },
+    { href: "/stock/statement", label: "Stock Statement" },
+    { href: "/stock/movement", label: "Stock Movement" },
+    { href: "/stock/multilevel", label: "Multi-level Stock Movement Report" },
+    { href: "/stock/virtual", label: "Virtual Stock Analysis" },
+    { href: "/stock/valuation", label: "Stock Valuation" },
+    { href: "/stock/abc", label: "ABC Analysis" },
+    { href: "/stock/ageing", label: "Ageing Analysis" },
+    { href: "/stock/reorder", label: "Reorder Report" },
+    { href: "/stock/fast-moving", label: "Fast Moving Items" },
+    { href: "/stock/slow-moving", label: "Slow Moving Items" },
+    { href: "/stock/peak-low", label: "Peak/Low Balances" },
+    { href: "/stock/indents", label: "Raise Indents for Items with Low Stock" },
+    { href: "/stock/warehouses", label: "Warehouses" },
   ] },
   { label: "Payroll / HR", icon: "payroll", perm: ["accounting.view"], items: [
     { href: "/hr/employees", label: "Employees" },

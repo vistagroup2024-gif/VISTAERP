@@ -22,7 +22,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
   const [err, setErr] = useState<string | null>(null);
 
   const [dSell, setDSell] = useState(""); const [dPur, setDPur] = useState("");
-  const [isStock, setIsStock] = useState(false); const [uom, setUom] = useState(""); const [reorder, setReorder] = useState("");
+  const [isStock, setIsStock] = useState(false); const [uom, setUom] = useState(""); const [reorder, setReorder] = useState(""); const [reorderQty, setReorderQty] = useState("");
   const [customers, setCustomers] = useState<Named[]>([]);
   const [suppliers, setSuppliers] = useState<Named[]>([]);
   const [custRates, setCustRates] = useState<CustRate[]>([]);
@@ -35,7 +35,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
 
   async function reload() {
     const [{ data: p }, { data: cs }, { data: ss }, { data: cr }, { data: sr }] = await Promise.all([
-      supabase.from("acct_products").select("sell_rate, purchase_rate, is_stock, uom, reorder_level").eq("id", productId).single(),
+      supabase.from("acct_products").select("sell_rate, purchase_rate, is_stock, uom, reorder_level, reorder_qty").eq("id", productId).single(),
       supabase.from("parties").select("id, name").in("party_type", ["customer", "b2b_agent"]).eq("is_active", true).order("name"),
       supabase.from("accounts").select("id, name").eq("is_postable", true).eq("is_group", false).like("code", "2-01-%").order("code"),
       supabase.from("product_customer_rates").select("id, party_id, sell_rate").eq("product_id", productId),
@@ -43,7 +43,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
     ]);
     if (p) {
       setDSell(String(Number(p.sell_rate))); setDPur(String(Number(p.purchase_rate)));
-      setIsStock(!!p.is_stock); setUom(p.uom ?? ""); setReorder(String(Number(p.reorder_level ?? 0)));
+      setIsStock(!!p.is_stock); setUom(p.uom ?? ""); setReorder(String(Number(p.reorder_level ?? 0))); setReorderQty(String(Number(p.reorder_qty ?? 0)));
     }
     setCustomers((cs as any[]) ?? []); setSuppliers((ss as any[]) ?? []);
     setCustRates((cr as any[]) ?? []); setSupRates((sr as any[]) ?? []);
@@ -77,7 +77,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
   async function saveStock() {
     setBusy(true); setErr(null);
     const { error } = await supabase.from("acct_products")
-      .update({ is_stock: isStock, uom: uom || null, reorder_level: Number(reorder) || 0 }).eq("id", productId);
+      .update({ is_stock: isStock, uom: uom || null, reorder_level: Number(reorder) || 0, reorder_qty: Number(reorderQty) || 0 }).eq("id", productId);
     setBusy(false); if (error) return setErr(error.message); router.refresh();
   }
 
@@ -139,11 +139,14 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
               {isStock && (
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="label">Unit of measure</label><input className="input" value={uom} onChange={(e) => setUom(e.target.value)} placeholder="e.g. pcs, kg, box" /></div>
-                  <div><label className="label">Reorder level</label><input className="input text-right tabular-nums" inputMode="decimal" value={reorder} onChange={(e) => setReorder(e.target.value)} /></div>
+                  <div><label className="label">Reorder level</label><input className="input text-right tabular-nums" inputMode="decimal" value={reorder} onChange={(e) => setReorder(e.target.value)} />
+                    <p className="mt-1 text-xs text-slate-400">Fall to this and the item shows on the Reorder Report.</p></div>
+                  <div><label className="label">Reorder quantity</label><input className="input text-right tabular-nums" inputMode="decimal" value={reorderQty} onChange={(e) => setReorderQty(e.target.value)} />
+                    <p className="mt-1 text-xs text-slate-400">How many to buy when it does. Left at 0, the indent asks for just enough to reach the level.</p></div>
                 </div>
               )}
               <button onClick={saveStock} disabled={busy} className="btn">{busy ? "…" : "Save"}</button>
-              <p className="text-xs text-slate-400">Stock items appear in Store → Stock Movement and carry quantity + value balances.</p>
+              <p className="text-xs text-slate-400">Stock items appear throughout the Inventory module and carry quantity + value balances.</p>
             </div>
           )}
 
