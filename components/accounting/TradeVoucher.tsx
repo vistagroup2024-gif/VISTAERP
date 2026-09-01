@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProductPicker, { productOptions } from "./ProductPicker";
@@ -55,6 +55,7 @@ export default function TradeVoucher({ type }: { type: string }) {
   const [warehouse, setWarehouse] = useState("");
   const [posted, setPosted] = useState(false);
   const [sourceId, setSourceId] = useState<string | null>(null);
+  const [sourceCar, setSourceCar] = useState<string | null>(null);
   const [sourceNo, setSourceNo] = useState<string | null>(null);
   const [loadOpen, setLoadOpen] = useState(false);
   // These trade documents post to the GL (+ stock); the rest are paperwork only.
@@ -88,12 +89,30 @@ export default function TradeVoucher({ type }: { type: string }) {
     })();
   }, [supabase, cfg.party]);
 
+
+  /** Ticked-by-default check boxes, as a starting set of extra values. */
+  const extraDefaults = useCallback(() => Object.fromEntries(
+    headerExtras.filter((f) => f.kind === "check" && f.defaultOn).map((f) => [f.key, "true"])
+  ) as Record<string, string>, [headerExtras]);
+  // Seed the ticked-by-default boxes on mount, and again if the cost centre
+  // brings new fields in. A key already present is left alone, so a document
+  // that was deliberately saved with the box unticked stays unticked.
+  useEffect(() => {
+    setExtras((cur) => {
+      const d = extraDefaults();
+      const next = { ...cur };
+      let changed = false;
+      for (const [k, v] of Object.entries(d)) if (!(k in next)) { next[k] = v; changed = true; }
+      return changed ? next : cur;
+    });
+  }, [extraDefaults]);
+
   function resetNew() {
     setId(null); setDocNo(""); setDone(null); setErr(null);
     setDate(new Date().toISOString().slice(0, 10)); setParty(""); setCostCenter(""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff("");
-    setRows([blankRow(), blankRow()]); setWarehouse(""); setPosted(false); setExtras({}); setOverridden({});
-    setSourceId(null); setSourceNo(null);
+    setRows([blankRow(), blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({});
+    setSourceId(null); setSourceNo(null); setSourceCar(null);
   }
   function setRow(i: number, patch: Partial<Row>) {
     setRows((rs) => {
@@ -147,9 +166,9 @@ export default function TradeVoucher({ type }: { type: string }) {
     setReference(v.reference ?? ""); setMode(v.mode_of_payment ?? ""); setDueDate(v.due_date ?? ""); setDeliveryDate(v.delivery_date ?? "");
     setTerms(v.terms ?? ""); setNarration(v.narration ?? ""); setRoundOff(v.round_off ? String(v.round_off) : "");
     setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry);
-    setSourceId(v.source_doc_id ?? null); setSourceNo(v.source_doc_no ?? null);
+    setSourceId(v.source_doc_id ?? null); setSourceCar(v.source_car_contract ?? null); setSourceNo(v.source_doc_no ?? null);
     const meta = (v.meta ?? {}) as Record<string, any>;
-    const saved: Record<string, string> = {};
+    const saved: Record<string, string> = { ...extraDefaults() };
     for (const [k, val] of Object.entries(meta)) saved[k] = val == null ? "" : String(val);
     setExtras(saved);
     // Saved numbers are authoritative — don't let a formula overwrite them.
@@ -202,7 +221,7 @@ export default function TradeVoucher({ type }: { type: string }) {
     // for a quotation's car-costing boxes, and copying them would leave stale
     // values on a document that never displays them.
     const src = (v.meta ?? {}) as Record<string, any>;
-    const keep: Record<string, string> = {};
+    const keep: Record<string, string> = { ...extraDefaults() };
     for (const f of headerExtras) {
       const val = src[f.key];
       if (val !== undefined && val !== null && val !== "") keep[f.key] = String(val);
@@ -228,7 +247,9 @@ export default function TradeVoucher({ type }: { type: string }) {
     });
     setRows(ls.length ? [...ls, blankRow()] : [blankRow(), blankRow()]);
 
-    setSourceId(v.id); setSourceNo(v.doc_no ?? null);
+    if (v.source_kind === "car") { setSourceCar(v.id); setSourceId(null); }
+    else { setSourceId(v.id); setSourceCar(null); }
+    setSourceNo(v.doc_no ?? null);
     setDone(`loaded from ${v.doc_no}`);
   }
 
@@ -274,7 +295,7 @@ export default function TradeVoucher({ type }: { type: string }) {
       tag_area: cfg.showTagArea === false ? null : tagArea || null,
       reference: reference || null, mode_of_payment: mode || null, due_date: dueDate || null, delivery_date: deliveryDate || null,
       terms: terms || null, narration: narration || null, round_off: num(roundOff), meta,
-      source_doc_id: sourceId,
+      source_doc_id: sourceId, source_car_contract: sourceCar,
     };
     const lines = rows.filter((r) => (r.item_name.trim() || r.product_id) || num(r.amount))
       .map((r) => {

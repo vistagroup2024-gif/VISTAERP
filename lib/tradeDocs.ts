@@ -21,6 +21,9 @@ export interface HeaderExtra {
   kind: "money" | "text" | "date" | "int" | "percent" | "account" | "check";
   /** Derived from the other values — shown read-only unless the user overrides it. */
   derived?: (v: Record<string, string>) => number;
+  /** A `check` field that starts ticked. Without this a new voucher saves it
+   *  as false, which for "Update Stocks" means the goods never move. */
+  defaultOn?: boolean;
   hint?: string;
 }
 
@@ -120,7 +123,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     showTagArea: true, showWarehouse: false,
     headerExtras: [
       { key: "purchase_account", label: "Purchase Account", kind: "account" },
-      { key: "update_stock", label: "Update Stocks", kind: "check" },
+      { key: "update_stock", label: "Update Stocks", kind: "check", defaultOn: true },
       { key: "raise_receipt", label: "Raise Receipt", kind: "check" },
     ],
   },
@@ -149,7 +152,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     showTagArea: true, showWarehouse: false,
     headerExtras: [
       { key: "sale_account", label: "Sale Account", kind: "account" },
-      { key: "update_stock", label: "Update Stocks", kind: "check" },
+      { key: "update_stock", label: "Update Stocks", kind: "check", defaultOn: true },
     ],
   },
   sales_invoice: {
@@ -158,7 +161,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
     headerExtras: [
       { key: "sale_account", label: "Sale Account", kind: "account" },
-      { key: "update_stock", label: "Update Stocks", kind: "check" },
+      { key: "update_stock", label: "Update Stocks", kind: "check", defaultOn: true },
     ],
     lineExtras: [{ key: "remarks", label: "Remarks", kind: "text" }],
   },
