@@ -13,9 +13,9 @@ export default async function NewContractPage() {
     supabase.from("parties").select("id, name").eq("party_type", "customer").eq("is_active", true).order("name"),
     // select("*") so is_trading (added by migration 259) is available when
     // present, without breaking before the column exists.
-    supabase.from("car_vehicles").select("*").eq("status", "in_stock").order("created_at", { ascending: false }),
+    supabase.from("car_vehicles").select("*, item:product_id(name)").eq("status", "in_stock").order("created_at", { ascending: false }),
   ]);
-  const vOpts = (vehicles ?? []).map((v: any) => ({ id: v.id, label: `${vehicleTitle(v)} · ${v.plate_no ?? v.vehicle_no}`, is_trading: !!v.is_trading }));
+  const vOpts = (vehicles ?? []).map((v: any) => ({ id: v.id, label: `${vehicleTitle({ ...v, item: v.item?.name })} · ${v.plate_no ?? v.vehicle_no}`, is_trading: !!v.is_trading }));
   return (
     <div>
       <PageHeader title="New Car Invoice" />

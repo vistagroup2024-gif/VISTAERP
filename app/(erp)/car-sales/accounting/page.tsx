@@ -3,7 +3,6 @@ import Link from "next/link";
 import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import { sar } from "../lib";
-import SyncButton from "./SyncButton";
 
 export const dynamic = "force-dynamic";
 
@@ -38,16 +37,18 @@ export default async function CarAccountingPage() {
     <div className="max-w-3xl space-y-6">
       <PageHeader title="Car Sales — Accounting" />
 
-      <section className="card space-y-3">
-        <h2 className="font-semibold text-slate-700">Post to the General Ledger</h2>
+      <section className="card space-y-2">
+        <h2 className="font-semibold text-slate-700">Posted automatically</h2>
         <p className="text-sm text-slate-500">
-          Posts every car-sales event as a balanced double-entry journal to your existing accounts, using dedicated car
-          AR/AP accounts (Installment Receivable 1150, Vehicle Inventory 1160, Service Charge Receivable 1170, Vehicle
-          Supplier Payable 2100, Commission Payable 2110, Vehicle Sales 4200, Monthly Service Charges 4300, Cost of
-          Vehicles Sold 5100, Sales Commission 6300). It is idempotent — already-posted events are skipped, so you can
-          run it any time.
+          Every car-sales event posts its own balanced double entry the moment it happens — nothing to run by hand.
+          It uses the dedicated car accounts: Installment Receivable 1150, Vehicle Inventory 1160, Service Charge
+          Receivable 1170, Vehicle Supplier Payable 2100, Commission Payable 2110, Vehicle Sales 4200, Monthly Service
+          Charges 4300, Cost of Vehicles Sold 5100 and Sales Commission 6300.
         </p>
-        <SyncButton />
+        <p className="text-sm text-slate-500">
+          A car bought on a Purchase Voucher is posted by that voucher — it debits Vehicle Inventory 1160 and credits
+          the supplier — so the purchase is never booked twice.
+        </p>
       </section>
 
       <section className="card overflow-x-auto p-0">

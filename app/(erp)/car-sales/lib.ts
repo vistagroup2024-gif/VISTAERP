@@ -98,5 +98,9 @@ export const monthLabel = (iso: string | null) => {
 
 // All module money is SAR.
 export const sar = (n: number | string | null | undefined) => money(Number(n || 0), "SAR");
-export const vehicleTitle = (v: { make?: string | null; model?: string | null; variant?: string | null; model_year?: number | null }) =>
+// A car is named by the Product Tree item it was bought as — the same item the
+// voucher line chose, so nothing is typed by hand. The make/model fields are a
+// fallback for vehicles recorded before an item was linked.
+export const vehicleTitle = (v: { item?: string | null; make?: string | null; model?: string | null; variant?: string | null; model_year?: number | null }) =>
+  v.item?.trim() ||
   [v.make, v.model, v.variant, v.model_year ? `(${v.model_year})` : null].filter(Boolean).join(" ") || "—";

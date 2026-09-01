@@ -6,15 +6,17 @@ import { createClient } from "@/lib/supabase/client";
 import { VEHICLE_STATUS_LABEL, VEHICLE_STATUSES } from "../lib";
 import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import ProductPicker, { type PickProduct } from "@/components/accounting/ProductPicker";
 
 interface Opt { id: string; name: string }
 
-export default function VehicleForm({ existing, suppliers }: { existing: any | null; suppliers: Opt[] }) {
+export default function VehicleForm({ existing, suppliers, products }: { existing: any | null; suppliers: Opt[]; products: PickProduct[] }) {
   const router = useRouter();
   const supabase = createClient();
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [f, setF] = useState({
+    product_id: existing?.product_id ?? "",
     make: existing?.make ?? "",
     model: existing?.model ?? "",
     variant: existing?.variant ?? "",
@@ -52,6 +54,16 @@ export default function VehicleForm({ existing, suppliers }: { existing: any | n
         {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
         <FormSection title="Vehicle" cols={3}>
+          {/* The item names the car, and is what Car Sales and Inventory count
+              it as. It is chosen from the Product Tree — never typed here. */}
+          <Field label="Item (Product Tree)" full>
+            <ProductPicker products={products} value={f.product_id || null} onChange={(id) => set("product_id", id ?? "")}
+              placeholder="Choose the item this car is…" />
+            <p className="mt-1 text-xs text-slate-400">
+              Names the car and counts it in stock. Add items in Masters → Product Tree.
+              A car bought on a Purchase Voucher takes the item from its voucher line.
+            </p>
+          </Field>
           <Field label="Make"><input className="input" value={f.make} onChange={(e) => set("make", e.target.value)} /></Field>
           <Field label="Model"><input className="input" value={f.model} onChange={(e) => set("model", e.target.value)} /></Field>
           <Field label="Variant"><input className="input" value={f.variant} onChange={(e) => set("variant", e.target.value)} /></Field>

@@ -10,7 +10,7 @@ import RowMenu from "@/components/RowMenu";
 import { VEHICLE_STATUS_LABEL, VEHICLE_STATUS_TONE, VEHICLE_STATUSES, OWNERSHIP_LABEL, sar, vehicleTitle } from "../lib";
 
 export interface VehicleRow {
-  id: string; vehicle_no: string; vin: string | null; plate_no: string | null;
+  id: string; vehicle_no: string; vin: string | null; plate_no: string | null; item: string | null;
   make: string | null; model: string | null; variant: string | null; model_year: number | null; color: string | null;
   purchase_date: string | null; total_cost: number | null; status: string; ownership: string;
   location: string | null; supplier: string | null; customer: string | null;
@@ -31,10 +31,10 @@ export default function VehiclesTable({ rows, perms }: { rows: VehicleRow[]; per
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string[]>([]);
-  const [make, setMake] = useState<string[]>([]);
+  const [item, setItem] = useState<string[]>([]);
   const [ownership, setOwnership] = useState<string[]>([]);
 
-  const makes = useMemo(() => Array.from(new Set(rows.map((r) => r.make).filter(Boolean))) as string[], [rows]);
+  const items = useMemo(() => Array.from(new Set(rows.map((r) => r.item).filter(Boolean))).sort() as string[], [rows]);
 
   const count = (s: string) => rows.filter((r) => r.status === s).length;
   const stats = {
@@ -50,15 +50,15 @@ export default function VehiclesTable({ rows, perms }: { rows: VehicleRow[]; per
 
   const filtered = useMemo(() => rows.filter((r) => {
     if (status.length && !status.includes(r.status)) return false;
-    if (make.length && !make.includes(r.make ?? "")) return false;
+    if (item.length && !item.includes(r.item ?? "")) return false;
     if (ownership.length && !ownership.includes(r.ownership)) return false;
     if (q) {
       const s = q.toLowerCase();
-      const hay = [r.vehicle_no, r.vin, r.plate_no, r.make, r.model, r.variant, r.color, r.supplier, r.customer].filter(Boolean).join(" ").toLowerCase();
+      const hay = [r.vehicle_no, r.item, r.vin, r.plate_no, r.make, r.model, r.variant, r.color, r.supplier, r.customer].filter(Boolean).join(" ").toLowerCase();
       if (!hay.includes(s)) return false;
     }
     return true;
-  }), [rows, status, make, ownership, q]);
+  }), [rows, status, item, ownership, q]);
 
   async function del(r: VehicleRow) {
     if (!confirm(`Delete vehicle ${r.vehicle_no}? This cannot be undone.`)) return;
@@ -84,9 +84,9 @@ export default function VehiclesTable({ rows, perms }: { rows: VehicleRow[]; per
       {perms.canCost && <div className="grid grid-cols-1 sm:max-w-xs"><Stat label="Stock Value (in stock)" value={sar(stats.stockValue)} /></div>}
 
       <div className="flex flex-wrap items-center gap-2">
-        <input className="input max-w-xs" placeholder="Search plate / VIN / make / model…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input max-w-xs" placeholder="Search item / plate / VIN…" value={q} onChange={(e) => setQ(e.target.value)} />
         <MultiSelectFilter label="Status" options={VEHICLE_STATUSES.map((s) => ({ value: s, label: VEHICLE_STATUS_LABEL[s] }))} selected={status} onChange={setStatus} />
-        {makes.length > 0 && <MultiSelectFilter label="Make" options={makes.map((m) => ({ value: m, label: m }))} selected={make} onChange={setMake} />}
+        {items.length > 0 && <MultiSelectFilter label="Item" options={items.map((m) => ({ value: m, label: m }))} selected={item} onChange={setItem} />}
         <MultiSelectFilter label="Ownership" options={[{ value: "vista", label: "Vista-owned" }, { value: "transferred", label: "Transferred" }]} selected={ownership} onChange={setOwnership} />
         <span className="ml-auto text-sm text-slate-500">{filtered.length} / {rows.length}</span>
       </div>

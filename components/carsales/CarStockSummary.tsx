@@ -3,18 +3,19 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Row = { item: string; uom: string | null; group: string | null; qty: number; value: number; avg_cost: number };
+type Row = { item: string; uom: string | null; group: string | null; qty: number; reserved: number; sold: number; value: number; avg_cost: number };
 type Summary = { total_qty: number; total_value: number; rows: Row[] };
 
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 const qtyf = (n: any) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Number(n) || 0);
 
 /**
- * What is on the yard right now, read straight from the Inventory balances a
- * purchased car creates. View only — cars enter stock from a Purchase Voucher
- * and leave it when they are sold or delivered, never from this screen. It is
- * here so a user with Car Sales access alone can still see the stock without
- * being given the Inventory module.
+ * What is on the yard right now, grouped by the Product Tree item each car was
+ * bought as — buy 2 black Staria, 2 white Staria and 1 black Starex on one
+ * voucher and this reads 2 / 2 / 1, with no name typed anywhere. View only:
+ * cars enter stock from a Purchase Voucher and leave when they are sold or
+ * delivered, never from this screen. It is here so a user with Car Sales
+ * access alone can see the stock without being given the Inventory module.
  */
 export default function CarStockSummary() {
   const supabase = createClient();
@@ -42,7 +43,7 @@ export default function CarStockSummary() {
             <span className="ml-2 text-sm font-medium text-slate-500">valued {money(data.total_value)}</span>
           </p>
         </div>
-        <span className="text-sm text-brand-600">{open ? "Hide breakdown" : `Breakdown by model (${rows.length})`}</span>
+        <span className="text-sm text-brand-600">{open ? "Hide breakdown" : `Breakdown by item (${rows.length})`}</span>
       </button>
 
       {open && (
@@ -58,14 +59,16 @@ export default function CarStockSummary() {
                 <tr key={i} className="border-t border-slate-100">
                   <td className="px-4 py-2">{r.item}{r.uom ? <span className="text-slate-400"> · {r.uom}</span> : null}</td>
                   <td className="px-4 py-2 text-slate-500">{r.group ?? "—"}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{qtyf(r.qty)}</td>
+                  <td className="px-4 py-2 text-right font-semibold tabular-nums">{qtyf(r.qty)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">{qtyf(r.reserved)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">{qtyf(r.sold)}</td>
                   <td className="px-4 py-2 text-right tabular-nums">{money(r.avg_cost)}</td>
                   <td className="px-4 py-2 text-right tabular-nums">{money(r.value)}</td>
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                  No cars on the yard. A car enters stock when its Purchase Voucher is posted.
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">
+                  No cars on the yard. A car enters stock when its Purchase Voucher is posted, under the item that voucher line chose.
                 </td></tr>
               )}
             </tbody>

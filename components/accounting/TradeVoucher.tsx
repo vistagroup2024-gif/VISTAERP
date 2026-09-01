@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import ProductPicker from "./ProductPicker";
 import { TRADE_DOCS, isCarCostCenter, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
 
 type Row = {
@@ -45,14 +46,13 @@ export default function TradeVoucher({ type }: { type: string }) {
   const [busy, setBusy] = useState(false);
 
   const [parties, setParties] = useState<{ id: string; name: string }[]>([]);
-  const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
+  const [products, setProducts] = useState<{ id: string; name: string; group?: string | null }[]>([]);
   const [costCenters, setCostCenters] = useState<{ id: string; name: string }[]>([]);
   const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string }[]>([]);
   const [warehouse, setWarehouse] = useState("");
   const [posted, setPosted] = useState(false);
-  const prodByName = useMemo(() => new Map(products.map((p) => [p.name, p.id])), [products]);
   // These trade documents post to the GL (+ stock); the rest are paperwork only.
   const canPost = ["purchase_voucher", "purchase_return", "sales_return"].includes(cfg.type);
 
@@ -72,13 +72,13 @@ export default function TradeVoucher({ type }: { type: string }) {
       const types = cfg.party === "supplier" ? ["supplier"] : cfg.party === "customer" ? ["customer", "b2b_agent"] : ["customer", "supplier", "b2b_agent"];
       const [{ data: pa }, { data: pr }, { data: cc }, { data: ta }, { data: wh }, { data: ac }] = await Promise.all([
         supabase.from("parties").select("id, name").in("party_type", types).eq("is_active", true).order("name"),
-        supabase.from("acct_products").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
+        supabase.from("acct_products").select("id, name, parent:parent_id(name)").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("warehouses").select("id, name").eq("is_active", true).order("name"),
         supabase.from("accounts").select("id, code, name").eq("is_postable", true).eq("is_group", false).order("code"),
       ]);
-      setParties((pa as any[]) ?? []); setProducts((pr as any[]) ?? []);
+      setParties((pa as any[]) ?? []); setProducts(((pr as any[]) ?? []).map((p) => ({ id: p.id, name: p.name, group: p.parent?.name ?? null })));
       setCostCenters((cc as any[]) ?? []); setTagAreas((ta as any[]) ?? []);
       setWarehouses((wh as any[]) ?? []); setAccounts((ac as any[]) ?? []);
     })();
@@ -103,7 +103,11 @@ export default function TradeVoucher({ type }: { type: string }) {
   function setRowExtra(i: number, key: string, value: string) {
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, extras: { ...r.extras, [key]: value } } : r)));
   }
-  function pickItem(i: number, name: string) { setRow(i, { item_name: name, product_id: prodByName.get(name) ?? null }); }
+  // The picker hands back an item id; the name is stored alongside it only so a
+  // saved document still reads correctly if the item is later renamed.
+  function pickItem(i: number, id: string | null) {
+    setRow(i, { product_id: id, item_name: id ? (products.find((p) => p.id === id)?.name ?? "") : "" });
+  }
   function removeRow(i: number) { setRows((rs) => (rs.length <= 1 ? rs : rs.filter((_, j) => j !== i))); }
 
   // Derived header values recompute from what is typed, in declaration order, so
@@ -384,7 +388,7 @@ export default function TradeVoucher({ type }: { type: string }) {
                     </td>
                   )}
                   <td className="px-2 py-1 min-w-[220px]">
-                    <input className="input" list="trade-products" value={r.item_name} onChange={(e) => pickItem(i, e.target.value)} placeholder="Item / product" />
+                    <ProductPicker products={products} value={r.product_id} onChange={(id) => pickItem(i, id)} placeholder="Item / product" />
                   </td>
                   <td className="px-2 py-1"><input className="input w-20" value={r.units} onChange={(e) => setRow(i, { units: e.target.value })} /></td>
                   <td className="px-2 py-1"><input className="input w-24 text-right tabular-nums" inputMode="decimal" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} /></td>
@@ -416,7 +420,6 @@ export default function TradeVoucher({ type }: { type: string }) {
               </tfoot>
             )}
           </table>
-          <datalist id="trade-products">{products.map((p) => <option key={p.id} value={p.name} />)}</datalist>
         </div>
 
         <div className="flex flex-wrap items-end justify-end gap-6">

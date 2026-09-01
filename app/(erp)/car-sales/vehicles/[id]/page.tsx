@@ -17,7 +17,7 @@ export default async function VehicleDetailPage({ params }: { params: { id: stri
   const supabase = createClient();
   const { data: v } = await supabase
     .from("car_vehicles")
-    .select("*, supplier:supplier_id(name), customer:current_customer_id(name)")
+    .select("*, item:product_id(name), supplier:supplier_id(name), customer:current_customer_id(name)")
     .eq("id", params.id).single();
   if (!v) notFound();
 
@@ -26,7 +26,7 @@ export default async function VehicleDetailPage({ params }: { params: { id: stri
 
   return (
     <div className="max-w-4xl">
-      <PageHeader title={`${vehicleTitle(v)} · ${v.vehicle_no}`}>
+      <PageHeader title={`${vehicleTitle({ ...v, item: (v as any).item?.name })} · ${v.vehicle_no}`}>
         {canManage && <Link href={`/car-sales/vehicles/${v.id}/edit`} className="btn-outline text-sm">Edit</Link>}
       </PageHeader>
 
@@ -39,7 +39,8 @@ export default async function VehicleDetailPage({ params }: { params: { id: stri
         <section className="card">
           <h2 className="mb-3 font-semibold text-slate-700">Vehicle</h2>
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
-            <D l="Make / Model" v={vehicleTitle(v)} />
+            <D l="Item" v={(v as any).item?.name} />
+            <D l="Make / Model" v={vehicleTitle({ ...v, item: null })} />
             <D l="Color" v={v.color} />
             <D l="Plate Number" v={v.plate_no} />
             <D l="VIN / Chassis" v={v.vin} />
