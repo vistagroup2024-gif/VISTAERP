@@ -86,3 +86,16 @@ export default function ProductPicker({
     </div>
   );
 }
+
+/**
+ * Turn a flat Product Tree read into picker options: the items only, each
+ * labelled with the group it sits under. Resolved here rather than with a
+ * self-referencing join, which is the one embed shape this codebase has never
+ * relied on and which would silently return nothing if it did not resolve.
+ */
+export function productOptions(rows: { id: string; name: string; parent_id: string | null; is_group?: boolean }[]): PickProduct[] {
+  const nameById = new Map(rows.map((r) => [r.id, r.name] as const));
+  return rows
+    .filter((r) => !r.is_group)
+    .map((r) => ({ id: r.id, name: r.name, group: r.parent_id ? nameById.get(r.parent_id) ?? null : null }));
+}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import ProductPicker from "./ProductPicker";
+import ProductPicker, { productOptions } from "./ProductPicker";
 import { TRADE_DOCS, isCarCostCenter, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
 
 type Row = {
@@ -72,13 +72,13 @@ export default function TradeVoucher({ type }: { type: string }) {
       const types = cfg.party === "supplier" ? ["supplier"] : cfg.party === "customer" ? ["customer", "b2b_agent"] : ["customer", "supplier", "b2b_agent"];
       const [{ data: pa }, { data: pr }, { data: cc }, { data: ta }, { data: wh }, { data: ac }] = await Promise.all([
         supabase.from("parties").select("id, name").in("party_type", types).eq("is_active", true).order("name"),
-        supabase.from("acct_products").select("id, name, parent:parent_id(name)").eq("is_active", true).eq("is_group", false).order("name"),
+        supabase.from("acct_products").select("id, name, parent_id, is_group").eq("is_active", true).order("name"),
         supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("warehouses").select("id, name").eq("is_active", true).order("name"),
         supabase.from("accounts").select("id, code, name").eq("is_postable", true).eq("is_group", false).order("code"),
       ]);
-      setParties((pa as any[]) ?? []); setProducts(((pr as any[]) ?? []).map((p) => ({ id: p.id, name: p.name, group: p.parent?.name ?? null })));
+      setParties((pa as any[]) ?? []); setProducts(productOptions((pr as any[]) ?? []));
       setCostCenters((cc as any[]) ?? []); setTagAreas((ta as any[]) ?? []);
       setWarehouses((wh as any[]) ?? []); setAccounts((ac as any[]) ?? []);
     })();

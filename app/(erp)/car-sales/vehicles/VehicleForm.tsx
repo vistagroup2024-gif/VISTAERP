@@ -35,6 +35,8 @@ export default function VehicleForm({ existing, suppliers, products }: { existin
     notes: existing?.notes ?? "",
   });
   const set = (k: string, v: any) => setF((s) => ({ ...s, [k]: v }));
+  // A car created from a Purchase Voucher takes its item from that voucher line.
+  const fromVoucher = !!existing?.source_product_id;
   const totalCost = useMemo(() => (Number(f.purchase_cost) || 0) + (Number(f.purchase_vat) || 0), [f.purchase_cost, f.purchase_vat]);
 
   async function save(e: React.FormEvent) {
@@ -57,12 +59,24 @@ export default function VehicleForm({ existing, suppliers, products }: { existin
           {/* The item names the car, and is what Car Sales and Inventory count
               it as. It is chosen from the Product Tree — never typed here. */}
           <Field label="Item (Product Tree)" full>
-            <ProductPicker products={products} value={f.product_id || null} onChange={(id) => set("product_id", id ?? "")}
-              placeholder="Choose the item this car is…" />
-            <p className="mt-1 text-xs text-slate-400">
-              Names the car and counts it in stock. Add items in Masters → Product Tree.
-              A car bought on a Purchase Voucher takes the item from its voucher line.
-            </p>
+            {fromVoucher ? (
+              // The voucher line decides the item for a car that came from one,
+              // so showing an editable picker here would ignore what was chosen.
+              <>
+                <input className="input bg-slate-50" value={existing?.item?.name ?? "—"} readOnly tabIndex={-1} />
+                <p className="mt-1 text-xs text-slate-400">
+                  Set by the Purchase Voucher this car came from. Change it on the voucher, not here.
+                </p>
+              </>
+            ) : (
+              <>
+                <ProductPicker products={products} value={f.product_id || null} onChange={(id) => set("product_id", id ?? "")}
+                  placeholder="Choose the item this car is…" />
+                <p className="mt-1 text-xs text-slate-400">
+                  Names the car and counts it in stock. Add items in Masters → Product Tree.
+                </p>
+              </>
+            )}
           </Field>
           <Field label="Make"><input className="input" value={f.make} onChange={(e) => set("make", e.target.value)} /></Field>
           <Field label="Model"><input className="input" value={f.model} onChange={(e) => set("model", e.target.value)} /></Field>
