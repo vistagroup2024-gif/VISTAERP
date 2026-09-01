@@ -55,6 +55,10 @@ export default function HotelVoucherDocument({ provider, booking, qr }: { provid
         </div>
       </div>
 
+      {/* The voucher is handed to the guest, so an unconfirmed HCN is left off
+          rather than printed as "Pending". The column appears only once at
+          least one stay actually has a number; the box on a single-stay
+          voucher only when that booking has one. */}
       {booking.stays && booking.stays.length > 1 ? (
         <div className="mt-4 overflow-x-auto">
           <table className="w-full border-collapse text-sm">
@@ -63,7 +67,7 @@ export default function HotelVoucherDocument({ provider, booking, qr }: { provid
                 <th className="py-1.5 pr-2">Hotel</th><th className="py-1.5 pr-2">City</th>
                 <th className="py-1.5 pr-2">Check-in</th><th className="py-1.5 pr-2">Check-out</th>
                 <th className="py-1.5 pr-2 text-right">Nights</th><th className="py-1.5 pr-2 text-right">Rooms</th>
-                <th className="py-1.5 pr-2">Room / Meal</th><th className="py-1.5">HCN</th>
+                <th className="py-1.5 pr-2">Room / Meal</th>{booking.stays.some((s) => s.hcn) && <th className="py-1.5">HCN</th>}
               </tr>
             </thead>
             <tbody>
@@ -76,7 +80,7 @@ export default function HotelVoucherDocument({ provider, booking, qr }: { provid
                   <td className="py-1.5 pr-2 text-right">{s.nights ?? "—"}</td>
                   <td className="py-1.5 pr-2 text-right">{s.rooms ?? "—"}</td>
                   <td className="py-1.5 pr-2">{[s.room_summary || s.room_type, s.meal_plan].filter(Boolean).join(" · ") || "—"}</td>
-                  <td className="py-1.5 font-mono">{s.hcn || "Pending"}</td>
+                  {booking.stays!.some((x) => x.hcn) && <td className="py-1.5 font-mono">{s.hcn || "—"}</td>}
                 </tr>
               ))}
             </tbody>
@@ -97,10 +101,12 @@ export default function HotelVoucherDocument({ provider, booking, qr }: { provid
               <Row l="Rooms" v={booking.rooms} />
             </div>
           </div>
-          <div className="mt-4 rounded-lg border-2 border-dashed border-slate-300 p-3 text-center">
-            <div className="text-xs uppercase tracking-wide text-slate-400">Hotel Confirmation Number (HCN)</div>
-            <div className="text-2xl font-bold tracking-widest">{booking.hcn || "Pending"}</div>
-          </div>
+          {booking.hcn && (
+            <div className="mt-4 rounded-lg border-2 border-dashed border-slate-300 p-3 text-center">
+              <div className="text-xs uppercase tracking-wide text-slate-400">Hotel Confirmation Number (HCN)</div>
+              <div className="text-2xl font-bold tracking-widest">{booking.hcn}</div>
+            </div>
+          )}
         </>
       )}
 
