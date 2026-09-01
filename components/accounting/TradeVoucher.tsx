@@ -54,12 +54,13 @@ export default function TradeVoucher({ type }: { type: string }) {
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string }[]>([]);
   const [warehouse, setWarehouse] = useState("");
   const [posted, setPosted] = useState(false);
+  const [awaiting, setAwaiting] = useState(false);
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [sourceCar, setSourceCar] = useState<string | null>(null);
   const [sourceNo, setSourceNo] = useState<string | null>(null);
   const [loadOpen, setLoadOpen] = useState(false);
   // These trade documents post to the GL (+ stock); the rest are paperwork only.
-  const canPost = ["purchase_voucher", "purchase_return", "sales_return"].includes(cfg.type);
+  const canPost = ["purchase_voucher", "purchase_return", "sales_return", "sales_invoice"].includes(cfg.type);
 
   // Car-sales cost centres (CAR SALES INSTALLMENT / CAR TRADING) reveal the
   // costing block and the vehicle expense columns.
@@ -112,7 +113,7 @@ export default function TradeVoucher({ type }: { type: string }) {
     setDate(new Date().toISOString().slice(0, 10)); setParty(""); setCostCenter(""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff("");
     setRows([blankRow(), blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({});
-    setSourceId(null); setSourceNo(null); setSourceCar(null);
+    setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false);
   }
   function setRow(i: number, patch: Partial<Row>) {
     setRows((rs) => {
@@ -165,7 +166,7 @@ export default function TradeVoucher({ type }: { type: string }) {
     setDate(v.doc_date ?? ""); setParty(v.party_id ?? ""); setCostCenter(v.cost_center ?? ""); setTagArea(v.tag_area ?? "");
     setReference(v.reference ?? ""); setMode(v.mode_of_payment ?? ""); setDueDate(v.due_date ?? ""); setDeliveryDate(v.delivery_date ?? "");
     setTerms(v.terms ?? ""); setNarration(v.narration ?? ""); setRoundOff(v.round_off ? String(v.round_off) : "");
-    setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry);
+    setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry); setAwaiting(v.status === "awaiting_approval");
     setSourceId(v.source_doc_id ?? null); setSourceCar(v.source_car_contract ?? null); setSourceNo(v.source_doc_no ?? null);
     const meta = (v.meta ?? {}) as Record<string, any>;
     const saved: Record<string, string> = { ...extraDefaults() };
@@ -312,22 +313,22 @@ export default function TradeVoucher({ type }: { type: string }) {
       });
     if (lines.length === 0) return setErr("Enter at least one item line.");
     setBusy(true);
-    const { data, error } = await supabase.rpc("trade_doc_save", { p_type: cfg.type, p_prefix: cfg.prefix, p_id: id, p_header: header, p_lines: lines });
+    const { data, error } = await supabase.rpc("trade_doc_save", {
+      p_type: cfg.type, p_prefix: cfg.prefix, p_id: id,
+      // The warehouse has to be on the document before the save posts it.
+      p_header: { ...header, warehouse_id: cfg.showWarehouse ? warehouse || null : null },
+      p_lines: lines,
+    });
     if (error) { setBusy(false); return setErr(error.message); }
     const r = data as any;
-    if (canPost && cfg.showWarehouse) await supabase.from("trade_documents").update({ warehouse_id: warehouse || null }).eq("id", r.id);
     setBusy(false);
-    setId(r.id); setDocNo(r.doc_no); setDone(`saved ${r.doc_no}`); router.refresh();
-  }
-
-  async function post() {
-    if (!id) return setErr("Save the document first.");
-    if (!confirm(`Post ${cfg.title} ${docNo} to the accounts? This books the GL${extraValues.update_stock === "true" ? " and stock" : ""}.`)) return;
-    setBusy(true); setErr(null);
-    const { data, error } = await supabase.rpc("trade_doc_post", { p_id: id });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    setPosted(true); setDone(`posted to GL (${(data as any)?.entry_no ?? ""})`); router.refresh();
+    setId(r.id); setDocNo(r.doc_no);
+    // Saving posts the voucher, unless its type needs authorising — then it
+    // goes to the approvers and posts itself when they authorise it.
+    if (r.pending) { setAwaiting(true); setDone(`${r.doc_no} sent for authorisation`); }
+    else if (r.posted) { setPosted(true); setDone(`${r.doc_no} posted (${r.entry_no ?? ""})`); }
+    else setDone(`saved ${r.doc_no}`);
+    router.refresh();
   }
 
   const gridCols = 3 + (showRateAmount ? 3 : 1) + (cfg.tagAreaInLine ? 1 : 0) + lineExtras.length;
@@ -389,7 +390,7 @@ export default function TradeVoucher({ type }: { type: string }) {
         <button onClick={() => nav("prev")} disabled={busy} className="btn-outline text-sm">‹ Previous</button>
         <button onClick={() => nav("next")} disabled={busy} className="btn-outline text-sm">Next ›</button>
         {cfg.loadsFrom && (
-          <button onClick={() => setLoadOpen(true)} disabled={busy || posted} className="btn text-sm disabled:opacity-40">
+          <button onClick={() => setLoadOpen(true)} disabled={busy || posted || awaiting} className="btn text-sm disabled:opacity-40">
             ⤓ Load {cfg.loadsFrom.title}
           </button>
         )}
@@ -400,9 +401,9 @@ export default function TradeVoucher({ type }: { type: string }) {
         )}
         <div className="ml-auto flex items-center gap-2">
           {posted && <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium uppercase text-green-700">posted</span>}
-          {canPost && id && !posted && <button onClick={post} disabled={busy} className="btn text-sm">Post to GL</button>}
+          {awaiting && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium uppercase text-amber-700">awaiting authorisation</span>}
           <button onClick={printDoc} disabled={!id} className="btn-outline text-sm disabled:opacity-40">🖨 Print</button>
-          <button onClick={del} disabled={!id || busy || posted} className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
+          <button onClick={del} disabled={!id || busy || posted || awaiting} className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
         </div>
       </div>
 
@@ -538,7 +539,7 @@ export default function TradeVoucher({ type }: { type: string }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={save} disabled={busy || posted} className="btn disabled:opacity-40">{busy ? "Saving…" : posted ? "Posted (locked)" : id ? "Save changes" : "Save"}</button>
+          <button onClick={save} disabled={busy || posted || awaiting} className="btn disabled:opacity-40">{busy ? "Saving…" : posted ? "Posted (locked)" : awaiting ? "Awaiting authorisation" : id ? "Save changes" : "Save"}</button>
           <button onClick={() => setRows((r) => [...r, blankRow()])} className="btn-outline text-sm">+ Line</button>
           <span className="ml-auto text-xs text-slate-400">{id ? `Editing ${docNo}` : "New document — number auto-assigned on save."}</span>
         </div>
