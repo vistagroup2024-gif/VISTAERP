@@ -14,7 +14,9 @@ export interface NavGroup { label: string; icon: IconName; items: NavItem[]; per
 // order — the modules appear in the order they are declared in GROUPS.
 export interface NavSection { label: string; icon: IconName }
 export const SECTIONS: NavSection[] = [
-  { label: "Umrah Package", icon: "visa" },
+  { label: "Umrah", icon: "visa" },
+  { label: "Trading", icon: "car" },
+  { label: "Settings", icon: "settings" },
 ];
 
 export interface StaffNavAccess { unrestricted: boolean; permissions: Record<string, boolean> }
@@ -22,12 +24,12 @@ export interface StaffNavAccess { unrestricted: boolean; permissions: Record<str
 export const DASHBOARD: NavItem = { href: "/dashboard", label: "Dashboard", icon: "dashboard" };
 
 export const GROUPS: NavGroup[] = [
-  { label: "Visa", icon: "visa", section: "Umrah Package", perm: ["visa.view", "visa.package_update", "visa.invoices"], items: [
+  { label: "Visa", icon: "visa", section: "Umrah", perm: ["visa.view", "visa.package_update", "visa.invoices"], items: [
     { href: "/groups", label: "Visa Groups", perm: ["visa.view"] },
     { href: "/visa/invoices", label: "Visa Invoices", perm: ["visa.invoices"] },
     { href: "/groups/package-updates", label: "Package Updates", perm: ["visa.package_update"] },
   ] },
-  { label: "BRN Inventory", icon: "inventory", section: "Umrah Package", perm: ["brn.view", "brn.planning"], items: [
+  { label: "BRN Inventory", icon: "inventory", section: "Umrah", perm: ["brn.view", "brn.planning"], items: [
     { href: "/inventory", label: "BRN Dashboard", perm: ["brn.view"] },
     { href: "/inventory/brn", label: "BRN List", perm: ["brn.view"] },
     { href: "/inventory/archived", label: "Archived BRNs", perm: ["brn.view"] },
@@ -36,7 +38,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/inventory/planning", label: "Purchase Planning", perm: ["brn.planning"] },
     { href: "/inventory/history", label: "History", perm: ["brn.view"] },
   ] },
-  { label: "Hotels", icon: "hotel", section: "Umrah Package", perm: ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.reports"], items: [
+  { label: "Hotels", icon: "hotel", section: "Umrah", perm: ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.reports"], items: [
     { href: "/hotels/dashboard", label: "Dashboard", perm: ["hotels.reports"] },
     { href: "/hotels/bookings", label: "Hotel Bookings", perm: ["hotels.bookings"] },
     { href: "/hotels/nusuk", label: "Nusuk Agreements", perm: ["hotels.bookings"] },
@@ -46,7 +48,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/hotels", label: "Hotel Master", perm: ["hotels.masters"], exact: true },
     { href: "/hotels/reports", label: "Reports", perm: ["hotels.reports"] },
   ] },
-  { label: "Transport", icon: "transport", section: "Umrah Package", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.trip_ledger"], items: [
+  { label: "Transport", icon: "transport", section: "Umrah", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.trip_ledger"], items: [
     { href: "/transport", label: "Overview", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.driver_assign"] },
     { href: "/transport/operations", label: "Operations", perm: ["transport.operations", "transport.driver_assign"] },
     { href: "/transport/arrivals", label: "Arrival Service", perm: ["transport.operations", "transport.bookings"] },
@@ -63,7 +65,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/transport/reports", label: "Reports", perm: ["transport.reports"] },
     { href: "/transport/reports/ledger", label: "Trip Ledger", perm: ["transport.trip_ledger"] },
   ] },
-  { label: "Car Sales", icon: "car", perm: ["carsales.view"], items: [
+  { label: "Car Sales", icon: "car", section: "Trading", perm: ["carsales.view"], items: [
     { href: "/car-sales", label: "Dashboard", perm: ["carsales.view", "carsales.reports"] },
     { href: "/car-sales/alerts", label: "Alerts", perm: ["carsales.view", "carsales.reports"] },
     { href: "/car-sales/vehicles", label: "Vehicles / Stock", perm: ["carsales.vehicles", "carsales.view"] },
@@ -89,15 +91,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/purchases/vouchers", label: "Purchase Voucher" },
     { href: "/accounting/purchases/mrn", label: "Material Receipt (MRN)" },
     { href: "/accounting/purchases/returns", label: "Purchase Return" },
-  ] },
-  { label: "Masters", icon: "masters", perm: ["accounting.view"], items: [
-    { href: "/accounting/accounts", label: "Chart of Accounts" },
-    { href: "/accounting/masters/products", label: "Product Tree" },
-    { href: "/accounting/masters/tag-areas", label: "Tag Area" },
-    { href: "/accounting/masters/cost-centers", label: "Cost Center" },
-    { href: "/accounting/masters/car-expenses", label: "Car Purchase Expense" },
-    { href: "/accounting/masters/currencies", label: "Currencies" },
-    { href: "/accounting/masters/salespersons", label: "Salespersons & Commission" },
   ] },
   { label: "Accounting", icon: "accounting", perm: ["accounting.view"], items: [
     { href: "/accounting", label: "Dashboard" },
@@ -154,15 +147,24 @@ export const GROUPS: NavGroup[] = [
     { href: "/hr/employees", label: "Employees" },
     { href: "/hr/payroll", label: "Payroll" },
   ] },
-  { label: "Users", icon: "users", perm: ["users.view", "users.manage_roles"], items: [
+  { label: "Masters", icon: "masters", section: "Settings", perm: ["accounting.view"], items: [
+    { href: "/accounting/accounts", label: "Chart of Accounts" },
+    { href: "/accounting/masters/products", label: "Product Tree" },
+    { href: "/accounting/masters/tag-areas", label: "Tag Area" },
+    { href: "/accounting/masters/cost-centers", label: "Cost Center" },
+    { href: "/accounting/masters/car-expenses", label: "Car Purchase Expense" },
+    { href: "/accounting/masters/currencies", label: "Currencies" },
+    { href: "/accounting/masters/salespersons", label: "Salespersons & Commission" },
+  ] },
+  { label: "Users", icon: "users", section: "Settings", perm: ["users.view", "users.manage_roles"], items: [
     { href: "/settings/users", label: "Staff Users" },
     { href: "/settings/agents", label: "B2B Agents" },
     { href: "/settings/roles", label: "Roles & Permissions" },
   ] },
-  { label: "Settings", icon: "settings", perm: ["system.companies", "system.config", "system.masters"], items: [
+  { label: "Company", icon: "settings", section: "Settings", perm: ["system.companies", "system.config", "system.masters"], items: [
     { href: "/settings/companies", label: "Companies" },
   ] },
-  { label: "Notifications", icon: "bell", perm: ["dashboard.view"], items: [
+  { label: "Notifications", icon: "bell", section: "Settings", perm: ["dashboard.view"], items: [
     { href: "/settings/notifications", label: "Phone Notifications" },
   ] },
 ];

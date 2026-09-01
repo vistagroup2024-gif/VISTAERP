@@ -101,7 +101,7 @@ function visibleGroups(access?: StaffNavAccess) {
     .filter((g) => (!g.perm || g.perm.some((k) => access.permissions[k])) && g.items.length > 0);
 }
 
-function SidebarContent({ name, access, onClose, onCollapse }: { name: string; access?: StaffNavAccess; onClose?: () => void; onCollapse?: () => void }) {
+function SidebarContent({ access, onClose, onCollapse }: { access?: StaffNavAccess; onClose?: () => void; onCollapse?: () => void }) {
   const router = useRouter();
   const supabase = createClient();
   const path = usePathname();
@@ -149,10 +149,9 @@ function SidebarContent({ name, access, onClose, onCollapse }: { name: string; a
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5">
         <div className="flex min-w-0 items-center gap-2.5">
           <Image src="/icon.svg" alt="Vista Group" width={34} height={34} className="shrink-0" />
-          <div className="min-w-0">
-            <p className="text-sm font-bold leading-tight text-slate-800">Vista Group</p>
-            <p className="truncate text-xs leading-tight text-slate-400">{name}</p>
-          </div>
+          {/* The signed-in user is named next to the search bar in the header;
+              one place is enough, so this is just the company. */}
+          <p className="text-base font-bold leading-tight text-slate-800">Vista Group</p>
         </div>
         <div className="flex items-center gap-0.5">
           <NotificationBell endpoint="/api/notifications" groupBase="/groups" realtime />
@@ -199,7 +198,7 @@ function SidebarContent({ name, access, onClose, onCollapse }: { name: string; a
   );
 }
 
-export default function Sidebar({ name, access }: { name: string; access?: StaffNavAccess }) {
+export default function Sidebar({ access }: { name?: string; access?: StaffNavAccess }) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -222,7 +221,7 @@ export default function Sidebar({ name, access }: { name: string; access?: Staff
         </div>
       ) : (
         <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-          <SidebarContent name={name} access={access} onCollapse={toggleCollapsed} />
+          <SidebarContent access={access} onCollapse={toggleCollapsed} />
         </aside>
       )}
 
@@ -245,7 +244,7 @@ export default function Sidebar({ name, access }: { name: string; access?: Staff
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-xl">
-            <SidebarContent name={name} access={access} onClose={() => setOpen(false)} />
+            <SidebarContent access={access} onClose={() => setOpen(false)} />
           </aside>
         </div>
       )}
