@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { sar } from "../lib";
 import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import LoadFromPicker from "@/components/accounting/LoadFromPicker";
 
 interface Opt { id: string; name: string }
 interface VehicleOpt { id: string; label: string; is_trading?: boolean }
@@ -42,6 +43,36 @@ export default function ContractForm({ existing, installments = [], customers, v
     ? installments.map((i) => ({ due_date: i.due_date ?? "", amount: String(i.amount ?? ""), notes: i.notes ?? "", paid: Number(i.paid_amount || 0) }))
     : []);
   const [gen, setGen] = useState({ months: "12", start: new Date().toISOString().slice(0, 10) });
+  // The Sale Order this invoice was raised from, so it stops showing as pending.
+  const [sourceId, setSourceId] = useState<string | null>((existing as any)?.source_doc_id ?? null);
+  const [sourceNo, setSourceNo] = useState<string | null>(null);
+  const [loadOpen, setLoadOpen] = useState(false);
+
+  /**
+   * Load a car Sale Order: the customer, the agreed price and the delivery date
+   * come across, and the vehicle and the schedule stay for the operator — a
+   * Sale Order names what was sold, not which car on the yard fills it.
+   */
+  async function loadFromOrder(pid: string) {
+    setLoadOpen(false); setErr(null);
+    const { data, error } = await supabase.rpc("trade_doc_get", { p_id: pid });
+    if (error) return setErr(error.message);
+    const v = data as any;
+    if (!v) return setErr("Sale Order not found.");
+    const meta = (v.meta ?? {}) as Record<string, any>;
+    setH((cur) => ({
+      ...cur,
+      customer_id: v.party_id ?? cur.customer_id,
+      delivery_date: v.delivery_date ?? cur.delivery_date,
+      // A car Sale Order carries the costing boxes; the selling price and the
+      // advance are exactly what the invoice needs.
+      sale_price: String(meta.selling_price ?? v.total ?? cur.sale_price ?? ""),
+      advance: String(meta.advance ?? cur.advance ?? ""),
+      notes: v.narration ?? cur.notes,
+    }));
+    setRows([]);
+    setSourceId(v.id); setSourceNo(v.doc_no ?? null);
+  }
 
   // "Keep in Vista's name" only applies to CAR TRADING vehicles. Installment
   // vehicles are always retained in Vista's name (monthly charges always apply),
@@ -74,15 +105,28 @@ export default function ContractForm({ existing, installments = [], customers, v
     const payload = { ...h, keep_vista: isTrading ? h.keep_vista : true, sale_price: String(h.sale_price || 0), advance: String(h.advance || 0) };
     const p_inst = rows.map((r) => ({ due_date: r.due_date, amount: String(r.amount || 0), notes: r.notes }));
     const { data, error } = await supabase.rpc("car_contract_save", { p_id: existing?.id ?? null, p_header: payload, p_installments: p_inst });
+    if (error) { setSaving(false); return setErr(error.message); }
+    if (sourceId) {
+      const { error: le } = await supabase.rpc("car_contract_link_source", { p_contract: data, p_doc: sourceId });
+      if (le) { setSaving(false); return setErr(le.message); }
+    }
     setSaving(false);
-    if (error) return setErr(error.message);
     router.push(`/car-sales/contracts/${data}`);
     router.refresh();
   }
 
   return (
     <div className="max-w-5xl">
-      <PageHeader title={existing ? "Edit Contract" : "New Contract"} subtitle="Installment sale contract and payment schedule" />
+      <PageHeader title={existing ? "Edit Contract" : "New Contract"} subtitle="Installment sale contract and payment schedule">
+        {!existing && (
+          <button type="button" onClick={() => setLoadOpen(true)} className="btn text-sm">⤓ Load Sale Order</button>
+        )}
+        {sourceNo && <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">from {sourceNo}</span>}
+      </PageHeader>
+      {loadOpen && (
+        <LoadFromPicker targetType="car_invoice" sourceTitle="Sale Order" rpc="car_pending_sale_orders" rpcArgs={{}}
+          onPick={loadFromOrder} onClose={() => setLoadOpen(false)} />
+      )}
       <form onSubmit={save} className="space-y-6">
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 

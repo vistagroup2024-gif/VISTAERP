@@ -26,6 +26,12 @@ export interface HeaderExtra {
 
 export interface TradeDocCfg {
   type: string;        // trade_documents.doc_type
+  /**
+   * The voucher this one is LOADED from — pick a pending upstream document and
+   * its fields come across, leaving only what it cannot know to be typed.
+   * Must match trade_doc_source_type() in the database, which is the authority.
+   */
+  loadsFrom?: { type: string; title: string };
   prefix: string;      // document-number prefix
   title: string;
   party: TradeParty;   // whose picker to show (b2b agents count as customers)
@@ -98,11 +104,13 @@ const PV_CAR_EXTRAS: LineExtra[] = [
 export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   purchase_order: {
     type: "purchase_order", prefix: "PO-", title: "Purchase Order", party: "supplier",
+    loadsFrom: { type: "sale_order", title: "Sale Order" },
     showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
     lineExtras: [{ key: "so_purchase_rate", label: "SO Purchase Rate" }, { key: "remarks", label: "Remarks", kind: "text" }],
   },
   purchase_voucher: {
     type: "purchase_voucher", prefix: "PV-", title: "Purchase Voucher", party: "supplier",
+    loadsFrom: { type: "mrn", title: "Material Receipt Note" },
     showDue: true, showMode: true, showTagArea: false, tagAreaInLine: true, showWarehouse: false,
     headerExtras: [{ key: "purchase_account", label: "Purchase Account", kind: "account" }],
     lineExtras: PV_COMMON_EXTRAS, carLineExtras: PV_CAR_EXTRAS,
@@ -118,6 +126,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   },
   mrn: {
     type: "mrn", prefix: "MRN-", title: "Material Receipt Note", party: "supplier",
+    loadsFrom: { type: "purchase_order", title: "Purchase Order" },
     showDelivery: true, showTagArea: true,
   },
   sales_quotation: {
@@ -127,6 +136,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   },
   sale_order: {
     type: "sale_order", prefix: "SO-", title: "Sale Order", party: "customer",
+    loadsFrom: { type: "sales_quotation", title: "Sales Quotation" },
     showDelivery: true, showTerms: true, showMode: true, showTagArea: false,
     carHeaderExtras: [
       ...CAR_COSTING,
@@ -142,8 +152,19 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
       { key: "update_stock", label: "Update Stocks", kind: "check" },
     ],
   },
+  sales_invoice: {
+    type: "sales_invoice", prefix: "SI-", title: "Sales Invoice", party: "customer",
+    loadsFrom: { type: "sale_order", title: "Sale Order" },
+    showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
+    headerExtras: [
+      { key: "sale_account", label: "Sale Account", kind: "account" },
+      { key: "update_stock", label: "Update Stocks", kind: "check" },
+    ],
+    lineExtras: [{ key: "remarks", label: "Remarks", kind: "text" }],
+  },
   delivery_note: {
     type: "delivery_note", prefix: "DN-", title: "Delivery Note", party: "customer",
+    loadsFrom: { type: "sales_invoice", title: "Sales Invoice" },
     showDelivery: true, showTagArea: true, hideRateAmount: true,
   },
 };

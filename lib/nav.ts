@@ -79,6 +79,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/invoices", label: "Invoices", perm: ["sales.view"] },
     { href: "/accounting/sales/quotations", label: "Sales Quotation", perm: ["sales.view"] },
     { href: "/accounting/sales/orders", label: "Sale Order", perm: ["sales.view"] },
+    { href: "/accounting/sales/invoices", label: "Sales Invoice", perm: ["sales.view"] },
     { href: "/accounting/sales/delivery-notes", label: "Delivery Note", perm: ["sales.view"] },
     { href: "/accounting/sales/returns", label: "Sales Return", perm: ["sales.view"] },
   ] },
@@ -100,6 +101,7 @@ export const GROUPS: NavGroup[] = [
   ] },
   { label: "Accounting", icon: "accounting", perm: ["accounting.view"], items: [
     { href: "/accounting", label: "Dashboard" },
+    { href: "/accounting/workflow", label: "Work Flow" },
     { href: "/accounting/receipts", label: "Receipt" },
     { href: "/accounting/payments", label: "Payment" },
     { href: "/accounting/contra", label: "Contra" },

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProductPicker, { productOptions } from "./ProductPicker";
+import LoadFromPicker from "./LoadFromPicker";
 import { TRADE_DOCS, isCarCostCenter, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
 
 type Row = {
@@ -53,6 +54,9 @@ export default function TradeVoucher({ type }: { type: string }) {
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string }[]>([]);
   const [warehouse, setWarehouse] = useState("");
   const [posted, setPosted] = useState(false);
+  const [sourceId, setSourceId] = useState<string | null>(null);
+  const [sourceNo, setSourceNo] = useState<string | null>(null);
+  const [loadOpen, setLoadOpen] = useState(false);
   // These trade documents post to the GL (+ stock); the rest are paperwork only.
   const canPost = ["purchase_voucher", "purchase_return", "sales_return"].includes(cfg.type);
 
@@ -89,6 +93,7 @@ export default function TradeVoucher({ type }: { type: string }) {
     setDate(new Date().toISOString().slice(0, 10)); setParty(""); setCostCenter(""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff("");
     setRows([blankRow(), blankRow()]); setWarehouse(""); setPosted(false); setExtras({}); setOverridden({});
+    setSourceId(null); setSourceNo(null);
   }
   function setRow(i: number, patch: Partial<Row>) {
     setRows((rs) => {
@@ -142,6 +147,7 @@ export default function TradeVoucher({ type }: { type: string }) {
     setReference(v.reference ?? ""); setMode(v.mode_of_payment ?? ""); setDueDate(v.due_date ?? ""); setDeliveryDate(v.delivery_date ?? "");
     setTerms(v.terms ?? ""); setNarration(v.narration ?? ""); setRoundOff(v.round_off ? String(v.round_off) : "");
     setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry);
+    setSourceId(v.source_doc_id ?? null); setSourceNo(v.source_doc_no ?? null);
     const meta = (v.meta ?? {}) as Record<string, any>;
     const saved: Record<string, string> = {};
     for (const [k, val] of Object.entries(meta)) saved[k] = val == null ? "" : String(val);
@@ -168,6 +174,64 @@ export default function TradeVoucher({ type }: { type: string }) {
     if (!data) return setErr("Document not found.");
     fill(data);
   }
+  /**
+   * Load an upstream document into this one. Everything the source holds that
+   * this voucher also shows comes across — party, cost centre, terms, the item
+   * lines and any matching extra field; what the earlier document could not
+   * know is left empty to be typed. The document number stays blank because
+   * this is a NEW voucher, and the link is kept so the source drops off the
+   * pending list once this is saved.
+   */
+  async function loadFrom(pid: string) {
+    setLoadOpen(false); setBusy(true); setErr(null);
+    const { data, error } = await supabase.rpc("trade_doc_load", { p_source: pid, p_target_type: cfg.type });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    const v = data as any;
+    if (!v) return setErr("Document not found.");
+
+    setId(null); setDocNo(""); setPosted(false); setDone(null);
+    setDate(new Date().toISOString().slice(0, 10));
+    setParty(v.party_id ?? ""); setCostCenter(v.cost_center ?? "");
+    setTagArea(cfg.showTagArea === false ? "" : v.tag_area ?? "");
+    setReference(v.doc_no ?? ""); setTerms(v.terms ?? ""); setNarration(v.narration ?? "");
+    setMode(v.mode_of_payment ?? ""); setDeliveryDate(v.delivery_date ?? "");
+    setDueDate(""); setRoundOff(""); setWarehouse("");
+
+    // Only the extras this voucher actually shows: a Purchase Order has no use
+    // for a quotation's car-costing boxes, and copying them would leave stale
+    // values on a document that never displays them.
+    const src = (v.meta ?? {}) as Record<string, any>;
+    const keep: Record<string, string> = {};
+    for (const f of headerExtras) {
+      const val = src[f.key];
+      if (val !== undefined && val !== null && val !== "") keep[f.key] = String(val);
+    }
+    setExtras(keep);
+    setOverridden(Object.fromEntries(Object.keys(keep).map((k) => [k, true])));
+
+    const ls: Row[] = (v.lines ?? []).map((l: any) => {
+      const lm = (l.meta ?? {}) as Record<string, any>;
+      const ex: Record<string, string> = {};
+      for (const x of lineExtras) {
+        const val = lm[x.key];
+        if (val !== undefined && val !== null && val !== "") ex[x.key] = String(val);
+      }
+      if (cfg.tagAreaInLine && lm.tag_area) ex.tag_area = String(lm.tag_area);
+      return {
+        product_id: l.product_id ?? null, item_name: l.item_name ?? "", units: l.units ?? "",
+        quantity: l.quantity ? String(Number(l.quantity)) : "",
+        rate: l.rate ? String(Number(l.rate)) : "",
+        amount: l.amount ? String(Number(l.amount)) : "",
+        link1: l.link1 ?? "", extras: ex,
+      };
+    });
+    setRows(ls.length ? [...ls, blankRow()] : [blankRow(), blankRow()]);
+
+    setSourceId(v.id); setSourceNo(v.doc_no ?? null);
+    setDone(`loaded from ${v.doc_no}`);
+  }
+
   async function nav(dir: "prev" | "next") {
     setBusy(true);
     const { data, error } = await supabase.rpc("trade_doc_nav", { p_type: cfg.type, p_id: id, p_dir: dir });
@@ -210,6 +274,7 @@ export default function TradeVoucher({ type }: { type: string }) {
       tag_area: cfg.showTagArea === false ? null : tagArea || null,
       reference: reference || null, mode_of_payment: mode || null, due_date: dueDate || null, delivery_date: deliveryDate || null,
       terms: terms || null, narration: narration || null, round_off: num(roundOff), meta,
+      source_doc_id: sourceId,
     };
     const lines = rows.filter((r) => (r.item_name.trim() || r.product_id) || num(r.amount))
       .map((r) => {
@@ -302,6 +367,16 @@ export default function TradeVoucher({ type }: { type: string }) {
         <button onClick={resetNew} disabled={busy} className="btn-outline text-sm">＋ New</button>
         <button onClick={() => nav("prev")} disabled={busy} className="btn-outline text-sm">‹ Previous</button>
         <button onClick={() => nav("next")} disabled={busy} className="btn-outline text-sm">Next ›</button>
+        {cfg.loadsFrom && (
+          <button onClick={() => setLoadOpen(true)} disabled={busy || posted} className="btn text-sm disabled:opacity-40">
+            ⤓ Load {cfg.loadsFrom.title}
+          </button>
+        )}
+        {sourceNo && (
+          <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+            from {sourceNo}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {posted && <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium uppercase text-green-700">posted</span>}
           {canPost && id && !posted && <button onClick={post} disabled={busy} className="btn text-sm">Post to GL</button>}
@@ -309,6 +384,11 @@ export default function TradeVoucher({ type }: { type: string }) {
           <button onClick={del} disabled={!id || busy || posted} className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
         </div>
       </div>
+
+      {loadOpen && cfg.loadsFrom && (
+        <LoadFromPicker targetType={cfg.type} sourceTitle={cfg.loadsFrom.title}
+          onPick={loadFrom} onClose={() => setLoadOpen(false)} />
+      )}
 
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
