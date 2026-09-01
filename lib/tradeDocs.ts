@@ -159,10 +159,9 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     type: "sales_invoice", prefix: "SI-", title: "Sales Invoice", party: "customer",
     loadsFrom: { type: "sale_order", title: "Sale Order" },
     showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
-    headerExtras: [
-      { key: "sale_account", label: "Sale Account", kind: "account" },
-      { key: "update_stock", label: "Update Stocks", kind: "check", defaultOn: true },
-    ],
+    // No "Update Stocks" choice: a Sales Invoice is what takes the goods off
+    // the shelf, so it always does. See trade_doc_post.
+    headerExtras: [{ key: "sale_account", label: "Sale Account", kind: "account" }],
     lineExtras: [{ key: "remarks", label: "Remarks", kind: "text" }],
   },
   delivery_note: {
