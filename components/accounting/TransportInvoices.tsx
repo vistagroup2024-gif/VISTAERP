@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
 
 type Row = { trip_id: string; doc: string; date: string; agent: string | null; route: string | null;
-  sell: number; outsourced: boolean; vendor: string | null; vendor_cost: number; posted: boolean };
+  sell: number; outsourced: boolean; vendor: string | null; vendor_cost: number; posted: boolean;
+  entry_id: string | null; entry_no: string | null };
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 const y = new Date().getFullYear();
 
@@ -57,7 +59,11 @@ export default function TransportInvoices() {
           <tbody>
             {rows.map((r) => (
               <tr key={r.trip_id} className="border-t border-slate-100">
-                <td className="px-3 py-2 font-mono">{r.doc}</td>
+                <td className="px-3 py-2 font-mono">
+                  {r.entry_id
+                    ? <Link href={`/accounting/vouchers/${r.entry_id}`} className="text-brand hover:underline" title={r.entry_no ?? undefined}>{r.doc}</Link>
+                    : r.doc}
+                </td>
                 <td className="px-3 py-2 text-slate-500">{dateStr(r.date)}</td>
                 <td className="px-3 py-2">{r.agent ?? "—"}</td>
                 <td className="px-3 py-2 text-slate-600">{r.route ?? "—"}</td>
@@ -65,10 +71,15 @@ export default function TransportInvoices() {
                 <td className="px-3 py-2 text-slate-600">{r.outsourced ? (r.vendor ?? "—") : <span className="text-slate-400">in-house</span>}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{r.outsourced ? money(r.vendor_cost) : ""}</td>
                 <td className="px-3 py-2 text-center">
-                  {r.posted ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] uppercase text-green-700">posted</span>
+                  {r.posted
+                    ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] uppercase text-green-700" title={r.entry_no ?? undefined}>{r.entry_no ?? "posted"}</span>
                     : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] uppercase text-amber-700">pending</span>}
                 </td>
-                <td className="px-3 py-2 text-right">{!r.posted && <button onClick={() => post(r)} disabled={busy === r.trip_id} className="text-brand hover:underline">{busy === r.trip_id ? "…" : "Post"}</button>}</td>
+                <td className="px-3 py-2 text-right">
+                  {r.posted
+                    ? (r.entry_id && <Link href={`/accounting/vouchers/${r.entry_id}`} className="text-brand hover:underline">Open</Link>)
+                    : <button onClick={() => post(r)} disabled={busy === r.trip_id} className="text-brand hover:underline">{busy === r.trip_id ? "…" : "Post"}</button>}
+                </td>
               </tr>
             ))}
             {rows.length === 0 && <tr><td colSpan={9} className="px-3 py-6 text-center text-slate-400">No completed trips in this period.</td></tr>}
