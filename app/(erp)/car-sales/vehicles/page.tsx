@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { guardStaffPage, staffCan } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
+import CarStockSummary from "@/components/carsales/CarStockSummary";
 import VehiclesTable, { VehicleRow } from "./VehiclesTable";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,8 @@ export default async function VehiclesPage() {
   return (
     <div>
       <RealtimeRefresh tables={["car_vehicles"]} />
-      <PageHeader title="Vehicles / Stock" subtitle="View only — new vehicles arrive from Inventory when a Purchase Voucher is created" />
+      <PageHeader title="Vehicles / Stock" subtitle="View only — a car enters stock when its Purchase Voucher is posted, and leaves when it is sold or delivered" />
+      <CarStockSummary />
       <VehiclesTable rows={rows} perms={perms} />
     </div>
   );
