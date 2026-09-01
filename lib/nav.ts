@@ -23,6 +23,35 @@ export interface StaffNavAccess { unrestricted: boolean; permissions: Record<str
 
 export const DASHBOARD: NavItem = { href: "/dashboard", label: "Dashboard", icon: "dashboard" };
 
+/**
+ * Screens taken out of the sidebar but LEFT BUILT AND WORKING. They keep their
+ * routes, their data and their code.
+ *
+ * If something like one of these is wanted again, UNHIDE IT and carry on from
+ * what is here — move the entry back into its group in GROUPS below. Do not
+ * build a new screen alongside it: that leaves two half-versions of the same
+ * idea and the data split between them.
+ *
+ *   Service Catalog  /sales/catalog  — the price list of sellable services
+ *                                      (visa, transport, hotel, ziyarat) that
+ *                                      booking lines are priced from.
+ *   Visa Tracking    /sales/visas    — per-passenger visa status on a booking
+ *                                      (applied / issued / rejected).
+ *   Packages         /packages       — pre-built Umrah packages sold as one
+ *                                      price; also read by the B2B agent portal.
+ *   Invoices         /invoices       — the customer invoice the booking flow
+ *                                      raises by itself once a booking is
+ *                                      confirmed. Read-only, never typed.
+ *                                      NOT the Sales Invoice voucher, and not
+ *                                      Accounting's Invoice / Bill.
+ */
+export const HIDDEN_ITEMS: NavItem[] = [
+  { href: "/sales/catalog", label: "Service Catalog", perm: ["sales.view"] },
+  { href: "/sales/visas", label: "Visa Tracking", perm: ["sales.view"] },
+  { href: "/packages", label: "Packages", perm: ["sales.view"] },
+  { href: "/invoices", label: "Invoices", perm: ["sales.view"] },
+];
+
 export const GROUPS: NavGroup[] = [
   { label: "Visa", icon: "visa", section: "Umrah", perm: ["visa.view", "visa.package_update", "visa.invoices"], items: [
     { href: "/groups", label: "Visa Groups", perm: ["visa.view"] },
@@ -75,10 +104,9 @@ export const GROUPS: NavGroup[] = [
     { href: "/car-sales/reports", label: "Reports", perm: ["carsales.reports"] },
   ] },
   { label: "Sales", icon: "sales", perm: ["sales.view", "parties.manage"], items: [
-    { href: "/sales/catalog", label: "Service Catalog", perm: ["sales.view"] },
-    { href: "/sales/visas", label: "Visa Tracking", perm: ["sales.view"] },
-    { href: "/packages", label: "Packages", perm: ["sales.view"] },
-    { href: "/invoices", label: "Invoices", perm: ["sales.view"] },
+    // Service Catalog, Visa Tracking, Packages and Invoices used to sit here.
+    // They are hidden, not removed — see HIDDEN_ITEMS above. Move the entry
+    // back here to unhide one; do not build a replacement for it.
     { href: "/accounting/sales/quotations", label: "Sales Quotation", perm: ["sales.view"] },
     { href: "/accounting/sales/orders", label: "Sale Order", perm: ["sales.view"] },
     { href: "/accounting/sales/invoices", label: "Sales Invoice", perm: ["sales.view"] },
