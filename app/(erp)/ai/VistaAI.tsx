@@ -5,6 +5,7 @@ import AvatarStage, { type AvatarState } from "@/components/ai/AvatarStage";
 import Conversation, { type ConversationState } from "@/components/ai/Conversation";
 import Activity from "@/components/ai/Activity";
 import Tasks from "@/components/ai/Tasks";
+import Development from "@/components/ai/Development";
 import SettingsPanel from "@/components/ai/SettingsPanel";
 import { useSettings } from "@/components/ai/useSettings";
 import Icon from "@/components/ui/Icon";
@@ -79,25 +80,7 @@ export default function VistaAI({ configured }: { configured: boolean }) {
         )}
 
         {tab === "tasks" && <Tasks />}
-        {tab === "development" && (
-          <Placeholder
-            title="Development"
-            body="Speak a change you want to the ERP, review the Claude Code prompt she writes, and watch
-                  the task through to a Vercel preview. Arrives in phases 8 and 9. Production stays
-                  behind your own explicit approval, always."
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Placeholder({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="flex flex-1 items-center justify-center p-8">
-      <div className="max-w-sm text-center">
-        <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-500">{body}</p>
+        {tab === "development" && <Development />}
       </div>
     </div>
   );

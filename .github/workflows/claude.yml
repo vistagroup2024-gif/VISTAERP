@@ -1,0 +1,46 @@
+name: Claude Code
+
+# The other half of Vista AI's development workflow.
+#
+# Vista AI opens an issue mentioning @claude (see lib/ai/github.ts). This picks
+# it up, works on a BRANCH, and opens a pull request. Vercel builds a preview
+# from that branch by itself, and the ERP reads the status back.
+#
+# It cannot reach production. It has no permission to merge, the deploy-prod
+# workflow is workflow_dispatch-only, and production deploys from main — which
+# only a person can merge into.
+#
+# Required secret: ANTHROPIC_API_KEY (repo → Settings → Secrets and variables →
+# Actions). This is a separate key from the one the ERP itself uses; keeping
+# them separate means either can be rotated without taking the other down.
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  claude:
+    # Only act when actually addressed. Without this every issue and comment on
+    # the repository would start a run.
+    if: |
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude')) ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # commit to a branch
+      pull-requests: write   # open the PR
+      issues: write          # report back on the issue
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -20,6 +20,8 @@ export interface PendingAction {
   currency?: string;
   recipients?: { name: string; phone: string; outstanding: number; message: string }[];
   skipped?: { name: string; reason: string }[];
+  /** development_task only: the full Claude Code prompt, to be read before approving. */
+  prompt?: string;
 }
 
 export interface ActionOutcome {
@@ -45,7 +47,9 @@ export default function ConfirmCard({
   const [done, setDone] = useState<ActionOutcome | { cancelled: true } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(false);
 
+  const isDev = action.kind === "development_task";
   const recipients = action.recipients ?? [];
   const shown = showAll ? recipients : recipients.slice(0, 3);
 
@@ -53,17 +57,33 @@ export default function ConfirmCard({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/ai/action", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: action.action_id, decision }),
-      });
+      // A development task is approved on its own endpoint: approving it is
+      // what hands it to Claude Code, and that is a different act from
+      // confirming a send.
+      const res = isDev
+        ? await fetch("/api/ai/dev", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ id: action.action_id, action: decision === "confirm" ? "approve" : "reject" }),
+          })
+        : await fetch("/api/ai/action", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ id: action.action_id, decision }),
+          });
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok) { setError(json?.error || "That didn't go through."); return; }
 
       const outcome = decision === "cancel"
         ? ({ cancelled: true } as const)
+        : isDev
+        ? ({
+            ok: true,
+            message: json.issue_number
+              ? `Sent to Claude Code as issue #${json.issue_number}. It will work on a branch and open a pull request; nothing goes to production without your approval.`
+              : "Approved.",
+          } as ActionOutcome)
         : (json as ActionOutcome);
       setDone(outcome);
       onDecided(outcome);
@@ -79,7 +99,9 @@ export default function ConfirmCard({
     if ("cancelled" in done) {
       return (
         <Shell tone="neutral">
-          <p className="text-sm text-slate-600">Cancelled. Nothing was sent.</p>
+          <p className="text-sm text-slate-600">
+            {isDev ? "Discarded. Nothing was sent to Claude." : "Cancelled. Nothing was sent."}
+          </p>
         </Shell>
       );
     }
@@ -112,6 +134,27 @@ export default function ConfirmCard({
           </div>
         )}
       </div>
+
+      {isDev && action.prompt && (
+        <div className="mt-3">
+          <button
+            onClick={() => setShowPrompt((v) => !v)}
+            className="text-xs font-medium text-brand hover:underline"
+          >
+            {showPrompt ? "Hide the prompt" : "Read the prompt before approving"}
+          </button>
+          {showPrompt && (
+            <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-white p-2.5 font-mono text-[11px] leading-relaxed text-slate-600">
+              {action.prompt}
+            </pre>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            Approving opens an issue for Claude Code. It works on a branch and opens a pull request,
+            and Vercel builds a preview from it. Nothing reaches production until you merge it
+            yourself.
+          </p>
+        </div>
+      )}
 
       {recipients.length > 0 && (
         <div className="mt-3 space-y-2">
@@ -151,7 +194,11 @@ export default function ConfirmCard({
           Cancel
         </button>
         <button onClick={() => decide("confirm")} disabled={busy} className="btn btn-sm">
-          {busy ? "Sending…" : `Confirm & send${recipients.length ? ` (${recipients.length})` : ""}`}
+          {busy
+            ? "Sending…"
+            : isDev
+            ? "Approve & send to Claude"
+            : `Confirm & send${recipients.length ? ` (${recipients.length})` : ""}`}
         </button>
       </div>
     </Shell>
