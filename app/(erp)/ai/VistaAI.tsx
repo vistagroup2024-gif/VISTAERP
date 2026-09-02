@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import AvatarStage, { type AvatarState } from "@/components/ai/AvatarStage";
 import Conversation, { type ConversationState } from "@/components/ai/Conversation";
 import Activity from "@/components/ai/Activity";
+import Tasks from "@/components/ai/Tasks";
 import SettingsPanel from "@/components/ai/SettingsPanel";
 import { useSettings } from "@/components/ai/useSettings";
 import Icon from "@/components/ui/Icon";
@@ -77,14 +78,7 @@ export default function VistaAI({ configured }: { configured: boolean }) {
           <SettingsPanel settings={settings} update={update} configured={configured} />
         )}
 
-        {tab === "tasks" && (
-          <Placeholder
-            title="Tasks"
-            body="The things she has prepared for you and is waiting on — WhatsApp reminders queued for
-                  confirmation, follow-ups, and the day's priority list. Arrives with the write actions
-                  in phases 6 and 7."
-          />
-        )}
+        {tab === "tasks" && <Tasks />}
         {tab === "development" && (
           <Placeholder
             title="Development"

@@ -19,6 +19,7 @@ import type { PageContext } from "@/lib/ai/types";
 export type ConversationState = "idle" | "listening" | "thinking" | "speaking";
 
 const QUICK: { label: string; prompt: string }[] = [
+  { label: "What needs handling?", prompt: "What do I need to handle today?" },
   { label: "Today's summary", prompt: "Give me today's accounting summary." },
   { label: "Outstanding", prompt: "Show me today's outstanding." },
   { label: "Overdue customers", prompt: "Which customers are overdue?" },

@@ -214,8 +214,9 @@ const transportReport: AiTool = {
 const arrivalCompliance: AiTool = {
   name: "get_arrival_compliance",
   description:
-    "Groups arriving soon and whether their arrival service (transport / tafweej) is set — the " +
-    "Arrival Service screen's own check. Use for what is unconfirmed ahead of arrival.",
+    "Groups arriving soon whose arrival service (transport / tafweej) is still NOT set — the " +
+    "Arrival Service screen's own exception list. Every row returned needs handling; an empty " +
+    "result means everything arriving in that window is covered.",
   kind: "read",
   perm: "transport.operations",
   schema: {
