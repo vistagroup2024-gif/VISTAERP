@@ -55,3 +55,52 @@ user's back. Vouchers **choose** an existing item; they never invent one.
 - `/accounting/sales/invoices` — the Sales Invoice (SI-) trade voucher: loaded
   from a Sale Order, has item lines, issues stock, books COGS.
 - `/accounting/invoices` — Invoice / Bill, a manual one-off accounting voucher.
+
+## Vista AI: she prepares, the user disposes
+
+`/ai` and the dock on every screen are one conversation layer over the ERP that
+already exists. She owns **no business logic and no business data**: every
+figure she quotes comes from the same RPC the corresponding screen calls, under
+the caller's own session.
+
+Three rules hold the whole thing up. Breaking any of them quietly is worse than
+not shipping the feature.
+
+**1. Every tool declares a permission, and a tool without one is not
+registered.** `lib/ai/registry.ts` drops it and logs — a missing gate fails
+closed. The permission is checked twice: when the tool list is built for the
+model, and again when a call runs. `scripts/check-ai-permissions.ts` asserts
+those two never disagree; run it after touching the registry or a tool.
+
+**2. No tool executes anything.** Write tools are named `prepare_*` and they
+*stage* work in `ai_pending_actions` / `ai_dev_tasks`. Execution lives behind
+`/api/ai/action` and `/api/ai/dev`, reached only by the user pressing Confirm in
+their own browser. The model is not in the loop at the moment anything happens.
+If a new capability needs to *do* something, it gets a preparing tool and an
+executor — never an executing tool.
+
+**3. Nothing is reported as done unless the underlying system said so.** A
+partial send says "Sent 7 of 8" and names the failures. A tool that fails
+returns the error; it never returns an empty success.
+
+Everything she does is written to the existing `audit_log` as
+`entity = 'ai_action'` by `ai_log_action` (definer, so it cannot be forged or
+suppressed) — refused and failed calls included.
+
+### The development workflow
+
+She drafts Claude Code tasks; she cannot run them. `lib/devPrompt.ts` assembles
+the standing development rules and this repo's conventions **in code, verbatim**
+— the model supplies only the substance. Approving opens a GitHub issue
+mentioning `@claude`; `.github/workflows/claude.yml` works on a branch and opens
+a PR; Vercel previews it.
+
+**Production is unreachable from the ERP, by absence.** The token carries no
+`workflow` scope, no code path merges a PR, and `deploy-prod.yml` stays
+`workflow_dispatch`-only. Do not add a deploy button, and do not fake a Claude
+permission dialog — the GitHub action is not interactive and has no such prompt.
+
+### Server-only env
+
+`ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, `GITHUB_REPO`. None reach the browser; the
+UI is told "configured" or "not configured" and nothing more.

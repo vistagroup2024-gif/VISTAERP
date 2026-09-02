@@ -12,6 +12,7 @@ ERP for **Vista Group** — Umrah Services & Trading (B2B + B2C). Built with
 | ✅ MVP | Packages | Package builder bundling **Visa + Transport + Air ticket + Hotel** line items (cost & sell, multi-currency) |
 | ✅ MVP | Sales / Bookings | Booking workflow (held → confirmed → traveled → closed), passengers, services, invoice generation |
 | ✅ MVP | B2B Partner Portal | Agents browse active packages, view their bookings & invoice/ledger balance |
+| ✅ | Vista AI | Voice + text assistant over the ERP. Reads through the existing RPCs under the caller's own permissions; prepares actions the user confirms; drafts Claude Code tasks. See CLAUDE.md |
 | 🔜 Next | Accounting | Chart of accounts, ledgers, AR/AP, payments/receipts |
 | 🔜 | Purchase | Supplier POs & bills (hotels, transport, visa, airlines) |
 | 🔜 | Inventory | Generalized tradable goods |
@@ -36,6 +37,12 @@ Open http://localhost:3000.
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_DEFAULT_COMPANY_ID` — the seeded Vista Group company id
+
+Server-only (never exposed to the browser):
+
+- `ANTHROPIC_API_KEY` — Vista AI
+- `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` — WhatsApp Cloud API
+- `GITHUB_TOKEN`, `GITHUB_REPO` — the Claude Code bridge (Issues + PRs only, no `workflow` scope)
 
 ## Bootstrapping the first admin
 
