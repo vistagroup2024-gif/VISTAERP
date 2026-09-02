@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import Icon from "@/components/ui/Icon";
+import ConfirmCard, { type PendingAction, type ActionOutcome } from "@/components/ai/ConfirmCard";
 
 // The conversation itself, plus the tool activity inline so the user can see
 // exactly what was read to answer them. An answer with no visible source is
@@ -22,9 +23,19 @@ export interface Turn {
   tools?: ToolEvent[];
   error?: string | null;
   streaming?: boolean;
+  /** Work she has prepared, waiting on the person. */
+  action?: PendingAction | null;
+  /** A note from the ERP about what actually happened — not the user talking. */
+  system?: boolean;
 }
 
-export default function Transcript({ turns, busy }: { turns: Turn[]; busy: boolean }) {
+export default function Transcript({
+  turns, busy, onActionDecided,
+}: {
+  turns: Turn[];
+  busy: boolean;
+  onActionDecided?: (outcome: ActionOutcome | { cancelled: true }) => void;
+}) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,7 +56,15 @@ export default function Transcript({ turns, busy }: { turns: Turn[]; busy: boole
 
   return (
     <div className="space-y-5 px-1 py-2">
-      {turns.map((t) => (t.role === "user" ? <UserTurn key={t.id} turn={t} /> : <AiTurn key={t.id} turn={t} />))}
+      {turns.map((t) =>
+        t.system ? (
+          <SystemNote key={t.id} turn={t} />
+        ) : t.role === "user" ? (
+          <UserTurn key={t.id} turn={t} />
+        ) : (
+          <AiTurn key={t.id} turn={t} onActionDecided={onActionDecided} />
+        )
+      )}
       <div ref={endRef} />
     </div>
   );
@@ -61,7 +80,24 @@ function UserTurn({ turn }: { turn: Turn }) {
   );
 }
 
-function AiTurn({ turn }: { turn: Turn }) {
+// What the ERP reports back after an action ran. Centred and quiet: it is a
+// record of fact, not a line of dialogue from either side.
+function SystemNote({ turn }: { turn: Turn }) {
+  return (
+    <div className="flex justify-center">
+      <p className="max-w-[85%] text-center text-xs text-slate-400">
+        {turn.text.replace(/^\[Vista ERP\]\s*/, "")}
+      </p>
+    </div>
+  );
+}
+
+function AiTurn({
+  turn, onActionDecided,
+}: {
+  turn: Turn;
+  onActionDecided?: (outcome: ActionOutcome | { cancelled: true }) => void;
+}) {
   return (
     <div className="space-y-2">
       {!!turn.tools?.length && (
@@ -77,6 +113,10 @@ function AiTurn({ turn }: { turn: Turn }) {
           {turn.text}
           {turn.streaming && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-slate-400 align-text-bottom" />}
         </div>
+      )}
+
+      {turn.action && (
+        <ConfirmCard action={turn.action} onDecided={(o) => onActionDecided?.(o)} />
       )}
 
       {turn.error && (

@@ -21,6 +21,7 @@ export const maxDuration = 60;
 //   {type:"text", delta}            a chunk of the spoken/typed answer
 //   {type:"tool", name, status,     the assistant reaching into the ERP;
 //                summary?, link?}   surfaced so the user sees what was read
+//   {type:"confirm", action}        work is prepared and waiting on the user
 //   {type:"error", message}         something failed — said plainly
 //   {type:"done"}
 //
@@ -135,6 +136,14 @@ export async function POST(req: Request) {
                 summary: result.ok ? result.summary ?? null : result.error ?? null,
                 link: result.link ?? null,
               });
+
+              // A preparing tool stages the work and hands back what it would
+              // do. That becomes the confirmation card. The card is the ONLY
+              // way the work can then run — see app/api/ai/action.
+              const pending = (result.data as any)?.awaiting_confirmation;
+              if (result.ok && pending?.action_id) {
+                send({ type: "confirm", action: pending });
+              }
               return { call, result };
             })
           );

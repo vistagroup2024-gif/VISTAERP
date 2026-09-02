@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Transcript, { type Turn, type ToolEvent } from "@/components/ai/Transcript";
+import type { ActionOutcome } from "@/components/ai/ConfirmCard";
 import { useSettings } from "@/components/ai/useSettings";
 import { useVoice } from "@/components/ai/useVoice";
 import { speechSupported } from "@/lib/ai/voice";
@@ -60,7 +61,7 @@ export default function Conversation({
 
   const stop = useCallback(() => { abortRef.current?.abort(); }, []);
 
-  const ask = useCallback(async (text: string) => {
+  const ask = useCallback(async (text: string, opts?: { system?: boolean }) => {
     const question = text.trim();
     if (!question) return;
 
@@ -77,7 +78,7 @@ export default function Conversation({
     const answerId = nextId();
     setTurns((prev) => [
       ...prev,
-      { id: nextId(), role: "user", text: question },
+      { id: nextId(), role: "user", text: question, system: opts?.system },
       { id: answerId, role: "assistant", text: "", tools: [], streaming: true },
     ]);
 
@@ -132,6 +133,9 @@ export default function Conversation({
             patch((t) => ({ ...t, text: t.text + ev.delta }));
           } else if (ev.type === "tool") {
             patch((t) => ({ ...t, tools: mergeTool(t.tools ?? [], ev) }));
+          } else if (ev.type === "confirm") {
+            // Work is prepared and waiting. Nothing has happened yet.
+            patch((t) => ({ ...t, action: ev.action }));
           } else if (ev.type === "error") {
             patch((t) => ({ ...t, error: ev.message }));
           }
@@ -163,6 +167,20 @@ export default function Conversation({
   // Lets the cleanup above re-enter `ask` without `ask` depending on itself.
   const askRef = useRef(ask);
   useEffect(() => { askRef.current = ask; }, [ask]);
+
+  // Report the real outcome back into the conversation. She then says what
+  // happened in her own words — including the failures, because this is the
+  // provider's answer and not an assumption. The card itself stays on screen
+  // showing the same result.
+  const onActionDecided = useCallback((outcome: ActionOutcome | { cancelled: true }) => {
+    const note = "cancelled" in outcome
+      ? "[Vista ERP] The user cancelled that. Nothing was sent."
+      : `[Vista ERP] ${outcome.message}` +
+        (outcome.failures?.length
+          ? ` Failures: ${outcome.failures.map((f) => `${f.name} (${f.error})`).join("; ")}.`
+          : "");
+    askRef.current?.(note, { system: true });
+  }, []);
 
   const voice = useVoice({
     language: settings.language,
@@ -208,7 +226,7 @@ export default function Conversation({
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <Transcript turns={turns} busy={busy} />
+        <Transcript turns={turns} busy={busy} onActionDecided={onActionDecided} />
       </div>
 
       {turns.length === 0 && !compact && (

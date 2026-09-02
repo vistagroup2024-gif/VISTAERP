@@ -1,6 +1,7 @@
 import type { AiTool, ToolContext, ToolResult } from "@/lib/ai/types";
 import { ACCOUNTING_TOOLS } from "@/lib/ai/tools/accounting";
 import { OPERATIONS_TOOLS } from "@/lib/ai/tools/operations";
+import { WHATSAPP_TOOLS } from "@/lib/ai/tools/whatsapp";
 import { staffCan, type StaffAccess } from "@/lib/staffSession";
 import { logToolCall } from "@/lib/ai/audit";
 
@@ -22,7 +23,7 @@ import { logToolCall } from "@/lib/ai/audit";
 // runs, and a model cannot talk its way past the second one.
 // ============================================================
 
-const ALL: AiTool[] = [...ACCOUNTING_TOOLS, ...OPERATIONS_TOOLS];
+const ALL: AiTool[] = [...ACCOUNTING_TOOLS, ...OPERATIONS_TOOLS, ...WHATSAPP_TOOLS];
 
 const REGISTERED: AiTool[] = ALL.filter((t) => {
   if (!t.perm) {
