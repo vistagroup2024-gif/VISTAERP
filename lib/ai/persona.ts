@@ -1,5 +1,5 @@
 import type { PageContext } from "@/lib/ai/types";
-import type { StaffAccess } from "@/lib/staffSession";
+import type { StaffAccess } from "@/lib/staffAccess";
 import { toolsFor } from "@/lib/ai/registry";
 
 // ============================================================

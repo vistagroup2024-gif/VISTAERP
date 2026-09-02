@@ -4,7 +4,7 @@ import { OPERATIONS_TOOLS } from "@/lib/ai/tools/operations";
 import { WHATSAPP_TOOLS } from "@/lib/ai/tools/whatsapp";
 import { PRIORITY_TOOLS } from "@/lib/ai/tools/priorities";
 import { DEVELOPMENT_TOOLS } from "@/lib/ai/tools/development";
-import { staffCan, type StaffAccess } from "@/lib/staffSession";
+import { staffCan, type StaffAccess } from "@/lib/staffAccess";
 import { logToolCall } from "@/lib/ai/audit";
 
 // ============================================================

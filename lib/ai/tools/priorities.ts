@@ -1,6 +1,6 @@
 import type { AiTool, ToolContext } from "@/lib/ai/types";
 import { ok, num, today, addDays } from "@/lib/ai/tools/shared";
-import { staffCan } from "@/lib/staffSession";
+import { staffCan } from "@/lib/staffAccess";
 
 // ============================================================
 // "What do I need to handle today?"

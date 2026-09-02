@@ -1,15 +1,13 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { staffCan, type StaffAccess } from "@/lib/staffAccess";
 
-export interface StaffAccess {
-  isAdmin: boolean;
-  permissions: Record<string, boolean>;
-  fullName: string | null;
-  // True when no granular permissions have been assigned yet — treated as
-  // full access for backward compatibility with role-only staff accounts.
-  unrestricted: boolean;
-}
+// The permission rule and its type live in lib/staffAccess.ts, which carries no
+// Next.js or Supabase imports so it can be checked outside the framework. They
+// are re-exported here so every existing import keeps working unchanged.
+export { staffCan };
+export type { StaffAccess };
 
 // Loads the current staff user's access (admin flag + granular permission map).
 // Wrapped in React cache() so the layout guard and every page's guardStaffPage
@@ -33,13 +31,6 @@ export const getSessionUser = cache(async function getSessionUser() {
   const { data: { session } } = await sb.auth.getSession();
   return session?.user ?? null;
 });
-
-// Menu/page/action gate. Admins and not-yet-restricted accounts pass everything;
-// otherwise the specific permission must be granted.
-export function staffCan(access: StaffAccess, key: string): boolean {
-  if (access.unrestricted) return true;
-  return !!access.permissions[key];
-}
 
 // First module a user can land on, in priority order. Used to route a restricted
 // user away from a page they can't see (e.g. the Dashboard).

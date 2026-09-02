@@ -180,13 +180,13 @@ export default function Development() {
                 </ol>
               )}
 
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 {t.status === "draft" && (
                   <>
-                    <button onClick={() => act(t.id, "approve")} disabled={busy === t.id || !github} className="btn btn-sm">
+                    <button onClick={() => act(t.id, "approve")} disabled={busy === t.id || !github} className="btn w-full sm:w-auto">
                       {busy === t.id ? "Sending…" : "Approve & send to Claude"}
                     </button>
-                    <button onClick={() => act(t.id, "reject")} disabled={busy === t.id} className="btn-outline btn-sm">
+                    <button onClick={() => act(t.id, "reject")} disabled={busy === t.id} className="btn-outline w-full sm:w-auto">
                       Discard
                     </button>
                   </>
@@ -197,7 +197,7 @@ export default function Development() {
                   </button>
                 )}
                 {t.preview_url && (
-                  <a href={t.preview_url} target="_blank" rel="noopener noreferrer" className="btn btn-sm">
+                  <a href={t.preview_url} target="_blank" rel="noopener noreferrer" className="btn w-full sm:w-auto">
                     Open the preview
                   </a>
                 )}

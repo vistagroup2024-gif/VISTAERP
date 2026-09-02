@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { StaffAccess } from "@/lib/staffSession";
+import type { StaffAccess } from "@/lib/staffAccess";
 
 // ============================================================
 // The contract every Vista AI tool obeys.

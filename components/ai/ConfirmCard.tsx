@@ -189,11 +189,11 @@ export default function ConfirmCard({
 
       {error && <p className="mt-2 text-xs text-danger-fg">{error}</p>}
 
-      <div className="mt-3 flex justify-end gap-2">
-        <button onClick={() => decide("cancel")} disabled={busy} className="btn-outline btn-sm">
+      <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button onClick={() => decide("cancel")} disabled={busy} className="btn-outline w-full sm:w-auto">
           Cancel
         </button>
-        <button onClick={() => decide("confirm")} disabled={busy} className="btn btn-sm">
+        <button onClick={() => decide("confirm")} disabled={busy} className="btn w-full sm:w-auto">
           {busy
             ? "Sending…"
             : isDev
