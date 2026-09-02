@@ -1,7 +1,10 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import AppHeader from "@/components/AppHeader";
-import { getSessionUser, getStaffAccess } from "@/lib/staffSession";
+import { getSessionUser, getStaffAccess, staffCan } from "@/lib/staffSession";
+import VistaAiDock from "@/components/ai/VistaAiDock";
+import { aiConfigured } from "@/lib/ai/config";
 
 export default async function ErpLayout({
   children,
@@ -26,6 +29,13 @@ export default async function ErpLayout({
         />
         <main className="min-w-0 flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-6">{children}</main>
       </div>
+      {/* Vista AI, reachable from every screen — so "this ledger" has a
+          referent. Gated on ai.use like her own page. */}
+      {staffCan(access, "ai.use") && (
+        <Suspense fallback={null}>
+          <VistaAiDock configured={aiConfigured()} />
+        </Suspense>
+      )}
     </div>
   );
 }

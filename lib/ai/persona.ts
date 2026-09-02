@@ -100,13 +100,17 @@ export function contextPrompt(opts: {
     opts.userName ? `You are talking to ${opts.userName}.` : null,
   ];
   if (opts.page?.route) {
-    lines.push(
-      `They are currently on the ERP screen ${opts.page.route}` +
-        (opts.page.entityType && opts.page.entityId
-          ? `, looking at ${opts.page.entityType} ${opts.page.entityId}.`
-          : ".") +
-        ` If they say "this" or "here" without naming a record, they mean what is on that screen — but still read it with a tool before quoting anything from it.`
-    );
+    const where = opts.page.screen ? `${opts.page.screen} (${opts.page.route})` : opts.page.route;
+    lines.push(`They are looking at the ERP screen: ${where}.`);
+    if (opts.page.entityType && opts.page.entityId) {
+      lines.push(
+        `The record open on it is ${opts.page.entityType} ${opts.page.entityId}. ` +
+          `"This", "here", "it" and "that customer" mean that record unless they name a different one. ` +
+          `That id is a pointer, not information: read the record with a tool before you say anything about it.`
+      );
+    } else {
+      lines.push(`"This" or "here" refers to what that screen shows. Read it with a tool before quoting from it.`);
+    }
   }
   return lines.filter(Boolean).join("\n");
 }

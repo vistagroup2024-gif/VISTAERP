@@ -5,7 +5,8 @@ import { COMPANY_ID } from "@/lib/format";
 import { AI_MODEL, AI_EFFORT, AI_MAX_TOKENS, AI_MAX_TURNS, aiConfigured } from "@/lib/ai/config";
 import { systemPrompt, contextPrompt } from "@/lib/ai/persona";
 import { toolSchemas, executeTool } from "@/lib/ai/registry";
-import type { PageContext, ToolContext } from "@/lib/ai/types";
+import type { ToolContext } from "@/lib/ai/types";
+import { sanitizePageContext } from "@/lib/ai/pageContext";
 import { loadThread, startConversation, saveMessage } from "@/lib/ai/store";
 
 export const runtime = "nodejs";
@@ -51,7 +52,10 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({} as any));
   const message = String(body?.message ?? "").trim();
-  const page = (body?.page ?? null) as PageContext | null;
+  // Route, screen name and record id only, all shape-checked. It steers
+  // her attention; it never grants access, because every tool re-reads the
+  // record under this user's own session and permissions.
+  const page = sanitizePageContext(body?.page);
   if (!message) return Response.json({ error: "Say something first." }, { status: 400 });
 
   const ctx: ToolContext = { sb, companyId: COMPANY_ID, userId: user.id, access, page };

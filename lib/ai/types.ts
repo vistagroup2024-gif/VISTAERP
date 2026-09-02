@@ -23,6 +23,8 @@ export interface ToolContext {
 
 export interface PageContext {
   route: string;
+  /** The screen's name as the user knows it, e.g. "Ledger / Statement". */
+  screen?: string | null;
   entityType?: string | null;
   entityId?: string | null;
 }

@@ -6,9 +6,10 @@ import { useEffect, useRef } from "react";
 // The assistant's presence.
 //
 // Tier A: a filmed loop of a real person at a desk, when one is supplied, and
-// a restrained plate when one is not. `level` (0..1) is the live audio
-// amplitude of her speech — it drives a subtle breathing scale, nothing more.
-// This is audio-reactive, NOT lip-sync, and it is not dressed up as lip-sync.
+// a restrained plate when one is not. `level` (0..1) comes from the speech
+// engine's word-boundary events and drives a subtle breathing scale, capped at
+// 1.5%. It tracks the rhythm of her real speech. It is NOT raw amplitude and
+// NOT phoneme lip-sync, and it is not dressed up as either.
 //
 // Tier B (a streaming photoreal avatar with real phoneme lip-sync) replaces
 // the inside of this component and nothing else: the page gives it a state and
@@ -40,14 +41,21 @@ export default function AvatarStage({
   src,
   poster,
   compact = false,
+  bare = false,
 }: {
   state?: AvatarState;
-  /** Live speech amplitude, 0..1. Wired up in phase 3; 0 until then. */
+  /**
+   * How loudly she is speaking right now, 0..1. Driven by the speech engine's
+   * word-boundary events — the rhythm of her real speech, not raw amplitude
+   * and not phoneme lip-sync.
+   */
   level?: number;
   /** Looping video of the assistant. Drop a file in /public and pass its path. */
   src?: string;
   poster?: string;
   compact?: boolean;
+  /** Just the face: no panel, no caption, no state chip. For the dock header. */
+  bare?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -65,10 +73,10 @@ export default function AvatarStage({
   const scale = 1 + Math.min(Math.max(level, 0), 1) * 0.015;
 
   return (
-    <div className={`panel overflow-hidden ${compact ? "" : "h-full"}`}>
+    <div className={bare ? "h-full w-full" : `panel overflow-hidden ${compact ? "" : "h-full"}`}>
       <div
         className={`relative flex items-center justify-center overflow-hidden bg-slate-100 ${
-          compact ? "h-40" : "aspect-[4/5] max-h-[560px]"
+          bare ? "h-full w-full" : compact ? "h-40" : "aspect-[4/5] max-h-[560px]"
         }`}
       >
         {src ? (
@@ -84,21 +92,22 @@ export default function AvatarStage({
             preload="metadata"
           />
         ) : (
-          <Plate compact={compact} scale={scale} />
+          <Plate size={bare ? "tiny" : compact ? "small" : "full"} scale={scale} />
         )}
 
-        {/* State chip. Bottom-left, over the image, quiet. */}
-        <div className="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm backdrop-blur">
+        {/* State chip. Bottom-left, over the image, quiet. The dock header
+            has its own status line, so the chip would only repeat it. */}
+        {!bare && <div className="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm backdrop-blur">
           <span
             className={`h-2 w-2 rounded-full ${DOT[state]} ${
               state === "listening" || state === "thinking" ? "animate-pulse" : ""
             }`}
           />
           {LABEL[state]}
-        </div>
+        </div>}
       </div>
 
-      {!compact && (
+      {!compact && !bare && (
         <div className="border-t border-slate-100 px-5 py-3.5">
           <div className="text-sm font-semibold text-slate-900">Vista AI</div>
           <div className="text-xs text-slate-500">Vista Group ERP assistant</div>
@@ -111,20 +120,22 @@ export default function AvatarStage({
 // The stand-in until a filmed loop is supplied. A monogram on a warm neutral,
 // in the Vista palette — not a drawn face. A cartoon person would be worse
 // than no person.
-function Plate({ compact, scale }: { compact: boolean; scale: number }) {
+function Plate({ size, scale }: { size: "tiny" | "small" | "full"; scale: number }) {
+  const circle =
+    size === "tiny" ? "h-7 w-7 text-xs" : size === "small" ? "h-16 w-16 text-xl" : "h-28 w-28 text-4xl";
   return (
     <div
       className="flex h-full w-full flex-col items-center justify-center bg-brand-50 transition-transform duration-100"
       style={{ transform: `scale(${scale})` }}
     >
       <div
-        className={`flex items-center justify-center rounded-full bg-white text-brand-700 shadow-card ${
-          compact ? "h-16 w-16 text-xl" : "h-28 w-28 text-4xl"
-        } font-semibold tracking-tight`}
+        className={`flex items-center justify-center rounded-full bg-white text-brand-700 ${
+          size === "tiny" ? "" : "shadow-card"
+        } ${circle} font-semibold tracking-tight`}
       >
         V
       </div>
-      {!compact && (
+      {size === "full" && (
         <p className="mt-4 max-w-[16rem] text-center text-xs leading-relaxed text-brand-700/70">
           Add a filmed loop at <span className="font-mono">/public/vista-ai/</span> and pass its
           path to show her here.
