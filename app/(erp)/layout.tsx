@@ -12,17 +12,20 @@ export default async function ErpLayout({
   // own guardStaffPage. The name now comes from staff_access — no extra profiles query.
   const [user, access] = await Promise.all([getSessionUser(), getStaffAccess()]);
   if (!user) redirect("/login");
+  // Blocked account, or outside the login window set for this user. The database
+  // has already closed too, so every page behind here would render empty.
+  if (!access.loginOk) redirect("/locked");
 
   return (
     <div className="flex min-h-screen">
       <Sidebar
         name={access.fullName || user.email || "User"}
-        access={{ unrestricted: access.unrestricted, permissions: access.permissions }}
+        access={{ unrestricted: access.unrestricted, permissions: access.permissions, isAdmin: access.isAdmin, docRights: access.docRights }}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader
           name={access.fullName || user.email || "User"}
-          access={{ unrestricted: access.unrestricted, permissions: access.permissions }}
+          access={{ unrestricted: access.unrestricted, permissions: access.permissions, isAdmin: access.isAdmin, docRights: access.docRights }}
         />
         <main className="min-w-0 flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-6">{children}</main>
       </div>

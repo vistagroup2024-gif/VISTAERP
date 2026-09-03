@@ -1,6 +1,12 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { ALL_DOC_RIGHTS, hasDocRight, type DocRight, type DocRightsMap } from "@/lib/docRights";
+
+export interface LoginWindow {
+  date_from: string | null; date_to: string | null;
+  time_from: string | null; time_to: string | null;
+}
 
 export interface StaffAccess {
   isAdmin: boolean;
@@ -9,6 +15,13 @@ export interface StaffAccess {
   // True when no granular permissions have been assigned yet — treated as
   // full access for backward compatibility with role-only staff accounts.
   unrestricted: boolean;
+  // Per-screen rights (Access tab). Empty map = every screen, every right.
+  docRights: DocRightsMap;
+  // False when the account is blocked or the clock is outside the user's login
+  // window. The database enforces this too — is_staff() goes false with it —
+  // so this is for showing the reason, not for being the only thing in the way.
+  loginOk: boolean;
+  loginWindow: LoginWindow | null;
 }
 
 // Loads the current staff user's access (admin flag + granular permission map).
@@ -21,7 +34,10 @@ export const getStaffAccess = cache(async function getStaffAccess(): Promise<Sta
   const permissions = ((data as any)?.permissions ?? {}) as Record<string, boolean>;
   const fullName = ((data as any)?.full_name ?? null) as string | null;
   const unrestricted = isAdmin || Object.keys(permissions).length === 0;
-  return { isAdmin, permissions, fullName, unrestricted };
+  const docRights = ((data as any)?.doc_rights ?? {}) as DocRightsMap;
+  const loginOk = (data as any)?.login_ok !== false;
+  const loginWindow = ((data as any)?.login_window ?? null) as LoginWindow | null;
+  return { isAdmin, permissions, fullName, unrestricted, docRights, loginOk, loginWindow };
 });
 
 // Cached current user. The middleware already calls auth.getUser() on every request
@@ -39,6 +55,18 @@ export const getSessionUser = cache(async function getSessionUser() {
 export function staffCan(access: StaffAccess, key: string): boolean {
   if (access.unrestricted) return true;
   return !!access.permissions[key];
+}
+
+// Screen-level right (Access tab): can this user open / enter / change / delete
+// / print this particular voucher or report.
+export function staffDocCan(access: StaffAccess, doc: string, right: DocRight): boolean {
+  return hasDocRight(access.docRights, access.isAdmin, doc, right);
+}
+
+// The resolved rights for one screen, as a plain object a server page can hand
+// to a client voucher component (functions don't cross that boundary, values do).
+export function docRightsFor(access: StaffAccess, doc: string): Record<DocRight, boolean> {
+  return Object.fromEntries(ALL_DOC_RIGHTS.map((r) => [r, staffDocCan(access, doc, r)])) as Record<DocRight, boolean>;
 }
 
 // First module a user can land on, in priority order. Used to route a restricted
@@ -62,10 +90,12 @@ const LANDING: [string, string][] = [
 
 // Server-page guard: loads access and redirects users lacking `key` to their
 // landing page, so a page can't be reached by URL even if the nav hides it.
-export async function guardStaffPage(key: string | string[]): Promise<StaffAccess> {
+export async function guardStaffPage(key: string | string[], doc?: string): Promise<StaffAccess> {
   const access = await getStaffAccess();
   const keys = Array.isArray(key) ? key : [key];
   if (!keys.some((k) => staffCan(access, k))) redirect(staffLanding(access));
+  // A screen named in the Access tab also needs its own "Access" right.
+  if (doc && !staffDocCan(access, doc, "access")) redirect(staffLanding(access));
   return access;
 }
 

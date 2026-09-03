@@ -55,3 +55,37 @@ user's back. Vouchers **choose** an existing item; they never invent one.
 - `/accounting/sales/invoices` — the Sales Invoice (SI-) trade voucher: loaded
   from a Sale Order, has item lines, issues stock, books COGS.
 - `/accounting/invoices` — Invoice / Bill, a manual one-off accounting voucher.
+
+## Staff access is three separate things
+
+A staff user carries three independent controls, all on `profiles`, all with the
+same convention: **empty means unrestricted**, and an admin is always exempt.
+
+| Control | Where it lives | What it does |
+|---|---|---|
+| Modules | `profiles.permissions` (`lib/staffPermissions.ts`) | which modules appear in the menu |
+| Screen rights | `profiles.doc_rights` (`lib/docRights.ts`) | per voucher/report: access, create, edit, delete, print |
+| Restrictions | `staff_scopes` + `profiles.scope_exclude` | which accounts / products / cost centres / tag areas the user may touch |
+
+Plus a **login window** (`profiles.login_date_*`, `login_time_*`, Saudi time).
+
+Two things follow from this and must not be undone:
+
+- **`is_staff()` carries the login window and the active flag.** It is not a
+  "does a profile exist" check any more. Outside the window, or blocked, every
+  RLS policy in the database closes with it — the UI is not the only gate.
+- **Restrictions are enforced by RLS on the four master tables**, so pickers,
+  lists and voucher lines are filtered without each screen remembering to. A
+  restriction is a *subtree*: naming a group covers everything under it.
+  `security definer` reports bypass RLS, so they must ask `staff_scope_ids()`
+  themselves — `acct_ledger` and `trial_balance` already do; anything new that
+  reports on accounts has to as well.
+
+Screen rights are enforced in one place for *access* (the middleware, via
+`docForPath`) and at the button for the rest. A new voucher screen should take a
+`rights` prop from `docRightsFor(access, doc)` the way `TradeVoucher` and
+`VoucherEditor` do, and be added to `DOC_TREE`.
+
+Nobody can widen their own access: a trigger on `profiles` blocks a non-admin
+from changing their own permissions, rights, window, active flag or authorise
+limit — `profiles_self_update` would otherwise allow exactly that.

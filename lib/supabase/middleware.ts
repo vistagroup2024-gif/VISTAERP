@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { docForPath, hasDocRight, type DocRightsMap } from "@/lib/docRights";
 
 // Route -> permissions that grant access (any-of). Longest matching prefix wins.
 // Unlisted routes are not permission-gated. Mirrors the sidebar gating.
@@ -132,21 +133,37 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Permission enforcement for staff pages: a restricted user can only open the
-  // modules they're granted. Skips API/agent/auth routes and the /no-access page.
-  // Admins and not-yet-restricted accounts (no permissions set) pass everything.
-  if (user && !isAgentPortal && !isVendorPortal && !isAuthRoute && !path.startsWith("/api") && path !== "/no-access") {
+  // Access enforcement for staff pages, in one place rather than page by page:
+  //   1. the login window / blocked account  -> /locked
+  //   2. the module permission for the route  -> their landing page
+  //   3. the screen's own "Access" right      -> their landing page
+  // Skips API/agent/auth routes and the two pages a shut-out user must reach.
+  if (user && !isAgentPortal && !isVendorPortal && !isAuthRoute && !path.startsWith("/api")
+      && path !== "/no-access" && path !== "/locked") {
+    const { data } = await supabase.rpc("staff_access");
+    const isAdmin = !!(data as any)?.is_admin;
+    const perms = ((data as any)?.permissions ?? {}) as Record<string, boolean>;
+    const docRights = ((data as any)?.doc_rights ?? {}) as DocRightsMap;
+    const unrestricted = isAdmin || Object.keys(perms).length === 0;
+
+    if ((data as any)?.login_ok === false) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/locked";
+      return NextResponse.redirect(url);
+    }
+
     const required = requiredPerms(path);
-    if (required) {
-      const { data } = await supabase.rpc("staff_access");
-      const isAdmin = !!(data as any)?.is_admin;
-      const perms = ((data as any)?.permissions ?? {}) as Record<string, boolean>;
-      const unrestricted = isAdmin || Object.keys(perms).length === 0;
-      if (!unrestricted && !required.some((k) => perms[k])) {
-        const url = request.nextUrl.clone();
-        url.pathname = landingFor(perms);
-        return NextResponse.redirect(url);
-      }
+    if (required && !unrestricted && !required.some((k) => perms[k])) {
+      const url = request.nextUrl.clone();
+      url.pathname = landingFor(perms);
+      return NextResponse.redirect(url);
+    }
+
+    const doc = docForPath(path);
+    if (doc && !hasDocRight(docRights, isAdmin, doc, "access")) {
+      const url = request.nextUrl.clone();
+      url.pathname = landingFor(perms);
+      return NextResponse.redirect(url);
     }
   }
 

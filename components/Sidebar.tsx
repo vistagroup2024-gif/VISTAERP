@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import Icon from "@/components/ui/Icon";
-import { GROUPS, SECTIONS, DASHBOARD, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
+import { GROUPS, SECTIONS, DASHBOARD, navAllows, navAllowsItem, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
 
 export type { StaffNavAccess };
 
@@ -94,11 +94,12 @@ function CollapsibleSection({ label, icon, groups, open, onToggle, openGroup, on
 }
 
 function visibleGroups(access?: StaffNavAccess) {
-  if (!access || access.unrestricted) return GROUPS;
+  if (!access) return GROUPS;
   return GROUPS
-    // Hide links the user has no permission for, then drop now-empty groups.
-    .map((g) => ({ ...g, items: g.items.filter((i) => !i.perm || i.perm.some((k) => access.permissions[k])) }))
-    .filter((g) => (!g.perm || g.perm.some((k) => access.permissions[k])) && g.items.length > 0);
+    // Hide links the user has no module permission for, and links to screens
+    // their Access rights don't open, then drop groups left with nothing.
+    .map((g) => ({ ...g, items: g.items.filter((i) => navAllowsItem(access, i)) }))
+    .filter((g) => navAllows(access, g.perm) && g.items.length > 0);
 }
 
 function SidebarContent({ access, onClose, onCollapse }: { access?: StaffNavAccess; onClose?: () => void; onCollapse?: () => void }) {

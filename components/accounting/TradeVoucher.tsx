@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import ProductPicker, { productOptions } from "./ProductPicker";
 import LoadFromPicker from "./LoadFromPicker";
 import { TRADE_DOCS, isCarCostCenter, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
+import type { DocRight } from "@/lib/docRights";
 
 type Row = {
   product_id: string | null; item_name: string; units: string; quantity: string; rate: string; amount: string;
@@ -19,8 +20,12 @@ const r2 = (n: number) => String(+n.toFixed(2));
 // Takes the doc-type key rather than the config object: the config carries the
 // derived-value functions for the car costing block, and functions cannot cross
 // the server -> client component boundary. The client resolves it locally.
-export default function TradeVoucher({ type }: { type: string }) {
+export default function TradeVoucher({ type, rights }: { type: string; rights?: Partial<Record<DocRight, boolean>> }) {
   const cfg = TRADE_DOCS[type];
+  // Rights come resolved from the server page. Absent = unrestricted, which is
+  // what an admin or a user with no Access rights configured gets.
+  const may = (r: DocRight) => (rights ? !!rights[r] : true);
+  const mayWrite = () => (id ? may("edit") : may("create"));
   const router = useRouter();
   const supabase = createClient();
 
@@ -271,6 +276,7 @@ export default function TradeVoucher({ type }: { type: string }) {
     await load(data as string);
   }
   async function del() {
+    if (!may("delete")) return;
     if (!id) return;
     if (!confirm(`Delete ${cfg.title} ${docNo}? This cannot be undone.`)) return;
     setBusy(true);
@@ -282,6 +288,7 @@ export default function TradeVoucher({ type }: { type: string }) {
   function printDoc() { if (id) window.open(`/accounting/trade/${id}`, "_blank"); }
 
   async function save() {
+    if (!mayWrite()) return;
     setErr(null);
     // Only persist the extras this voucher/cost-centre actually shows, so
     // switching cost centre doesn't leave stale car fields on the document.
@@ -402,8 +409,8 @@ export default function TradeVoucher({ type }: { type: string }) {
         <div className="ml-auto flex items-center gap-2">
           {posted && <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium uppercase text-green-700">posted</span>}
           {awaiting && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium uppercase text-amber-700">awaiting authorisation</span>}
-          <button onClick={printDoc} disabled={!id} className="btn-outline text-sm disabled:opacity-40">🖨 Print</button>
-          <button onClick={del} disabled={!id || busy || posted || awaiting} className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
+          <button onClick={printDoc} disabled={!id || !may("print")} title={may("print") ? undefined : "You don't have Print rights on this voucher"} className="btn-outline text-sm disabled:opacity-40">🖨 Print</button>
+          <button onClick={del} disabled={!id || busy || posted || awaiting || !may("delete")} title={may("delete") ? undefined : "You don't have Delete rights on this voucher"} className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
         </div>
       </div>
 
@@ -539,7 +546,10 @@ export default function TradeVoucher({ type }: { type: string }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={save} disabled={busy || posted || awaiting} className="btn disabled:opacity-40">{busy ? "Saving…" : posted ? "Posted (locked)" : awaiting ? "Awaiting authorisation" : id ? "Save changes" : "Save"}</button>
+          <button onClick={save} disabled={busy || posted || awaiting || !mayWrite()} className="btn disabled:opacity-40">
+            {busy ? "Saving…" : posted ? "Posted (locked)" : awaiting ? "Awaiting authorisation"
+              : !mayWrite() ? (id ? "No Edit rights" : "No Create rights") : id ? "Save changes" : "Save"}
+          </button>
           <button onClick={() => setRows((r) => [...r, blankRow()])} className="btn-outline text-sm">+ Line</button>
           <span className="ml-auto text-xs text-slate-400">{id ? `Editing ${docNo}` : "New document — number auto-assigned on save."}</span>
         </div>

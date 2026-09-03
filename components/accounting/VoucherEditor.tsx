@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import type { DocRight } from "@/lib/docRights";
 import { COMPANY_ID } from "@/lib/format";
 import AccountPicker, { type PickAccount } from "./AccountPicker";
 
@@ -37,9 +38,13 @@ export type VoucherVariant = {
   cashLabel?: string; cashMatch?: string; lineLabel?: string;
 };
 
-export default function VoucherEditor({ kind, accounts, cashBank, variant }: {
+export default function VoucherEditor({ kind, accounts, cashBank, variant, rights }: {
   kind: VoucherKind; accounts: PickAccount[]; cashBank: PickAccount[]; variant?: VoucherVariant;
+  rights?: Partial<Record<DocRight, boolean>>;
 }) {
+  // Rights come resolved from the server page. Absent = unrestricted, which is
+  // what an admin or a user with no Access rights configured gets.
+  const may = (r: DocRight) => (rights ? !!rights[r] : true);
   const router = useRouter();
   const supabase = createClient();
   const memKey = `voucher:${variant?.source ?? kind}`;
@@ -241,6 +246,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant }: {
     setAdjustFor(null); setBills([]); setAllocInput({}); setBillErr(null);
   }
   async function del() {
+    if (!may("delete")) return;
     if (!entryId) return;
     if (!confirm(`Delete (void) ${title} ${entryNo ?? ""}? It will be removed from the ledger. This cannot be undone.`)) return;
     const reason = prompt("Reason (optional, recorded in the audit log):", "") ?? "";
@@ -301,6 +307,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant }: {
   }
 
   async function save(printAfter = false) {
+    if (!(entryId ? may("edit") : may("create"))) return;
     setError(null);
     if (!date) return setError("Date is required");
     try {
@@ -431,8 +438,8 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant }: {
         <button type="button" onClick={() => nav("prev")} disabled={busy} className="btn-outline btn-sm">‹ Previous</button>
         <button type="button" onClick={() => nav("next")} disabled={busy} className="btn-outline btn-sm">Next ›</button>
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" onClick={printVoucher} disabled={!entryId} className="btn-outline btn-sm disabled:opacity-40">Print</button>
-          <button type="button" onClick={del} disabled={!entryId || !editable || busy} className="btn-outline btn-sm text-danger disabled:opacity-40">Delete</button>
+          <button type="button" onClick={printVoucher} disabled={!entryId || !may("print")} title={may("print") ? undefined : "You don't have Print rights on this voucher"} className="btn-outline btn-sm disabled:opacity-40">Print</button>
+          <button type="button" onClick={del} disabled={!entryId || !editable || busy || !may("delete")} title={may("delete") ? undefined : "You don't have Delete rights on this voucher"} className="btn-outline btn-sm text-danger disabled:opacity-40">Delete</button>
         </div>
       </div>
 
@@ -557,8 +564,10 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant }: {
         )}
 
         <div className="flex items-center gap-2">
-          <button onClick={() => save(false)} disabled={saving || readOnly || (isJournal && !balanced)} className="btn">
-            {saving ? (entryId ? "Saving…" : "Posting…") : entryId ? "Save changes" : "Save & Post"} <span className="ml-1 opacity-70 text-xs">Ctrl+S</span>
+          <button onClick={() => save(false)} disabled={saving || readOnly || (isJournal && !balanced) || !(entryId ? may("edit") : may("create"))} className="btn">
+            {!(entryId ? may("edit") : may("create")) ? (entryId ? "No Edit rights" : "No Create rights")
+              : saving ? (entryId ? "Saving…" : "Posting…") : entryId ? "Save changes" : "Save & Post"}
+            {(entryId ? may("edit") : may("create")) && <span className="ml-1 opacity-70 text-xs">Ctrl+S</span>}
           </button>
           {!isContra && !readOnly && <button type="button" onClick={() => setLines((l) => [...l, emptyLine()])} className="btn-outline text-sm">+ Line</button>}
           <span className="ml-auto text-xs text-slate-400">{entryId ? "Editing an existing voucher — the document number is kept." : "Posts to the ledger immediately — no separate posting step."}</span>

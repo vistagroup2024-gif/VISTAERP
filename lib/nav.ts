@@ -1,4 +1,5 @@
 import type { IconName } from "@/components/ui/Icon";
+import { docForPath, hasDocRight, type DocRightsMap } from "@/lib/docRights";
 
 // Shared navigation model — the single source of truth for both the Sidebar and
 // the global search. Data only (no JSX), so it can be imported anywhere.
@@ -19,7 +20,14 @@ export const SECTIONS: NavSection[] = [
   { label: "Settings", icon: "settings" },
 ];
 
-export interface StaffNavAccess { unrestricted: boolean; permissions: Record<string, boolean> }
+export interface StaffNavAccess {
+  unrestricted: boolean;
+  permissions: Record<string, boolean>;
+  // Per-screen rights (the Access tab). A link whose screen the user has no
+  // "Access" right for is dropped from the menu and the search index.
+  isAdmin?: boolean;
+  docRights?: DocRightsMap;
+}
 
 export const DASHBOARD: NavItem = { href: "/dashboard", label: "Dashboard", icon: "dashboard" };
 
@@ -215,13 +223,21 @@ export function navAllows(access: StaffNavAccess | undefined, perm?: string[]) {
   return !perm || !access || access.unrestricted || perm.some((k) => access.permissions[k]);
 }
 
+/** A link also needs the "Access" right of the screen it points at, if it has one. */
+export function navAllowsItem(access: StaffNavAccess | undefined, item: NavItem) {
+  if (!navAllows(access, item.perm)) return false;
+  if (!access?.docRights) return true;
+  const doc = docForPath(item.href);
+  return !doc || hasDocRight(access.docRights, !!access.isAdmin, doc, "access");
+}
+
 export function searchIndex(access?: StaffNavAccess): { label: string; href: string; group: string; icon: IconName }[] {
   const out: { label: string; href: string; group: string; icon: IconName }[] = [];
   const allow = (perm?: string[]) => !perm || !access || access.unrestricted || perm.some((k) => access.permissions[k]);
   if (allow(["dashboard.view"])) out.push({ label: "Dashboard", href: "/dashboard", group: "General", icon: "dashboard" });
   for (const g of GROUPS) {
     if (!allow(g.perm)) continue;
-    for (const it of g.items) if (allow(it.perm)) out.push({ label: it.label, href: it.href, group: g.label, icon: g.icon });
+    for (const it of g.items) if (navAllowsItem(access, it)) out.push({ label: it.label, href: it.href, group: g.label, icon: g.icon });
   }
   return out;
 }
