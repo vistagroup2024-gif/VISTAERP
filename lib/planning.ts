@@ -160,20 +160,58 @@ export function recommendBrns(demand: DayDemand[]): BrnRecommendation[] {
   const work = demand.map((d) => d.shortage);
   const recs: BrnRecommendation[] = [];
   let guard = 0;
-  while (guard++ < 500) {
+  while (guard++ < 2000) {
     const i = work.findIndex((v) => v > 0);
     if (i < 0) break;
+
+    // The contiguous calendar run this shortage belongs to.
     let j = i;
     while (j + 1 < work.length && work[j + 1] > 0 && demand[j + 1].date === addDaysUTC(demand[j].date, 1)) j++;
-    let peak = 0, maxPax = 0;
-    for (let k = i; k <= j; k++) { peak = Math.max(peak, work[k]); maxPax = Math.max(maxPax, demand[k].maxGroupPax); }
+
+    // Peel the TOP LAYER of the run, not the whole run at its peak.
+    //
+    // Sizing one BRN at the run's peak and stretching it over every night of
+    // the run is what made a two-night spike of 43 beds turn into "43 beds,
+    // 04 Oct → 04 Nov": a month of inventory bought for two nights' demand.
+    //
+    // `below` is the highest shortage in the run that is under the peak, so the
+    // nights above it are exactly the ones needing more beds than the rest.
+    // Those nights get this BRN; the layer they share with the rest of the run
+    // stays behind and is covered by a longer, smaller BRN on the next pass.
+    let peak = 0;
+    for (let k = i; k <= j; k++) peak = Math.max(peak, work[k]);
+    let below = 0;
+    for (let k = i; k <= j; k++) if (work[k] < peak) below = Math.max(below, work[k]);
+
+    // The first contiguous stretch of the run standing above `below`.
+    let s = i;
+    while (s <= j && work[s] <= below) s++;
+    let e = s;
+    while (e + 1 <= j && work[e + 1] > below && demand[e + 1].date === addDaysUTC(demand[e].date, 1)) e++;
+
+    // Never smaller than the largest single group that could not already be
+    // seated on those nights — a group must fit one BRN whole.
+    //
+    // maxGroupPax is the night's ORIGINAL largest unfittable group, so it has
+    // to be clamped to what is still short: once the spike BRN above has taken
+    // the big group, the small layer left behind must not be sized for it too.
+    // The clamp is exact, not a guess — shortage is the SUM of the unseated
+    // groups' pax, so the largest of them can never exceed it.
+    let maxPax = 0;
+    for (let k = s; k <= e; k++) maxPax = Math.max(maxPax, Math.min(demand[k].maxGroupPax, work[k]));
     const beds = Math.max(peak, maxPax);
-    for (let k = i; k <= j; k++) work[k] = Math.max(0, work[k] - beds);
+
+    // Only the layer above `below` is satisfied here; peak - below is at least
+    // 1 (or the whole run is level and the run clears in one go), so the loop
+    // always makes progress.
+    const layer = peak - below > 0 ? peak - below : peak;
+    for (let k = s; k <= e; k++) work[k] = Math.max(0, work[k] - layer);
+
     // to = day after the last shortage day (checkout convention)
-    const lastDay = demand[j].date;
+    const lastDay = demand[e].date;
     const to = new Date(lastDay + "T00:00:00Z");
     to.setUTCDate(to.getUTCDate() + 1);
-    recs.push({ beds, from: demand[i].date, to: to.toISOString().slice(0, 10), nights: j - i + 1 });
+    recs.push({ beds, from: demand[s].date, to: to.toISOString().slice(0, 10), nights: e - s + 1 });
   }
   return recs;
 }
