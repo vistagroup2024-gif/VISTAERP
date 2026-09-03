@@ -45,6 +45,11 @@ export default async function GroupDetail({ params }: { params: { id: string } }
   const { data: brnAvail } = g.workflow_status === "process" && g.visa_type !== "long_stay"
     ? await supabase.rpc("brn_availability", { p_group: g.id })
     : { data: null };
+  // The arithmetic behind that badge, so a group that cannot be allocated says
+  // why rather than sending the user to BRN Inventory to guess.
+  const { data: brnWhy } = brnAvail === "none" || brnAvail === "partial"
+    ? await supabase.rpc("brn_shortfall", { p_group: g.id })
+    : { data: null };
 
   // Arrival-service state (transport booking exists / tafweej recorded / pending).
   const { data: arrState } = await supabase.rpc("arrival_service_state", { p_group: g.id });
@@ -185,6 +190,7 @@ export default async function GroupDetail({ params }: { params: { id: string } }
           isAdmin={isAdmin}
           workflowStatus={g.workflow_status ?? "pending"}
           brnAvailability={(brnAvail as string) ?? null}
+          brnWhy={(brnWhy as any) ?? null}
           packageStatus={g.package_status}
           allocations={A}
         />

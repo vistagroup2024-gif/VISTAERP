@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { guardStaffPage, getSessionUser } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
-import { Brn, Consumption, dailyForBrn, totalNights, isArchived, maxNightlyAvailable } from "@/lib/brn";
+import { Brn, Consumption, dailyForBrn, totalNights, isArchived, sellableRun } from "@/lib/brn";
 import BrnTable, { BrnRow } from "./BrnTable";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +31,10 @@ export default async function BrnListPage() {
       const own = consByBrn[b.id] ?? [];
       const daily = dailyForBrn(b, own);
       const minAvail = daily.reduce((m, d) => Math.min(m, d.available), b.beds);
+      // The biggest block actually on offer, and WHICH nights it is. A single
+      // number cannot say that, and read as though it could it makes beds that
+      // are free before a group arrives look available to it.
+      const run = sellableRun(b, own);
       return {
         id: b.id,
         created_at: (b as any).created_at,
@@ -43,7 +47,10 @@ export default async function BrnListPage() {
         check_out: b.check_out,
         nights: totalNights(b.check_in, b.check_out),
         beds: b.beds,
-        available: maxNightlyAvailable(b, own),
+        available: run.beds,
+        avail_nights: run.nights,
+        avail_from: run.from,
+        avail_to: run.to,
         status: minAvail < 0 ? "Overbooked" : minAvail === 0 ? "Tight" : "Available",
         consumed: own.length > 0,
       };

@@ -19,6 +19,9 @@ export interface BrnRow {
   nights: number;
   beds: number;
   available: number;
+  avail_nights: number;
+  avail_from: string | null;
+  avail_to: string | null;
   status: string;
   consumed: boolean;
 }
@@ -35,7 +38,7 @@ const COLS: { key: SortKey; label: string; num?: boolean }[] = [
   { key: "check_in", label: "Check-in" },
   { key: "check_out", label: "Check-out" },
   { key: "beds", label: "Total Beds", num: true },
-  { key: "available", label: "Available", num: true },
+  { key: "available", label: "Available (beds × nights)", num: true },
   { key: "status", label: "Status" },
 ];
 
@@ -200,7 +203,19 @@ export default function BrnTable({ rows, isAdmin = false }: { rows: BrnRow[]; is
                 <td className="td whitespace-nowrap">{dateStr(r.check_in)}</td>
                 <td className="td whitespace-nowrap">{dateStr(r.check_out)}</td>
                 <td className="td text-right">{r.beds}</td>
-                <td className="td text-right font-medium">{r.available}</td>
+                <td className="td text-right font-medium whitespace-nowrap"
+                    title={r.avail_from ? `${r.available} bed(s) free on every night from ${r.avail_from} to ${r.avail_to} (checkout). Other nights of this BRN may have fewer.` : "Nothing left to sell"}>
+                  {r.available > 0 ? (
+                    <>
+                      {r.available} × {r.avail_nights}n
+                      {r.avail_from && (
+                        <div className="text-[11px] font-normal text-slate-400">
+                          {dateStr(r.avail_from)} – {dateStr(r.avail_to)}
+                        </div>
+                      )}
+                    </>
+                  ) : "—"}
+                </td>
                 <td className="td"><span className={`badge ${badge(r.status)}`}>{r.status}</span></td>
                 <td className="td whitespace-nowrap">
                   <Link href={`/inventory/brn/${r.id}/edit`} className="text-brand text-sm hover:underline">Edit</Link>

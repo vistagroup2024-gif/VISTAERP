@@ -14,7 +14,7 @@ interface Alloc {
 }
 
 export default function GroupAllocation({
-  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, workflowStatus, brnAvailability, packageStatus, allocations,
+  groupId, pax, brnStatus, visaStatus, visaIssuedAt, isAdmin, workflowStatus, brnAvailability, brnWhy, packageStatus, allocations,
 }: {
   groupId: string;
   pax: number;
@@ -24,6 +24,11 @@ export default function GroupAllocation({
   isAdmin: boolean;
   workflowStatus: string;
   brnAvailability?: string | null;
+  brnWhy?: {
+    pax: number; nights_needed: number; group_company: string | null;
+    best_night_free: number; worst_night_free: number;
+    covered_nights: number; covered_from: string | null; covered_to: string | null;
+  } | null;
   packageStatus: string | null;
   allocations: Alloc[];
 }) {
@@ -168,8 +173,33 @@ export default function GroupAllocation({
         ) : (
         <>
           {brnAvailability === "complete" && <div className="rounded-lg bg-teal-50 px-4 py-2 text-sm font-medium text-teal-800">✅ Ready to Allocate — full BRN coverage is available.</div>}
-          {brnAvailability === "partial" && <div className="rounded-lg bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">🟡 Ready to Allocate (partial) — only partial coverage available; the package will be flagged for update.</div>}
-          {brnAvailability === "none" && <div className="rounded-lg bg-orange-50 px-4 py-2 text-sm font-medium text-orange-800">⏳ Waiting BRN — no allocatable coverage yet. Purchase inventory for this company.</div>}
+          {brnAvailability === "partial" && (
+            <div className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-800">
+              <div className="font-medium">🟡 Ready to Allocate (partial) — the package will be flagged for update.</div>
+              {brnWhy && brnWhy.covered_nights > 0 && (
+                <div className="mt-1 text-[13px]">
+                  {brnWhy.pax} beds are free for <b>{brnWhy.covered_nights}</b> of {brnWhy.nights_needed} nights
+                  {brnWhy.covered_from && <> ({dateStr(brnWhy.covered_from)} – {dateStr(brnWhy.covered_to)})</>}.
+                </div>
+              )}
+            </div>
+          )}
+          {brnAvailability === "none" && (
+            <div className="rounded-lg bg-orange-50 px-4 py-2 text-sm text-orange-800">
+              <div className="font-medium">⏳ Waiting BRN — no allocatable coverage yet.</div>
+              {brnWhy && (
+                <div className="mt-1 text-[13px]">
+                  This group needs <b>{brnWhy.pax} beds</b> for <b>{brnWhy.nights_needed} nights</b>.
+                  {brnWhy.group_company ? <> Across those dates <b>{brnWhy.group_company}</b> has</> : <> Across those dates this company has</>}
+                  {" "}at most <b>{brnWhy.best_night_free}</b> free on any one night
+                  {brnWhy.best_night_free > 0 && brnWhy.best_night_free < brnWhy.pax
+                    ? <> — {brnWhy.pax - brnWhy.best_night_free} short even on its best night.</>
+                    : <>.</>}
+                  {" "}Beds held by another group company cannot be used here.
+                </div>
+              )}
+            </div>
+          )}
           <p className="text-sm text-slate-500">
             Auto-allocation covers the full stay with one Madinah night when possible; otherwise it falls back to partial coverage (min 3 nights) and flags the package for update.
           </p>

@@ -22,10 +22,70 @@ export function isArchived(brn: Brn, cons: Consumption[]): boolean {
   return daily.every((d) => d.available <= 0);
 }
 
-// Highest number of beds still sellable on any single night.
+// Highest number of beds still sellable on any single night. Useful for "is
+// there anything left at all" (the archive test, the calendar filter) and
+// nothing else: a BRN with one free night reads the same as a wide-open one.
 export function maxNightlyAvailable(brn: Brn, cons: Consumption[]): number {
   const daily = dailyForBrn(brn, cons);
   return daily.reduce((m, d) => Math.max(m, d.available), 0);
+}
+
+export interface SellableRun {
+  beds: number;      // free on every night of the run
+  nights: number;    // how long the run is
+  from: string | null;
+  to: string | null; // checkout day of the run (not occupied)
+}
+
+/**
+ * What this BRN can actually be sold for: the MOST beds that are free on a run
+ * of consecutive nights, and which nights those are.
+ *
+ * A single "available" number cannot answer that, and reading it as though it
+ * could is how a BRN with 12 beds free before a group arrives looks like 12
+ * beds a group arriving later can use. The run's dates are what make the
+ * difference visible on the row.
+ *
+ * Bed counts are tried from the highest down, so the answer is the biggest
+ * block on offer; `minNights` (the 3-night minimum the allocator works to)
+ * decides when a run is long enough to count, and if nothing reaches it the
+ * best short run is returned instead.
+ */
+export function sellableRun(brn: Brn, cons: Consumption[], minNights = 3): SellableRun {
+  const daily = dailyForBrn(brn, cons);
+  const none: SellableRun = { beds: 0, nights: 0, from: null, to: null };
+  if (!daily.length) return none;
+
+  const levels = Array.from(new Set(daily.map((d) => d.available)))
+    .filter((b) => b > 0)
+    .sort((a, b) => b - a);
+
+  let fallback = none;
+  for (const beds of levels) {
+    let bestLen = 0, bestStart = -1, cur = 0, curStart = -1;
+    daily.forEach((d, i) => {
+      if (d.available >= beds) {
+        if (cur === 0) curStart = i;
+        cur += 1;
+        if (cur > bestLen) { bestLen = cur; bestStart = curStart; }
+      } else cur = 0;
+    });
+    if (bestLen === 0) continue;
+    const run: SellableRun = {
+      beds, nights: bestLen,
+      from: daily[bestStart].day,
+      to: addDays(daily[bestStart + bestLen - 1].day, 1),
+    };
+    if (bestLen >= minNights) return run;
+    if (run.beds * run.nights > fallback.beds * fallback.nights) fallback = run;
+  }
+  return fallback;
+}
+
+function addDays(day: string, n: number): string {
+  const d = new Date(day + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 export interface Consumption {
