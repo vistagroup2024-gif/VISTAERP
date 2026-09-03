@@ -6,6 +6,7 @@ import { money } from "@/lib/format";
 import { Brn, Consumption, nightsBetween, fmtDay } from "@/lib/brn";
 import { combinedCityDemand, DayDemand, BrnRecommendation, DemandItem, planByCity, applyBoundaryTolerance, buildDemandFromItems, recommendBrns } from "@/lib/planning";
 import PurchaseSimulator from "./PurchaseSimulator";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 // The three planning views, surfaced as tabs. Opening a tab re-renders the page
 // for that mode (server component keyed off ?mode=).
@@ -128,7 +129,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
       .select("id, pax, arrival_date, departure_date, group_company_id, visa_type")
       .eq("package_status", "update_required"),
     supabase.from("brn_inventory").select("*"),
-    supabase.from("brn_consumption").select("*"),
+    fetchAllRows<Consumption>((from, to) => supabase.from("brn_consumption").select("*").order("id").range(from, to)),
     supabase.from("group_companies").select("id, name").order("name"),
   ]);
 
@@ -139,9 +140,12 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
 
   // Covered nights per pending-update group (to compute only the UNCOVERED demand)
   const updIds = (updGroups ?? []).map((g: any) => g.id);
+  // Bounded by the id list, not by a row count — many groups with a few
+  // allocations each still adds up past a thousand rows.
   const { data: updAllocs } = updIds.length
-    ? await supabase.from("group_brn_allocation")
-        .select("group_id, brn_consumption:consumption_id(check_in, check_out, brn_inventory:brn_id(city))").in("group_id", updIds)
+    ? await fetchAllRows<any>((from, to) => supabase.from("group_brn_allocation")
+        .select("group_id, brn_consumption:consumption_id(check_in, check_out, brn_inventory:brn_id(city))")
+        .in("group_id", updIds).order("id").range(from, to))
     : { data: [] as any[] };
   const coveredByGroup: Record<string, Set<string>> = {};
   // Groups whose EXISTING allocation already includes a Madinah BRN — their package

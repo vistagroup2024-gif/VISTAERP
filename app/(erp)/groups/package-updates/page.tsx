@@ -6,6 +6,7 @@ import CompanyFilter from "@/components/CompanyFilter";
 import { dateStr } from "@/lib/format";
 import { nightsBetween } from "@/lib/brn";
 import MarkUpdatedButton from "./MarkUpdatedButton";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,9 @@ async function PendingTab({ company, today }: { company: string; today: string }
 
   const ids = R.map((g: any) => g.id);
   const { data: allocs } = ids.length
-    ? await supabase.from("group_brn_allocation").select("group_id, brn_consumption:consumption_id(check_in, check_out)").in("group_id", ids)
+    ? await fetchAllRows<any>((from, to) => supabase.from("group_brn_allocation")
+        .select("group_id, brn_consumption:consumption_id(check_in, check_out)")
+        .in("group_id", ids).order("id").range(from, to))
     : { data: [] as any[] };
   const coveredByGroup: Record<string, Set<string>> = {};
   (allocs ?? []).forEach((a: any) => {

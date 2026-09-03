@@ -4,6 +4,7 @@ import CompanyFilter from "@/components/CompanyFilter";
 import { guardStaffPage } from "@/lib/staffSession";
 import { Brn, Consumption, usedOnNight, cellClass, maxNightlyAvailable } from "@/lib/brn";
 import CalendarControls from "./CalendarControls";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export default async function CalendarPage({
   if (company) brnQuery = brnQuery.eq("group_company_id", company);
   const [{ data: brns }, { data: cons }, { data: companies }] = await Promise.all([
     brnQuery,
-    supabase.from("brn_consumption").select("*"),
+    fetchAllRows<Consumption>((from, to) => supabase.from("brn_consumption").select("*").order("id").range(from, to)),
     supabase.from("group_companies").select("id, name").order("name"),
   ]);
 

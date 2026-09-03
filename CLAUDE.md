@@ -134,3 +134,24 @@ Nobody writes their own `profiles` row at all — `profiles_self_update` is gone
 so even a name change is an admin edit. The trigger that blocks a non-admin
 from changing their own permissions, rights, window, active flag or authorise
 limit stays as a second line of defence.
+
+## A select() without a bound is a bug waiting for the 1001st row
+
+PostgREST caps a response at **1000 rows and says nothing** — no error, just a
+short array. Any screen that loads a whole table and does its own arithmetic is
+therefore right only until that table passes a thousand rows, and then quietly
+starts lying.
+
+This is not hypothetical: `brn_consumption` reached 1027 rows and the Daily
+Calendar began showing a BRN's full 12 beds as available, because the row
+consuming 7 of them was number 1010. The group's own badge stayed correct
+because `brn_availability` counts in SQL — which is exactly how the two screens
+came to disagree.
+
+Read a whole table with **`fetchAllRows`** (`lib/supabase/fetchAll.ts`), which
+pages until a short page comes back. It needs a **total order** on the query —
+`.order("id")` — or the page boundaries can move between requests and rows are
+skipped or repeated. `.eq()`/`.in()` bounds the *filter*, not the row count: many
+groups with a few allocations each still adds up past a thousand.
+
+Better still, count in SQL and return the answer, the way the reports do.

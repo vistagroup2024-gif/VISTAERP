@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import ConsumeForm from "./ConsumeForm";
 import { guardStaffPage } from "@/lib/staffSession";
-import { Brn } from "@/lib/brn";
+import { Brn, Consumption } from "@/lib/brn";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export default async function ConsumePage({ searchParams }: { searchParams: { br
   const supabase = createClient();
   const [{ data: brns }, { data: cons }] = await Promise.all([
     supabase.from("brn_inventory").select("*").order("hotel_name"),
-    supabase.from("brn_consumption").select("id, brn_id, reference, check_in, check_out, beds"),
+    fetchAllRows<Consumption>((from, to) => supabase.from("brn_consumption").select("id, brn_id, reference, check_in, check_out, beds").order("id").range(from, to)),
   ]);
 
   return (

@@ -6,6 +6,7 @@ import RealtimeRefresh from "@/components/RealtimeRefresh";
 import CompanyFilter from "@/components/CompanyFilter";
 import { money } from "@/lib/format";
 import { Brn, Consumption, dailyForBrn, usedOnNight, isArchived } from "@/lib/brn";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export default async function InventoryDashboard({ searchParams }: { searchParam
 
   const [{ data: brns }, { data: cons }, { data: bills }, { data: companies }] = await Promise.all([
     supabase.from("brn_inventory").select("*"),
-    supabase.from("brn_consumption").select("*"),
+    fetchAllRows<Consumption>((from, to) => supabase.from("brn_consumption").select("*").order("id").range(from, to)),
     supabase.from("bills").select("total, amount_paid, status, currency"),
     supabase.from("group_companies").select("id, name").order("name"),
   ]);

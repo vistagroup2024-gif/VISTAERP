@@ -3,6 +3,7 @@ import { guardStaffPage, getSessionUser } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import { Brn, Consumption, dailyForBrn, totalNights, isArchived, sellableRun } from "@/lib/brn";
 import BrnTable, { BrnRow } from "./BrnTable";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function BrnListPage() {
     supabase.from("brn_inventory")
       .select("*, parties:supplier_id(name), group_companies:group_company_id(name)")
       .order("created_at", { ascending: false }),
-    supabase.from("brn_consumption").select("*"),
+    fetchAllRows<Consumption>((from, to) => supabase.from("brn_consumption").select("*").order("id").range(from, to)),
     supabase.from("user_roles").select("role").eq("user_id", user?.id ?? ""),
   ]);
   const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");

@@ -4,6 +4,7 @@ import CompanyInquiryButton from "@/components/CompanyInquiryButton";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import GroupsTable, { GroupRow } from "./GroupsTable";
 import { guardStaffPage, staffCan } from "@/lib/staffSession";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +31,14 @@ export default async function GroupsPage() {
   const access = await guardStaffPage("visa.view");
   const supabase = createClient();
 
-  const { data: groups } = await supabase
+  // Every group, in pages: a plain .limit(1000) would drop the oldest groups
+  // without saying so once the company passes a thousand of them.
+  const { data: groups } = await fetchAllRows<any>((from, to) => supabase
     .from("umrah_groups")
     .select("id, created_at, group_no, group_date, group_name, pax, arrival_date, departure_date, total_nights, brn_status, visa_status, workflow_status, package_status, agent_brn_pending, visa_type, brn_avail, parties:agent_id(name), group_companies:group_company_id(name)")
     .order("created_at", { ascending: false })
-    .limit(1000);
+    .order("id")
+    .range(from, to));
 
   const isAdmin = access.isAdmin;
   // Per-action rights (admins / unrestricted accounts pass everything).

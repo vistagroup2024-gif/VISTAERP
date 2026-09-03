@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
 import { dateStr } from "@/lib/format";
 import { Brn, Consumption, isArchived, dailyForBrn } from "@/lib/brn";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function ArchivedBrnsPage({ searchParams }: { searchParams:
   const supabase = createClient();
   const [{ data: brns }, { data: cons }, { data: companies }] = await Promise.all([
     supabase.from("brn_inventory").select("*, parties:supplier_id(name), group_companies:group_company_id(name)").order("check_out"),
-    supabase.from("brn_consumption").select("*"),
+    fetchAllRows<Consumption>((from, to) => supabase.from("brn_consumption").select("*").order("id").range(from, to)),
     supabase.from("group_companies").select("id, name").order("name"),
   ]);
 
