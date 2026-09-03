@@ -77,9 +77,20 @@ Two things follow from this and must not be undone:
 - **Restrictions are enforced by RLS on the four master tables**, so pickers,
   lists and voucher lines are filtered without each screen remembering to. A
   restriction is a *subtree*: naming a group covers everything under it.
-  `security definer` reports bypass RLS, so they must ask `staff_scope_ids()`
-  themselves — `acct_ledger` and `trial_balance` already do; anything new that
-  reports on accounts has to as well.
+
+  A **report** honours it by being `security invoker` — then RLS reaches it and
+  there is nothing to remember. The 23 read-only reports were flipped for
+  exactly that reason; write a new one the same way. The two that ask for
+  `staff_scope_ids()` by hand (`acct_ledger`, `trial_balance`) do so only
+  because they were written before. `pending_inbox` and `trade_doc_load` stay
+  definer on purpose: an approver must see every voucher waiting on them, and
+  loading a Sale Order must copy all of its lines.
+
+  A **save** is checked on the way in too, because RLS filters what a picker
+  offers but the RPC will accept any id sent to it: `gl_submit` checks its line
+  accounts, `trade_doc_save` its line items. Cost centre and tag area are stored
+  on vouchers as *text*, not as a reference, so those two restrictions are
+  enforced only where they are chosen and cannot be re-checked on save.
 
 Screen rights are enforced in one place for *access* (the middleware, via
 `docForPath`) and at the button for the rest. A new voucher screen should take a
