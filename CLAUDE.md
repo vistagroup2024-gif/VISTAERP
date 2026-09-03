@@ -111,7 +111,13 @@ another user's modules, rights, restrictions and login window.
 
 A delegated user manager still cannot escalate: `staff_admin_guard` refuses
 their own row, refuses an admin's row, and `create_staff_user_v2` refuses to
-mint an admin unless the caller is one.
+mint an admin unless the caller is one. `staffPermStrict()` mirrors the strict
+read client-side, so the Users screens never offer a button the RPC behind it
+will refuse.
+
+Administering somebody else reads **whole** trees: `staff_scope_masters()`
+ignores the caller's own restrictions, because the Restrict tab saves back what
+it renders and a partial list would be written as a complete one.
 
 Nobody writes their own `profiles` row at all — `profiles_self_update` is gone,
 so even a name change is an admin edit. The trigger that blocks a non-admin

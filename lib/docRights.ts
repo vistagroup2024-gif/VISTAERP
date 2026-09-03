@@ -162,6 +162,10 @@ export type DocRightsMap = Record<string, Record<string, boolean>>;
 // switches the user to "only what is ticked".
 export function hasDocRight(rights: DocRightsMap, isAdmin: boolean, doc: string, right: DocRight): boolean {
   if (isAdmin) return true;
+  // No screen key = not a rights-managed screen (a report the Access tab does
+  // not name, a master shared by a component that has no entry). Allowed, the
+  // same way the database's staff_doc_key returns null for a module posting.
+  if (!doc) return true;
   if (!rights || Object.keys(rights).length === 0) return true;
   return !!rights[doc]?.[right];
 }

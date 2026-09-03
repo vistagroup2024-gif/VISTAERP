@@ -57,6 +57,14 @@ export function staffCan(access: StaffAccess, key: string): boolean {
   return !!access.permissions[key];
 }
 
+// Handing out access is the one thing an empty permissions map does NOT grant —
+// otherwise a fresh account with nothing set could administer everybody. This
+// mirrors the database's staff_perm_strict() so a button is never offered for
+// something the RPC behind it will refuse.
+export function staffPermStrict(access: StaffAccess, key: string): boolean {
+  return access.isAdmin || !!access.permissions[key];
+}
+
 // Screen-level right (Access tab): can this user open / enter / change / delete
 // / print this particular voucher or report.
 export function staffDocCan(access: StaffAccess, doc: string, right: DocRight): boolean {

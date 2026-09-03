@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
-import { getStaffAccess, staffCan } from "@/lib/staffSession";
+import { getStaffAccess, staffCan, staffPermStrict } from "@/lib/staffSession";
 import DeleteButton from "@/components/DeleteButton";
 
 export const dynamic = "force-dynamic";
@@ -32,11 +32,11 @@ export default async function UsersPage() {
   const supabase = createClient();
 
   const access = await getStaffAccess();
-  if (!staffCan(access, "users.view")) {
+  if (!staffPermStrict(access, "users.view")) {
     return <div className="card text-slate-500">You don’t have permission to view users.</div>;
   }
-  const canCreate = staffCan(access, "users.create");
-  const canDelete = staffCan(access, "users.delete");
+  const canCreate = staffPermStrict(access, "users.create");
+  const canDelete = staffPermStrict(access, "users.delete");
 
   const { data: users } = await supabase.rpc("staff_users_list");
 

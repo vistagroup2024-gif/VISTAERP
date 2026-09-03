@@ -26,10 +26,13 @@ interface Props {
   scopeExclude: Partial<Record<ScopeKind, boolean>>;
   loginDateFrom: string; loginDateTo: string; loginTimeFrom: string; loginTimeTo: string;
   masters: Record<ScopeKind, ScopeRow[]>;
+  // False for a user manager who holds users.edit but not users.manage_roles:
+  // they may correct a name, not hand out access.
+  canManageAccess: boolean;
 }
 
-const TABS = ["Account", "Restrict", "Access", "Modules"] as const;
-type Tab = (typeof TABS)[number];
+const ALL_TABS = ["Account", "Restrict", "Access", "Modules"] as const;
+type Tab = (typeof ALL_TABS)[number];
 
 // Times come back from Postgres as HH:MM:SS; <input type="time"> wants HH:MM.
 const hhmm = (t: string) => (t ? t.slice(0, 5) : "");
@@ -38,11 +41,12 @@ export default function EditUserRoles({
   userId, fullName: initialName, isActive: initialActive, email: iEmail, phone: iPhone,
   department: iDept, designation: iDesig, currentPerms,
   docRights: iRights, scopes: iScopes, scopeExclude: iExclude,
-  loginDateFrom, loginDateTo, loginTimeFrom, loginTimeTo, masters,
+  loginDateFrom, loginDateTo, loginTimeFrom, loginTimeTo, masters, canManageAccess,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
 
+  const TABS: readonly Tab[] = canManageAccess ? ALL_TABS : ["Account"];
   const [tab, setTab] = useState<Tab>("Account");
   const [f, setF] = useState({ fullName: initialName, email: iEmail, phone: iPhone, department: iDept, designation: iDesig });
   const [isActive, setIsActive] = useState(initialActive);
@@ -80,6 +84,8 @@ export default function EditUserRoles({
     });
     if (err) { setSaving(false); return setError(err.message); }
 
+    if (!canManageAccess) { setSaving(false); setSuccess(true); router.refresh(); return; }
+
     // Restrictions, rights and the login window save together, so the user is
     // never left half-restricted if one of them is rejected.
     const { error: err2 } = await supabase.rpc("staff_user_set_access", {
@@ -114,6 +120,13 @@ export default function EditUserRoles({
       {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
       {success && <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">Saved successfully.</div>}
 
+      {!canManageAccess && (
+        <div className="rounded bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          You can edit this user’s details. Changing their modules, screen rights,
+          restrictions or login window needs the “Give Access” permission.
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-1 border-b border-slate-200">
         {TABS.map((t) => (
           <button key={t} type="button" onClick={() => setTab(t)}
@@ -143,7 +156,7 @@ export default function EditUserRoles({
             </div>
           </div>
 
-          <div className="card space-y-4">
+          {canManageAccess && <div className="card space-y-4">
             <div>
               <h2 className="font-semibold text-slate-700">Login Restrictions</h2>
               <p className="text-xs text-slate-400">
@@ -162,7 +175,7 @@ export default function EditUserRoles({
               <button type="button" onClick={() => setLogin({ dateFrom: "", dateTo: "", timeFrom: "", timeTo: "" })}
                 className="text-xs text-brand hover:underline">Clear login restrictions</button>
             )}
-          </div>
+          </div>}
 
           <div className="card space-y-2">
             <h2 className="font-semibold text-slate-700">Reset Password</h2>

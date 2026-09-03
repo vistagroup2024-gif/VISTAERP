@@ -16,18 +16,24 @@ export default async function EditUserPage({ params }: { params: { id: string } 
   // restrictions / rights / login window. Loaded here as the admin viewing the
   // page, so the picker shows the whole tree even when the user being edited is
   // restricted to a corner of it.
-  const [{ data: roles }, { data: access }, accounts, products, costCenters, tagAreas] = await Promise.all([
+  const [{ data: roles }, { data: access }, { data: trees }] = await Promise.all([
     supabase.from("user_roles").select("role").eq("user_id", params.id),
     supabase.rpc("staff_user_access", { p_id: params.id }),
-    supabase.from("accounts").select("id, name, code, parent_id, is_group").order("code"),
-    supabase.from("acct_products").select("id, name, parent_id, is_group").order("name"),
-    supabase.from("acct_cost_centers").select("id, name, code, parent_id, is_group").order("name"),
-    supabase.from("acct_tag_areas").select("id, name, parent_id, is_group").order("name"),
+    // Whole trees, not the ones the viewer may touch: a user manager who is
+    // himself restricted must still see the entire list he is editing, or
+    // saving would write back a partial one as if it were complete.
+    supabase.rpc("staff_scope_masters"),
   ]);
+  const t = (trees as any) ?? {};
 
   const currentRoles = (roles ?? []).map((r: any) => r.role);
   const p = profile as any;
   const a = (access as any) ?? {};
+  // staff_user_access only answers a caller holding users.manage_roles. Without
+  // it the Restrict / Access / Modules tabs would show an empty user and saving
+  // would fail after the profile edit had already gone through, so they are not
+  // offered at all.
+  const canManageAccess = access != null;
 
   return (
     <div className="max-w-5xl">
@@ -45,6 +51,7 @@ export default async function EditUserPage({ params }: { params: { id: string } 
         designation={p.designation ?? ""}
         currentPerms={p.permissions ?? {}}
         currentRoles={currentRoles}
+        canManageAccess={canManageAccess}
         docRights={a.doc_rights ?? {}}
         scopes={a.scopes ?? {}}
         scopeExclude={a.scope_exclude ?? {}}
@@ -53,10 +60,10 @@ export default async function EditUserPage({ params }: { params: { id: string } 
         loginTimeFrom={a.login_time_from ?? ""}
         loginTimeTo={a.login_time_to ?? ""}
         masters={{
-          account: (accounts.data as any[]) ?? [],
-          product: (products.data as any[]) ?? [],
-          cost_center: (costCenters.data as any[]) ?? [],
-          tag_area: (tagAreas.data as any[]) ?? [],
+          account: t.account ?? [],
+          product: t.product ?? [],
+          cost_center: t.cost_center ?? [],
+          tag_area: t.tag_area ?? [],
         }}
       />
     </div>

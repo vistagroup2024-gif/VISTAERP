@@ -135,11 +135,15 @@ export async function updateSession(request: NextRequest) {
 
   // Access enforcement for staff pages, in one place rather than page by page:
   //   1. the login window / blocked account  -> /locked
-  //   2. the module permission for the route  -> their landing page
-  //   3. the screen's own "Access" right      -> their landing page
-  // Skips API/agent/auth routes and the two pages a shut-out user must reach.
+  //   2. the module permission for the route  -> somewhere they can go
+  //   3. the screen's own "Access" right      -> somewhere they can go
+  // Skips API/agent/auth routes, the two pages a shut-out user must reach, and
+  // asset requests (manifest, service worker, .txt): those used to cost nothing
+  // because they are not permission-gated, and must not now cost a round-trip
+  // each. A path whose last segment has a dot is a file, not a screen.
+  const isAsset = path.slice(path.lastIndexOf("/")).includes(".");
   if (user && !isAgentPortal && !isVendorPortal && !isAuthRoute && !path.startsWith("/api")
-      && path !== "/no-access" && path !== "/locked") {
+      && !isAsset && path !== "/no-access" && path !== "/locked") {
     const { data } = await supabase.rpc("staff_access");
     const isAdmin = !!(data as any)?.is_admin;
     const perms = ((data as any)?.permissions ?? {}) as Record<string, boolean>;
@@ -152,19 +156,34 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    const required = requiredPerms(path);
-    if (required && !unrestricted && !required.some((k) => perms[k])) {
+    // Where to send someone who may not be here. It must be somewhere they can
+    // actually open, or the redirect bounces back and the browser loops: the
+    // landing page is chosen from module permissions and can itself be a screen
+    // their Access rights withhold.
+    const sendAway = () => {
+      const dest = unrestricted || perms["dashboard.view"] ? "/dashboard" : landingFor(perms);
+      const destDoc = docForPath(dest);
+      const reachable = dest !== path && (!destDoc || hasDocRight(docRights, isAdmin, destDoc, "access"));
       const url = request.nextUrl.clone();
-      url.pathname = landingFor(perms);
+      url.pathname = reachable ? dest : "/no-access";
       return NextResponse.redirect(url);
+    };
+
+    // The user-administration routes never pass on an empty permissions map:
+    // see staff_perm_strict() in the database, which the RPCs behind them use.
+    // Admins still pass everything.
+    const strictRoute = ["/settings/users", "/settings/roles", "/settings/agents"]
+      .some((r) => path === r || path.startsWith(r + "/"));
+    const required = requiredPerms(path);
+    if (required) {
+      const holdsOne = required.some((k) => perms[k]);
+      const nothingSet = Object.keys(perms).length === 0;
+      const allowed = isAdmin || holdsOne || (nothingSet && !strictRoute);
+      if (!allowed) return sendAway();
     }
 
     const doc = docForPath(path);
-    if (doc && !hasDocRight(docRights, isAdmin, doc, "access")) {
-      const url = request.nextUrl.clone();
-      url.pathname = landingFor(perms);
-      return NextResponse.redirect(url);
-    }
+    if (doc && !hasDocRight(docRights, isAdmin, doc, "access")) return sendAway();
   }
 
   return response;
