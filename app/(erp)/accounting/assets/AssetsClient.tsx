@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { useDocRights } from "@/components/AccessProvider";
 
 type Acc = { id: string; code: string; name: string };
 type FA = { id: string; name: string; cost: number; salvage: number; purchase_date: string; life_months: number; accumulated: number; depreciated_to: string | null; status: string };
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n));
 
 export default function AssetsClient({ assets, assetAccounts }: { assets: FA[]; assetAccounts: Acc[] }) {
+  const rights = useDocRights("fixed_assets");
   const router = useRouter();
   const supabase = createClient();
   const [f, setF] = useState({ name: "", asset_account_id: "", cost: "", salvage: "0", purchase_date: new Date().toISOString().slice(0, 10), life_months: "60" });
@@ -52,12 +54,12 @@ export default function AssetsClient({ assets, assetAccounts }: { assets: FA[]; 
         <div><label className="label">Salvage</label><input className="input text-right tabular-nums" inputMode="decimal" value={f.salvage} onChange={(e) => setF({ ...f, salvage: e.target.value })} /></div>
         <div><label className="label">Purchase date</label><input type="date" className="input" value={f.purchase_date} onChange={(e) => setF({ ...f, purchase_date: e.target.value })} /></div>
         <div><label className="label">Life (months)</label><input type="number" className="input" value={f.life_months} onChange={(e) => setF({ ...f, life_months: e.target.value })} /></div>
-        <div className="flex items-end"><button className="btn w-full" disabled={busy}>Add asset</button></div>
+        <div className="flex items-end"><button className="btn w-full disabled:opacity-40" disabled={busy || !rights.canCreate} title={rights.denied("create")}>{!rights.canCreate ? "No Create rights" : "Add asset"}</button></div>
       </form>
 
       <div className="card flex flex-wrap items-end gap-3">
         <div><label className="label">Depreciation for month-end</label><input type="date" className="input" value={period} onChange={(e) => setPeriod(e.target.value)} /></div>
-        <button onClick={runDep} disabled={busy} className="btn">Run depreciation</button>
+        <button onClick={runDep} disabled={busy || !rights.canEdit} title={rights.denied("edit")} className="btn disabled:opacity-40">Run depreciation</button>
         <span className="text-xs text-slate-400">Posts one month of straight-line depreciation (Dr Depreciation, Cr Accumulated Depreciation) for each asset not yet depreciated for that month.</span>
       </div>
 

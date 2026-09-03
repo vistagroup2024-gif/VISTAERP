@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { useDocRights } from "@/components/AccessProvider";
 
 type Rule = { id?: string; doc_type: string; min_amount: number; approvals_needed: number; active: boolean };
 type Authorizer = { user_id: string; name: string; is_admin: boolean; limit: number | null };
@@ -13,6 +14,7 @@ const DOC_TYPES = [
 ];
 
 export default function RulesPage() {
+  const rights = useDocRights("auth_rules");
   const supabase = createClient();
   const [rules, setRules] = useState<Rule[]>([]);
   const [form, setForm] = useState<Rule>({ doc_type: "gl_payment", min_amount: 0, approvals_needed: 1, active: true });
@@ -128,7 +130,7 @@ export default function RulesPage() {
         <div><label className="label">Approvals needed</label>
           <input className="input text-right" type="number" min={1} value={form.approvals_needed} onChange={(e) => setForm({ ...form, approvals_needed: Number(e.target.value) })} /></div>
         <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active</label>
-        <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save rule"}</button>
+        <button className="btn disabled:opacity-40" disabled={saving || !rights.canCreate} title={rights.denied("create")}>{saving ? "Saving…" : "Save rule"}</button>
       </form>
 
       <div className="card overflow-x-auto p-0">
@@ -143,7 +145,7 @@ export default function RulesPage() {
                 <td className="px-3 py-2 text-right tabular-nums">{Number(r.min_amount).toLocaleString()}</td>
                 <td className="px-3 py-2 text-right">{r.approvals_needed}</td>
                 <td className="px-3 py-2 text-center">{r.active ? "✓" : "—"}</td>
-                <td className="px-3 py-2 text-right"><button onClick={() => remove(r.id!)} className="text-red-500 hover:underline">Delete</button></td>
+                <td className="px-3 py-2 text-right"><button onClick={() => remove(r.id!)} disabled={!rights.canDelete} title={rights.denied("delete")} className="text-red-500 hover:underline disabled:opacity-40">Delete</button></td>
               </tr>
             ))}
             {rules.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={5}>No rules — all vouchers post immediately.</td></tr>}
@@ -163,7 +165,7 @@ export default function RulesPage() {
               <tr key={u.user_id} className="border-t border-slate-100">
                 <td className="px-3 py-2">{u.name}{u.is_admin && <span className="ml-2 rounded bg-brand/10 px-1.5 text-[10px] uppercase text-brand">admin</span>}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{u.is_admin ? "—" : (u.limit == null ? "No limit" : Number(u.limit).toLocaleString())}</td>
-                <td className="px-3 py-2 text-right">{!u.is_admin && <button onClick={() => setLimit(u)} className="text-brand hover:underline">Set limit</button>}</td>
+                <td className="px-3 py-2 text-right">{!u.is_admin && <button onClick={() => setLimit(u)} disabled={!rights.canEdit} title={rights.denied("edit")} className="text-brand hover:underline disabled:opacity-40">Set limit</button>}</td>
               </tr>
             ))}
             {authorizers.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={3}>No authorisers, or you are not an admin.</td></tr>}

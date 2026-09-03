@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { useDocRights } from "@/components/AccessProvider";
 
 // One node as returned by the acct_tree RPC (flat list; tree built client-side).
 export type AcctNode = {
@@ -38,6 +39,7 @@ function drcr(net: number) {
 }
 
 export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
+  const rights = useDocRights("coa");
   const router = useRouter();
   const supabase = createClient();
   const [q, setQ] = useState("");
@@ -201,16 +203,16 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
     <div className="card p-0">
       {/* Master toolbar */}
       <div className="no-print flex flex-wrap items-center gap-1.5 border-b border-slate-200 p-2">
-        <button onClick={() => add(false)} className={btn}>+ Add</button>
-        <button onClick={() => add(true)} className={btn}>+ Add Group</button>
+        <button onClick={() => add(false)} disabled={!rights.canCreate} title={rights.denied("create")} className={btn}>+ Add</button>
+        <button onClick={() => add(true)} disabled={!rights.canCreate} title={rights.denied("create")} className={btn}>+ Add Group</button>
         <span className="mx-1 h-5 w-px bg-slate-200" />
-        <button onClick={() => selNode && setEditing(selNode)} disabled={!selNode} className={btn}>Edit</button>
-        <button onClick={() => selNode && setMoving(selNode)} disabled={!selNode} className={btn}>Move</button>
-        <button onClick={doDelete} disabled={!selNode || busy} className={`${btn} text-danger`}>Delete</button>
+        <button onClick={() => selNode && setEditing(selNode)} disabled={!selNode || !rights.canEdit} title={rights.denied("edit")} className={btn}>Edit</button>
+        <button onClick={() => selNode && setMoving(selNode)} disabled={!selNode || !rights.canEdit} title={rights.denied("edit")} className={btn}>Move</button>
+        <button onClick={doDelete} disabled={!selNode || busy || !rights.canDelete} title={rights.denied("delete")} className={`${btn} text-danger`}>Delete</button>
         <span className="mx-1 h-5 w-px bg-slate-200" />
         <button onClick={() => setCollapsed(new Set())} className={btn}>Expand all</button>
         <button onClick={() => setCollapsed(new Set(nodes.filter((n) => n.is_group).map((n) => n.id)))} className={btn}>Collapse all</button>
-        <button onClick={() => window.print()} className={btn}>Print</button>
+        <button onClick={() => window.print()} disabled={!rights.canPrint} title={rights.denied("print")} className={btn}>Print</button>
         <span className="ml-auto max-w-[40%] truncate text-xs text-slate-400">
           {selNode ? <>Selected: <b className="text-slate-600">{selNode.name}</b></> : `${nodes.length} accounts`}
         </span>

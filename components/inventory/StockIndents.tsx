@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { qtyf } from "./reportFormat";
+import { useDocRights } from "@/components/AccessProvider";
 
 type Low = { item_id: string; item: string; uom: string | null; qty: number; reorder_level: number; on_order: number; suggested: number };
 type Indent = {
@@ -16,6 +17,7 @@ type Indent = {
  * requisition a Purchase Order is then written from.
  */
 export default function StockIndents() {
+  const rights = useDocRights("stock_indents");
   const supabase = createClient();
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
   const [wh, setWh] = useState("");
@@ -73,7 +75,7 @@ export default function StockIndents() {
           </select></div>
         <div className="min-w-56 flex-1"><label className="label">Narration</label>
           <input className="input" value={narration} onChange={(e) => setNarration(e.target.value)} placeholder="Optional note on the indent" /></div>
-        <button className="btn h-[38px]" onClick={raise} disabled={busy || low.length === 0}>
+        <button className="btn h-[38px] disabled:opacity-40" onClick={raise} disabled={busy || low.length === 0 || !rights.canCreate} title={rights.denied("create")}>
           {busy ? "Raising…" : "Raise indent"}
         </button>
       </div>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import { AccessProvider } from "@/components/AccessProvider";
 import AppHeader from "@/components/AppHeader";
 import { getSessionUser, getStaffAccess } from "@/lib/staffSession";
 
@@ -27,7 +28,11 @@ export default async function ErpLayout({
           name={access.fullName || user.email || "User"}
           access={{ unrestricted: access.unrestricted, permissions: access.permissions, isAdmin: access.isAdmin, docRights: access.docRights }}
         />
-        <main className="min-w-0 flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-6">
+          <AccessProvider value={{ isAdmin: access.isAdmin, docRights: access.docRights }}>
+            {children}
+          </AccessProvider>
+        </main>
       </div>
     </div>
   );

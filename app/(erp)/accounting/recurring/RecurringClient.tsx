@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import AccountPicker, { type PickAccount } from "@/components/accounting/AccountPicker";
+import { useDocRights } from "@/components/AccessProvider";
 
 type Sched = { id: string; name: string; cadence: string; next_run: string; narration: string | null; auto_authorize: boolean; active: boolean; last_run: string | null };
 type Line = { account: string | null; debit: string; credit: string; remarks: string };
@@ -12,6 +13,7 @@ const empty = (): Line => ({ account: null, debit: "", credit: "", remarks: "" }
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
 export default function RecurringClient({ schedules, accounts }: { schedules: Sched[]; accounts: PickAccount[] }) {
+  const rights = useDocRights("recurring");
   const router = useRouter();
   const supabase = createClient();
   const [name, setName] = useState("");
@@ -65,7 +67,7 @@ export default function RecurringClient({ schedules, accounts }: { schedules: Sc
       {msg && <div className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
 
       <div className="card flex items-center gap-3">
-        <button onClick={generate} disabled={busy} className="btn">Generate due now</button>
+        <button onClick={generate} disabled={busy || !rights.canCreate} title={rights.denied("create")} className="btn disabled:opacity-40">Generate due now</button>
         <span className="text-xs text-slate-400">Posts every schedule whose next run is today or earlier, then rolls it forward.</span>
       </div>
 
@@ -80,8 +82,8 @@ export default function RecurringClient({ schedules, accounts }: { schedules: Sc
                 <td className="px-3 py-1.5">{s.name}</td><td className="px-3 py-1.5 capitalize">{s.cadence}</td>
                 <td className="px-3 py-1.5">{s.next_run}</td><td className="px-3 py-1.5">{s.last_run ?? "—"}</td>
                 <td className="px-3 py-1.5 text-center">{s.auto_authorize ? "✓" : "—"}</td>
-                <td className="px-3 py-1.5 text-center"><button onClick={() => toggle(s)} className="hover:underline">{s.active ? "✓" : "off"}</button></td>
-                <td className="px-3 py-1.5 text-right"><button onClick={() => del(s.id)} className="text-red-500 hover:underline">Delete</button></td>
+                <td className="px-3 py-1.5 text-center"><button onClick={() => toggle(s)} disabled={!rights.canEdit} title={rights.denied("edit")} className="hover:underline disabled:opacity-40">{s.active ? "✓" : "off"}</button></td>
+                <td className="px-3 py-1.5 text-right"><button onClick={() => del(s.id)} disabled={!rights.canDelete} title={rights.denied("delete")} className="text-red-500 hover:underline disabled:opacity-40">Delete</button></td>
               </tr>
             ))}
             {schedules.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={7}>No schedules.</td></tr>}
@@ -112,7 +114,7 @@ export default function RecurringClient({ schedules, accounts }: { schedules: Sc
           </tbody>
           <tfoot><tr className="font-semibold"><td className="py-2 text-right">Total</td><td className="py-2 text-right tabular-nums">{money(totals.d)}</td><td className="py-2 text-right tabular-nums">{money(totals.c)}</td><td className="py-2 pl-2 text-xs">{Math.abs(totals.diff) < 0.005 ? <span className="text-green-600">Balanced ✓</span> : <span className="text-red-600">Diff {money(Math.abs(totals.diff))}</span>}</td></tr></tfoot>
         </table>
-        <button onClick={create} disabled={busy} className="btn">Save schedule</button>
+        <button onClick={create} disabled={busy || !rights.canCreate} title={rights.denied("create")} className="btn disabled:opacity-40">Save schedule</button>
       </div>
     </div>
   );

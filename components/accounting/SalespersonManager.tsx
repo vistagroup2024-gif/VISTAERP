@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { useDocRights } from "@/components/AccessProvider";
 
 type SP = { id: string; name: string; phone: string | null; is_active: boolean };
 type Rule = { id: string; salesperson_id: string; cost_center: string; method: string; rate: number; is_active: boolean };
@@ -23,6 +24,7 @@ const rateText = (r: Rule) => (r.method === "percent" ? `${Number(r.rate)}%` : N
 export default function SalespersonManager({ initialSalespersons, initialRules, costCenters }: {
   initialSalespersons: SP[]; initialRules: Rule[]; costCenters: Named[];
 }) {
+  const rights = useDocRights("salespersons");
   const router = useRouter();
   const supabase = createClient();
   const [name, setName] = useState("");
@@ -99,7 +101,7 @@ export default function SalespersonManager({ initialSalespersons, initialRules, 
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
         <div className="sm:col-span-2"><label className="label">Phone</label>
           <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-        <div className="flex items-end sm:col-span-1"><button className="btn w-full" disabled={busy}>{busy ? "…" : "+ Add"}</button></div>
+        <div className="flex items-end sm:col-span-1"><button className="btn w-full disabled:opacity-40" disabled={busy || !rights.canCreate} title={rights.denied("create")}>{busy ? "…" : "+ Add"}</button></div>
         {err && <p className="text-sm text-red-600 sm:col-span-6">{err}</p>}
       </form>
 
@@ -115,9 +117,9 @@ export default function SalespersonManager({ initialSalespersons, initialRules, 
               {s.phone && <span className="text-xs text-slate-400">{s.phone}</span>}
               {!s.is_active && <span className="rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">inactive</span>}
               <span className="ml-auto flex gap-3 text-xs">
-                <button onClick={() => renameSp(s)} className="text-brand hover:underline">Rename</button>
-                <button onClick={() => toggleSp(s)} className="text-slate-500 hover:underline">{s.is_active ? "Disable" : "Enable"}</button>
-                <button onClick={() => delSp(s)} className="text-red-600 hover:underline">Delete</button>
+                <button onClick={() => renameSp(s)} disabled={!rights.canEdit} title={rights.denied("edit")} className="text-brand hover:underline disabled:opacity-40">Rename</button>
+                <button onClick={() => toggleSp(s)} disabled={!rights.canEdit} title={rights.denied("edit")} className="text-slate-500 hover:underline disabled:opacity-40">{s.is_active ? "Disable" : "Enable"}</button>
+                <button onClick={() => delSp(s)} disabled={!rights.canDelete} title={rights.denied("delete")} className="text-red-600 hover:underline disabled:opacity-40">Delete</button>
               </span>
             </div>
 
@@ -135,8 +137,8 @@ export default function SalespersonManager({ initialSalespersons, initialRules, 
                       <td className="px-2 py-1.5 text-slate-500">{methodLabel(r.method)}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{rateText(r)}</td>
                       <td className="px-2 py-1.5 text-right text-xs">
-                        <button onClick={() => editRuleRate(r)} className="text-brand hover:underline">Rate</button>
-                        <button onClick={() => delRule(r)} className="ml-2 text-red-600 hover:underline">Delete</button>
+                        <button onClick={() => editRuleRate(r)} disabled={!rights.canEdit} title={rights.denied("edit")} className="text-brand hover:underline disabled:opacity-40">Rate</button>
+                        <button onClick={() => delRule(r)} disabled={!rights.canDelete} title={rights.denied("delete")} className="ml-2 text-red-600 hover:underline disabled:opacity-40">Delete</button>
                       </td>
                     </tr>
                   ))}
@@ -153,7 +155,7 @@ export default function SalespersonManager({ initialSalespersons, initialRules, 
               </select>
               <input className="input text-right tabular-nums sm:col-span-2" inputMode="decimal" placeholder={dr.method === "percent" ? "%" : "amount"}
                 value={dr.rate} onChange={(e) => setD(s.id, { rate: e.target.value })} />
-              <button onClick={() => addRule(s.id)} disabled={busy} className="btn-outline text-sm sm:col-span-1">+ Rule</button>
+              <button onClick={() => addRule(s.id)} disabled={busy || !rights.canCreate} title={rights.denied("create")} className="btn-outline text-sm disabled:opacity-40 sm:col-span-1">+ Rule</button>
             </div>
           </div>
         );

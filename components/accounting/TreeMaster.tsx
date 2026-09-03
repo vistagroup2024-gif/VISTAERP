@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import ProductRatesModal from "./ProductRatesModal";
+import { useDocRights } from "@/components/AccessProvider";
+
+// Three masters share this component; the Access tab names them separately, so
+// the screen whose rights apply is the one whose table is being edited.
+const TABLE_DOC: Record<string, string> = {
+  acct_products: "product_tree",
+  acct_cost_centers: "cost_centers",
+  acct_tag_areas: "tag_areas",
+};
 
 type Node = { id: string; parent_id: string | null; name: string; is_group: boolean; is_active: boolean; sort: number; [k: string]: any };
 type Extra = { key: string; label: string };
@@ -16,6 +25,7 @@ type Extra = { key: string; label: string };
 export default function TreeMaster({ table, initial, extra, extras, note, rateEditor }: {
   table: string; initial: Node[]; extra?: Extra; extras?: Extra[]; note?: string; rateEditor?: boolean;
 }) {
+  const rights = useDocRights(TABLE_DOC[table] ?? "");
   const router = useRouter();
   const supabase = createClient();
   const exs = useMemo<Extra[]>(() => extras ?? (extra ? [extra] : []), [extras, extra]);
@@ -158,24 +168,24 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
             <input className="input" type="number" step="any" value={extraVals[ex.key] ?? ""} onChange={(ev) => setExtraVals((o) => ({ ...o, [ex.key]: ev.target.value }))} /></div>
         ))}
         <div className="flex items-end"><label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={isGroup} onChange={(e) => setIsGroup(e.target.checked)} /> Is a group</label></div>
-        <div className="flex items-end sm:col-span-1"><button className="btn w-full" disabled={busy}>{busy ? "…" : "+ Add"}</button></div>
+        <div className="flex items-end sm:col-span-1"><button className="btn w-full disabled:opacity-40" disabled={busy || !rights.canCreate} title={rights.denied("create")}>{busy ? "…" : "+ Add"}</button></div>
         {err && <p className="text-sm text-danger sm:col-span-6">{err}</p>}
       </form>
 
       <div className="card p-0 text-sm">
         {/* Master toolbar */}
         <div className="no-print flex flex-wrap items-center gap-1.5 border-b border-slate-200 p-2">
-          <button onClick={() => startAdd(false)} className={btn}>+ Add</button>
-          <button onClick={() => startAdd(true)} className={btn}>+ Add Group</button>
+          <button onClick={() => startAdd(false)} disabled={!rights.canCreate} title={rights.denied("create")} className={btn}>+ Add</button>
+          <button onClick={() => startAdd(true)} disabled={!rights.canCreate} title={rights.denied("create")} className={btn}>+ Add Group</button>
           <span className="mx-1 h-5 w-px bg-slate-200" />
-          <button onClick={() => selNode && setEditing(selNode)} disabled={!selNode} className={btn}>Edit</button>
-          <button onClick={() => selNode && setMoving(selNode)} disabled={!selNode} className={btn}>Move</button>
-          {rateEditor && <button onClick={() => selNode && !selNode.is_group && setRatesFor(selNode)} disabled={!selNode || selNode.is_group} className={btn}>Rates</button>}
-          <button onClick={() => selNode && del(selNode)} disabled={!selNode} className={`${btn} text-danger`}>Delete</button>
+          <button onClick={() => selNode && setEditing(selNode)} disabled={!selNode || !rights.canEdit} title={rights.denied("edit")} className={btn}>Edit</button>
+          <button onClick={() => selNode && setMoving(selNode)} disabled={!selNode || !rights.canEdit} title={rights.denied("edit")} className={btn}>Move</button>
+          {rateEditor && <button onClick={() => selNode && !selNode.is_group && setRatesFor(selNode)} disabled={!selNode || selNode.is_group || !rights.canEdit} title={rights.denied("edit")} className={btn}>Rates</button>}
+          <button onClick={() => selNode && del(selNode)} disabled={!selNode || !rights.canDelete} title={rights.denied("delete")} className={`${btn} text-danger`}>Delete</button>
           <span className="mx-1 h-5 w-px bg-slate-200" />
           <button onClick={() => setOpen({})} className={btn}>Expand all</button>
           <button onClick={() => setOpen(Object.fromEntries(groups.map((g) => [g.id, false])))} className={btn}>Collapse all</button>
-          <button onClick={() => window.print()} className={btn}>Print</button>
+          <button onClick={() => window.print()} disabled={!rights.canPrint} title={rights.denied("print")} className={btn}>Print</button>
           <span className="ml-auto max-w-[40%] truncate text-xs text-slate-400">
             {selNode ? <>Selected: <b className="text-slate-600">{selNode.name}</b></> : "Select a row to edit"}
           </span>

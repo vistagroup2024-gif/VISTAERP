@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { useDocRights } from "@/components/AccessProvider";
 
 type Acc = { id: string; code: string; name: string; subtype: string };
 type Line = { id: string; line_date: string | null; description: string | null; ref: string | null; amount: number; status: string };
@@ -18,6 +19,7 @@ function parseCsv(text: string) {
 }
 
 export default function BankClient({ banks, contras, statement, lines }: { banks: Acc[]; contras: Acc[]; statement: any; lines: Line[] }) {
+  const rights = useDocRights("bank_rec");
   const router = useRouter();
   const supabase = createClient();
   const [bank, setBank] = useState(statement?.bank_account_id ?? "");
@@ -69,7 +71,7 @@ export default function BankClient({ banks, contras, statement, lines }: { banks
           </div>
           <div><label className="label">Rows (CSV: <code>date,description,amount,ref</code> — amount signed, + deposit / − withdrawal)</label>
             <textarea className="input font-mono text-xs" rows={6} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={"2026-08-01,Customer deposit,5000\n2026-08-03,Bank charges,-25"} /></div>
-          <button onClick={importStmt} disabled={busy} className="btn">Import</button>
+          <button onClick={importStmt} disabled={busy || !rights.canCreate} title={rights.denied("create")} className="btn disabled:opacity-40">Import</button>
         </div>
       )}
 
@@ -79,7 +81,7 @@ export default function BankClient({ banks, contras, statement, lines }: { banks
             <div><div className="text-xs text-slate-400">Statement total</div><div className="text-lg font-bold tabular-nums">{money(stmtTotal)}</div></div>
             <div><div className="text-xs text-slate-400">Matched</div><div className="text-lg font-bold tabular-nums text-green-700">{money(matchedTotal)}</div></div>
             <div><div className="text-xs text-slate-400">Unmatched</div><div className="text-lg font-bold tabular-nums text-red-600">{money(stmtTotal - matchedTotal)} · {unmatched.length} line(s)</div></div>
-            <button onClick={autoMatch} disabled={busy} className="btn ml-auto">Auto-match</button>
+            <button onClick={autoMatch} disabled={busy || !rights.canEdit} title={rights.denied("edit")} className="btn ml-auto disabled:opacity-40">Auto-match</button>
           </div>
 
           <div className="card overflow-x-auto p-0">
@@ -96,8 +98,8 @@ export default function BankClient({ banks, contras, statement, lines }: { banks
                     <td className="px-3 py-1.5 text-center"><span className={`badge ${l.status === "matched" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{l.status}</span></td>
                     <td className="px-3 py-1.5">
                       {l.status === "matched"
-                        ? <button onClick={() => unmatch(l.id)} className="text-xs text-slate-500 hover:underline">Unmatch</button>
-                        : <select className="input h-8 py-0 text-xs" defaultValue="" onChange={(e) => createEntry(l.id, e.target.value)}>
+                        ? <button onClick={() => unmatch(l.id)} disabled={!rights.canEdit} title={rights.denied("edit")} className="text-xs text-slate-500 hover:underline disabled:opacity-40">Unmatch</button>
+                        : <select className="input h-8 py-0 text-xs disabled:opacity-40" defaultValue="" disabled={!rights.canCreate} title={rights.denied("create")} onChange={(e) => createEntry(l.id, e.target.value)}>
                             <option value="">Create entry → contra…</option>
                             {contras.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { useDocRights } from "@/components/AccessProvider";
 
 type Emp = {
   id: string; emp_code: string | null; name: string; department: string | null; designation: string | null;
@@ -14,6 +15,7 @@ const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDig
 const blank = () => ({ emp_code: "", name: "", department: "", designation: "", join_date: "", basic_salary: "", allowances: "", deductions: "", bank_name: "", bank_account: "", iqama_no: "", iqama_expiry: "" });
 
 export default function EmployeeManager({ initial }: { initial: Emp[] }) {
+  const rights = useDocRights("employees");
   const router = useRouter();
   const supabase = createClient();
   const [form, setForm] = useState<Record<string, string>>(blank());
@@ -63,7 +65,7 @@ export default function EmployeeManager({ initial }: { initial: Emp[] }) {
             <input className="input" type={type} step={type === "number" ? "any" : undefined} value={form[k]} onChange={(e) => set(k, e.target.value)} /></div>
         ))}
         <div className="col-span-2 flex items-end gap-2">
-          <button className="btn" disabled={busy}>{busy ? "…" : editId ? "Save changes" : "+ Add employee"}</button>
+          <button className="btn disabled:opacity-40" disabled={busy || !(editId ? rights.canEdit : rights.canCreate)} title={rights.denied(editId ? "edit" : "create")}>{busy ? "…" : editId ? "Save changes" : "+ Add employee"}</button>
           {editId && <button type="button" onClick={() => { setEditId(null); setForm(blank()); }} className="btn-outline">Cancel</button>}
         </div>
         {err && <p className="col-span-full text-sm text-red-600">{err}</p>}
@@ -85,10 +87,10 @@ export default function EmployeeManager({ initial }: { initial: Emp[] }) {
                 <td className="px-3 py-2 text-right tabular-nums">{money(m.allowances)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{money(m.deductions)}</td>
                 <td className="px-3 py-2 text-right font-medium tabular-nums">{money(m.basic_salary + m.allowances - m.deductions)}</td>
-                <td className="px-3 py-2 text-center"><button onClick={() => toggle(m)} className={`rounded-full px-2 py-0.5 text-xs ${m.status === "active" ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500"}`}>{m.status}</button></td>
+                <td className="px-3 py-2 text-center"><button onClick={() => toggle(m)} disabled={!rights.canEdit} title={rights.denied("edit")} className={`rounded-full px-2 py-0.5 text-xs disabled:opacity-50 ${m.status === "active" ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500"}`}>{m.status}</button></td>
                 <td className="px-3 py-2 whitespace-nowrap text-right">
-                  <button onClick={() => edit(m)} className="text-brand hover:underline">Edit</button>
-                  <button onClick={() => del(m)} className="ml-3 text-red-600 hover:underline">Delete</button>
+                  <button onClick={() => edit(m)} disabled={!rights.canEdit} title={rights.denied("edit")} className="text-brand hover:underline disabled:opacity-40">Edit</button>
+                  <button onClick={() => del(m)} disabled={!rights.canDelete} title={rights.denied("delete")} className="ml-3 text-red-600 hover:underline disabled:opacity-40">Delete</button>
                 </td>
               </tr>
             ))}

@@ -76,13 +76,19 @@ export const STAFF_PERMISSION_CATALOG: StaffPermGroup[] = [
     { key: "carsales.reports", label: "Reports & Dashboard" },
     { key: "carsales.manage", label: "Approvals & Price/Schedule Changes" },
   ] },
+  // These six are the one place the "empty means unrestricted" rule does NOT
+  // apply: handing out access must be granted explicitly, so the database reads
+  // them with staff_perm_strict() and an account with nothing ticked gets none
+  // of them. users.manage_roles is the key that lets someone other than an
+  // admin set another user's modules, screen rights, restrictions and login
+  // window — grant it only with users.view, or they cannot reach the screen.
   { module: "User Management", perms: [
     { key: "users.view", label: "View Users" },
     { key: "users.create", label: "Create Users" },
-    { key: "users.edit", label: "Edit Users" },
+    { key: "users.edit", label: "Edit Users (name, contact, active)" },
     { key: "users.delete", label: "Delete Users" },
     { key: "users.reset_password", label: "Reset Passwords" },
-    { key: "users.manage_roles", label: "Manage Roles & Permissions" },
+    { key: "users.manage_roles", label: "Give Access — modules, screen rights, restrictions, login window" },
   ] },
   { module: "System Settings", perms: [
     { key: "system.companies", label: "Companies" },

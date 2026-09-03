@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import AccountPicker, { type PickAccount } from "@/components/accounting/AccountPicker";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import { useDocRights } from "@/components/AccessProvider";
 
 type Party = { id: string; name: string; party_type: string; phone: string | null };
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -14,6 +15,7 @@ type Named = { id: string; name: string };
 export default function InvoiceEditor({ parties, accounts, costCenters = [], salespersons = [] }: {
   parties: Party[]; accounts: PickAccount[]; costCenters?: Named[]; salespersons?: Named[];
 }) {
+  const rights = useDocRights("invoice_bill");
   const router = useRouter();
   const supabase = createClient();
   const [kind, setKind] = useState<"customer" | "supplier">("customer");
@@ -52,7 +54,7 @@ export default function InvoiceEditor({ parties, accounts, costCenters = [], sal
     if (!account) return setErr("Choose the income / expense account");
     if (amt <= 0) return setErr("Enter an amount");
     setSaving(true);
-    const { data, error } = await supabase.rpc("party_invoice", {
+    const { data, error } = await supabase.rpc("invoice_bill_save", {
       p_company: COMPANY_ID, p_party: party, p_kind: kind, p_date: date, p_due: due || null,
       p_narration: narration || null, p_amount: amt, p_income_expense_account: account,
       p_tax: tax, p_reference: reference || null, p_override_credit: override,
@@ -136,7 +138,7 @@ export default function InvoiceEditor({ parties, accounts, costCenters = [], sal
         </FormSection>
 
         <div className="border-t border-slate-100 pt-4">
-          <button type="submit" disabled={saving} className="btn">{saving ? "Posting…" : "Save & Post"}</button>
+          <button type="submit" disabled={saving || !rights.canCreate} title={rights.denied("create")} className="btn disabled:opacity-40">{!rights.canCreate ? "No Create rights" : saving ? "Posting…" : "Save & Post"}</button>
         </div>
       </form>
     </div>

@@ -4,6 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { useDocRights } from "@/components/AccessProvider";
+
+// Several masters share this list; the Access tab names them separately, so the
+// screen whose rights apply is the one whose table is being edited.
+const TABLE_DOC: Record<string, string> = {
+  currencies: "currencies",
+  acct_car_purchase_expenses: "car_expenses",
+  warehouses: "warehouses",
+};
 
 export type MasterField = { key: string; label: string; type?: "text" | "number"; width?: string; required?: boolean };
 
@@ -16,6 +25,7 @@ export default function MasterList({
   table: string; pk?: string; fields: MasterField[]; initial: any[];
   companyScoped?: boolean; hasActive?: boolean; note?: string;
 }) {
+  const rights = useDocRights(TABLE_DOC[table] ?? "");
   const router = useRouter();
   const supabase = createClient();
   const blank = () => Object.fromEntries(fields.map((f) => [f.key, ""]));
@@ -72,7 +82,7 @@ export default function MasterList({
               value={form[f.key] ?? ""} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
           </div>
         ))}
-        <div className="flex items-end"><button className="btn w-full" disabled={busy}>{busy ? "…" : "+ Add"}</button></div>
+        <div className="flex items-end"><button className="btn w-full disabled:opacity-40" disabled={busy || !rights.canCreate} title={rights.denied("create")}>{busy ? "…" : "+ Add"}</button></div>
         {err && <p className="text-sm text-red-600 sm:col-span-6">{err}</p>}
       </form>
 
@@ -92,7 +102,7 @@ export default function MasterList({
                 ))}
                 {hasActive && <td className="td" />}
                 <td className="td whitespace-nowrap">
-                  <button onClick={() => save(r[pk])} className="text-sm font-medium text-brand hover:underline">Save</button>
+                  <button onClick={() => save(r[pk])} disabled={!rights.canEdit} title={rights.denied("edit")} className="text-sm font-medium text-brand hover:underline disabled:opacity-40">Save</button>
                   <button onClick={() => setEditId(null)} className="ml-3 text-sm text-slate-500 hover:underline">Cancel</button>
                 </td>
               </tr>
@@ -100,11 +110,11 @@ export default function MasterList({
               <tr key={r[pk]} className="border-t border-slate-100">
                 {fields.map((f) => <td key={f.key} className="td">{f.type === "number" ? Number(r[f.key] ?? 0).toLocaleString() : (r[f.key] ?? "—")}</td>)}
                 {hasActive && <td className="td">
-                  <button onClick={() => toggle(r)} className={`rounded-full px-2 py-0.5 text-xs font-medium ${r.is_active ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500"}`}>{r.is_active ? "Active" : "Inactive"}</button>
+                  <button onClick={() => toggle(r)} disabled={!rights.canEdit} title={rights.denied("edit")} className={`rounded-full px-2 py-0.5 text-xs font-medium disabled:opacity-50 ${r.is_active ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500"}`}>{r.is_active ? "Active" : "Inactive"}</button>
                 </td>}
                 <td className="td whitespace-nowrap">
-                  <button onClick={() => startEdit(r)} className="text-sm text-brand hover:underline">Edit</button>
-                  <button onClick={() => del(r)} className="ml-3 text-sm text-red-600 hover:underline">Delete</button>
+                  <button onClick={() => startEdit(r)} disabled={!rights.canEdit} title={rights.denied("edit")} className="text-sm text-brand hover:underline disabled:opacity-40">Edit</button>
+                  <button onClick={() => del(r)} disabled={!rights.canDelete} title={rights.denied("delete")} className="ml-3 text-sm text-red-600 hover:underline disabled:opacity-40">Delete</button>
                 </td>
               </tr>
             ))}

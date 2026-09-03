@@ -86,6 +86,34 @@ Screen rights are enforced in one place for *access* (the middleware, via
 `rights` prop from `docRightsFor(access, doc)` the way `TradeVoucher` and
 `VoucherEditor` do, and be added to `DOC_TREE`.
 
-Nobody can widen their own access: a trigger on `profiles` blocks a non-admin
+Screen rights bite in three places: the middleware (`docForPath`) for *access*,
+the button, and the database. A voucher's create/edit/delete goes through
+`staff_require_doc` / `staff_require_journal_right` / `staff_require_trade_right`
+inside the routine that is the only way into that screen. `edit_others` and
+`edit_authorized` are read off `created_by` and off a `pending_vouchers` row
+pointing at the document.
+
+An **engine** is never gated — `gl_post`, `party_invoice`, `stock_apply` are
+called by the Visa, Hotel and Car modules on a user's behalf, and a data-entry
+right must not block them. When a shared engine also needs a typed-by-hand
+door, the door is a separate wrapper that carries the right:
+`invoice_bill_save` → `party_invoice`. Same for `staff_doc_key`: a source it
+doesn't recognise returns null, meaning "not a rights-managed screen", which is
+allowed on purpose.
+
+## Handing out access is the one thing "empty" does not grant
+
+Everywhere else an empty setting means unrestricted. The six `users.*`
+permissions are read by **`staff_perm_strict()`**, which requires the key to be
+explicitly ticked — otherwise a fresh account with nothing set could administer
+everybody. `users.manage_roles` is what lets someone who is not an admin set
+another user's modules, rights, restrictions and login window.
+
+A delegated user manager still cannot escalate: `staff_admin_guard` refuses
+their own row, refuses an admin's row, and `create_staff_user_v2` refuses to
+mint an admin unless the caller is one.
+
+Nobody writes their own `profiles` row at all — `profiles_self_update` is gone,
+so even a name change is an admin edit. The trigger that blocks a non-admin
 from changing their own permissions, rights, window, active flag or authorise
-limit — `profiles_self_update` would otherwise allow exactly that.
+limit stays as a second line of defence.

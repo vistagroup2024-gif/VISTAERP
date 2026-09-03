@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useDocRights } from "@/components/AccessProvider";
 
 type Slip = { id: string; employee: string; basic: number; allowances: number; deductions: number; net: number };
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -10,6 +11,7 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 const now = new Date();
 
 export default function PayrollRun() {
+  const rights = useDocRights("payroll");
   const router = useRouter();
   const supabase = createClient();
   const [year, setYear] = useState(now.getFullYear());
@@ -56,8 +58,8 @@ export default function PayrollRun() {
           </select></div>
         <div><label className="label">Year</label>
           <input type="number" className="input w-28" value={year} onChange={(e) => { setYear(Number(e.target.value) || now.getFullYear()); setRunId(null); setSlips([]); }} /></div>
-        <button onClick={generate} disabled={busy} className="btn">{busy ? "…" : "Generate payslips"}</button>
-        {runId && status !== "posted" && <button onClick={post} disabled={busy} className="btn-outline">Post to GL</button>}
+        <button onClick={generate} disabled={busy || !rights.canCreate} title={rights.denied("create")} className="btn disabled:opacity-40">{busy ? "…" : "Generate payslips"}</button>
+        {runId && status !== "posted" && <button onClick={post} disabled={busy || !rights.canEdit} title={rights.denied("edit")} className="btn-outline disabled:opacity-40">Post to GL</button>}
         {status && <span className={`rounded-full px-3 py-1 text-sm ${status === "posted" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{status}</span>}
       </div>
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}

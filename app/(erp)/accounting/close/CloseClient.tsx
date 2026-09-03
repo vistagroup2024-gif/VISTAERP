@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { useDocRights } from "@/components/AccessProvider";
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n));
 
 export default function CloseClient({ closedThrough }: { closedThrough: string | null }) {
+  const rights = useDocRights("year_close");
   const router = useRouter();
   const supabase = createClient();
   const [fyEnd, setFyEnd] = useState("");
@@ -34,7 +36,7 @@ export default function CloseClient({ closedThrough }: { closedThrough: string |
       <div className="card space-y-3">
         <p className="text-sm text-slate-600">Year-end close zeroes every income and expense account into <b>Retained Earnings (9-03)</b> as of the chosen date, then locks the period so nothing can post on or before it. Balance-sheet balances carry forward automatically.</p>
         <div><label className="label">Fiscal year end</label><input type="date" className="input" value={fyEnd} onChange={(e) => setFyEnd(e.target.value)} /></div>
-        <button onClick={run} disabled={busy} className="btn">{busy ? "Closing…" : "Run year-end close"}</button>
+        <button onClick={run} disabled={busy || !rights.canAccess} title={rights.denied("access")} className="btn disabled:opacity-40">{busy ? "Closing…" : "Run year-end close"}</button>
         <p className="text-xs text-slate-400">Admin only. This is reversible only by posting adjusting entries in the new year.</p>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { guardStaffPage } from "@/lib/staffSession";
+import { guardStaffPage, staffDocCan } from "@/lib/staffSession";
+import { docForPath } from "@/lib/docRights";
 import PageHeader from "@/components/PageHeader";
 
 export const dynamic = "force-dynamic";
@@ -26,12 +27,17 @@ const DOCS: { href: string; label: string; note: string }[] = [
 ];
 
 export default async function DocumentProcessingPage() {
-  await guardStaffPage("accounting.view");
+  const access = await guardStaffPage("accounting.view", "stock_documents");
+  // Only the vouchers this user may actually open.
+  const docs = DOCS.filter((d) => {
+    const key = docForPath(d.href);
+    return !key || staffDocCan(access, key, "access");
+  });
   return (
     <div className="max-w-3xl">
       <PageHeader title="Document Processing" subtitle="The vouchers that move stock." />
       <div className="grid gap-3 sm:grid-cols-2">
-        {DOCS.map((d) => (
+        {docs.map((d) => (
           <Link key={d.href} href={d.href} className="card transition-colors hover:border-brand-300 hover:bg-brand-50/30">
             <p className="font-semibold text-slate-800">{d.label}</p>
             <p className="mt-1 text-sm text-slate-500">{d.note}</p>

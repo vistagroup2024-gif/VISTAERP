@@ -7,6 +7,7 @@ import { sar } from "../lib";
 import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
 import LoadFromPicker from "@/components/accounting/LoadFromPicker";
+import { useDocRights } from "@/components/AccessProvider";
 
 interface Opt { id: string; name: string }
 interface VehicleOpt { id: string; label: string; is_trading?: boolean }
@@ -21,6 +22,7 @@ function addMonthsISO(iso: string, n: number) {
 export default function ContractForm({ existing, installments = [], customers, vehicles }: {
   existing: any | null; installments?: any[]; customers: Opt[]; vehicles: VehicleOpt[];
 }) {
+  const rights = useDocRights("car_invoice");
   const router = useRouter();
   const supabase = createClient();
   const [saving, setSaving] = useState(false);
@@ -209,7 +211,7 @@ export default function ContractForm({ existing, installments = [], customers, v
       </section>
 
       <div className="flex gap-2 border-t border-slate-100 pt-4">
-        <button className="btn" disabled={saving || diff !== 0}>{saving ? "Saving…" : existing ? "Save changes" : "Create contract"}</button>
+        <button className="btn disabled:opacity-40" disabled={saving || diff !== 0 || !(existing ? rights.canEdit : rights.canCreate)} title={rights.denied(existing ? "edit" : "create")}>{!(existing ? rights.canEdit : rights.canCreate) ? (existing ? "No Edit rights" : "No Create rights") : saving ? "Saving…" : existing ? "Save changes" : "Create contract"}</button>
         <button type="button" className="btn-outline" onClick={() => router.back()}>Cancel</button>
       </div>
       </form>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { useDocRights } from "@/components/AccessProvider";
 
 type Acc = { id: string; code: string; name: string; subtype: string };
 type Pdc = {
@@ -16,6 +17,7 @@ const NEXT: Record<string, string[]> = { in_hand: ["deposited", "cleared", "boun
 const BADGE: Record<string, string> = { in_hand: "bg-amber-100 text-amber-700", deposited: "bg-blue-100 text-blue-700", cleared: "bg-green-100 text-green-700", bounced: "bg-red-100 text-red-700", cancelled: "bg-slate-200 text-slate-600" };
 
 export default function PdcClient({ list, partyAccounts, banks }: { list: Pdc[]; partyAccounts: Acc[]; banks: Acc[] }) {
+  const rights = useDocRights("pdc");
   const router = useRouter();
   const supabase = createClient();
   const [f, setF] = useState({ direction: "received", party: "", bank: "", cheque_no: "", bank_name: "", amount: "", cheque_date: "", narration: "" });
@@ -63,7 +65,7 @@ export default function PdcClient({ list, partyAccounts, banks }: { list: Pdc[];
         <div><label className="label">Bank name</label><input className="input" value={f.bank_name} onChange={(e) => setF({ ...f, bank_name: e.target.value })} /></div>
         <div><label className="label">Amount</label><input className="input text-right tabular-nums" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></div>
         <div><label className="label">Cheque date</label><input type="date" className="input" value={f.cheque_date} onChange={(e) => setF({ ...f, cheque_date: e.target.value })} /></div>
-        <div className="flex items-end"><button className="btn w-full" disabled={busy}>{busy ? "Saving…" : "Add PDC"}</button></div>
+        <div className="flex items-end"><button className="btn w-full" disabled={busy || !rights.canCreate} title={rights.denied("create")}>{busy ? "Saving…" : !rights.canCreate ? "No Create rights" : "Add PDC"}</button></div>
       </form>
 
       <div className="card overflow-x-auto p-0">
@@ -83,7 +85,7 @@ export default function PdcClient({ list, partyAccounts, banks }: { list: Pdc[];
                 <td className="px-3 py-1.5">
                   <div className="flex gap-1">
                     {(NEXT[p.status] ?? []).map((s) => (
-                      <button key={s} onClick={() => move(p.id, s)} className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-50 capitalize">{s}</button>
+                      <button key={s} onClick={() => move(p.id, s)} disabled={!rights.canEdit} title={rights.denied("edit")} className="rounded border border-slate-300 px-2 py-0.5 text-xs capitalize hover:bg-slate-50 disabled:opacity-40">{s}</button>
                     ))}
                   </div>
                 </td>
