@@ -175,8 +175,10 @@ export async function POST(req: Request) {
             : e instanceof Anthropic.AuthenticationError
             ? "Vista AI's API key was rejected. An administrator needs to check it."
             : e instanceof Anthropic.APIError
-            ? `Vista AI returned an error (${e.status}).`
-            : "Something went wrong while I was working on that.";
+            // Carry the API's own words through. "Returned an error (400)" is
+            // untraceable from the screen; the reason is what makes it fixable.
+            ? `Vista AI returned an error (${e.status}): ${String(e.message ?? "").slice(0, 300)}`
+            : `Something went wrong while I was working on that: ${String(e?.message ?? "unknown").slice(0, 300)}`;
         send({ type: "error", message });
         send({ type: "done" });
       } finally {

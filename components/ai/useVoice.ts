@@ -68,11 +68,13 @@ export function useVoice({ language, handsFree, onPhrase, onBargeIn }: UseVoiceO
   }, []);
 
   const stopListening = useCallback((submit: boolean) => {
+    // Discarding clears the buffer first: stop() makes the browser fire onEnd
+    // a moment later, and that handler submits whatever is buffered.
+    if (!submit) { clearSilence(); buffer.current = ""; setInterim(""); }
     listener.current?.stop();
     listener.current = null;
     setListening(false);
     if (submit) flush();
-    else { clearSilence(); buffer.current = ""; setInterim(""); }
   }, [flush]);
 
   const startListening = useCallback(() => {
@@ -112,6 +114,14 @@ export function useVoice({ language, handsFree, onPhrase, onBargeIn }: UseVoiceO
       onEnd() {
         setListening(false);
         listener.current = null;
+        if (!handsFree) {
+          // Press-to-talk: the browser ends the session itself after a pause,
+          // and that is the natural end of the sentence. Send it. Without
+          // this the phrase is captured and dropped, which looks exactly like
+          // she heard you and decided not to answer.
+          if (buffer.current.trim()) flush();
+          else setError("I didn't catch that — try again, a little closer to the microphone.");
+        }
       },
     }, handsFree);
 
@@ -153,6 +163,7 @@ export function useVoice({ language, handsFree, onPhrase, onBargeIn }: UseVoiceO
 
   // Never leave the microphone or a half-read sentence running on unmount.
   useEffect(() => () => {
+    buffer.current = "";          // so the abort below cannot submit anything
     listener.current?.abort();
     clearSilence();
     cancelSpeech();
