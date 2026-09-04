@@ -2,6 +2,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ALL_DOC_RIGHTS, hasDocRight, type DocRight, type DocRightsMap } from "@/lib/docRights";
+import type { CardAccess } from "@/lib/dashboardCards";
 
 export interface LoginWindow {
   date_from: string | null; date_to: string | null;
@@ -22,6 +23,9 @@ export interface StaffAccess {
   // so this is for showing the reason, not for being the only thing in the way.
   loginOk: boolean;
   loginWindow: LoginWindow | null;
+  // "all" for an admin, otherwise the cards ticked for this user. Empty grants
+  // NOTHING — the dashboard is opt-in, unlike the other access maps.
+  dashboardCards: CardAccess;
 }
 
 // Loads the current staff user's access (admin flag + granular permission map).
@@ -37,7 +41,8 @@ export const getStaffAccess = cache(async function getStaffAccess(): Promise<Sta
   const docRights = ((data as any)?.doc_rights ?? {}) as DocRightsMap;
   const loginOk = (data as any)?.login_ok !== false;
   const loginWindow = ((data as any)?.login_window ?? null) as LoginWindow | null;
-  return { isAdmin, permissions, fullName, unrestricted, docRights, loginOk, loginWindow };
+  const dashboardCards = ((data as any)?.dashboard_cards ?? (isAdmin ? "all" : {})) as CardAccess;
+  return { isAdmin, permissions, fullName, unrestricted, docRights, loginOk, loginWindow, dashboardCards };
 });
 
 // Cached current user. The middleware already calls auth.getUser() on every request

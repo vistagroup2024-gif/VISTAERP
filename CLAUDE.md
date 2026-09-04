@@ -135,6 +135,23 @@ so even a name change is an admin edit. The trigger that blocks a non-admin
 from changing their own permissions, rights, window, active flag or authorise
 limit stays as a second line of defence.
 
+## One dashboard, and cards are opt-in
+
+Every card lives on `/dashboard` and is registered once in `lib/dashboardCards.ts`
+— add it there and it appears both on the dashboard and in the per-user picker.
+All the figures come from a single `dashboard_metrics()` call, which is
+`security invoker` so a restricted user's dashboard is built from only the
+accounts and products they may see.
+
+Card access **reverses** the convention used everywhere else: an empty
+`profiles.dashboard_cards` grants **nothing**. Only an admin sees every card;
+everyone else sees exactly what an admin ticked. A dashboard puts the whole
+company's money on one screen, so it is opt-in rather than opt-out.
+
+The module dashboards (`/accounting`, `/car-sales`, `/hotels/dashboard`,
+`/inventory`) still exist for the detail behind a number. They are not a second
+home for cards — a new card goes in the register, not on a module screen.
+
 ## A select() without a bound is a bug waiting for the 1001st row
 
 PostgREST caps a response at **1000 rows and says nothing** — no error, just a

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import StaffPermissionPicker from "@/components/StaffPermissionPicker";
 import ScopeTree, { type ScopeRow } from "@/components/settings/ScopeTree";
 import DocRightsPicker from "@/components/settings/DocRightsPicker";
+import DashboardCardsPicker from "@/components/settings/DashboardCardsPicker";
 import type { DocRightsMap } from "@/lib/docRights";
 
 type ScopeKind = "account" | "product" | "cost_center" | "tag_area";
@@ -22,6 +23,7 @@ interface Props {
   email: string; phone: string; department: string; designation: string;
   currentPerms: Record<string, boolean>; currentRoles?: string[];
   docRights: DocRightsMap;
+  dashboardCards: Record<string, boolean>;
   scopes: Partial<Record<ScopeKind, string[]>>;
   scopeExclude: Partial<Record<ScopeKind, boolean>>;
   loginDateFrom: string; loginDateTo: string; loginTimeFrom: string; loginTimeTo: string;
@@ -31,7 +33,7 @@ interface Props {
   canManageAccess: boolean;
 }
 
-const ALL_TABS = ["Account", "Restrict", "Access", "Modules"] as const;
+const ALL_TABS = ["Account", "Restrict", "Access", "Dashboard", "Modules"] as const;
 type Tab = (typeof ALL_TABS)[number];
 
 // Times come back from Postgres as HH:MM:SS; <input type="time"> wants HH:MM.
@@ -40,7 +42,7 @@ const hhmm = (t: string) => (t ? t.slice(0, 5) : "");
 export default function EditUserRoles({
   userId, fullName: initialName, isActive: initialActive, email: iEmail, phone: iPhone,
   department: iDept, designation: iDesig, currentPerms,
-  docRights: iRights, scopes: iScopes, scopeExclude: iExclude,
+  docRights: iRights, dashboardCards: iCards, scopes: iScopes, scopeExclude: iExclude,
   loginDateFrom, loginDateTo, loginTimeFrom, loginTimeTo, masters, canManageAccess,
 }: Props) {
   const router = useRouter();
@@ -52,6 +54,7 @@ export default function EditUserRoles({
   const [isActive, setIsActive] = useState(initialActive);
   const [perms, setPerms] = useState<Record<string, boolean>>(currentPerms ?? {});
   const [rights, setRights] = useState<DocRightsMap>(iRights ?? {});
+  const [cards, setCards] = useState<Record<string, boolean>>(iCards ?? {});
   const [scopes, setScopes] = useState<Record<ScopeKind, string[]>>({
     account: iScopes.account ?? [], product: iScopes.product ?? [],
     cost_center: iScopes.cost_center ?? [], tag_area: iScopes.tag_area ?? [],
@@ -97,6 +100,7 @@ export default function EditUserRoles({
       p_login_date_to: login.dateTo || null,
       p_login_time_from: login.timeFrom || null,
       p_login_time_to: login.timeTo || null,
+      p_dashboard_cards: cards,
     });
     setSaving(false);
     if (err2) return setError(err2.message);
@@ -114,6 +118,7 @@ export default function EditUserRoles({
 
   const restrictCount = Object.values(scopes).reduce((a, v) => a + v.length, 0);
   const rightsCount = Object.keys(rights).length;
+  const cardCount = Object.keys(cards).filter((k) => cards[k]).length;
 
   return (
     <form onSubmit={save} className="space-y-5">
@@ -135,6 +140,7 @@ export default function EditUserRoles({
             {t}
             {t === "Restrict" && restrictCount > 0 && <span className="ml-1.5 rounded-full bg-brand/10 px-1.5 text-[10px] text-brand">{restrictCount}</span>}
             {t === "Access" && rightsCount > 0 && <span className="ml-1.5 rounded-full bg-brand/10 px-1.5 text-[10px] text-brand">{rightsCount}</span>}
+            {t === "Dashboard" && cardCount > 0 && <span className="ml-1.5 rounded-full bg-brand/10 px-1.5 text-[10px] text-brand">{cardCount}</span>}
           </button>
         ))}
       </div>
@@ -226,6 +232,19 @@ export default function EditUserRoles({
             </p>
           </div>
           <DocRightsPicker value={rights} onChange={setRights} />
+        </div>
+      )}
+
+      {tab === "Dashboard" && (
+        <div className="card space-y-3">
+          <div>
+            <h2 className="font-semibold text-slate-700">Dashboard</h2>
+            <p className="text-xs text-slate-400">
+              Which cards this user sees on the dashboard. This is the one setting where an empty
+              list grants nothing: only an administrator sees every card.
+            </p>
+          </div>
+          <DashboardCardsPicker value={cards} onChange={setCards} />
         </div>
       )}
 

@@ -55,6 +55,7 @@ export default async function EditUserPage({ params }: { params: { id: string } 
         docRights={a.doc_rights ?? {}}
         scopes={a.scopes ?? {}}
         scopeExclude={a.scope_exclude ?? {}}
+        dashboardCards={a.dashboard_cards ?? {}}
         loginDateFrom={a.login_date_from ?? ""}
         loginDateTo={a.login_date_to ?? ""}
         loginTimeFrom={a.login_time_from ?? ""}
