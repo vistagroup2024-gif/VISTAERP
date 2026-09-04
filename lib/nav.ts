@@ -60,6 +60,11 @@ export const HIDDEN_ITEMS: NavItem[] = [
   { href: "/invoices", label: "Invoices", perm: ["sales.view"] },
 ];
 
+// The modules, and every screen in them. Some of these screens are shown by the
+// header's Transactions menu instead of the sidebar (see inTransactions below) —
+// they are still declared here, because this is the one place that says what a
+// screen is called, which permission opens it, and that the global search should
+// find it. Nothing is deleted from here to move it into the header.
 export const GROUPS: NavGroup[] = [
   { label: "Visa", icon: "visa", section: "Umrah", perm: ["visa.view", "visa.package_update", "visa.invoices"], items: [
     { href: "/groups", label: "Visa Groups", perm: ["visa.view"] },
@@ -218,7 +223,7 @@ export const GROUPS: NavGroup[] = [
 // Notes, Opening Balances and the whole Manufacturing branch. None of those is
 // built here, so none of them is listed — a menu entry pointing at nothing is
 // worse than a missing one.
-export interface QuickGroupDef { label: string; hrefs: string[] }
+export interface QuickGroupDef { label: string; icon: IconName; hrefs: string[] }
 
 // Screens reached from another screen rather than from the sidebar, so they have
 // no GROUPS entry to read a label and a permission out of.
@@ -233,8 +238,8 @@ export function navItemFor(href: string): NavItem | null {
   return EXTRA_ITEMS.find((i) => i.href === href) ?? null;
 }
 
-const TRANSACTIONS: QuickGroupDef[] = [
-  { label: "Cash and Bank", hrefs: [
+export const TRANSACTIONS: QuickGroupDef[] = [
+  { label: "Cash and Bank", icon: "accounting", hrefs: [
     "/accounting/receipts",
     "/accounting/payments",
     "/accounting/petty-cash",
@@ -243,7 +248,7 @@ const TRANSACTIONS: QuickGroupDef[] = [
     "/accounting/pdc",
     "/accounting/bank",
   ] },
-  { label: "Purchases", hrefs: [
+  { label: "Purchases", icon: "purchase", hrefs: [
     "/accounting/purchases/vouchers",
     "/accounting/purchases/returns",
     "/accounting/purchases/orders",
@@ -251,7 +256,7 @@ const TRANSACTIONS: QuickGroupDef[] = [
     // Focus's "Bill Record".
     "/purchase/bills",
   ] },
-  { label: "Sales", hrefs: [
+  { label: "Sales", icon: "sales", hrefs: [
     "/accounting/sales/invoices",
     "/accounting/sales/returns",
     "/accounting/sales/orders",
@@ -266,13 +271,13 @@ const TRANSACTIONS: QuickGroupDef[] = [
     "/transport/rates",
     "/accounting/targets",
   ] },
-  { label: "Journals", hrefs: [
+  { label: "Journals", icon: "accounting", hrefs: [
     "/accounting/journal/new",
     "/accounting/invoices",
     "/accounting/recurring",
     "/hr/payroll",
   ] },
-  { label: "Stocks", hrefs: [
+  { label: "Stocks", icon: "store", hrefs: [
     // Receipt, issue, adjustment and warehouse transfer are one screen here.
     "/stock/documents/movement",
     "/stock/documents",
@@ -280,6 +285,23 @@ const TRANSACTIONS: QuickGroupDef[] = [
     "/stock/warehouses",
   ] },
 ];
+
+/** Every route the Transactions menu carries. */
+const TRANSACTION_HREFS = new Set(TRANSACTIONS.flatMap((g) => g.hrefs));
+
+/**
+ * Is this screen reached from the header's Transactions menu?
+ *
+ * The SIDEBAR uses this to leave those screens out: a voucher belongs in one
+ * menu, not two. They stay in GROUPS all the same — that is where their label,
+ * their module permission and their place in the global search live, and it is
+ * what navItemFor() reads — so this is the only line that decides which menu
+ * shows them, and the two can never disagree about what a screen is called or
+ * who may open it.
+ */
+export function inTransactions(href: string): boolean {
+  return TRANSACTION_HREFS.has(href);
+}
 
 // Quick-access bar in the header: the transactions menu and the ledger are
 // opened many times a day, so they get a permanent spot instead of living three
@@ -307,11 +329,12 @@ export function navAllowsItem(access: StaffNavAccess | undefined, item: NavItem)
 
 /** A Transactions submenu, resolved against GROUPS and filtered to what this
  *  user may open. Groups that come back empty are dropped by the caller. */
-export function quickGroups(defs: QuickGroupDef[] | undefined, access?: StaffNavAccess): { label: string; items: NavItem[] }[] {
+export function quickGroups(defs: QuickGroupDef[] | undefined, access?: StaffNavAccess): { label: string; icon: IconName; items: NavItem[] }[] {
   if (!defs) return [];
   return defs
     .map((g) => ({
       label: g.label,
+      icon: g.icon,
       items: g.hrefs
         .map(navItemFor)
         .filter((i): i is NavItem => !!i)

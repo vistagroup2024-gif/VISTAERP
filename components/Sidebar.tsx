@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import Icon from "@/components/ui/Icon";
-import { GROUPS, SECTIONS, DASHBOARD, navAllows, navAllowsItem, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
+import { GROUPS, SECTIONS, TRANSACTIONS, DASHBOARD, inTransactions, navAllows, navAllowsItem, quickGroups, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
 
 export type { StaffNavAccess };
 
@@ -93,28 +93,50 @@ function CollapsibleSection({ label, icon, groups, open, onToggle, openGroup, on
   );
 }
 
+// The vouchers live in the header's Transactions menu, so the sidebar leaves them
+// out — a screen belongs in one menu, not two. A module left with nothing but
+// vouchers (Sales, Purchase) therefore disappears from the sidebar entirely; its
+// screens are all one click away under Transactions.
+function sidebarItems(g: Group) {
+  return g.items.filter((i) => !inTransactions(i.href));
+}
+
 function visibleGroups(access?: StaffNavAccess) {
-  if (!access) return GROUPS;
   return GROUPS
     // Hide links the user has no module permission for, and links to screens
     // their Access rights don't open, then drop groups left with nothing.
-    .map((g) => ({ ...g, items: g.items.filter((i) => navAllowsItem(access, i)) }))
-    .filter((g) => navAllows(access, g.perm) && g.items.length > 0);
+    .map((g) => ({ ...g, items: sidebarItems(g).filter((i) => !access || navAllowsItem(access, i)) }))
+    .filter((g) => (!access || navAllows(access, g.perm)) && g.items.length > 0);
 }
 
-function SidebarContent({ access, onClose, onCollapse }: { access?: StaffNavAccess; onClose?: () => void; onCollapse?: () => void }) {
+function SidebarContent({ access, onClose, onCollapse, mobile }: { access?: StaffNavAccess; onClose?: () => void; onCollapse?: () => void; mobile?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
   const path = usePathname();
-  const groups = visibleGroups(access);
+  const modules = visibleGroups(access);
+  // The header carries Transactions, and the header is desktop-only — so on a
+  // phone those sections are rendered here instead, at the top of the drawer.
+  // Without this a Sales-only user would have no way to reach a single screen.
+  const transactions: Group[] = mobile ? quickGroups(TRANSACTIONS, access) : [];
+  const groups = [...transactions, ...modules];
   // Resolve exactly ONE active link: the longest matching href across every nav
-  // item, so a parent route never lights up together with its child.
-  const allItems = [DASHBOARD, ...groups.flatMap((g) => g.items)];
+  // item, so a parent route never lights up together with its child. The match
+  // runs over EVERY screen, the Transactions ones included, and only then asks
+  // whether the winner is in the sidebar — otherwise standing on
+  // /accounting/journal/new would light "Voucher Register" (/accounting/journal)
+  // as the longest sidebar prefix, which is a different screen.
+  const allItems = [DASHBOARD, ...GROUPS.flatMap((g) => g.items),
+    // Transactions carries one screen that is not in GROUPS at all
+    // (/stock/documents/movement); without it, standing there would light
+    // Document Processing (/stock/documents) as the longest prefix.
+    ...quickGroups(TRANSACTIONS).flatMap((g) => g.items)];
   let activeHref: string | null = null; let best = -1;
   for (const it of allItems) {
     const l = matchLen(path, it.href, it.exact);
     if (l > best) { best = l; activeHref = it.href; }
   }
+  const shown = new Set(groups.flatMap((g) => g.items.map((i) => i.href)));
+  if (activeHref && activeHref !== DASHBOARD.href && !shown.has(activeHref)) activeHref = null;
   // Accordion: open the group that owns the active link; re-open on navigation.
   const activeLabel = groups.find((g) => g.items.some((i) => i.href === activeHref))?.label ?? null;
   const [openGroup, setOpenGroup] = useState<string | null>(activeLabel);
@@ -245,7 +267,7 @@ export default function Sidebar({ access }: { name?: string; access?: StaffNavAc
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-xl">
-            <SidebarContent access={access} onClose={() => setOpen(false)} />
+            <SidebarContent access={access} onClose={() => setOpen(false)} mobile />
           </aside>
         </div>
       )}
