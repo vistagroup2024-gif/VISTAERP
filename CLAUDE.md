@@ -22,9 +22,45 @@ its group in `GROUPS`. Currently hidden:
 | Visa Tracking | `/sales/visas` | Per-passenger visa status on a booking |
 | Packages | `/packages` | Pre-built Umrah packages sold at one price; also read by the B2B agent portal |
 | Invoices | `/invoices` | The customer invoice the booking flow raises automatically. Read-only |
+| Car Sales | `/car-sales/alerts`, `/car-sales/vehicles`, `/car-sales/commissions`, `/car-sales/reports` | The Car Sales module, hidden because the business is not running car sales at the moment. Vehicles, contracts, instalments and their GL postings are all still there |
+
+Car Sales is hidden **apart from its two invoice screens** — Car Invoices
+(`/car-sales/contracts`) and Monthly Charges (`/car-sales/service-charges`) are
+still sold and still invoiced, so they stayed in the menu under Transactions →
+Sales. With no `GROUPS` entry left to read their label and permission from, they
+are declared in `EXTRA_ITEMS` instead. Unhide the module by moving the four rows
+above back into a Car Sales group in `GROUPS`.
 
 The same applies to anything hidden later: add it to `HIDDEN_ITEMS` with a note,
 rather than deleting it.
+
+## The header carries a menu, and the sidebar does not repeat it
+
+Navigation is in two places and each screen is in exactly one of them.
+`lib/nav.ts` holds both:
+
+- **`GROUPS`** is the whole model — every screen, its label, the permission that
+  opens it, and its place in the global search. Nothing is deleted from here to
+  move it between menus.
+- **`QUICK_MENU`** is the header bar. An entry names screens by **href**, never
+  by label: `href` for a single link (Ledger), `group` for a whole module of
+  `GROUPS` by label (Inventory, Payroll / HR), `groups` for two levels
+  (Transactions). Labels and permissions are read back out of `GROUPS`, so the
+  header cannot show a screen the sidebar does not have, under a name it does not
+  use, or to somebody it would not show it to.
+- **`inHeaderMenu(href)`** is built from `QUICK_MENU` itself and is the one line
+  that decides which menu shows a screen: the sidebar drops whatever the header
+  holds. A module the header took entirely (Sales, Purchase, Inventory,
+  Payroll / HR) simply disappears from the sidebar.
+
+`headerMenu(access)` resolves the bar once and **both** places draw from it — the
+bar on a desktop, and the drawer on a phone, where there is no header and each
+button becomes the same entry it is up top. Leave that out and a user whose only
+module is in the header has no navigation at all on a phone.
+
+A screen with no `GROUPS` entry goes in `EXTRA_ITEMS` — that is what makes it
+resolvable to the header and findable in the search, and it is the only reason a
+menu-less screen is reachable by anything but its URL.
 
 ## Vouchers: saving posts
 

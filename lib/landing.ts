@@ -33,12 +33,14 @@ export const LANDING: [string, string][] = [
   ["hotels.masters", "/hotels"],
   ["hotels.suppliers", "/hotels/suppliers"],
   ["hotels.reports", "/hotels/reports"],
-  ["carsales.view", "/car-sales/vehicles"],
-  ["carsales.vehicles", "/car-sales/vehicles"],
+  // Car Sales is hidden apart from its two invoice screens, which are still in
+  // Transactions -> Sales — so those are the only car landings left. A user whose
+  // ONLY permission is carsales.view, .vehicles or .reports has no screen in any
+  // menu now, and falls through to /no-access rather than being dropped on one
+  // they cannot navigate away from.
   ["carsales.sales", "/car-sales/contracts"],
   ["carsales.installments", "/car-sales/contracts"],
   ["carsales.charges", "/car-sales/service-charges"],
-  ["carsales.reports", "/car-sales/reports"],
   ["sales.view", "/accounting/sales/orders"],
   ["parties.manage", "/parties"],
   ["accounting.view", "/accounting/accounts"],

@@ -53,12 +53,29 @@ export const DASHBOARD: NavItem = { href: "/dashboard", label: "Dashboard", icon
  *                                      confirmed. Read-only, never typed.
  *                                      NOT the Sales Invoice voucher, and not
  *                                      Accounting's Invoice / Bill.
+ *
+ *   Car Sales        /car-sales/*    — the whole module bar its two invoice
+ *                                      screens: Alerts, Vehicles / Stock,
+ *                                      Commissions, Reports. Taken out of the
+ *                                      menu because the business is not running
+ *                                      car sales at the moment; the vehicles,
+ *                                      contracts, instalments and their GL
+ *                                      postings are all still there. Car
+ *                                      Invoices and Monthly Charges stayed in
+ *                                      the menu, under Transactions -> Sales,
+ *                                      and are declared in EXTRA_ITEMS. To bring
+ *                                      the module back, move these four into a
+ *                                      Car Sales group in GROUPS again.
  */
 export const HIDDEN_ITEMS: NavItem[] = [
   { href: "/sales/catalog", label: "Service Catalog", perm: ["sales.view"] },
   { href: "/sales/visas", label: "Visa Tracking", perm: ["sales.view"] },
   { href: "/packages", label: "Packages", perm: ["sales.view"] },
   { href: "/invoices", label: "Invoices", perm: ["sales.view"] },
+  { href: "/car-sales/alerts", label: "Alerts", perm: ["carsales.view", "carsales.reports"] },
+  { href: "/car-sales/vehicles", label: "Vehicles / Stock", perm: ["carsales.vehicles", "carsales.view"] },
+  { href: "/car-sales/commissions", label: "Commissions", perm: ["carsales.ownership", "carsales.sales"] },
+  { href: "/car-sales/reports", label: "Reports", perm: ["carsales.reports"] },
 ];
 
 // The modules, and every screen in them. Some of these screens are shown by the
@@ -104,14 +121,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/transport/messages", label: "Confirmations", perm: ["transport.operations"] },
     { href: "/transport/reports", label: "Reports", perm: ["transport.reports"] },
     { href: "/transport/reports/ledger", label: "Trip Ledger", perm: ["transport.trip_ledger"] },
-  ] },
-  { label: "Car Sales", icon: "car", perm: ["carsales.view"], items: [
-    { href: "/car-sales/alerts", label: "Alerts", perm: ["carsales.view", "carsales.reports"] },
-    { href: "/car-sales/vehicles", label: "Vehicles / Stock", perm: ["carsales.vehicles", "carsales.view"] },
-    { href: "/car-sales/contracts", label: "Car Invoices", perm: ["carsales.installments", "carsales.sales"] },
-    { href: "/car-sales/service-charges", label: "Monthly Charges", perm: ["carsales.charges"] },
-    { href: "/car-sales/commissions", label: "Commissions", perm: ["carsales.ownership", "carsales.sales"] },
-    { href: "/car-sales/reports", label: "Reports", perm: ["carsales.reports"] },
   ] },
   { label: "Sales", icon: "sales", perm: ["sales.view", "parties.manage"], items: [
     // Service Catalog, Visa Tracking, Packages and Invoices used to sit here.
@@ -226,17 +235,25 @@ export const GROUPS: NavGroup[] = [
 // worse than a missing one.
 export interface QuickGroupDef { label: string; icon: IconName; hrefs: string[] }
 
-// Screens reached from another screen rather than from the sidebar, so they have
-// no GROUPS entry to read a label and a permission out of.
-const EXTRA_ITEMS: NavItem[] = [
-  { href: "/stock/documents/movement", label: "Stock Receipt / Issue / Adjustment", perm: ["accounting.view"] },
+// Screens the menus reach that no GROUPS entry declares — because they are opened
+// from another screen, or because their module is hidden and only these are still
+// shown. `group` is the heading they appear under in the global search.
+const EXTRA_ITEMS: { item: NavItem; group: string; icon: IconName }[] = [
+  { item: { href: "/stock/documents/movement", label: "Stock Receipt / Issue / Adjustment", perm: ["accounting.view"] },
+    group: "Inventory", icon: "store" },
+  // Car Sales is hidden (see HIDDEN_ITEMS); these two are still sold and still
+  // invoiced, so they stay in Transactions -> Sales.
+  { item: { href: "/car-sales/contracts", label: "Car Invoices", perm: ["carsales.installments", "carsales.sales"] },
+    group: "Car Sales", icon: "car" },
+  { item: { href: "/car-sales/service-charges", label: "Monthly Charges", perm: ["carsales.charges"] },
+    group: "Car Sales", icon: "car" },
 ];
 
 /** The sidebar's own entry for a route — label and permission included, so the
  *  header cannot drift from the menu or invent a screen. */
 export function navItemFor(href: string): NavItem | null {
   for (const g of GROUPS) for (const it of g.items) if (it.href === href) return { ...it, perm: it.perm ?? g.perm };
-  return EXTRA_ITEMS.find((i) => i.href === href) ?? null;
+  return EXTRA_ITEMS.find((e) => e.item.href === href)?.item ?? null;
 }
 
 export const TRANSACTIONS: QuickGroupDef[] = [
@@ -317,9 +334,6 @@ export const QUICK_MENU: QuickMenuDef[] = [
   { label: "Ledger", icon: "accounting", href: "/accounting/ledger" },
   { label: "Inventory", icon: "store", group: "Inventory" },
   { label: "Payroll / HR", icon: "payroll", group: "Payroll / HR" },
-  // What is left of Car Sales once Transactions has taken the two invoice
-  // screens: Alerts, Vehicles / Stock, Commissions, Reports.
-  { label: "Car Sales", icon: "car", group: "Car Sales" },
 ];
 
 /** Every route the Transactions menu carries. */
@@ -419,6 +433,11 @@ export function searchIndex(access?: StaffNavAccess): { label: string; href: str
   for (const g of GROUPS) {
     if (!allow(g.perm)) continue;
     for (const it of g.items) if (navAllowsItem(access, it)) out.push({ label: it.label, href: it.href, group: g.label, icon: g.icon });
+  }
+  // Screens with no GROUPS entry are still screens: search finds them too, or a
+  // menu-less one would be reachable by typing its URL and nothing else.
+  for (const e of EXTRA_ITEMS) {
+    if (navAllowsItem(access, e.item)) out.push({ label: e.item.label, href: e.item.href, group: e.group, icon: e.icon });
   }
   return out;
 }
