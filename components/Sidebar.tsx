@@ -101,6 +101,10 @@ function sidebarItems(g: Group) {
   return g.items.filter((i) => !inTransactions(i.href));
 }
 
+// The drawer's heading for the header's Transactions menu. Not in SECTIONS,
+// because on a desktop it is not in the sidebar at all.
+const TX_SECTION = { label: "Transactions", icon: "accounting" as const };
+
 function visibleGroups(access?: StaffNavAccess) {
   return GROUPS
     // Hide links the user has no module permission for, and links to screens
@@ -115,9 +119,13 @@ function SidebarContent({ access, onClose, onCollapse, mobile }: { access?: Staf
   const path = usePathname();
   const modules = visibleGroups(access);
   // The header carries Transactions, and the header is desktop-only — so on a
-  // phone those sections are rendered here instead, at the top of the drawer.
+  // phone it is rendered here instead: ONE "Transactions" entry at the top of the
+  // drawer that opens to the same five sections, each opening its own vouchers.
+  // Not five entries of their own — that is the header's menu, not five modules.
   // Without this a Sales-only user would have no way to reach a single screen.
-  const transactions: Group[] = mobile ? quickGroups(TRANSACTIONS, access) : [];
+  const transactions: Group[] = mobile
+    ? quickGroups(TRANSACTIONS, access).map((g) => ({ ...g, section: TX_SECTION.label }))
+    : [];
   const groups = [...transactions, ...modules];
   // Resolve exactly ONE active link: the longest matching href across every nav
   // item, so a parent route never lights up together with its child. The match
@@ -144,7 +152,9 @@ function SidebarContent({ access, onClose, onCollapse, mobile }: { access?: Staf
 
   // Sections keep their place in the sidebar: a section sits where its first
   // module was declared, so the overall order of the nav is unchanged.
-  const sectionOf = new Map(SECTIONS.map((x) => [x.label, x]));
+  // Transactions is a section like Umrah or Settings — a heading that opens to
+  // modules, each of which opens to its screens — so it collapses the same way.
+  const sectionOf = new Map([...SECTIONS, ...(mobile ? [TX_SECTION] : [])].map((x) => [x.label, x]));
   const rendered = new Set<string>();
   const entries: ({ kind: "group"; group: Group } | { kind: "section"; label: string; icon: Group["icon"]; groups: Group[] })[] = [];
   for (const g of groups) {
