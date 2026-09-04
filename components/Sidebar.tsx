@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import Icon from "@/components/ui/Icon";
-import { GROUPS, SECTIONS, TRANSACTIONS, DASHBOARD, inTransactions, navAllows, navAllowsItem, quickGroups, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
+import { GROUPS, SECTIONS, TRANSACTIONS, DASHBOARD, headerMenu, inHeaderMenu, navAllows, navAllowsItem, quickGroups, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
 
 export type { StaffNavAccess };
 
@@ -93,17 +93,13 @@ function CollapsibleSection({ label, icon, groups, open, onToggle, openGroup, on
   );
 }
 
-// The vouchers live in the header's Transactions menu, so the sidebar leaves them
-// out — a screen belongs in one menu, not two. A module left with nothing but
-// vouchers (Sales, Purchase) therefore disappears from the sidebar entirely; its
-// screens are all one click away under Transactions.
+// What the header carries, the sidebar leaves out — a screen belongs in one menu,
+// not two. A module the header took entirely (Sales, Purchase, Inventory,
+// Payroll / HR) therefore disappears from the sidebar; its screens are all one
+// click away up top.
 function sidebarItems(g: Group) {
-  return g.items.filter((i) => !inTransactions(i.href));
+  return g.items.filter((i) => !inHeaderMenu(i.href));
 }
-
-// The drawer's heading for the header's Transactions menu. Not in SECTIONS,
-// because on a desktop it is not in the sidebar at all.
-const TX_SECTION = { label: "Transactions", icon: "accounting" as const };
 
 function visibleGroups(access?: StaffNavAccess) {
   return GROUPS
@@ -118,15 +114,19 @@ function SidebarContent({ access, onClose, onCollapse, mobile }: { access?: Staf
   const supabase = createClient();
   const path = usePathname();
   const modules = visibleGroups(access);
-  // The header carries Transactions, and the header is desktop-only — so on a
-  // phone it is rendered here instead: ONE "Transactions" entry at the top of the
-  // drawer that opens to the same five sections, each opening its own vouchers.
-  // Not five entries of their own — that is the header's menu, not five modules.
-  // Without this a Sales-only user would have no way to reach a single screen.
-  const transactions: Group[] = mobile
-    ? quickGroups(TRANSACTIONS, access).map((g) => ({ ...g, section: TX_SECTION.label }))
-    : [];
-  const groups = [...transactions, ...modules];
+  // The header is desktop-only, so on a phone it is rendered at the top of the
+  // drawer instead — each of its buttons as one entry that opens, exactly as it
+  // opens up top. Without this a Sales-only user would have no way to reach a
+  // single screen, and nobody could open a voucher on a phone at all.
+  const header = mobile ? headerMenu(access) : [];
+  // The same entries as plain groups, for working out which link is active and
+  // which group to open. A single-link button (Ledger) is a group of one here
+  // and a plain link when it is drawn.
+  const headerGroups: Group[] = header.flatMap((e) =>
+    e.kind === "sections" ? e.groups.map((g) => ({ ...g, section: e.label }))
+    : e.kind === "list" ? [{ label: e.label, icon: e.icon, items: e.items }]
+    : [{ label: e.label, icon: e.icon, items: [e.item] }]);
+  const groups = [...headerGroups, ...modules];
   // Resolve exactly ONE active link: the longest matching href across every nav
   // item, so a parent route never lights up together with its child. The match
   // runs over EVERY screen, the Transactions ones included, and only then asks
@@ -152,12 +152,19 @@ function SidebarContent({ access, onClose, onCollapse, mobile }: { access?: Staf
 
   // Sections keep their place in the sidebar: a section sits where its first
   // module was declared, so the overall order of the nav is unchanged.
-  // Transactions is a section like Umrah or Settings — a heading that opens to
-  // modules, each of which opens to its screens — so it collapses the same way.
-  const sectionOf = new Map([...SECTIONS, ...(mobile ? [TX_SECTION] : [])].map((x) => [x.label, x]));
+  // A header entry that is two levels deep (Transactions) is a section like Umrah
+  // or Settings — a heading that opens to modules, each opening to its screens —
+  // so it collapses the same way.
+  const sectionOf = new Map(
+    [...SECTIONS, ...header.filter((e) => e.kind === "sections").map((e) => ({ label: e.label, icon: e.icon }))]
+      .map((x) => [x.label, x]));
   const rendered = new Set<string>();
-  const entries: ({ kind: "group"; group: Group } | { kind: "section"; label: string; icon: Group["icon"]; groups: Group[] })[] = [];
+  const entries: ({ kind: "group"; group: Group } | { kind: "link"; item: Item }
+    | { kind: "section"; label: string; icon: Group["icon"]; groups: Group[] })[] = [];
+  // A header button that is a single link stays a single link in the drawer.
+  const plainLinks = new Set(header.filter((e) => e.kind === "link").map((e) => e.label));
   for (const g of groups) {
+    if (plainLinks.has(g.label)) { entries.push({ kind: "link", item: { ...g.items[0], label: g.label, icon: g.icon } }); continue; }
     const sec = g.section ? sectionOf.get(g.section) : undefined;
     if (!sec) { entries.push({ kind: "group", group: g }); continue; }
     if (rendered.has(sec.label)) continue;
@@ -207,7 +214,9 @@ function SidebarContent({ access, onClose, onCollapse, mobile }: { access?: Staf
           <NavLink {...DASHBOARD} activeHref={activeHref} onClick={onClose} />
         )}
         {entries.map((e) =>
-          e.kind === "group" ? (
+          e.kind === "link" ? (
+            <NavLink key={e.item.href} {...e.item} activeHref={activeHref} onClick={onClose} />
+          ) : e.kind === "group" ? (
             <CollapsibleGroup key={e.group.label} group={e.group} onClose={onClose} activeHref={activeHref}
               open={openGroup === e.group.label}
               onToggle={() => setOpenGroup((o) => (o === e.group.label ? null : e.group.label))} />

@@ -16,7 +16,8 @@ export interface NavGroup { label: string; icon: IconName; items: NavItem[]; per
 export interface NavSection { label: string; icon: IconName }
 export const SECTIONS: NavSection[] = [
   { label: "Umrah", icon: "visa" },
-  { label: "Trading", icon: "car" },
+  // "Trading" used to collect Car Sales on its own. A section that holds one
+  // module is a click for nothing, so Car Sales sits at the top level instead.
   { label: "Settings", icon: "settings" },
 ];
 
@@ -104,7 +105,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/transport/reports", label: "Reports", perm: ["transport.reports"] },
     { href: "/transport/reports/ledger", label: "Trip Ledger", perm: ["transport.trip_ledger"] },
   ] },
-  { label: "Car Sales", icon: "car", section: "Trading", perm: ["carsales.view"], items: [
+  { label: "Car Sales", icon: "car", perm: ["carsales.view"], items: [
     { href: "/car-sales/alerts", label: "Alerts", perm: ["carsales.view", "carsales.reports"] },
     { href: "/car-sales/vehicles", label: "Vehicles / Stock", perm: ["carsales.vehicles", "carsales.view"] },
     { href: "/car-sales/contracts", label: "Car Invoices", perm: ["carsales.installments", "carsales.sales"] },
@@ -275,7 +276,6 @@ export const TRANSACTIONS: QuickGroupDef[] = [
     "/accounting/journal/new",
     "/accounting/invoices",
     "/accounting/recurring",
-    "/hr/payroll",
   ] },
   { label: "Stocks", icon: "store", hrefs: [
     // Receipt, issue, adjustment and warehouse transfer are one screen here.
@@ -286,33 +286,69 @@ export const TRANSACTIONS: QuickGroupDef[] = [
   ] },
 ];
 
+// ── The header bar ──────────────────────────────────────────────────────────
+//
+// What sits along the top of every screen. Three shapes, and an entry says which
+// by which field it sets:
+//
+//   href    a single link          — Ledger
+//   group   a whole module of GROUPS, by label, minus whatever Transactions
+//                                    already carries — Inventory, Payroll / HR
+//   groups  two levels             — Transactions
+//
+// No labels and no permissions are written here except the button's own: a
+// `group` entry takes the module's screens as the sidebar declares them, so the
+// header cannot show a screen the sidebar does not have, under a name the
+// sidebar does not use, or to somebody the sidebar would not show it to.
+export interface QuickMenuDef {
+  label: string;
+  icon: IconName;
+  href?: string;
+  group?: string;
+  groups?: QuickGroupDef[];
+}
+
+export const QUICK_MENU: QuickMenuDef[] = [
+  // No `perm` anywhere: every entry is filtered screen by screen below, and a
+  // button whose screens all disappear disappears with them — so a Car Sales
+  // user still gets the one Sales entry they may open.
+  { label: "Transactions", icon: "accounting", groups: TRANSACTIONS },
+  { label: "Ledger", icon: "accounting", href: "/accounting/ledger" },
+  { label: "Inventory", icon: "store", group: "Inventory" },
+  { label: "Payroll / HR", icon: "payroll", group: "Payroll / HR" },
+];
+
 /** Every route the Transactions menu carries. */
 const TRANSACTION_HREFS = new Set(TRANSACTIONS.flatMap((g) => g.hrefs));
 
-/**
- * Is this screen reached from the header's Transactions menu?
- *
- * The SIDEBAR uses this to leave those screens out: a voucher belongs in one
- * menu, not two. They stay in GROUPS all the same — that is where their label,
- * their module permission and their place in the global search live, and it is
- * what navItemFor() reads — so this is the only line that decides which menu
- * shows them, and the two can never disagree about what a screen is called or
- * who may open it.
- */
-export function inTransactions(href: string): boolean {
-  return TRANSACTION_HREFS.has(href);
+/** The screens a `group` entry contributes: the module's own, less any the
+ *  Transactions menu already shows, so nothing appears twice in the header. */
+function groupHrefs(label: string): string[] {
+  const g = GROUPS.find((x) => x.label === label);
+  return (g?.items ?? []).map((i) => i.href).filter((h) => !TRANSACTION_HREFS.has(h));
 }
 
-// Quick-access bar in the header: the transactions menu and the ledger are
-// opened many times a day, so they get a permanent spot instead of living three
-// clicks deep in the Accounting group.
-export const QUICK_MENU: { label: string; icon: IconName; perm?: string[]; href?: string; items?: NavItem[]; groups?: QuickGroupDef[] }[] = [
-  // No `perm` of its own: each submenu is filtered item by item below, and the
-  // button is dropped when nothing survives — so a Car Sales user still gets the
-  // one Sales entry they may open.
-  { label: "Transactions", icon: "accounting", groups: TRANSACTIONS },
-  { label: "Ledger", icon: "accounting", perm: ["accounting.view"], href: "/accounting/ledger" },
-];
+const HEADER_HREFS = new Set(
+  QUICK_MENU.flatMap((m) => [
+    ...(m.href ? [m.href] : []),
+    ...(m.group ? groupHrefs(m.group) : []),
+    ...(m.groups ?? []).flatMap((g) => g.hrefs),
+  ]),
+);
+
+/**
+ * Is this screen reached from the header?
+ *
+ * The SIDEBAR uses this to leave those screens out: a screen belongs in one
+ * menu, not two. They stay in GROUPS all the same — that is where their label,
+ * their module permission and their place in the global search live, and it is
+ * what the header itself reads back — so this is the only line that decides
+ * which menu shows them, and the two can never disagree about what a screen is
+ * called or who may open it.
+ */
+export function inHeaderMenu(href: string): boolean {
+  return HEADER_HREFS.has(href);
+}
 
 /** Same permission test the sidebar and search use. */
 export function navAllows(access: StaffNavAccess | undefined, perm?: string[]) {
@@ -327,20 +363,49 @@ export function navAllowsItem(access: StaffNavAccess | undefined, item: NavItem)
   return !doc || hasDocRight(access.docRights, !!access.isAdmin, doc, "access");
 }
 
+function resolve(hrefs: string[], access?: StaffNavAccess): NavItem[] {
+  return hrefs.map(navItemFor).filter((i): i is NavItem => !!i).filter((i) => navAllowsItem(access, i));
+}
+
 /** A Transactions submenu, resolved against GROUPS and filtered to what this
- *  user may open. Groups that come back empty are dropped by the caller. */
+ *  user may open. Groups that come back empty are dropped. */
 export function quickGroups(defs: QuickGroupDef[] | undefined, access?: StaffNavAccess): { label: string; icon: IconName; items: NavItem[] }[] {
   if (!defs) return [];
   return defs
-    .map((g) => ({
-      label: g.label,
-      icon: g.icon,
-      items: g.hrefs
-        .map(navItemFor)
-        .filter((i): i is NavItem => !!i)
-        .filter((i) => navAllowsItem(access, i)),
-    }))
+    .map((g) => ({ label: g.label, icon: g.icon, items: resolve(g.hrefs, access) }))
     .filter((g) => g.items.length > 0);
+}
+
+/**
+ * The header bar as it should be drawn for this user.
+ *
+ * ONE resolver for both places it appears: the bar itself on a desktop, and the
+ * drawer on a phone, where there is no header. Anything the user may not open is
+ * gone, and an entry left with nothing is gone with it — so this never renders a
+ * button that opens an empty menu.
+ */
+export type HeaderEntry =
+  | { kind: "link"; label: string; icon: IconName; item: NavItem }
+  | { kind: "list"; label: string; icon: IconName; items: NavItem[] }
+  | { kind: "sections"; label: string; icon: IconName; groups: { label: string; icon: IconName; items: NavItem[] }[] };
+
+export function headerMenu(access?: StaffNavAccess): HeaderEntry[] {
+  const out: HeaderEntry[] = [];
+  for (const m of QUICK_MENU) {
+    if (m.groups) {
+      const groups = quickGroups(m.groups, access);
+      if (groups.length) out.push({ kind: "sections", label: m.label, icon: m.icon, groups });
+    } else if (m.group) {
+      const items = resolve(groupHrefs(m.group), access);
+      if (items.length) out.push({ kind: "list", label: m.label, icon: m.icon, items });
+    } else if (m.href) {
+      // The button keeps its own short label ("Ledger"), but what may open it is
+      // the sidebar's entry for that route ("Ledger / Statement").
+      const item = navItemFor(m.href);
+      if (item && navAllowsItem(access, item)) out.push({ kind: "link", label: m.label, icon: m.icon, item });
+    }
+  }
+  return out;
 }
 
 export function searchIndex(access?: StaffNavAccess): { label: string; href: string; group: string; icon: IconName }[] {

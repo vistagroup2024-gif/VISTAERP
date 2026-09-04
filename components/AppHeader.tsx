@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import Icon from "@/components/ui/Icon";
-import { QUICK_MENU, navAllows, quickGroups, searchIndex, type StaffNavAccess } from "@/lib/nav";
+import { headerMenu, searchIndex, type StaffNavAccess } from "@/lib/nav";
 
 // Slim desktop utility bar. The left of the bar is the quick menu — Transactions
 // and the ledger are opened many times a day, so they sit one click away instead
@@ -73,15 +73,9 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
     router.push("/login"); router.refresh();
   }
 
-  // Resolved once: each Transactions section keeps only the screens this user may
-  // open, and a section — or the whole button — disappears when nothing is left.
-  const menus = useMemo(
-    () =>
-      QUICK_MENU.filter((m) => navAllows(access, m.perm))
-        .map((m) => ({ ...m, groups: m.groups ? quickGroups(m.groups, access) : undefined }))
-        .filter((m) => !m.groups || m.groups.length > 0),
-    [access],
-  );
+  // Resolved once, by the same function the mobile drawer uses: every entry keeps
+  // only the screens this user may open, and a button left with nothing is gone.
+  const menus = useMemo(() => headerMenu(access), [access]);
 
   const initials = (name || "U").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
@@ -90,7 +84,7 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
       {/* Quick menu — daily-use vouchers and the ledger */}
       <nav className="flex items-center gap-1">
         {menus.map((m) =>
-          m.groups ? (
+          m.kind === "sections" ? (
             <div key={m.label} className="relative">
               <button
                 onClick={() => { setQuick((c) => (c === m.label ? null : m.label)); setSub(null); }}
@@ -129,8 +123,29 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
                 </div>
               )}
             </div>
+          ) : m.kind === "list" ? (
+            <div key={m.label} className="relative">
+              <button
+                onClick={() => { setQuick((c) => (c === m.label ? null : m.label)); setSub(null); }}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${quick === m.label ? "bg-brand-50 text-brand" : "text-slate-600 hover:bg-slate-100"}`}
+              >
+                <Icon name={m.icon} size={16} className="text-slate-400" />
+                {m.label}
+                <Icon name="chevronDown" size={13} className="text-slate-400" />
+              </button>
+              {quick === m.label && (
+                <div className="absolute left-0 top-full mt-1.5 w-72 rounded-md border border-slate-200 bg-white py-1 shadow-pop">
+                  {m.items.map((it) => (
+                    <Link key={it.href} href={it.href} onClick={() => setQuick(null)}
+                      className="block px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-brand">
+                      {it.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
-            <Link key={m.label} href={m.href!} onClick={() => { setQuick(null); setSub(null); }}
+            <Link key={m.label} href={m.item.href} onClick={() => { setQuick(null); setSub(null); }}
               className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100">
               <Icon name={m.icon} size={16} className="text-slate-400" />
               {m.label}
