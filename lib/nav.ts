@@ -264,14 +264,14 @@ export const TRANSACTIONS: QuickGroupDef[] = [
     "/accounting/sales/quotations",
     "/accounting/sales/delivery-notes",
     "/accounting/transport-invoices",
+    "/car-sales/contracts",
+    "/car-sales/service-charges",
     "/accounting/hotel-invoices",
     "/accounting/visa-invoices",
     // Focus's "Sales Targets".
     "/accounting/targets",
-    // Focus lists Car Invoice, Monthly Service Charges and Route Fares here too.
-    // They are not accounting sales vouchers — a car contract and a transport
-    // rate belong to their own module and are worked on there — so they stay in
-    // the Car Sales and Transport menus rather than being pulled out of them.
+    // Focus lists Route Fares here too. A transport rate is a master, not a
+    // sales voucher, so it stays in the Transport menu where it is worked on.
   ] },
   { label: "Journals", icon: "accounting", hrefs: [
     "/accounting/journal/new",
@@ -317,6 +317,9 @@ export const QUICK_MENU: QuickMenuDef[] = [
   { label: "Ledger", icon: "accounting", href: "/accounting/ledger" },
   { label: "Inventory", icon: "store", group: "Inventory" },
   { label: "Payroll / HR", icon: "payroll", group: "Payroll / HR" },
+  // What is left of Car Sales once Transactions has taken the two invoice
+  // screens: Alerts, Vehicles / Stock, Commissions, Reports.
+  { label: "Car Sales", icon: "car", group: "Car Sales" },
 ];
 
 /** Every route the Transactions menu carries. */
