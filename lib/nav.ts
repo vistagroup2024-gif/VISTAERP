@@ -200,16 +200,95 @@ export const GROUPS: NavGroup[] = [
   ] },
 ];
 
-// Flattened, permission-filtered index for global search.
-// Quick-access bar in the header: the vouchers and the ledger are opened many
-// times a day, so they get a permanent spot instead of living three clicks deep
-// in the Accounting group.
-export const QUICK_MENU: { label: string; icon: IconName; perm?: string[]; href?: string; items?: NavItem[] }[] = [
-  { label: "Vouchers", icon: "accounting", perm: ["accounting.view"], items: [
-    { href: "/accounting/receipts", label: "Receipt" },
-    { href: "/accounting/payments", label: "Payment" },
-    { href: "/accounting/journal/new", label: "Journal Entry" },
+// ── The header's "Transactions" menu ────────────────────────────────────────
+//
+// The desktop accounting menu, two levels deep: Cash and Bank / Purchases /
+// Sales / Journals / Stocks, each opening the vouchers that belong to it. It is
+// a second way into screens that already exist — everything here is also in the
+// sidebar, and NOTHING here is new.
+//
+// That is why a submenu is a list of HREFs rather than of labels: the label and
+// the permission are read back out of GROUPS by navItemFor(). An href that no
+// longer exists in the sidebar drops out of the menu by itself, and a screen can
+// never appear here under a name it does not have there.
+//
+// Focus's menu also carries Define Cheque Series, Cancel Cheque, Service
+// Receipt, purchase Quotations, Qurbani PV, PV Other, Gain/Loss Adjustment,
+// Qurbani Invoice, Percentage Definition, Air Ticket Invoice, Debit/Credit
+// Notes, Opening Balances and the whole Manufacturing branch. None of those is
+// built here, so none of them is listed — a menu entry pointing at nothing is
+// worse than a missing one.
+export interface QuickGroupDef { label: string; hrefs: string[] }
+
+// Screens reached from another screen rather than from the sidebar, so they have
+// no GROUPS entry to read a label and a permission out of.
+const EXTRA_ITEMS: NavItem[] = [
+  { href: "/stock/documents/movement", label: "Stock Receipt / Issue / Adjustment", perm: ["accounting.view"] },
+];
+
+/** The sidebar's own entry for a route — label and permission included, so the
+ *  header cannot drift from the menu or invent a screen. */
+export function navItemFor(href: string): NavItem | null {
+  for (const g of GROUPS) for (const it of g.items) if (it.href === href) return { ...it, perm: it.perm ?? g.perm };
+  return EXTRA_ITEMS.find((i) => i.href === href) ?? null;
+}
+
+const TRANSACTIONS: QuickGroupDef[] = [
+  { label: "Cash and Bank", hrefs: [
+    "/accounting/receipts",
+    "/accounting/payments",
+    "/accounting/petty-cash",
+    "/accounting/contra",
+    // One register for both post-dated cheque receipts and payments.
+    "/accounting/pdc",
+    "/accounting/bank",
   ] },
+  { label: "Purchases", hrefs: [
+    "/accounting/purchases/vouchers",
+    "/accounting/purchases/returns",
+    "/accounting/purchases/orders",
+    "/accounting/purchases/mrn",
+    // Focus's "Bill Record".
+    "/purchase/bills",
+  ] },
+  { label: "Sales", hrefs: [
+    "/accounting/sales/invoices",
+    "/accounting/sales/returns",
+    "/accounting/sales/orders",
+    "/accounting/sales/quotations",
+    "/accounting/sales/delivery-notes",
+    "/accounting/transport-invoices",
+    "/car-sales/contracts",
+    "/car-sales/service-charges",
+    "/accounting/hotel-invoices",
+    "/accounting/visa-invoices",
+    // Focus's "Route Fares" and "Sales Targets".
+    "/transport/rates",
+    "/accounting/targets",
+  ] },
+  { label: "Journals", hrefs: [
+    "/accounting/journal/new",
+    "/accounting/invoices",
+    "/accounting/recurring",
+    "/hr/payroll",
+  ] },
+  { label: "Stocks", hrefs: [
+    // Receipt, issue, adjustment and warehouse transfer are one screen here.
+    "/stock/documents/movement",
+    "/stock/documents",
+    "/stock/opening",
+    "/stock/warehouses",
+  ] },
+];
+
+// Quick-access bar in the header: the transactions menu and the ledger are
+// opened many times a day, so they get a permanent spot instead of living three
+// clicks deep in the Accounting group.
+export const QUICK_MENU: { label: string; icon: IconName; perm?: string[]; href?: string; items?: NavItem[]; groups?: QuickGroupDef[] }[] = [
+  // No `perm` of its own: each submenu is filtered item by item below, and the
+  // button is dropped when nothing survives — so a Car Sales user still gets the
+  // one Sales entry they may open.
+  { label: "Transactions", icon: "accounting", groups: TRANSACTIONS },
   { label: "Ledger", icon: "accounting", perm: ["accounting.view"], href: "/accounting/ledger" },
 ];
 
@@ -224,6 +303,21 @@ export function navAllowsItem(access: StaffNavAccess | undefined, item: NavItem)
   if (!access?.docRights) return true;
   const doc = docForPath(item.href);
   return !doc || hasDocRight(access.docRights, !!access.isAdmin, doc, "access");
+}
+
+/** A Transactions submenu, resolved against GROUPS and filtered to what this
+ *  user may open. Groups that come back empty are dropped by the caller. */
+export function quickGroups(defs: QuickGroupDef[] | undefined, access?: StaffNavAccess): { label: string; items: NavItem[] }[] {
+  if (!defs) return [];
+  return defs
+    .map((g) => ({
+      label: g.label,
+      items: g.hrefs
+        .map(navItemFor)
+        .filter((i): i is NavItem => !!i)
+        .filter((i) => navAllowsItem(access, i)),
+    }))
+    .filter((g) => g.items.length > 0);
 }
 
 export function searchIndex(access?: StaffNavAccess): { label: string; href: string; group: string; icon: IconName }[] {
