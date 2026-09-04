@@ -264,13 +264,14 @@ export const TRANSACTIONS: QuickGroupDef[] = [
     "/accounting/sales/quotations",
     "/accounting/sales/delivery-notes",
     "/accounting/transport-invoices",
-    "/car-sales/contracts",
-    "/car-sales/service-charges",
     "/accounting/hotel-invoices",
     "/accounting/visa-invoices",
-    // Focus's "Route Fares" and "Sales Targets".
-    "/transport/rates",
+    // Focus's "Sales Targets".
     "/accounting/targets",
+    // Focus lists Car Invoice, Monthly Service Charges and Route Fares here too.
+    // They are not accounting sales vouchers — a car contract and a transport
+    // rate belong to their own module and are worked on there — so they stay in
+    // the Car Sales and Transport menus rather than being pulled out of them.
   ] },
   { label: "Journals", icon: "accounting", hrefs: [
     "/accounting/journal/new",
