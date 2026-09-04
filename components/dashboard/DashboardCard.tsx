@@ -93,6 +93,69 @@ function lines(key: CardKey, m: any): { headline: string; sub: Line[]; tone?: st
         { label: "Delivered", value: num(d.delivered), tone: "text-green-700" },
         { label: "In stock", value: num(d.in_stock) },
       ] };
+    // ── absorbed from the module dashboards ────────────────────────────────
+    case "approvals":
+      return { headline: num(d.pending), tone: Number(d.pending) > 0 ? "text-amber-700" : undefined, sub: [
+        { label: "Value waiting", value: sar(d.amount) },
+      ] };
+    case "pdc":
+      return { headline: num(d.pending), sub: [
+        { label: "Due within 14 days", value: num(d.due_soon), tone: Number(d.due_soon) > 0 ? "text-amber-700" : undefined },
+        { label: "Value", value: sar(d.amount) },
+      ] };
+    case "car_contracts":
+      return { headline: num(d.total), sub: [
+        { label: "Active", value: num(d.active), tone: "text-blue-700" },
+        { label: "Completed", value: num(d.completed), tone: "text-green-700" },
+        { label: "Sale value", value: sar(d.value) },
+      ] };
+    case "car_service_charges":
+      return { headline: sar(d.this_month), sub: [
+        { label: "Outstanding", value: sar(d.outstanding) },
+        { label: "Overdue", value: sar(d.overdue), tone: Number(d.overdue) > 0 ? "text-red-600" : undefined },
+      ] };
+    case "car_ownership":
+      return { headline: num(d.total), sub: [
+        { label: "Transferred", value: num(d.transferred) },
+        { label: "Vista-owned", value: num(d.vista) },
+        { label: "Held", value: num(d.held), tone: Number(d.held) > 0 ? "text-red-600" : undefined },
+      ] };
+    case "hotel_financials":
+      return { headline: sar(d.profit), tone: Number(d.profit) >= 0 ? "text-green-700" : "text-red-700", sub: [
+        { label: "Sales", value: sar(d.sales) },
+        { label: "Purchase", value: sar(d.purchase) },
+        { label: "HCN pending", value: num(d.hcn_pending), tone: Number(d.hcn_pending) > 0 ? "text-red-600" : undefined },
+      ] };
+    case "brn_beds":
+      return { headline: `${num(d.occupancy)}%`, tone: Number(d.occupancy) > 90 ? "text-red-600" : undefined, sub: [
+        { label: "Beds bought", value: num(d.purchased) },
+        { label: "Beds reserved", value: num(d.reserved), tone: "text-brand" },
+      ] };
+    case "brn_availability":
+      return { headline: num(Number(d.makkah || 0) + Number(d.madinah || 0)), tone: "text-green-700", sub: [
+        { label: "Makkah tonight", value: num(d.makkah) },
+        { label: "Madinah tonight", value: num(d.madinah) },
+        { label: "Check-in / out today", value: `${num(d.checkin_today)} / ${num(d.checkout_today)}` },
+      ] };
+    case "brn_agreements":
+      return { headline: num(d.active), sub: [
+        { label: "Expiring ≤ 7 days", value: num(d.expiring), tone: Number(d.expiring) > 0 ? "text-amber-700" : undefined },
+        { label: "All BRNs", value: num(d.total) },
+        { label: "Supplier outstanding", value: sar(d.supplier_outstanding), tone: Number(d.supplier_outstanding) > 0 ? "text-red-600" : undefined },
+      ] };
+    case "transport":
+      return { headline: sar(d.revenue), sub: [
+        { label: "Bookings pending", value: num(d.pending), tone: Number(d.pending) > 0 ? "text-amber-700" : undefined },
+        { label: "Trips running", value: num(d.in_progress), tone: "text-blue-700" },
+        { label: "No driver yet", value: num(d.unassigned), tone: Number(d.unassigned) > 0 ? "text-red-600" : undefined },
+      ] };
+    case "visa_groups":
+      return { headline: num(d.total), sub: [
+        { label: "In process", value: num(d.process), tone: "text-blue-700" },
+        { label: "Visa issued", value: num(d.issued), tone: "text-green-700" },
+        { label: "Waiting BRN", value: num(d.waiting_brn), tone: Number(d.waiting_brn) > 0 ? "text-amber-700" : undefined },
+      ] };
+
     default:
       return { headline: "—", sub: [] };
   }

@@ -3,7 +3,7 @@ import { dateStr } from "@/lib/format";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import Icon from "@/components/ui/Icon";
 import DashboardCard from "@/components/dashboard/DashboardCard";
-import { CARD_GROUPS, visibleCards, type CardAccess } from "@/lib/dashboardCards";
+import { visibleCards, type CardAccess } from "@/lib/dashboardCards";
 import { getStaffAccess, staffCan, staffLanding, getSessionUser } from "@/lib/staffSession";
 import { redirect } from "next/navigation";
 
@@ -33,8 +33,12 @@ export default async function Dashboard() {
     // Every figure on the page in one call.
     cards.length ? supabase.rpc("dashboard_metrics") : Promise.resolve({ data: null }),
   ]);
+  // The module dashboards' figures live here too, so those screens could go.
+  const { data: moduleMetrics } = cards.length
+    ? await supabase.rpc("dashboard_module_metrics")
+    : { data: null };
   const noCompany = !(prof as any)?.company_id;
-  const m = (metrics as any) ?? {};
+  const m = { ...((metrics as any) ?? {}), ...((moduleMetrics as any) ?? {}) };
 
   return (
     <div className="space-y-6">
@@ -64,18 +68,9 @@ export default async function Dashboard() {
           </p>
         </div>
       ) : (
-        CARD_GROUPS.map((group) => {
-          const inGroup = cards.filter((c) => c.group === group);
-          if (!inGroup.length) return null;
-          return (
-            <section key={group} className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{group}</h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {inGroup.map((def) => <DashboardCard key={def.key} def={def} metrics={m} />)}
-              </div>
-            </section>
-          );
-        })
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {cards.map((def) => <DashboardCard key={def.key} def={def} metrics={m} />)}
+        </div>
       )}
     </div>
   );

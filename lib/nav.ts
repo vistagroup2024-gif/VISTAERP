@@ -67,7 +67,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/groups/package-updates", label: "Package Updates", perm: ["visa.package_update"] },
   ] },
   { label: "BRN Inventory", icon: "inventory", section: "Umrah", perm: ["brn.view", "brn.planning"], items: [
-    { href: "/inventory", label: "BRN Dashboard", perm: ["brn.view"] },
     { href: "/inventory/brn", label: "BRN List", perm: ["brn.view"] },
     { href: "/inventory/archived", label: "Archived BRNs", perm: ["brn.view"] },
     { href: "/inventory/calendar", label: "Daily Calendar", perm: ["brn.view"] },
@@ -76,7 +75,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/inventory/history", label: "History", perm: ["brn.view"] },
   ] },
   { label: "Hotels", icon: "hotel", section: "Umrah", perm: ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.reports"], items: [
-    { href: "/hotels/dashboard", label: "Dashboard", perm: ["hotels.reports"] },
     { href: "/hotels/bookings", label: "Hotel Bookings", perm: ["hotels.bookings"] },
     { href: "/hotels/nusuk", label: "Nusuk Agreements", perm: ["hotels.bookings"] },
     { href: "/hotels/checkin", label: "Check-in / Arrivals", perm: ["hotels.bookings"] },
@@ -86,7 +84,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/hotels/reports", label: "Reports", perm: ["hotels.reports"] },
   ] },
   { label: "Transport", icon: "transport", section: "Umrah", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.trip_ledger"], items: [
-    { href: "/transport", label: "Overview", perm: ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.driver_assign"] },
     { href: "/transport/operations", label: "Operations", perm: ["transport.operations", "transport.driver_assign"] },
     { href: "/transport/arrivals", label: "Arrival Service", perm: ["transport.operations", "transport.bookings"] },
     { href: "/transport/bookings", label: "Bookings", perm: ["transport.bookings"] },
@@ -103,7 +100,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/transport/reports/ledger", label: "Trip Ledger", perm: ["transport.trip_ledger"] },
   ] },
   { label: "Car Sales", icon: "car", section: "Trading", perm: ["carsales.view"], items: [
-    { href: "/car-sales", label: "Dashboard", perm: ["carsales.view", "carsales.reports"] },
     { href: "/car-sales/alerts", label: "Alerts", perm: ["carsales.view", "carsales.reports"] },
     { href: "/car-sales/vehicles", label: "Vehicles / Stock", perm: ["carsales.vehicles", "carsales.view"] },
     { href: "/car-sales/contracts", label: "Car Invoices", perm: ["carsales.installments", "carsales.sales"] },
@@ -129,7 +125,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/purchases/returns", label: "Purchase Return" },
   ] },
   { label: "Accounting", icon: "accounting", perm: ["accounting.view"], items: [
-    { href: "/accounting", label: "Dashboard" },
     { href: "/accounting/workflow", label: "Work Flow" },
     { href: "/accounting/receipts", label: "Receipt" },
     { href: "/accounting/payments", label: "Payment" },

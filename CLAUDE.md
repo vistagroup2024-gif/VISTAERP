@@ -148,9 +148,17 @@ Card access **reverses** the convention used everywhere else: an empty
 everyone else sees exactly what an admin ticked. A dashboard puts the whole
 company's money on one screen, so it is opt-in rather than opt-out.
 
-The module dashboards (`/accounting`, `/car-sales`, `/hotels/dashboard`,
-`/inventory`) still exist for the detail behind a number. They are not a second
-home for cards — a new card goes in the register, not on a module screen.
+There is no module dashboard any more. `/accounting`, `/car-sales`,
+`/hotels/dashboard`, `/inventory` and `/transport` forward to `/dashboard` —
+the routes stay so links and bookmarks keep working, but every card they used to
+carry is in the register. A new card goes there, never onto a module screen.
+
+Two things follow. The landing lists in `lib/staffSession.ts` and
+`lib/supabase/middleware.ts` must not point at a forwarding route: a user
+without `dashboard.view` would be sent to their landing, forwarded back to
+`/dashboard`, and bounce forever. And the figures come from **two** calls —
+`dashboard_metrics()` for the money and trade cards, `dashboard_module_metrics()`
+for the ones absorbed from the module dashboards (Umrah, transport, hotels).
 
 ## A select() without a bound is a bug waiting for the 1001st row
 
