@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { money } from "@/lib/format";
+import { money, dateStr } from "@/lib/format";
 import type { CardDef, CardKey } from "@/lib/dashboardCards";
 
 type Tone = "pos" | "neg" | "warn" | "info" | undefined;
@@ -15,7 +15,9 @@ const TONE: Record<string, string> = {
 // the exact figure kept on the element's title for when it matters.
 function compact(n: number): string {
   const a = Math.abs(n);
-  if (a >= 1_000_000) return (n / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1).replace(/\.0$/, "") + "M";
+  // 999,600 rounds to 1000K, which reads as ten times what it is — so anything
+  // that would round up to a million is shown in millions.
+  if (a >= 999_500) return (n / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1).replace(/\.0$/, "") + "M";
   if (a >= 10_000) return Math.round(n / 1000) + "K";
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: a < 100 ? 2 : 0 }).format(n);
 }
@@ -74,7 +76,7 @@ function cells(key: CardKey, m: any): Cell[] {
     case "pending_purchase_orders": return [
       { label: "Orders", value: qty(d.count), strong: true, tone: N(d.count) > 0 ? "warn" : undefined },
       { label: "Value", value: cash(d.value) },
-      { label: "Oldest", value: raw(d.oldest ?? "—") },
+      { label: "Oldest", value: raw(dateStr(d.oldest)) },
     ];
     case "order_status": return [
       { label: "SO qty", value: qty(d.so_qty) },

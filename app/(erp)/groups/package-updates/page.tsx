@@ -63,13 +63,17 @@ export default async function PackageUpdatesPage({ searchParams }: { searchParam
 
 async function PendingTab({ company, today }: { company: string; today: string }) {
   const supabase = createClient();
-  let q = supabase
-    .from("umrah_groups")
-    .select("id, group_no, arrival_date, departure_date, covered_from, covered_to, package_status, parties:agent_id(name), group_companies:group_company_id(name)")
-    .in("package_status", ["update_required", "update_available", "update_ready"])
-    .order("arrival_date");
-  if (company) q = q.eq("group_company_id", company);
-  const { data: rows } = await q;
+  // Paged: the covered-nights arithmetic below runs over every row returned, so
+  // a silent 1000-row cut would drop groups from the list without saying so.
+  const { data: rows } = await fetchAllRows<any>((from, to) => {
+    let q = supabase
+      .from("umrah_groups")
+      .select("id, group_no, arrival_date, departure_date, covered_from, covered_to, package_status, parties:agent_id(name), group_companies:group_company_id(name)")
+      .in("package_status", ["update_required", "update_available", "update_ready"])
+      .order("arrival_date").order("id");
+    if (company) q = q.eq("group_company_id", company);
+    return q.range(from, to);
+  });
   const R = rows ?? [];
 
   const ids = R.map((g: any) => g.id);

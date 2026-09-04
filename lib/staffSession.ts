@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ALL_DOC_RIGHTS, hasDocRight, type DocRight, type DocRightsMap } from "@/lib/docRights";
 import type { CardAccess } from "@/lib/dashboardCards";
+import { landingFor } from "@/lib/landing";
 
 export interface LoginWindow {
   date_from: string | null; date_to: string | null;
@@ -82,24 +83,6 @@ export function docRightsFor(access: StaffAccess, doc: string): Record<DocRight,
   return Object.fromEntries(ALL_DOC_RIGHTS.map((r) => [r, staffDocCan(access, doc, r)])) as Record<DocRight, boolean>;
 }
 
-// First module a user can land on, in priority order. Used to route a restricted
-// user away from a page they can't see (e.g. the Dashboard).
-const LANDING: [string, string][] = [
-  ["dashboard.view", "/dashboard"],
-  ["visa.view", "/groups"],
-  ["brn.view", "/inventory/brn"],
-  ["transport.bookings", "/transport/bookings"],
-  ["transport.operations", "/transport/operations"],
-  ["transport.masters", "/transport/routes"],
-  ["transport.vehicles", "/transport/vehicles"],
-  ["transport.reports", "/transport/reports"],
-  ["hotels.bookings", "/hotels"],
-  ["hotels.masters", "/hotels"],
-  ["sales.view", "/invoices"],
-  ["accounting.view", "/accounting/accounts"],
-  ["purchase.view", "/purchase/bills"],
-  ["users.view", "/settings/users"],
-];
 
 // Server-page guard: loads access and redirects users lacking `key` to their
 // landing page, so a page can't be reached by URL even if the nav hides it.
@@ -114,6 +97,5 @@ export async function guardStaffPage(key: string | string[], doc?: string): Prom
 
 export function staffLanding(access: StaffAccess): string {
   if (access.unrestricted) return "/dashboard";
-  for (const [key, path] of LANDING) if (access.permissions[key]) return path;
-  return "/no-access";
+  return landingFor(access.permissions);
 }

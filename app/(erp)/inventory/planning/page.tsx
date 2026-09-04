@@ -122,13 +122,16 @@ export default async function PlanningPage({ searchParams }: { searchParams: { c
   const includeUpdates = mode !== "pending" && !(mode === "overall" && scope === "pending");
   const supabase = createClient();
   const [{ data: pendGroups }, { data: updGroups }, { data: brns }, { data: cons }, { data: companies }] = await Promise.all([
-    supabase.from("umrah_groups")
+    // Paged, not plain selects: the demand curve and the availability below are
+    // arithmetic over EVERY row, so a silent 1000-row cut would quietly plan the
+    // wrong number of beds. .eq() bounds the filter, not the count.
+    fetchAllRows<any>((from, to) => supabase.from("umrah_groups")
       .select("id, group_no, pax, arrival_date, departure_date, group_company_id, visa_type")
-      .eq("brn_status", "pending").neq("visa_status", "issued"),
-    supabase.from("umrah_groups")
+      .eq("brn_status", "pending").neq("visa_status", "issued").order("id").range(from, to)),
+    fetchAllRows<any>((from, to) => supabase.from("umrah_groups")
       .select("id, pax, arrival_date, departure_date, group_company_id, visa_type")
-      .eq("package_status", "update_required"),
-    supabase.from("brn_inventory").select("*"),
+      .eq("package_status", "update_required").order("id").range(from, to)),
+    fetchAllRows<any>((from, to) => supabase.from("brn_inventory").select("*").order("id").range(from, to)),
     fetchAllRows<Consumption>((from, to) => supabase.from("brn_consumption").select("*").order("id").range(from, to)),
     supabase.from("group_companies").select("id, name").order("name"),
   ]);

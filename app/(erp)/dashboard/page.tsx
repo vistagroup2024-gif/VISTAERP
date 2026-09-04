@@ -28,15 +28,14 @@ export default async function Dashboard() {
 
   const cards = visibleCards(access.dashboardCards as CardAccess);
 
-  const [{ data: prof }, { data: metrics }] = await Promise.all([
+  // Two calls cover every card — the money and trade figures, and the ones the
+  // module dashboards used to carry — so they go out together rather than one
+  // waiting on the other.
+  const [{ data: prof }, { data: metrics }, { data: moduleMetrics }] = await Promise.all([
     supabase.from("profiles").select("company_id").eq("id", user!.id).maybeSingle(),
-    // Every figure on the page in one call.
     cards.length ? supabase.rpc("dashboard_metrics") : Promise.resolve({ data: null }),
+    cards.length ? supabase.rpc("dashboard_module_metrics") : Promise.resolve({ data: null }),
   ]);
-  // The module dashboards' figures live here too, so those screens could go.
-  const { data: moduleMetrics } = cards.length
-    ? await supabase.rpc("dashboard_module_metrics")
-    : { data: null };
   const noCompany = !(prof as any)?.company_id;
   const m = { ...((metrics as any) ?? {}), ...((moduleMetrics as any) ?? {}) };
 

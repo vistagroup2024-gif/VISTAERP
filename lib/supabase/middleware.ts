@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { docForPath, hasDocRight, type DocRightsMap } from "@/lib/docRights";
+import { landingFor } from "@/lib/landing";
 
 // Route -> permissions that grant access (any-of). Longest matching prefix wins.
 // Unlisted routes are not permission-gated. Mirrors the sidebar gating.
@@ -25,22 +26,6 @@ const ROUTE_PERMS: [string, string[]][] = [
   ["/settings/companies", ["system.companies", "system.config", "system.masters"]],
 ];
 
-// First accessible module for a restricted user (priority order), else /no-access.
-const LANDING: [string, string][] = [
-  ["dashboard.view", "/dashboard"],
-  ["visa.view", "/groups"],
-  ["visa.invoices", "/visa/invoices"],
-  ["brn.view", "/inventory/brn"],
-  ["transport.bookings", "/transport/bookings"], ["transport.operations", "/transport/operations"],
-  ["transport.masters", "/transport/routes"], ["transport.vehicles", "/transport/vehicles"], ["transport.reports", "/transport/reports"], ["transport.trip_ledger", "/transport/reports/ledger"],
-  ["hotels.bookings", "/hotels"], ["hotels.masters", "/hotels"],
-  ["carsales.view", "/car-sales/vehicles"], ["carsales.reports", "/car-sales/reports"], ["carsales.vehicles", "/car-sales/vehicles"],
-  ["sales.view", "/invoices"],
-  ["parties.manage", "/parties"],
-  ["accounting.view", "/accounting/accounts"],
-  ["purchase.view", "/purchase/bills"],
-  ["users.view", "/settings/users"],
-];
 
 function requiredPerms(path: string): string[] | null {
   let best: string[] | null = null; let bestLen = -1;
@@ -52,10 +37,6 @@ function requiredPerms(path: string): string[] | null {
   return best;
 }
 
-function landingFor(perms: Record<string, boolean>): string {
-  for (const [key, dest] of LANDING) if (perms[key]) return dest;
-  return "/no-access";
-}
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
