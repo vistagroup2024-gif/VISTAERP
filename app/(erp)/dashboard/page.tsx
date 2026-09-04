@@ -41,16 +41,19 @@ export default async function Dashboard() {
   const m = { ...((metrics as any) ?? {}), ...((moduleMetrics as any) ?? {}) };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <RealtimeRefresh tables={["umrah_groups", "brn_inventory", "brn_consumption", "group_brn_allocation"]} />
 
-      <div className="flex flex-wrap items-end justify-between gap-2 border-b border-slate-200 pb-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">Dashboard</h1>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Business at a glance · {dateStr(m.as_of ?? new Date().toISOString().slice(0, 10))}
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-extrabold uppercase tracking-wide text-slate-800">Dashboard</h1>
+          <span className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-1 text-sm font-bold tabular-nums text-brand-700">
+            {dateStr(m.as_of ?? new Date().toISOString().slice(0, 10))}
+          </span>
         </div>
+        <p className="text-xs text-slate-400">
+          {cards.length} card{cards.length === 1 ? "" : "s"} · figures are live, month and year to date where shown
+        </p>
       </div>
 
       {noCompany && (
@@ -68,7 +71,7 @@ export default async function Dashboard() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {cards.map((def) => <DashboardCard key={def.key} def={def} metrics={m} />)}
         </div>
       )}

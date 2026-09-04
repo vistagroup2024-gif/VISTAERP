@@ -1,186 +1,208 @@
 import Link from "next/link";
-import Icon from "@/components/ui/Icon";
 import { money } from "@/lib/format";
 import type { CardDef, CardKey } from "@/lib/dashboardCards";
 
-const sar = (n: any) => money(Number(n) || 0, "SAR");
-const num = (n: any) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(Number(n) || 0);
+type Tone = "pos" | "neg" | "warn" | "info" | undefined;
 
-interface Line { label: string; value: string; tone?: string }
+const TONE: Record<string, string> = {
+  pos: "text-emerald-600",
+  neg: "text-red-600",
+  warn: "text-amber-600",
+  info: "text-brand",
+};
 
-// Each card is a headline figure plus the couple of numbers that qualify it.
-// The shapes come straight from dashboard_metrics(); a card whose block is
-// missing simply reads zero rather than breaking the grid.
-function lines(key: CardKey, m: any): { headline: string; sub: Line[]; tone?: string } {
+// Big numbers are read at a glance, so they are shortened — 1.1M, 136K — with
+// the exact figure kept on the element's title for when it matters.
+function compact(n: number): string {
+  const a = Math.abs(n);
+  if (a >= 1_000_000) return (n / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1).replace(/\.0$/, "") + "M";
+  if (a >= 10_000) return Math.round(n / 1000) + "K";
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: a < 100 ? 2 : 0 }).format(n);
+}
+
+const N = (v: any) => Number(v) || 0;
+const cash = (v: any): Cell["value"] => ({ text: compact(N(v)), title: money(N(v), "SAR") });
+const qty = (v: any): Cell["value"] => ({ text: compact(N(v)), title: new Intl.NumberFormat().format(N(v)) });
+const raw = (t: string): Cell["value"] => ({ text: t });
+
+interface Cell { label: string; value: { text: string; title?: string }; tone?: Tone; strong?: boolean }
+
+// Each card is a row of cells: a small label over a big figure. Cells share the
+// row and wrap when the card is narrow, so a four-figure card stays readable on
+// a phone without a separate layout.
+function cells(key: CardKey, m: any): Cell[] {
   const d = m?.[key] ?? {};
+  const sign = (n: number): Tone => (n < 0 ? "neg" : undefined);
   switch (key) {
-    case "cash_bank":
-      return { headline: sar(d.balance), sub: [
-        { label: "Cash", value: sar(d.cash) },
-        { label: "Bank", value: sar(d.bank) },
-      ] };
-    case "ar_ap":
-      return { headline: sar(d.net), tone: Number(d.net) >= 0 ? "text-green-700" : "text-red-700", sub: [
-        { label: "Receivable", value: sar(d.ar), tone: "text-green-700" },
-        { label: "Payable", value: sar(d.ap), tone: "text-red-600" },
-        { label: "Overdue in", value: sar(d.overdue), tone: Number(d.overdue) > 0 ? "text-amber-600" : undefined },
-      ] };
-    case "sales":
-      return { headline: sar(d.month), sub: [
-        { label: "This year", value: sar(d.year) },
-        { label: "All time", value: sar(d.total) },
-      ] };
-    case "expenses":
-      return { headline: sar(d.month), tone: "text-red-600", sub: [
-        { label: "This year", value: sar(d.year) },
-        { label: "All time", value: sar(d.total) },
-      ] };
+    case "cash_bank": return [
+      { label: "Bank", value: cash(d.bank) },
+      { label: "Cash", value: cash(d.cash) },
+      { label: "Total", value: cash(d.balance), strong: true, tone: sign(N(d.balance)) },
+    ];
+    case "ar_ap": return [
+      { label: "Receivable", value: cash(d.ar), tone: "pos" },
+      { label: "Payable", value: cash(d.ap), tone: "neg" },
+      { label: "Overdue", value: cash(d.overdue), tone: N(d.overdue) > 0 ? "warn" : undefined },
+      { label: "Net", value: cash(d.net), strong: true, tone: N(d.net) >= 0 ? "pos" : "neg" },
+    ];
+    case "sales": return [
+      { label: "This month", value: cash(d.month), strong: true },
+      { label: "Year to date", value: cash(d.year) },
+      { label: "All time", value: cash(d.total) },
+    ];
+    case "expenses": return [
+      { label: "This month", value: cash(d.month), strong: true, tone: "neg" },
+      { label: "Year to date", value: cash(d.year) },
+      { label: "All time", value: cash(d.total) },
+    ];
     case "pnl": {
-      const m1 = Number(d.income_month || 0) - Number(d.expense_month || 0);
-      const y1 = Number(d.income_year || 0) - Number(d.expense_year || 0);
-      return { headline: sar(m1), tone: m1 >= 0 ? "text-green-700" : "text-red-700", sub: [
-        { label: "Income (month)", value: sar(d.income_month) },
-        { label: "Expense (month)", value: sar(d.expense_month) },
-        { label: m1 >= 0 ? "Profit (year)" : "Loss (year)", value: sar(Math.abs(y1)), tone: y1 >= 0 ? "text-green-700" : "text-red-700" },
-      ] };
+      const mm = N(d.income_month) - N(d.expense_month), yy = N(d.income_year) - N(d.expense_year);
+      return [
+        { label: "Income (m)", value: cash(d.income_month), tone: "pos" },
+        { label: "Expense (m)", value: cash(d.expense_month), tone: "neg" },
+        { label: mm >= 0 ? "Profit (m)" : "Loss (m)", value: cash(Math.abs(mm)), strong: true, tone: mm >= 0 ? "pos" : "neg" },
+        { label: yy >= 0 ? "Profit (ytd)" : "Loss (ytd)", value: cash(Math.abs(yy)), tone: yy >= 0 ? "pos" : "neg" },
+      ];
     }
-    case "car_balances":
-      return { headline: sar(d.outstanding), sub: [
-        { label: "Overdue", value: sar(d.overdue), tone: Number(d.overdue) > 0 ? "text-red-600" : undefined },
-        { label: "Due this month", value: sar(d.due_this_month), tone: "text-amber-700" },
-        { label: "Collected", value: sar(d.collected), tone: "text-green-700" },
-      ] };
+    case "car_balances": return [
+      { label: "Due", value: cash(d.due_this_month), tone: "warn" },
+      { label: "Overdue", value: cash(d.overdue), tone: N(d.overdue) > 0 ? "neg" : undefined },
+      { label: "Outstd.", value: cash(d.outstanding), strong: true },
+      { label: "Collected", value: cash(d.collected), tone: "pos" },
+    ];
     case "pending_sales_orders":
-    case "pending_purchase_orders":
-      return { headline: num(d.count), sub: [
-        { label: "Value", value: sar(d.value) },
-        { label: "Oldest", value: d.oldest ?? "—" },
-      ] };
-    case "order_status":
-      return { headline: num(d.balance), tone: Number(d.balance) < 0 ? "text-red-600" : undefined, sub: [
-        { label: "Sale Orders", value: num(d.so_qty) },
-        { label: "Stock on hand", value: num(d.stock_qty) },
-        { label: "On order (PO)", value: num(d.po_qty) },
-      ] };
-    case "so_advance_receipt":
-      return { headline: sar(d.order_value), sub: [
-        { label: "Advance", value: sar(d.advance) },
-        { label: "Received", value: sar(d.received), tone: "text-green-700" },
-        { label: "Balance", value: sar(d.balance), tone: Number(d.balance) > 0 ? "text-amber-700" : undefined },
-      ] };
+    case "pending_purchase_orders": return [
+      { label: "Orders", value: qty(d.count), strong: true, tone: N(d.count) > 0 ? "warn" : undefined },
+      { label: "Value", value: cash(d.value) },
+      { label: "Oldest", value: raw(d.oldest ?? "—") },
+    ];
+    case "order_status": return [
+      { label: "SO qty", value: qty(d.so_qty) },
+      { label: "Stock", value: qty(d.stock_qty) },
+      { label: "PO qty", value: qty(d.po_qty) },
+      { label: "Balance", value: qty(d.balance), strong: true, tone: N(d.balance) < 0 ? "neg" : "pos" },
+    ];
+    case "so_advance_receipt": return [
+      { label: "Order", value: cash(d.order_value), strong: true },
+      { label: "Advance", value: cash(d.advance) },
+      { label: "Received", value: cash(d.received), tone: "pos" },
+      { label: "Balance", value: cash(d.balance), tone: N(d.balance) > 0 ? "warn" : undefined },
+    ];
     case "purchase_vs_sale": {
-      const gm = Number(d.sale_month || 0) - Number(d.purchase_month || 0);
-      return { headline: sar(gm), tone: gm >= 0 ? "text-green-700" : "text-red-700", sub: [
-        { label: "Sold (month)", value: sar(d.sale_month) },
-        { label: "Bought (month)", value: sar(d.purchase_month) },
-        { label: "Sold (year)", value: sar(d.sale_year) },
-      ] };
+      const gm = N(d.sale_month) - N(d.purchase_month);
+      return [
+        { label: "Buy (m)", value: cash(d.purchase_month) },
+        { label: "Sale (m)", value: cash(d.sale_month) },
+        { label: "Margin (m)", value: cash(gm), strong: true, tone: gm >= 0 ? "pos" : "neg" },
+        { label: "Sale (ytd)", value: cash(d.sale_year) },
+      ];
     }
-    case "stock":
-      return { headline: sar(d.value), sub: [
-        { label: "Quantity", value: num(d.qty) },
-        { label: "Items", value: num(d.items) },
-      ] };
-    case "bookings":
-      return { headline: num(d.total), sub: [
-        { label: "Pending", value: num(d.pending), tone: Number(d.pending) > 0 ? "text-amber-700" : undefined },
-        { label: "Confirmed", value: num(d.confirmed), tone: "text-blue-700" },
-        { label: "Check-in today", value: num(d.checkin_today) },
-      ] };
-    case "delivery_status":
-      return { headline: num(d.balance), tone: Number(d.balance) > 0 ? "text-amber-700" : undefined, sub: [
-        { label: "Sold", value: num(d.sold) },
-        { label: "Delivered", value: num(d.delivered), tone: "text-green-700" },
-        { label: "In stock", value: num(d.in_stock) },
-      ] };
-    // ── absorbed from the module dashboards ────────────────────────────────
-    case "approvals":
-      return { headline: num(d.pending), tone: Number(d.pending) > 0 ? "text-amber-700" : undefined, sub: [
-        { label: "Value waiting", value: sar(d.amount) },
-      ] };
-    case "pdc":
-      return { headline: num(d.pending), sub: [
-        { label: "Due within 14 days", value: num(d.due_soon), tone: Number(d.due_soon) > 0 ? "text-amber-700" : undefined },
-        { label: "Value", value: sar(d.amount) },
-      ] };
-    case "car_contracts":
-      return { headline: num(d.total), sub: [
-        { label: "Active", value: num(d.active), tone: "text-blue-700" },
-        { label: "Completed", value: num(d.completed), tone: "text-green-700" },
-        { label: "Sale value", value: sar(d.value) },
-      ] };
-    case "car_service_charges":
-      return { headline: sar(d.this_month), sub: [
-        { label: "Outstanding", value: sar(d.outstanding) },
-        { label: "Overdue", value: sar(d.overdue), tone: Number(d.overdue) > 0 ? "text-red-600" : undefined },
-      ] };
-    case "car_ownership":
-      return { headline: num(d.total), sub: [
-        { label: "Transferred", value: num(d.transferred) },
-        { label: "Vista-owned", value: num(d.vista) },
-        { label: "Held", value: num(d.held), tone: Number(d.held) > 0 ? "text-red-600" : undefined },
-      ] };
-    case "hotel_financials":
-      return { headline: sar(d.profit), tone: Number(d.profit) >= 0 ? "text-green-700" : "text-red-700", sub: [
-        { label: "Sales", value: sar(d.sales) },
-        { label: "Purchase", value: sar(d.purchase) },
-        { label: "HCN pending", value: num(d.hcn_pending), tone: Number(d.hcn_pending) > 0 ? "text-red-600" : undefined },
-      ] };
-    case "brn_beds":
-      return { headline: `${num(d.occupancy)}%`, tone: Number(d.occupancy) > 90 ? "text-red-600" : undefined, sub: [
-        { label: "Beds bought", value: num(d.purchased) },
-        { label: "Beds reserved", value: num(d.reserved), tone: "text-brand" },
-      ] };
-    case "brn_availability":
-      return { headline: num(Number(d.makkah || 0) + Number(d.madinah || 0)), tone: "text-green-700", sub: [
-        { label: "Makkah tonight", value: num(d.makkah) },
-        { label: "Madinah tonight", value: num(d.madinah) },
-        { label: "Check-in / out today", value: `${num(d.checkin_today)} / ${num(d.checkout_today)}` },
-      ] };
-    case "brn_agreements":
-      return { headline: num(d.active), sub: [
-        { label: "Expiring ≤ 7 days", value: num(d.expiring), tone: Number(d.expiring) > 0 ? "text-amber-700" : undefined },
-        { label: "All BRNs", value: num(d.total) },
-        { label: "Supplier outstanding", value: sar(d.supplier_outstanding), tone: Number(d.supplier_outstanding) > 0 ? "text-red-600" : undefined },
-      ] };
-    case "transport":
-      return { headline: sar(d.revenue), sub: [
-        { label: "Bookings pending", value: num(d.pending), tone: Number(d.pending) > 0 ? "text-amber-700" : undefined },
-        { label: "Trips running", value: num(d.in_progress), tone: "text-blue-700" },
-        { label: "No driver yet", value: num(d.unassigned), tone: Number(d.unassigned) > 0 ? "text-red-600" : undefined },
-      ] };
-    case "visa_groups":
-      return { headline: num(d.total), sub: [
-        { label: "In process", value: num(d.process), tone: "text-blue-700" },
-        { label: "Visa issued", value: num(d.issued), tone: "text-green-700" },
-        { label: "Waiting BRN", value: num(d.waiting_brn), tone: Number(d.waiting_brn) > 0 ? "text-amber-700" : undefined },
-      ] };
-
-    default:
-      return { headline: "—", sub: [] };
+    case "stock": return [
+      { label: "Value", value: cash(d.value), strong: true },
+      { label: "Quantity", value: qty(d.qty) },
+      { label: "Items", value: qty(d.items) },
+    ];
+    case "bookings": return [
+      { label: "Total", value: qty(d.total), strong: true },
+      { label: "Pending", value: qty(d.pending), tone: N(d.pending) > 0 ? "warn" : undefined },
+      { label: "Confirmed", value: qty(d.confirmed), tone: "info" },
+      { label: "In today", value: qty(d.checkin_today) },
+    ];
+    case "delivery_status": return [
+      { label: "Sold", value: qty(d.sold), strong: true },
+      { label: "Delivered", value: qty(d.delivered), tone: "pos" },
+      { label: "To deliver", value: qty(d.balance), tone: N(d.balance) > 0 ? "warn" : undefined },
+      { label: "In stock", value: qty(d.in_stock) },
+    ];
+    case "approvals": return [
+      { label: "Waiting", value: qty(d.pending), strong: true, tone: N(d.pending) > 0 ? "warn" : undefined },
+      { label: "Value", value: cash(d.amount) },
+    ];
+    case "pdc": return [
+      { label: "Pending", value: qty(d.pending), strong: true },
+      { label: "Due ≤ 14d", value: qty(d.due_soon), tone: N(d.due_soon) > 0 ? "warn" : undefined },
+      { label: "Value", value: cash(d.amount) },
+    ];
+    case "car_contracts": return [
+      { label: "Contracts", value: qty(d.total), strong: true },
+      { label: "Active", value: qty(d.active), tone: "info" },
+      { label: "Completed", value: qty(d.completed), tone: "pos" },
+      { label: "Value", value: cash(d.value) },
+    ];
+    case "car_service_charges": return [
+      { label: "This month", value: cash(d.this_month), strong: true },
+      { label: "Outstd.", value: cash(d.outstanding) },
+      { label: "Overdue", value: cash(d.overdue), tone: N(d.overdue) > 0 ? "neg" : undefined },
+    ];
+    case "car_ownership": return [
+      { label: "Vehicles", value: qty(d.total), strong: true },
+      { label: "Transf.", value: qty(d.transferred) },
+      { label: "Vista", value: qty(d.vista) },
+      { label: "Held", value: qty(d.held), tone: N(d.held) > 0 ? "neg" : undefined },
+    ];
+    case "hotel_financials": return [
+      { label: "Sales", value: cash(d.sales) },
+      { label: "Purchase", value: cash(d.purchase) },
+      { label: "Profit", value: cash(d.profit), strong: true, tone: N(d.profit) >= 0 ? "pos" : "neg" },
+      { label: "HCN due", value: qty(d.hcn_pending), tone: N(d.hcn_pending) > 0 ? "neg" : undefined },
+    ];
+    case "brn_beds": return [
+      { label: "Occupancy", value: raw(`${N(d.occupancy)}%`), strong: true, tone: N(d.occupancy) > 90 ? "neg" : "info" },
+      { label: "Bought", value: qty(d.purchased) },
+      { label: "Reserved", value: qty(d.reserved) },
+    ];
+    case "brn_availability": return [
+      { label: "Makkah", value: qty(d.makkah), strong: true, tone: "pos" },
+      { label: "Madinah", value: qty(d.madinah), tone: "pos" },
+      { label: "In today", value: qty(d.checkin_today) },
+      { label: "Out today", value: qty(d.checkout_today) },
+    ];
+    case "brn_agreements": return [
+      { label: "Active", value: qty(d.active), strong: true },
+      { label: "Exp ≤7d", value: qty(d.expiring), tone: N(d.expiring) > 0 ? "warn" : undefined },
+      { label: "All BRNs", value: qty(d.total) },
+      { label: "Suppl. due", value: cash(d.supplier_outstanding), tone: N(d.supplier_outstanding) > 0 ? "neg" : undefined },
+    ];
+    case "transport": return [
+      { label: "Revenue", value: cash(d.revenue), strong: true },
+      { label: "Pending", value: qty(d.pending), tone: N(d.pending) > 0 ? "warn" : undefined },
+      { label: "Running", value: qty(d.in_progress), tone: "info" },
+      { label: "No driver", value: qty(d.unassigned), tone: N(d.unassigned) > 0 ? "neg" : undefined },
+    ];
+    case "visa_groups": return [
+      { label: "Groups", value: qty(d.total), strong: true },
+      { label: "In process", value: qty(d.process), tone: "info" },
+      { label: "Issued", value: qty(d.issued), tone: "pos" },
+      { label: "Waiting", value: qty(d.waiting_brn), tone: N(d.waiting_brn) > 0 ? "warn" : undefined },
+    ];
+    default: return [];
   }
 }
 
 export default function DashboardCard({ def, metrics }: { def: CardDef; metrics: any }) {
-  const { headline, sub, tone } = lines(def.key, metrics);
+  const list = cells(def.key, metrics);
   const body = (
-    <div className="card h-full transition-shadow hover:shadow-pop">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{def.label}</p>
-        {def.href && <Icon name="chevronRight" size={14} className="shrink-0 text-slate-300" />}
+    <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-pop">
+      <header className="flex items-center justify-between gap-2 border-b border-brand-100 bg-brand-50/70 px-3 py-1.5">
+        <h3 className="truncate text-[11px] font-bold uppercase tracking-wider text-brand-800">{def.label}</h3>
+        {def.href && (
+          <span className="shrink-0 text-brand-400 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>›</span>
+        )}
+      </header>
+      <div className="flex flex-1 flex-wrap divide-slate-100">
+        {list.map((c, i) => (
+          <div key={c.label}
+               className={`min-w-[4.75rem] flex-1 basis-0 px-2.5 py-2 ${i > 0 ? "border-l border-slate-100" : ""}`}>
+            <p className="text-[10px] font-medium uppercase leading-tight tracking-wide text-slate-400">{c.label}</p>
+            <p title={c.value.title}
+               className={`mt-0.5 truncate tabular-nums ${c.strong ? "text-xl font-extrabold" : "text-lg font-semibold"} ${c.tone ? TONE[c.tone] : "text-slate-800"}`}>
+              {c.value.text}
+            </p>
+          </div>
+        ))}
+        {list.length === 0 && <p className="px-3 py-4 text-sm text-slate-400">No data.</p>}
       </div>
-      <p className={`mt-1.5 truncate text-2xl font-bold tabular-nums ${tone ?? "text-slate-900"}`}>{headline}</p>
-      {sub.length > 0 && (
-        <dl className="mt-3 space-y-1 border-t border-slate-100 pt-2">
-          {sub.map((s) => (
-            <div key={s.label} className="flex items-baseline justify-between gap-2 text-xs">
-              <dt className="truncate text-slate-500">{s.label}</dt>
-              <dd className={`shrink-0 font-medium tabular-nums ${s.tone ?? "text-slate-700"}`}>{s.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </div>
+    </article>
   );
-  return def.href ? <Link href={def.href} className="block">{body}</Link> : body;
+  return def.href ? <Link href={def.href} className="block h-full">{body}</Link> : body;
 }
