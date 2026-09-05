@@ -112,8 +112,9 @@ export const GROUPS: NavGroup[] = [
     { href: "/transport/bookings", label: "Bookings", perm: ["transport.bookings"] },
     { href: "/transport/vehicles", label: "Vehicles", perm: ["transport.vehicles"] },
     { href: "/transport/routes", label: "Routes", perm: ["transport.masters"] },
+    // Rate Master carries the Agent Fare Chart as a tab — the chart is those same
+    // rates resolved into what an agent is quoted, so it is not a menu of its own.
     { href: "/transport/rates", label: "Rate Master", perm: ["transport.masters"] },
-    { href: "/transport/rates/chart", label: "Agent Fare Chart", perm: ["transport.masters"] },
     { href: "/transport/packages", label: "Packages", perm: ["transport.masters"] },
     { href: "/transport/drivers", label: "Drivers", perm: ["transport.masters", "transport.vehicles"] },
     { href: "/transport/fleet", label: "Fleet Health", perm: ["transport.operations", "transport.driver_assign"] },

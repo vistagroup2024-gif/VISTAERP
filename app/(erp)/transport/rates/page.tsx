@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import RateMaster from "./RateMaster";
 
@@ -19,14 +18,13 @@ export default async function RateMasterPage() {
       sb.from("transport_vendor_rates").select("id, vendor_id, route_id, vehicle_id, effective_from, effective_to, purchase_rate, status").order("effective_from", { ascending: false }),
       sb.from("transport_route_rates").select("id, route_id, vehicle_id, extra_charge_enabled, extra_charge_desc, extra_charge_amount"),
     ]);
+  // Who the Agent Fare Chart tab can show a chart for: a party with a portal
+  // login, or one priced differently from the standard.
+  const { data: chartParties } = await sb.rpc("transport_rate_chart_parties");
 
   return (
     <div className="max-w-6xl">
-      <PageHeader title="Rate Master">
-        {/* The rates below are effective-dated rows; the chart resolves them into
-            what an agent is actually quoted, which is what the agent sees. */}
-        <Link href="/transport/rates/chart" className="btn-outline text-sm">Agent Fare Chart</Link>
-      </PageHeader>
+      <PageHeader title="Rate Master" />
       <p className="mb-4 text-sm text-slate-500">
         Effective-dated selling rates (per agent) and vendor purchase rates. When a rate changes, add a new
         record with a new effective date — historical rates are preserved. Bookings use the rate effective on the booking date.
@@ -39,6 +37,7 @@ export default async function RateMasterPage() {
         agentRates={(agentRates as any[]) ?? []}
         vendorRates={(vendorRates as any[]) ?? []}
         routeRates={(routeRates as any[]) ?? []}
+        chartParties={(chartParties as any[]) ?? []}
       />
     </div>
   );

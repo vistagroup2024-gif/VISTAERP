@@ -1,25 +1,66 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
+import RateChartTable from "@/components/transport/RateChartTable";
+import { buildRateChart, type RateChart } from "@/lib/transportRateChart";
 
 interface Ref { id: string; name: string }
 interface AgentRef { id: string; agency_name: string }
+// A party there is a fare chart for: one with a portal login, or one priced
+// differently from the standard. See transport_rate_chart_parties().
+export interface ChartParty { party_id: string; name: string; has_login: boolean; has_own_rates: boolean }
 interface AgentRate { id: string; agent_id: string | null; route_id: string; vehicle_id: string; effective_from: string; effective_to: string | null; selling_rate: number; status: string }
 interface VendorRate { id: string; vendor_id: string; route_id: string; vehicle_id: string; effective_from: string; effective_to: string | null; purchase_rate: number; status: string }
 interface RouteRate { id: string; route_id: string; vehicle_id: string; extra_charge_enabled: boolean; extra_charge_desc: string | null; extra_charge_amount: number }
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function RateMaster({ routes, vehicles, agents, vendors, agentRates, vendorRates, routeRates = [] }: {
-  routes: Ref[]; vehicles: Ref[]; agents: AgentRef[]; vendors: Ref[]; agentRates: AgentRate[]; vendorRates: VendorRate[]; routeRates?: RouteRate[];
+export default function RateMaster({ routes, vehicles, agents, vendors, agentRates, vendorRates, routeRates = [], chartParties = [] }: {
+  routes: Ref[]; vehicles: Ref[]; agents: AgentRef[]; vendors: Ref[]; agentRates: AgentRate[]; vendorRates: VendorRate[];
+  routeRates?: RouteRate[]; chartParties?: ChartParty[];
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const [tab, setTab] = useState<"agent" | "vendor" | "bulk" | "extras">("agent");
+  const [tab, setTab] = useState<"agent" | "vendor" | "bulk" | "extras" | "chart">("agent");
+
+  // ── Fare Chart tab ────────────────────────────────────────────────────────
+  // The rows above are effective-dated rate records; this resolves them into
+  // what an agent is actually quoted, which is the chart the agent sees in their
+  // own portal. Same data, one screen apart, so it sits here rather than in a
+  // menu of its own.
+  const [cParty, setCParty] = useState("");            // "" = the standard rate
+  const [cDate, setCDate] = useState(today());
+  const [chart, setChart] = useState<RateChart | null>(null);
+  const [cMeta, setCMeta] = useState<{ own: number } | null>(null);
+  const [cBusy, setCBusy] = useState(false);
+  const [cErr, setCErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tab !== "chart") return;
+    let live = true;
+    setCBusy(true); setCErr(null);
+    supabase.rpc("transport_agent_rate_chart", { p_party: cParty || null, p_date: cDate })
+      .then(({ data, error }) => {
+        if (!live) return;
+        setCBusy(false);
+        if (error) { setCErr(error.message); setChart(null); return; }
+        const m: any = data ?? {};
+        setChart(buildRateChart(m));
+        setCMeta({ own: Number(m.own_rate_cells ?? 0) + Number(m.own_price_cells ?? 0) });
+      });
+    // Ignoring a stale response matters here: switching agents quickly would
+    // otherwise let an earlier chart land last and be shown under a later name.
+    return () => { live = false; };
+  }, [tab, cParty, cDate, supabase]);
+
+  const chosenParty = chartParties.find((p) => p.party_id === cParty) ?? null;
+  const chartCells = chart
+    ? [...chart.routeRows, ...chart.packageRows].reduce((n, r) => n + r.cells.filter((c) => c != null).length, 0)
+    : 0;
 
   // Route extra-charge form (e.g. Hajj Terminal), stored on transport_route_rates.
   const [xf, setXf] = useState({ route_id: "", vehicle_id: "", extra_charge_desc: "", extra_charge_amount: "" });
@@ -157,9 +198,10 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
-        {(["agent", "vendor", "bulk", "extras"] as const).map((k) => (
+        {(["agent", "vendor", "bulk", "extras", "chart"] as const).map((k) => (
           <button key={k} onClick={() => setTab(k)} className={`rounded-md px-3 py-1.5 text-sm font-medium ${tab === k ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>
-            {k === "agent" ? "Agent Rates (Selling)" : k === "vendor" ? "Vendor Rates (Purchase)" : k === "bulk" ? "⚡ Bulk Update" : "Route Extras"}
+            {k === "agent" ? "Agent Rates (Selling)" : k === "vendor" ? "Vendor Rates (Purchase)"
+              : k === "bulk" ? "⚡ Bulk Update" : k === "extras" ? "Route Extras" : "Agent Fare Chart"}
           </button>
         ))}
       </div>
@@ -312,7 +354,7 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
             {bMsg && <span className="text-sm text-green-700">{bMsg}</span>}
           </div>
         </>
-      ) : (
+      ) : tab === "extras" ? (
         <>
           <p className="text-xs text-slate-500">Optional extra charges applied to a route + vehicle only when required (e.g. the <b>Hajj Terminal</b> surcharge for Jeddah Airport pickups). Booking staff tick “Hajj Terminal” on the trip to apply it.</p>
           <form onSubmit={saveExtra} className="card grid grid-cols-1 gap-3 sm:grid-cols-5">
@@ -339,6 +381,51 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
               </tbody>
             </table>
           </div>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-slate-500">
+            What an agent is actually quoted, resolved from the effective-dated rates above — the same chart the
+            agent sees when they sign in to their own portal.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div><label className="label">Agent</label>
+              <select className="input min-w-[16rem]" value={cParty} onChange={(e) => setCParty(e.target.value)}>
+                {/* Not an empty screen: no agent IS the standard rate, the one an
+                    agent with nothing of their own is quoted. */}
+                <option value="">Standard rate — no agent</option>
+                {chartParties.map((p) => (
+                  <option key={p.party_id} value={p.party_id}>
+                    {p.name}{p.has_own_rates ? " ★" : ""}{p.has_login ? "" : " (no login)"}
+                  </option>
+                ))}
+              </select></div>
+            <div><label className="label">As on</label>
+              <input type="date" className="input" value={cDate} onChange={(e) => setCDate(e.target.value || today())} /></div>
+            <p className="pb-2 text-xs text-slate-400">★ has rates of its own · rates are effective-dated, so the date decides which apply</p>
+          </div>
+
+          {cErr && <div className="rounded-md border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{cErr}</div>}
+
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
+              {chosenParty ? chosenParty.name : "Standard rate — no agent"}
+            </span>
+            {chosenParty && !chosenParty.has_login && (
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700" title="Priced, but has no portal login to see it with">no portal login</span>
+            )}
+            <span className="text-slate-500">
+              {cBusy ? "Loading…" : `${chartCells} price${chartCells === 1 ? "" : "s"}`}
+              {!cBusy && chosenParty && (cMeta && cMeta.own > 0
+                ? ` · ${cMeta.own} set for this agent, the rest are the standard rate`
+                : " · all at the standard rate")}
+            </span>
+          </div>
+
+          {!cBusy && chart && chartCells === 0 && (
+            <div className="card text-sm text-slate-500">No rates are effective on this date.</div>
+          )}
+          {chart && chartCells > 0 && <RateChartTable {...chart} />}
         </>
       )}
     </div>

@@ -30,7 +30,7 @@ function Matrix({ vehicles, rows, firstCol }: { vehicles: Veh[]; rows: RRow[]; f
             <tr>
               <th className="sticky left-0 z-10 bg-slate-100 px-3 py-2.5 text-left font-semibold text-slate-700">{firstCol}</th>
               {vehicles.map((v, i) => (
-                <th key={v.id} className={`px-3 py-2.5 text-right font-semibold ${COLS[i % COLS.length].head}`}>{v.name}</th>
+                <th key={v.id} className={`px-3 py-2.5 text-center font-semibold ${COLS[i % COLS.length].head}`}>{v.name}</th>
               ))}
             </tr>
           </thead>
@@ -39,7 +39,7 @@ function Matrix({ vehicles, rows, firstCol }: { vehicles: Veh[]; rows: RRow[]; f
               <tr key={r.id} className="border-t border-slate-100">
                 <td className="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-slate-800">{r.name}</td>
                 {r.cells.map((c, i) => (
-                  <td key={i} className={`px-3 py-2 text-right tabular-nums ${COLS[i % COLS.length].cell}`}>
+                  <td key={i} className={`px-3 py-2 text-center tabular-nums ${COLS[i % COLS.length].cell}`}>
                     {c != null ? <span className="font-semibold text-slate-800">{c.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span> : <span className="text-slate-300">—</span>}
                   </td>
                 ))}

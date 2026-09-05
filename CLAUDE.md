@@ -95,8 +95,10 @@ user's back. Vouchers **choose** an existing item; they never invent one.
 ## The agent fare chart is one chart, shown twice
 
 An agent signs in and sees their transport selling rates; the office sees the
-same chart for any agent at `/transport/rates/chart`. "The same" is enforced,
-not intended:
+same chart for any agent on the Rate Master's **Agent Fare Chart** tab — it is
+those same effective-dated rate rows resolved into what an agent is quoted, so it
+belongs beside them rather than in a menu of its own. "The same" is enforced, not
+intended:
 
 - the prices come from `transport_agent_rate()` and `transport_package_price()`
   — the portal reaches them through `b2b_transport_masters()`, the office
