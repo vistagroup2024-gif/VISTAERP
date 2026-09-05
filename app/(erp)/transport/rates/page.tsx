@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import RateMaster from "./RateMaster";
 
@@ -21,7 +22,11 @@ export default async function RateMasterPage() {
 
   return (
     <div className="max-w-6xl">
-      <PageHeader title="Rate Master" />
+      <PageHeader title="Rate Master">
+        {/* The rates below are effective-dated rows; the chart resolves them into
+            what an agent is actually quoted, which is what the agent sees. */}
+        <Link href="/transport/rates/chart" className="btn-outline text-sm">Agent Fare Chart</Link>
+      </PageHeader>
       <p className="mb-4 text-sm text-slate-500">
         Effective-dated selling rates (per agent) and vendor purchase rates. When a rate changes, add a new
         record with a new effective date — historical rates are preserved. Bookings use the rate effective on the booking date.

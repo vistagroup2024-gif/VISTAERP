@@ -1,9 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { Veh, ChartRow as RRow, RateChart } from "@/lib/transportRateChart";
 
-interface Veh { id: string; name: string }
-interface RRow { id: string; name: string; cells: (number | null)[] }
+// The agent fare chart. Rendered for the agent in their own portal and for the
+// office under Transport → Agent Fare Chart, from the same component and the
+// same shaping (lib/transportRateChart), so the two cannot show a different
+// table of the same prices.
 
 // Two alternating tones (brand + slate) so columns are easy to read without a rainbow.
 const COLS = [
@@ -50,9 +53,7 @@ function Matrix({ vehicles, rows, firstCol }: { vehicles: Veh[]; rows: RRow[]; f
   );
 }
 
-export default function AgentRatesTable({ routeVehicles, routeRows, packageVehicles, packageRows }: {
-  routeVehicles: Veh[]; routeRows: RRow[]; packageVehicles: Veh[]; packageRows: RRow[];
-}) {
+export default function RateChartTable({ routeVehicles, routeRows, packageVehicles, packageRows }: RateChart) {
   const [tab, setTab] = useState<"routes" | "packages">("routes");
   const hasPackages = packageRows.length > 0;
 

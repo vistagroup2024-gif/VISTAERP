@@ -92,6 +92,24 @@ user's back. Vouchers **choose** an existing item; they never invent one.
   from a Sale Order, has item lines, issues stock, books COGS.
 - `/accounting/invoices` — Invoice / Bill, a manual one-off accounting voucher.
 
+## The agent fare chart is one chart, shown twice
+
+An agent signs in and sees their transport selling rates; the office sees the
+same chart for any agent at `/transport/rates/chart`. "The same" is enforced,
+not intended:
+
+- the prices come from `transport_agent_rate()` and `transport_package_price()`
+  — the portal reaches them through `b2b_transport_masters()`, the office
+  through `transport_agent_rate_chart()`, and neither resolves a price itself;
+- both shape the result with `buildRateChart()` (`lib/transportRateChart.ts`)
+  and draw it with `components/transport/RateChartTable.tsx`.
+
+Rates are keyed by **party**, not by portal login — `transport_agent_rates.agent_id`
+references `parties`, and a login resolves to `coalesce(agent_party_id, id)`. A
+null party is not "no chart", it is the **standard** rate an agent with nothing
+of their own is quoted. Rates are effective-dated, so a chart is only ever true
+*as on* a date; today is what the agent is looking at.
+
 ## Staff access is three separate things
 
 A staff user carries three independent controls, all on `profiles`, all with the
