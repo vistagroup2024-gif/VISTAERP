@@ -1,4 +1,7 @@
-const CACHE = "vista-erp-v3";
+// Bumped for the new app icons. The old manifest.json is precached below, so an
+// already-installed copy would keep serving it — and keep the wrong icon —
+// until this name changes and `activate` deletes the previous cache.
+const CACHE = "vista-erp-v4";
 const OFFLINE_URL = "/login";
 
 self.addEventListener("install", (e) => {
