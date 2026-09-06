@@ -191,6 +191,15 @@ so even a name change is an admin edit. The trigger that blocks a non-admin
 from changing their own permissions, rights, window, active flag or authorise
 limit stays as a second line of defence.
 
+
+There is one more strict key outside `users.*`: **`visa.allocate_issued`**. An
+issued visa freezes a group — `guard_group_update` turns away any non-admin
+edit. Two exceptions are open to every staff user, because they are things that
+happen *after* issuance: arrival service / invoice tracking, and
+`package_status` (the package update itself). Re-allocating the **hotel** on a
+sold group is not one of them: `brn_status`, `covered_from` and `covered_to`
+need `visa.allocate_issued`, read through `staff_perm_strict()`, and every such
+change is written to the audit log as `group_issued_coverage_edit`.
 ## One dashboard, and cards are opt-in
 
 Every card lives on `/dashboard` and is registered once in `lib/dashboardCards.ts`

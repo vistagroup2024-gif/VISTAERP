@@ -19,6 +19,10 @@ export const STAFF_PERMISSION_CATALOG: StaffPermGroup[] = [
     { key: "visa.allocate_brn", label: "Allocate BRNs" },
     { key: "visa.erp_create", label: "ERP Creation" },
     { key: "visa.package_update", label: "Package Updates" },
+    // The one permission here that an empty map does NOT grant: it is read with
+    // staff_perm_strict(), because re-allocating a hotel on a group whose visa is
+    // already issued is an override, not a default.
+    { key: "visa.allocate_issued", label: "Allocate BRNs after visa issued (package update)" },
     { key: "visa.mark_issued", label: "Mark Visa Issued" },
     { key: "visa.invoices", label: "Visa Invoices (accounting ledger)" },
   ] },
