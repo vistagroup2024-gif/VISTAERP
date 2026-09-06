@@ -127,7 +127,7 @@ async function PendingTab({ company, today }: { company: string; today: string }
         </div>
       )}
       <div className="mt-4 card max-h-[75vh] overflow-auto p-0">
-        <table className="w-full min-w-[1120px]">
+        <table className="w-full min-w-[1280px]">
           <thead className="bg-slate-50 thead-freeze">
             <tr>
               <th className="th">Group No</th><th className="th">Company</th><th className="th">Agent</th>
@@ -150,11 +150,18 @@ async function PendingTab({ company, today }: { company: string; today: string }
                 <td className="td"><span className={`badge ${i.pcls}`}>{i.priority}</span></td>
                 <td className="td">{statusBadge(i.g.package_status)}</td>
                 <td className="td">
-                  {i.g.package_status === "update_ready"
-                    ? <MarkUpdatedButton groupId={i.g.id} />
-                    : i.g.package_status === "update_available"
-                    ? <Link href={`/groups/${i.g.id}`} className="rounded bg-teal-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-teal-700">Update Package →</Link>
-                    : <Link href={`/groups/${i.g.id}`} className="text-slate-400 text-sm hover:underline">Awaiting inventory</Link>}
+                  {/* The row's own next step, and beside it the manual override —
+                      available whatever the status, because the whole point of it
+                      is that the package was updated without this system's
+                      inventory covering the stay. */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {i.g.package_status === "update_ready"
+                      ? <MarkUpdatedButton groupId={i.g.id} />
+                      : i.g.package_status === "update_available"
+                      ? <Link href={`/groups/${i.g.id}`} className="rounded bg-teal-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-teal-700">Update Package →</Link>
+                      : <Link href={`/groups/${i.g.id}`} className="text-slate-400 text-sm hover:underline">Awaiting inventory</Link>}
+                    <MarkUpdatedButton groupId={i.g.id} manual />
+                  </div>
                 </td>
               </tr>
             ))}
@@ -172,12 +179,12 @@ async function HistoryTab({ companyName }: { companyName?: string }) {
   const H = (rows ?? []).filter((r: any) => !companyName || r.company_name === companyName);
   return (
     <div className="card max-h-[75vh] overflow-auto p-0">
-      <table className="w-full min-w-[1080px]">
+      <table className="w-full min-w-[1180px]">
         <thead className="bg-slate-50">
           <tr>
             <th className="th">Group No</th><th className="th">Agent</th><th className="th">Company</th>
             <th className="th">Arrival</th><th className="th">Departure</th><th className="th">Previous BRNs</th>
-            <th className="th">Newly Added BRNs</th><th className="th">Updated By</th><th className="th">Updated Date & Time</th>
+            <th className="th">Newly Added BRNs</th><th className="th">How</th><th className="th">Updated By</th><th className="th">Updated Date & Time</th>
           </tr>
         </thead>
         <tbody>
@@ -190,11 +197,14 @@ async function HistoryTab({ companyName }: { companyName?: string }) {
               <td className="td text-sm">{dateStr(r.departure_date)}</td>
               <td className="td text-sm">{r.prev_brns ?? "—"}</td>
               <td className="td text-sm text-teal-700">{r.new_brns ?? "—"}</td>
+              <td className="td">{r.manual
+                ? <span className="badge bg-slate-200 text-slate-700" title="Status changed by hand — no BRN was allocated">Manual</span>
+                : <span className="badge bg-teal-100 text-teal-700">Allocated</span>}</td>
               <td className="td text-sm text-slate-500">{r.updated_by_name ?? "Staff"}</td>
               <td className="td text-sm text-slate-500">{new Date(r.updated_at).toLocaleString()}</td>
             </tr>
           ))}
-          {H.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>No completed package updates yet.</td></tr>}
+          {H.length === 0 && <tr><td className="td text-slate-400" colSpan={10}>No completed package updates yet.</td></tr>}
         </tbody>
       </table>
     </div>
