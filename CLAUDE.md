@@ -239,11 +239,27 @@ scope by. But a `security definer` routine an unauthenticated caller can enter i
 one gate away from trouble. Write **`revoke all on function ... from public,
 anon`** then `grant execute ... to authenticated`.
 
-Migration 292 closed the routines written in that run. **382 of the 472 public
-functions are still PUBLIC-executable, 328 of them `security definer`** — much of
-that is deliberate (`b2b_*`, `login_*`, `public_*_voucher` serve the agent,
-vendor and driver portals, which are anon by design), but the rest has never been
-audited one by one.
+Migrations 292 and 293 swept the whole schema. **78 functions are anon-callable
+now, down from 382**, and every one of them is anon by design: the `b2b_*`
+family, the portal logins and sessions, the two public voucher links, the five
+cron endpoints (which run with no session and their own `CRON_SECRET`), and the
+three push-dispatch routines gated by `p_secret`. That list lives in migration
+293 and is derived from the code — every `rpc()` reachable without a Supabase
+session — not from a name pattern.
+
+293 also found the thing the PUBLIC default was hiding. **Fourteen internal
+engines had a real, hand-written `grant execute ... to anon`** — including the
+`*_post_now` routines that are deliberately not granted to `authenticated` so
+the post-on-save gate cannot be walked around. Three of them had no gate of
+their own at all: measured as anon, `stock_apply` reached a NOT NULL violation
+mid-insert, `acct_hold_document` reached a foreign-key violation while inserting
+a pending voucher, and `car_post_contract` ran to completion. The anon key ships
+in the browser bundle, so anon means anybody. They are closed, and nothing was
+granted to `authenticated` to compensate — the property still holds.
+
+**A new staff-only routine needs no grant at all** beyond `grant execute ... to
+authenticated`, and an internal engine needs none: leaving it ungranted is what
+makes it internal.
 
 ## A select() without a bound is a bug waiting for the 1001st row
 
