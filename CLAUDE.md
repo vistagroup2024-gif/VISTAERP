@@ -225,6 +225,26 @@ without `dashboard.view` would be sent to their landing, forwarded back to
 `dashboard_metrics()` for the money and trade cards, `dashboard_module_metrics()`
 for the ones absorbed from the module dashboards (Umrah, transport, hotels).
 
+## `revoke ... from anon` is not a gate; `revoke ... from public` is
+
+Postgres grants EXECUTE to **PUBLIC** on every new function, and `anon` is a
+member of PUBLIC. So the `revoke all on function ... from anon` line these
+migrations write after a staff-only routine takes away a grant that was never
+the one letting anon in — measured as the anon role, `dashboard_metrics()` ran
+and `mark_package_updated_manual()` reached its own body.
+
+Nothing leaked, because the real gate is inside each routine (`is_staff()`, or a
+portal token) and the invoker ones come back empty with no company for RLS to
+scope by. But a `security definer` routine an unauthenticated caller can enter is
+one gate away from trouble. Write **`revoke all on function ... from public,
+anon`** then `grant execute ... to authenticated`.
+
+Migration 292 closed the routines written in that run. **382 of the 472 public
+functions are still PUBLIC-executable, 328 of them `security definer`** — much of
+that is deliberate (`b2b_*`, `login_*`, `public_*_voucher` serve the agent,
+vendor and driver portals, which are anon by design), but the rest has never been
+audited one by one.
+
 ## A select() without a bound is a bug waiting for the 1001st row
 
 PostgREST caps a response at **1000 rows and says nothing** — no error, just a
