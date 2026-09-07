@@ -80,6 +80,35 @@ Anything new that posts must go through one of those two gates. The internal
 `*_post_now` routines are not granted to `authenticated`, so the gate cannot be
 walked around.
 
+## A rule decides whether a voucher needs authorising — nothing else does
+
+No rule matches, the voucher posts on save. That is the default and it is what
+`acct_approvals_needed` returns when nothing matches: 0.
+
+A rule (`acct_approval_rules`, edited on `/accounting/rules`) tests any
+combination of **voucher type**, **amount from** (0 = every voucher of the
+type), **cost centre** (null = any) and **who raised it** (null = anyone). So
+"over 100 in CAR SALES INSTALLMENT" and "anything Saad raises" are both rules.
+`acct_rule_for()` picks the match, most specific first: naming a person beats
+naming a cost centre, which beats an amount alone, and between rules of the
+same shape the higher threshold wins.
+
+It did not work this way before, and the old behaviour is the trap to avoid
+re-introducing: ticking somebody as an approver for a voucher TYPE held every
+voucher of that type, and the amount threshold was consulted **only when
+nobody was ticked**. The two controls could not be combined at all.
+
+`acct_approval_rule_approvers` says who may authorise the vouchers a given rule
+holds; empty falls back to the type's approvers (`acct_voucher_approvers`), then
+to anyone with the authorisation right. `pending_vouchers.rule_id` records which
+rule held it, which is how `acct_can_authorize_pending` knows whose approval is
+being waited on. An admin may always approve, but **no rule requires an admin**.
+Maker-checker and the per-user `acct_authorize_limit` are unchanged and apply on
+top.
+
+All three hold paths pass the cost centre: `gl_submit` takes it from the first
+line that names one, `trade_doc_post` from the document header, payroll has none.
+
 ## Master data is the user's
 
 Nothing creates or edits Product Tree items, accounts or cost centres behind the

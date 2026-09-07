@@ -1,160 +1,236 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { COMPANY_ID } from "@/lib/format";
 import { useDocRights } from "@/components/AccessProvider";
 
-type Rule = { id?: string; doc_type: string; min_amount: number; approvals_needed: number; active: boolean };
-type Authorizer = { user_id: string; name: string; is_admin: boolean; limit: number | null };
+type Approver = { user_id: string; name: string | null };
+type Rule = {
+  id: string; name: string | null; doc_type: string; min_amount: number;
+  cost_center: string | null; created_by: string | null; created_by_name: string | null;
+  approvals_needed: number; active: boolean; approvers: Approver[];
+};
 type StaffUser = { id: string; full_name: string | null; email: string | null };
-type Approver = { user_id: string; name: string };
-const DOC_TYPES = [
-  ["gl_receipt", "Receipt"], ["gl_payment", "Payment"], ["gl_contra", "Contra"], ["gl_journal", "Journal Entry"],
+type Authorizer = { user_id: string; name: string; is_admin: boolean; limit: number | null };
+
+// Every voucher a rule can hold. The first four go through gl_submit; the trade
+// documents and payroll are held as whole documents and posted by their own
+// routine on approval — either way the rule decides.
+const DOC_TYPES: [string, string][] = [
+  ["gl_receipt", "Receipt"], ["gl_payment", "Payment"], ["gl_contra", "Contra"],
+  ["gl_journal", "Journal Entry"], ["gl_payroll", "Payroll"],
+  ["purchase_voucher", "Purchase Voucher"], ["purchase_return", "Purchase Return"],
+  ["sales_invoice", "Sales Invoice"], ["sales_return", "Sales Return"],
 ];
+const label = (k: string) => DOC_TYPES.find((d) => d[0] === k)?.[1] ?? k;
+const money = (n: number) => Number(n || 0).toLocaleString();
+
+const blank = () => ({
+  id: null as string | null, name: "", doc_type: "gl_payment", min_amount: "0",
+  cost_center: "", created_by: "", approvals_needed: "1", active: true,
+  approvers: [] as string[],
+});
 
 export default function RulesPage() {
   const rights = useDocRights("auth_rules");
   const supabase = createClient();
   const [rules, setRules] = useState<Rule[]>([]);
-  const [form, setForm] = useState<Rule>({ doc_type: "gl_payment", min_amount: 0, approvals_needed: 1, active: true });
+  const [staff, setStaff] = useState<StaffUser[]>([]);
+  const [costCenters, setCostCenters] = useState<{ id: string; name: string }[]>([]);
+  const [authorizers, setAuthorizers] = useState<Authorizer[]>([]);
+  const [f, setF] = useState(blank());
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [authorizers, setAuthorizers] = useState<Authorizer[]>([]);
-  const [staff, setStaff] = useState<StaffUser[]>([]);
-  const [approvers, setApprovers] = useState<Record<string, Approver[]>>({});
-  const [savingWho, setSavingWho] = useState<string | null>(null);
-  async function load() {
-    const { data } = await supabase.from("acct_approval_rules").select("*").order("doc_type");
-    setRules((data ?? []) as Rule[]);
-    const { data: az } = await supabase.rpc("acct_list_authorizers");
-    setAuthorizers((az as Authorizer[]) ?? []);
-    const { data: su } = await supabase.rpc("staff_users_list", { p_id: null });
+  const load = useCallback(async () => {
+    const [{ data: rl }, { data: su }, { data: cc }, { data: az }] = await Promise.all([
+      supabase.rpc("acct_rules_list"),
+      supabase.rpc("staff_users_list", { p_id: null }),
+      supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
+      supabase.rpc("acct_list_authorizers"),
+    ]);
+    setRules((rl as Rule[]) ?? []);
     setStaff((su as StaffUser[]) ?? []);
-    const { data: ap } = await supabase.rpc("voucher_approvers_list");
-    setApprovers((ap as Record<string, Approver[]>) ?? {});
-  }
-  useEffect(() => { load(); }, []); // eslint-disable-line
+    setCostCenters((cc as any[]) ?? []);
+    setAuthorizers((az as Authorizer[]) ?? []);
+  }, [supabase]);
+  useEffect(() => { load(); }, [load]);
 
-  async function setLimit(u: Authorizer) {
-    const cur = u.limit == null ? "" : String(u.limit);
-    const v = prompt(`Authorisation limit for ${u.name} (blank = no limit):`, cur);
-    if (v === null) return;
-    const lim = v.trim() === "" ? null : Number(v) || 0;
-    const { error } = await supabase.rpc("acct_set_authorize_limit", { p_user: u.user_id, p_limit: lim });
-    if (error) return setErr(error.message);
-    load();
-  }
+  const nameOf = useMemo(() => {
+    const m = new Map(staff.map((u) => [u.id, u.full_name || u.email || "—"]));
+    return (id: string) => m.get(id) ?? "—";
+  }, [staff]);
 
-  async function toggleApprover(docType: string, userId: string) {
-    const cur = (approvers[docType] ?? []).map((a) => a.user_id);
-    const next = cur.includes(userId) ? cur.filter((x) => x !== userId) : [...cur, userId];
-    setSavingWho(docType); setErr(null);
-    const { error } = await supabase.rpc("voucher_approvers_set", { p_doc_type: docType, p_user_ids: next });
-    setSavingWho(null);
-    if (error) return setErr(error.message);
-    load();
+  function edit(r: Rule) {
+    setF({
+      id: r.id, name: r.name ?? "", doc_type: r.doc_type, min_amount: String(r.min_amount),
+      cost_center: r.cost_center ?? "", created_by: r.created_by ?? "",
+      approvals_needed: String(r.approvals_needed), active: r.active,
+      approvers: r.approvers.map((a) => a.user_id),
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function save(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setErr(null);
-    const { error } = await supabase.from("acct_approval_rules").upsert({
-      company_id: COMPANY_ID, doc_type: form.doc_type,
-      min_amount: Number(form.min_amount) || 0, approvals_needed: Number(form.approvals_needed) || 1, active: form.active,
-    }, { onConflict: "company_id,doc_type" });
+    const { error } = await supabase.rpc("acct_rule_save", {
+      p_id: f.id,
+      p_rule: {
+        name: f.name, doc_type: f.doc_type, min_amount: f.min_amount,
+        cost_center: f.cost_center, created_by: f.created_by,
+        approvals_needed: f.approvals_needed, active: f.active,
+      },
+      p_approvers: f.approvers,
+    });
     setSaving(false);
+    if (error) return setErr(error.message);
+    setF(blank()); load();
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Delete this rule? Vouchers it would have held will post on save.")) return;
+    const { error } = await supabase.rpc("acct_rule_delete", { p_id: id });
     if (error) return setErr(error.message);
     load();
   }
-  async function remove(id: string) {
-    if (!confirm("Delete this rule?")) return;
-    await supabase.from("acct_approval_rules").delete().eq("id", id);
+
+  async function setLimit(u: Authorizer) {
+    const v = prompt(`Authorisation limit for ${u.name} (blank = no limit):`, u.limit == null ? "" : String(u.limit));
+    if (v === null) return;
+    const { error } = await supabase.rpc("acct_set_authorize_limit",
+      { p_user: u.user_id, p_limit: v.trim() === "" ? null : Number(v) || 0 });
+    if (error) return setErr(error.message);
     load();
   }
 
+  const toggle = (id: string) =>
+    setF((c) => ({ ...c, approvers: c.approvers.includes(id) ? c.approvers.filter((x) => x !== id) : [...c.approvers, id] }));
+
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-5xl space-y-5">
       <h1 className="text-xl font-bold tracking-tight text-slate-900">Voucher Authorisation</h1>
       <p className="text-sm text-slate-500">
-        Tick who may authorise each voucher type. A type with at least one approver is held when it is
-        saved and posts the moment one of them approves it — nobody else can, and a maker can never
-        approve their own. A type with nobody ticked posts immediately on save.
+        A voucher posts the moment it is saved <b>unless a rule says otherwise</b>. A rule can test the
+        voucher type, the amount, the cost centre and who raised it — in any combination — so
+        &ldquo;over 100 in Car Sales Installment&rdquo; and &ldquo;anything Saad raises&rdquo; are both
+        rules, and the more specific one wins when both match. A minimum of 0 means every voucher of
+        that type.
       </p>
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
-      <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            <tr>
-              <th className="px-3 py-2 text-left">Voucher</th>
-              {staff.map((u) => <th key={u.id} className="px-3 py-2 text-center font-medium normal-case">{u.full_name || u.email}</th>)}
-              <th className="px-3 py-2 text-left">Effect</th>
-            </tr>
-          </thead>
-          <tbody>
-            {DOC_TYPES.map(([k, l]) => {
-              const picked = (approvers[k] ?? []).map((a) => a.user_id);
-              return (
-                <tr key={k} className="border-t border-slate-100">
-                  <td className="px-3 py-2 font-medium text-slate-700">{l}</td>
-                  {staff.map((u) => (
-                    <td key={u.id} className="px-3 py-2 text-center">
-                      <input type="checkbox" disabled={savingWho === k}
-                        checked={picked.includes(u.id)}
-                        onChange={() => toggleApprover(k, u.id)} />
-                    </td>
-                  ))}
-                  <td className="px-3 py-2 text-xs text-slate-500">
-                    {picked.length === 0
-                      ? "Posts immediately"
-                      : `Held for ${(approvers[k] ?? []).map((a) => a.name).join(", ")}`}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <form onSubmit={save} className="card space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold text-slate-700">{f.id ? "Edit rule" : "New rule"}</h2>
+          {f.id && <button type="button" onClick={() => setF(blank())} className="text-xs text-brand hover:underline">start a new one instead</button>}
+        </div>
 
-      <h2 className="pt-2 text-xl font-bold">Approval Rules</h2>
-      <p className="text-sm text-slate-500">Optional extra control. For a voucher type that has NO approver ticked above, a rule still holds it once the amount reaches the threshold. For a type that does have approvers, the rule only raises how many of them must approve.</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="sm:col-span-3"><label className="label">Rule name</label>
+            <input className="input" placeholder="e.g. Car sales payments over 100"
+              value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
 
-      <form onSubmit={save} className="card grid grid-cols-2 items-end gap-3 md:grid-cols-5">
-        <div><label className="label">Document</label>
-          <select className="input" value={form.doc_type} onChange={(e) => setForm({ ...form, doc_type: e.target.value })}>
-            {DOC_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select></div>
-        <div><label className="label">Min amount (SAR)</label>
-          <input className="input text-right tabular-nums" inputMode="decimal" value={form.min_amount} onChange={(e) => setForm({ ...form, min_amount: Number(e.target.value) })} /></div>
-        <div><label className="label">Approvals needed</label>
-          <input className="input text-right" type="number" min={1} value={form.approvals_needed} onChange={(e) => setForm({ ...form, approvals_needed: Number(e.target.value) })} /></div>
-        <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active</label>
-        <button className="btn disabled:opacity-40" disabled={saving || !rights.canCreate} title={rights.denied("create")}>{saving ? "Saving…" : "Save rule"}</button>
+          <div><label className="label">Voucher type</label>
+            <select className="input" value={f.doc_type} onChange={(e) => setF({ ...f, doc_type: e.target.value })}>
+              {DOC_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select></div>
+
+          <div><label className="label">Amount from (SAR)</label>
+            <input className="input text-right tabular-nums" inputMode="decimal"
+              value={f.min_amount} onChange={(e) => setF({ ...f, min_amount: e.target.value })} />
+            <p className="mt-1 text-xs text-slate-400">0 = every voucher of this type.</p></div>
+
+          <div><label className="label">Cost centre</label>
+            <select className="input" value={f.cost_center} onChange={(e) => setF({ ...f, cost_center: e.target.value })}>
+              <option value="">Any cost centre</option>
+              {costCenters.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+            </select></div>
+
+          <div><label className="label">Only when raised by</label>
+            <select className="input" value={f.created_by} onChange={(e) => setF({ ...f, created_by: e.target.value })}>
+              <option value="">Anyone</option>
+              {staff.map((u) => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
+            </select></div>
+
+          <div><label className="label">Approvals needed</label>
+            <input className="input text-right" type="number" min={1}
+              value={f.approvals_needed} onChange={(e) => setF({ ...f, approvals_needed: e.target.value })} /></div>
+
+          <label className="flex items-center gap-2 pb-1 text-sm sm:col-span-1">
+            <input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} />
+            Active
+          </label>
+        </div>
+
+        <div>
+          <label className="label">Who may authorise it</label>
+          <div className="flex flex-wrap gap-2">
+            {staff.map((u) => (
+              <button key={u.id} type="button" onClick={() => toggle(u.id)}
+                className={`rounded-full border px-3 py-1 text-sm ${f.approvers.includes(u.id)
+                  ? "border-brand bg-brand/10 font-medium text-brand-700"
+                  : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                {f.approvers.includes(u.id) ? "✓ " : ""}{u.full_name || u.email}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-slate-400">
+            Nobody picked = whoever may authorise this voucher type. A maker can never approve their
+            own voucher, and an admin can always approve.
+          </p>
+        </div>
+
+        <div className="flex gap-2 border-t border-slate-100 pt-3">
+          <button className="btn disabled:opacity-40" disabled={saving || !(f.id ? rights.canEdit : rights.canCreate)}
+            title={rights.denied(f.id ? "edit" : "create")}>
+            {saving ? "Saving…" : f.id ? "Save changes" : "Add rule"}
+          </button>
+          <button type="button" className="btn-outline" onClick={() => setF(blank())}>Clear</button>
+        </div>
       </form>
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            <tr><th className="px-3 py-2 text-left">Document</th><th className="px-3 py-2 text-right">Min amount</th><th className="px-3 py-2 text-right">Approvals</th><th className="px-3 py-2 text-center">Active</th><th /></tr>
+            <tr>
+              <th className="px-3 py-2 text-left">Rule</th><th className="px-3 py-2 text-left">Voucher</th>
+              <th className="px-3 py-2 text-right">From</th><th className="px-3 py-2 text-left">Cost centre</th>
+              <th className="px-3 py-2 text-left">Raised by</th><th className="px-3 py-2 text-right">Approvals</th>
+              <th className="px-3 py-2 text-left">Authorised by</th><th className="px-3 py-2 text-center">Active</th><th />
+            </tr>
           </thead>
           <tbody>
             {rules.map((r) => (
-              <tr key={r.id} className="border-t border-slate-100">
-                <td className="px-3 py-2">{DOC_TYPES.find((d) => d[0] === r.doc_type)?.[1] ?? r.doc_type}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{Number(r.min_amount).toLocaleString()}</td>
+              <tr key={r.id} className={`border-t border-slate-100 ${r.active ? "" : "text-slate-400"}`}>
+                <td className="px-3 py-2 font-medium">{r.name || "—"}</td>
+                <td className="px-3 py-2">{label(r.doc_type)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{Number(r.min_amount) === 0 ? "any" : money(r.min_amount)}</td>
+                <td className="px-3 py-2">{r.cost_center ?? <span className="text-slate-400">any</span>}</td>
+                <td className="px-3 py-2">{r.created_by_name ?? <span className="text-slate-400">anyone</span>}</td>
                 <td className="px-3 py-2 text-right">{r.approvals_needed}</td>
+                <td className="px-3 py-2">
+                  {r.approvers.length ? r.approvers.map((a) => a.name ?? nameOf(a.user_id)).join(", ")
+                    : <span className="text-slate-400">the voucher type&apos;s approvers</span>}
+                </td>
                 <td className="px-3 py-2 text-center">{r.active ? "✓" : "—"}</td>
-                <td className="px-3 py-2 text-right"><button onClick={() => remove(r.id!)} disabled={!rights.canDelete} title={rights.denied("delete")} className="text-red-500 hover:underline disabled:opacity-40">Delete</button></td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <button onClick={() => edit(r)} disabled={!rights.canEdit} title={rights.denied("edit")}
+                    className="text-brand hover:underline disabled:opacity-40">Edit</button>
+                  <button onClick={() => remove(r.id)} disabled={!rights.canDelete} title={rights.denied("delete")}
+                    className="ml-3 text-red-500 hover:underline disabled:opacity-40">Delete</button>
+                </td>
               </tr>
             ))}
-            {rules.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={5}>No rules — all vouchers post immediately.</td></tr>}
+            {rules.length === 0 && (
+              <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={9}>
+                No rules — every voucher posts the moment it is saved.
+              </td></tr>
+            )}
           </tbody>
         </table>
       </div>
 
-      <h2 className="pt-2 text-xl font-bold">User Authorisation Limits</h2>
-      <p className="text-sm text-slate-500">The maximum voucher amount each authoriser may approve. Blank = no limit. Admins (super-admin) bypass all limits. Only an admin can change these.</p>
+      <h2 className="pt-2 text-lg font-bold">Authorisation limits</h2>
+      <p className="text-sm text-slate-500">The largest voucher each person may approve, whatever the rule says. Blank = no limit. Admins bypass it. Only an admin can change these.</p>
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -164,7 +240,7 @@ export default function RulesPage() {
             {authorizers.map((u) => (
               <tr key={u.user_id} className="border-t border-slate-100">
                 <td className="px-3 py-2">{u.name}{u.is_admin && <span className="ml-2 rounded bg-brand/10 px-1.5 text-[10px] uppercase text-brand">admin</span>}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{u.is_admin ? "—" : (u.limit == null ? "No limit" : Number(u.limit).toLocaleString())}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{u.is_admin ? "—" : (u.limit == null ? "No limit" : money(u.limit))}</td>
                 <td className="px-3 py-2 text-right">{!u.is_admin && <button onClick={() => setLimit(u)} disabled={!rights.canEdit} title={rights.denied("edit")} className="text-brand hover:underline disabled:opacity-40">Set limit</button>}</td>
               </tr>
             ))}
