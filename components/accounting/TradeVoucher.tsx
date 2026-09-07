@@ -12,6 +12,10 @@ type Row = {
   product_id: string | null; item_name: string; units: string; quantity: string; rate: string; amount: string;
   link1: string; extras: Record<string, string>;
 };
+/** What "Mode of Payment" may be. Free text let the same thing be written three
+ *  ways and reported on as none of them. */
+const PAYMENT_MODES = ["Cash", "Credit", "Bank Transfer", "Cheque", "Card"];
+
 const blankRow = (): Row => ({ product_id: null, item_name: "", units: "", quantity: "", rate: "", amount: "", link1: "", extras: {} });
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 const num = (s: string) => (s?.trim?.() === "" || s == null ? 0 : Number(s) || 0);
@@ -42,7 +46,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [terms, setTerms] = useState("");
   const [narration, setNarration] = useState("");
   const [roundOff, setRoundOff] = useState("");
-  const [rows, setRows] = useState<Row[]>([blankRow(), blankRow()]);
+  const [rows, setRows] = useState<Row[]>([blankRow()]);
   // Header extras (incl. the car costing block) live in the document meta.
   const [extras, setExtras] = useState<Record<string, string>>({});
   // Which derived boxes the user has typed into — those stop auto-calculating.
@@ -117,7 +121,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setId(null); setDocNo(""); setDone(null); setErr(null);
     setDate(new Date().toISOString().slice(0, 10)); setParty(""); setCostCenter(""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff("");
-    setRows([blankRow(), blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({});
+    setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({});
     setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false);
   }
   function setRow(i: number, patch: Partial<Row>) {
@@ -189,7 +193,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         amount: l.amount ? String(Number(l.amount)) : "", link1: l.link1 ?? "", extras: ex,
       };
     });
-    setRows(ls.length ? [...ls, blankRow()] : [blankRow(), blankRow()]);
+    setRows(ls.length ? [...ls, blankRow()] : [blankRow()]);
   }
   async function load(pid: string) {
     setBusy(true); setErr(null);
@@ -251,7 +255,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         link1: l.link1 ?? "", extras: ex,
       };
     });
-    setRows(ls.length ? [...ls, blankRow()] : [blankRow(), blankRow()]);
+    setRows(ls.length ? [...ls, blankRow()] : [blankRow()]);
 
     if (v.source_kind === "car") { setSourceCar(v.id); setSourceId(null); }
     else { setSourceId(v.id); setSourceCar(null); }
@@ -453,7 +457,13 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                 <option value="">— none (no stock) —</option>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select></div>
           )}
-          {cfg.showMode && <div><label className="label">Mode of Payment</label><input className="input" value={mode} onChange={(e) => setMode(e.target.value)} /></div>}
+          {cfg.showMode && (
+            <div><label className="label">Mode of Payment</label>
+              <select className="input" value={mode} onChange={(e) => setMode(e.target.value)}>
+                <option value="">—</option>
+                {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select></div>
+          )}
           {cfg.showDue && <div><label className="label">Due Date</label><input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>}
           {cfg.showDelivery && <div><label className="label">Delivery Date</label><input type="date" className="input" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} /></div>}
           {headerExtras.filter((f) => f.kind === "check").map(headerField)}

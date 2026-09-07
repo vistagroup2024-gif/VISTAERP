@@ -66,15 +66,19 @@ const n = (v: Record<string, string>, k: string) => Number(v[k]) || 0;
 
 // Car installment maths. Percentage is a MONTHLY rate, so the margin grows with
 // the number of instalment months:
-//   Total Cost    = Purchase Rate + Expenses
-//   Investment    = Total Cost - Advance          (what Vista actually finances)
+//   Investment    = Total Cost (COGS) - Advance   (what Vista actually finances)
 //   Margin Amount = Investment x Percentage% x Installment Months
-//   Selling Price = Total Cost + Margin Amount
+//   Selling Price = Total Cost (COGS) + Margin Amount
 // Each derived box stays editable — typing in it overrides the formula.
+//
+// Purchase Rate and Expenses used to sit above Total Cost and add up to it. They
+// were the same two numbers the Purchase Voucher already carries, retyped on the
+// sales side where nothing checks them, and a Total Cost that disagreed with the
+// purchase was invisible. What the quotation needs is the one figure the margin
+// is calculated from, so that is what it asks for, under the name the accounts
+// use for it.
 const CAR_COSTING: HeaderExtra[] = [
-  { key: "purchase_rate", label: "Purchase Rate", kind: "money" },
-  { key: "expenses", label: "Expenses", kind: "money" },
-  { key: "total_cost", label: "Total Cost", kind: "money", derived: (v) => n(v, "purchase_rate") + n(v, "expenses") },
+  { key: "total_cost", label: "Total Cost (COGS)", kind: "money" },
   { key: "advance", label: "Advance", kind: "money" },
   { key: "investment", label: "Investment", kind: "money", derived: (v) => n(v, "total_cost") - n(v, "advance") },
   { key: "installment_months", label: "Installment Months", kind: "int" },
