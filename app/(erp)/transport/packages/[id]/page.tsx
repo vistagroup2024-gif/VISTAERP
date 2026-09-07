@@ -13,7 +13,9 @@ export default async function PackageBuilderPage({ params }: { params: { id: str
     supabase.from("transport_package_legs").select("id, seq, route_id, label, vehicle_id").eq("package_id", params.id).order("seq"),
     supabase.from("transport_routes").select("id, name").eq("is_active", true).order("name"),
     supabase.from("transport_vehicles").select("id, name, category, is_active").order("sort_order").order("name"),
-    supabase.from("transport_package_prices").select("id, vehicle_id, price, agent_id").eq("package_id", params.id),
+    // effective_from comes too: a package price is a dated row now, so the editor
+    // shows what is in force on a chosen date rather than "the" price.
+    supabase.from("transport_package_prices").select("id, vehicle_id, price, agent_id, effective_from, effective_to, status").eq("package_id", params.id),
     supabase.from("parties").select("id, name").in("party_type", ["customer", "b2b_agent"]).eq("is_active", true).order("name"),
   ]);
 
@@ -35,7 +37,8 @@ export default async function PackageBuilderPage({ params }: { params: { id: str
       />
 
       <h2 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wide text-slate-400">Price per Vehicle</h2>
-      <p className="mb-3 text-sm text-slate-500">Set the <b>Standard</b> price per vehicle, or pick an agent to give them a different package price. The booking uses the selected agent&rsquo;s price when set, otherwise the standard price.</p>
+      <p className="mb-3 text-sm text-slate-500">Set the <b>Standard</b> price per vehicle, or pick an agent to give them a different package price. The booking uses the selected agent&rsquo;s price when set, otherwise the standard price.
+        Prices are <b>effective-dated</b>: saving writes a price that starts on the date you choose and leaves the earlier one as history, so next season&rsquo;s prices can be entered now.</p>
       <PackagePrices packageId={params.id} vehicles={(vehicles as any[]) ?? []} initial={(prices as any[]) ?? []}
         agents={((agents as any[]) ?? []).map((a) => ({ id: a.id, agency_name: a.name }))} />
     </div>

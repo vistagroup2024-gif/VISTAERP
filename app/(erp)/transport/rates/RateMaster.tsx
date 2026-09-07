@@ -316,6 +316,41 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
             <div><label className="label">Effective from</label><input className="input" type="date" value={bDate} onChange={(e) => setBDate(e.target.value)} /></div>
           </div>
 
+          {/* Copy a whole fare list instead of retyping it. Giving a second agent
+              the rates a first one just got meant typing every cell again; this
+              fills the grid below with that agent's rates in force today. Nothing
+              is saved until Save, so the copy can be adjusted first. */}
+          <div className="card flex flex-wrap items-center gap-3">
+            <label className="label mb-0">Copy rates from</label>
+            <select className="input max-w-[16rem]" value=""
+              onChange={(e) => {
+                if (!e.target.value) return;
+                const src = e.target.value === "__std__" ? null : e.target.value;
+                const vehs = bVehicles.length ? bVehicles : vehicles.map((v) => v.id);
+                const next: Record<string, string> = {};
+                let n = 0;
+                routes.forEach((r) => vehs.forEach((vId) => {
+                  const cur = bKind === "vendor" ? currentVendorRate(r.id, vId, bVendor) : currentAgentRate(r.id, vId, src);
+                  if (cur != null) { next[cellKey(r.id, vId)] = String(cur); n += 1; }
+                }));
+                setBNew(next);
+                if (!bVehicles.length) setBVehicles(vehicles.map((v) => v.id));
+                setBMsg(`Copied ${n} rate(s) from ${e.target.value === "__std__" ? "the Default rate set" : aName.get(src!) ?? "that agent"} into the grid — review, then Save.`);
+                setErr(null);
+                e.target.value = "";
+              }}>
+              <option value="">Choose an agent…</option>
+              <option value="__std__">Default (standard rates)</option>
+              {agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}
+            </select>
+            <span className="text-xs text-slate-400">
+              Fills the grid with that agent&rsquo;s rates in force today. Change the ones you want, pick who to save them to above, then Save.
+            </span>
+            {Object.keys(bNew).length > 0 && (
+              <button onClick={() => { setBNew({}); setBMsg(null); }} className="ml-auto text-sm text-slate-500 hover:underline">Clear grid</button>
+            )}
+          </div>
+
           {bKind === "agent_custom" && (
             <div className="card flex flex-wrap items-center gap-3">
               <div>

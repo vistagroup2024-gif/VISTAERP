@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
 
 interface Vehicle { id: string; name: string; category: string | null; is_active: boolean }
-interface Price { id: string; vehicle_id: string; price: number; agent_id: string | null }
+interface Price { id: string; vehicle_id: string; price: number; agent_id: string | null; effective_from: string; effective_to: string | null; status: string | null }
 interface Agent { id: string; agency_name: string }
 // What the package's legs cost booked individually, per vehicle. `priced` against
 // `legs` says whether the total covers the whole package or only the part of it
@@ -24,16 +26,35 @@ export default function PackagePrices({ packageId, vehicles, initial, agents }: 
   const [agentIds, setAgentIds] = useState<string[]>([]); // [] = Standard
   const multi = agentIds.length > 1;
 
-  const forAgent = (aid: string) => new Map(initial.filter((p) => (p.agent_id ?? "") === aid).map((p) => [p.vehicle_id, p]));
-  const standard = useMemo(() => forAgent(""), [initial]);
+  // The date the prices being edited start on. Everything below is read and
+  // written as of this date, the way the route Bulk Update already works.
+  const [effFrom, setEffFrom] = useState(todayStr());
+
+  // Which row is in force for a vehicle on a date. Mirrors transport_package_price():
+  // the agent's own price wins over the standard one, and within that the latest
+  // one that has started.
+  const inForce = (vehicleId: string, aid: string | null, on: string) => {
+    const live = initial.filter((p) =>
+      p.vehicle_id === vehicleId && (p.status ?? "active") === "active" &&
+      p.effective_from <= on && (!p.effective_to || p.effective_to >= on));
+    const pick = (rows: Price[]) => rows.sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0];
+    return pick(live.filter((p) => p.agent_id === aid)) ?? (aid ? pick(live.filter((p) => !p.agent_id)) : undefined);
+  };
+
   const overriddenAgentIds = useMemo(() => new Set(initial.filter((p) => p.agent_id).map((p) => p.agent_id)), [initial]);
-  // Seed inputs from the single selected context; blank when editing many agents.
-  const seed = useMemo(() => (agentIds.length <= 1 ? forAgent(agentIds[0] ?? "") : new Map()), [initial, agentIds]);
+
+  // A row already written FOR this exact effective date is an edit of it; one
+  // inherited from an earlier date is not, so the field starts blank and the
+  // placeholder shows what it would otherwise fall back to.
+  const exact = (vehicleId: string, aid: string | null) =>
+    initial.find((p) => p.vehicle_id === vehicleId && p.agent_id === aid && p.effective_from === effFrom);
 
   const [vals, setVals] = useState<Record<string, string>>({});
   useEffect(() => {
-    setVals(Object.fromEntries(vehicles.map((v) => [v.id, (seed.get(v.id) as any)?.price?.toString() ?? ""])));
-  }, [agentIds, initial]); // eslint-disable-line react-hooks/exhaustive-deps
+    const aid = agentIds.length === 1 ? agentIds[0] : agentIds.length === 0 ? null : undefined;
+    setVals(Object.fromEntries(vehicles.map((v) =>
+      [v.id, aid === undefined ? "" : (exact(v.id, aid)?.price?.toString() ?? "")])));
+  }, [agentIds, initial, effFrom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -67,7 +88,7 @@ export default function PackagePrices({ packageId, vehicles, initial, agents }: 
   async function saveOne(vehicleId: string, raw: string) {
     const price = raw === "" || raw == null ? null : Number(raw);
     for (const aid of targets()) {
-      const { error } = await supabase.rpc("set_package_price", { p_package: packageId, p_vehicle: vehicleId, p_agent: aid, p_price: price });
+      const { error } = await supabase.rpc("set_package_price", { p_package: packageId, p_vehicle: vehicleId, p_agent: aid, p_price: price, p_from: effFrom });
       if (error) throw new Error(error.message);
     }
   }
@@ -84,7 +105,7 @@ export default function PackagePrices({ packageId, vehicles, initial, agents }: 
       const rows = vehicles.filter((v) => (vals[v.id] ?? "") !== "");
       for (const v of rows) await saveOne(v.id, vals[v.id]);
       const who = agentIds.length ? `${agentIds.length} agent(s)` : "Standard";
-      setMsg(`Saved ${rows.length} price(s) for ${who}.`);
+      setMsg(`Saved ${rows.length} price(s) for ${who}, effective ${effFrom}.`);
       router.refresh();
     } catch (e: any) { setErr(e.message); } finally { setBusy(null); }
   }
@@ -100,6 +121,35 @@ export default function PackagePrices({ packageId, vehicles, initial, agents }: 
           {agentIds.length === 0 ? "Editing the Standard price" : multi ? `Saving to ${agentIds.length} agents together` : "Editing 1 agent"}
         </span>
         {agentIds.length > 0 && <span className="text-xs text-slate-400">✱ = has custom prices · blank field falls back to Standard</span>}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-sm text-slate-600">Effective from</label>
+        <input type="date" className="input max-w-[10rem]" value={effFrom}
+          onChange={(e) => setEffFrom(e.target.value || todayStr())} />
+        <span className="text-xs text-slate-400">
+          Saving writes prices starting on this date. Earlier prices stay as they are, so next season can be entered now.
+        </span>
+
+        {/* Copy a whole list rather than retyping it: pick who to copy from, the
+            fields fill with THEIR prices in force on the date above, and nothing
+            is written until Save — so it can be adjusted first. */}
+        <label className="ml-auto text-sm text-slate-600">Copy prices from</label>
+        <select className="input max-w-[14rem]" value=""
+          onChange={(e) => {
+            const src = e.target.value === "__std__" ? null : e.target.value || null;
+            if (e.target.value === "") return;
+            setVals(Object.fromEntries(vehicles.map((v) => {
+              const row = inForce(v.id, src, effFrom);
+              return [v.id, row ? String(row.price) : ""];
+            })));
+            setMsg(`Copied ${e.target.value === "__std__" ? "Standard" : agents.find((a) => a.id === src)?.agency_name ?? ""} prices into the fields — review, then Save.`);
+            e.target.value = "";
+          }}>
+          <option value="">Choose…</option>
+          <option value="__std__">Standard (all agents)</option>
+          {agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}{overriddenAgentIds.has(a.id) ? " ✱" : ""}</option>)}
+        </select>
       </div>
       {err && <p className="text-sm text-red-600">{err}</p>}
       {msg && <p className="text-sm text-green-700">{msg}</p>}
@@ -121,9 +171,12 @@ export default function PackagePrices({ packageId, vehicles, initial, agents }: 
             {vehicles.map((v) => (
               <tr key={v.id} className="border-t border-slate-100">
                 <td className="td font-medium">{v.name}{v.category ? <span className="ml-2 text-xs text-slate-400">{v.category}</span> : null}{!v.is_active && <span className="ml-2 text-xs text-slate-400">(inactive)</span>}</td>
-                {agentIds.length > 0 && <td className="td text-slate-400">{(standard.get(v.id) as any)?.price != null ? Number((standard.get(v.id) as any).price).toFixed(2) : "—"}</td>}
+                {agentIds.length > 0 && <td className="td text-slate-400">{inForce(v.id, null, effFrom)?.price != null ? Number(inForce(v.id, null, effFrom)!.price).toFixed(2) : "—"}</td>}
                 <td className="td"><input className="input max-w-[10rem]" type="number" min="0" step="0.01"
-                  placeholder={agentIds.length > 0 && (standard.get(v.id) as any)?.price != null ? `${Number((standard.get(v.id) as any).price).toFixed(2)} (standard)` : "—"}
+                  placeholder={(() => {
+                    const cur = inForce(v.id, agentIds.length === 1 ? agentIds[0] : null, effFrom);
+                    return cur ? `${Number(cur.price).toFixed(2)} in force${cur.effective_from !== effFrom ? ` from ${cur.effective_from}` : ""}` : "—";
+                  })()}
                   value={vals[v.id] ?? ""} onChange={(e) => setVals({ ...vals, [v.id]: e.target.value })} /></td>
                 {(() => {
                   const lt = legTotals[v.id];

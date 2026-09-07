@@ -119,6 +119,15 @@ past. A period ends where the next begins; once its end date has passed it is
 `past` and moves into Old rates on its own, with no job to run. The agent's own
 portal stays on today.
 
+Package prices are effective-dated too (migration 297): changing one adds a row
+with a new `effective_from` and leaves the old as history, so next season can be
+entered now. That means a package price change can start a rate period, and
+`transport_rate_periods()` takes `transport_package_prices` into its boundaries
+and its signature. The agent sees the same periods in their own portal through
+`b2b_transport_rate_periods()` / `b2b_transport_rate_chart()` — the token-gated
+pair of the office's two. `b2b_transport_masters()` is deliberately left on
+today: the booking form calls it and must quote the price in force now.
+
 A package is priced against the same rates. **Transport → Packages → a package**
 shows, beside the price being typed, what its legs cost booked individually —
 `transport_package_route_total()` sums each leg through `transport_agent_rate()`
