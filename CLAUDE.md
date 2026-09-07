@@ -119,6 +119,13 @@ past. A period ends where the next begins; once its end date has passed it is
 `past` and moves into Old rates on its own, with no job to run. The agent's own
 portal stays on today.
 
+A package is priced against the same rates. **Transport → Packages → a package**
+shows, beside the price being typed, what its legs cost booked individually —
+`transport_package_route_total()` sums each leg through `transport_agent_rate()`
+too, so the comparison is the real one and the discount is visible while the
+number is being decided. It is also what `distribute_package_fares()` already
+prorates the package price over, shown before the fact rather than after.
+
 ## Staff access is three separate things
 
 A staff user carries three independent controls, all on `profiles`, all with the
