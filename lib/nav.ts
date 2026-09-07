@@ -54,6 +54,14 @@ export const DASHBOARD: NavItem = { href: "/dashboard", label: "Dashboard", icon
  *                                      NOT the Sales Invoice voucher, and not
  *                                      Accounting's Invoice / Bill.
  *
+ *   HCN Management   /hotels/hcn     — every purchase booking with its HCN
+ *                                      state, nearest check-in first. Built
+ *                                      before the Arrival screen carried HCN;
+ *                                      the HCN is read and captured there now,
+ *                                      so this one is not in use. It was never
+ *                                      in the menu — it is recorded here so it
+ *                                      is not mistaken for missing and rebuilt.
+ *
  *   Car Sales        /car-sales/*    — the whole module bar its two invoice
  *                                      screens: Alerts, Vehicles / Stock,
  *                                      Commissions, Reports. Taken out of the
@@ -72,6 +80,7 @@ export const HIDDEN_ITEMS: NavItem[] = [
   { href: "/sales/visas", label: "Visa Tracking", perm: ["sales.view"] },
   { href: "/packages", label: "Packages", perm: ["sales.view"] },
   { href: "/invoices", label: "Invoices", perm: ["sales.view"] },
+  { href: "/hotels/hcn", label: "HCN Management", perm: ["hotels.hcn", "hotels.bookings"] },
   { href: "/car-sales/alerts", label: "Alerts", perm: ["carsales.view", "carsales.reports"] },
   { href: "/car-sales/vehicles", label: "Vehicles / Stock", perm: ["carsales.vehicles", "carsales.view"] },
   { href: "/car-sales/commissions", label: "Commissions", perm: ["carsales.ownership", "carsales.sales"] },
@@ -150,7 +159,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/journal/new", label: "Journal Entry" },
     { href: "/accounting/recurring", label: "Recurring Vouchers" },
     { href: "/accounting/bank", label: "Bank Reconciliation" },
-    { href: "/accounting/invoices", label: "Invoice / Bill" },
+    { href: "/accounting/invoices", label: "Bill Record" },
     { href: "/accounting/visa-invoices", label: "Visa Invoices" },
     { href: "/accounting/transport-invoices", label: "Transport Invoices" },
     { href: "/accounting/hotel-invoices", label: "Hotel Invoices" },

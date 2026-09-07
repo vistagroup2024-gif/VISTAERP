@@ -66,7 +66,7 @@ export const DOC_TREE: DocModule[] = [
     ] },
     { group: "Journals", docs: [
       { key: "journal",      label: "Journal Entry",      rights: V, href: "/accounting/journal/new" },
-      { key: "invoice_bill", label: "Invoice / Bill",     rights: V, href: "/accounting/invoices" },
+      { key: "invoice_bill", label: "Bill Record",       rights: V, href: "/accounting/invoices" },
       { key: "recurring",    label: "Recurring Vouchers", rights: V, href: "/accounting/recurring" },
     ] },
     { group: "Module Invoicing", docs: [
