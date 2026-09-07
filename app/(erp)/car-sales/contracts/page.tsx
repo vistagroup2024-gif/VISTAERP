@@ -1,22 +1,37 @@
 import { createClient } from "@/lib/supabase/server";
-import { guardStaffPage, staffCan } from "@/lib/staffSession";
-import PageHeader from "@/components/PageHeader";
-import RealtimeRefresh from "@/components/RealtimeRefresh";
-import ContractsTable, { ContractRow } from "./ContractsTable";
+import { guardStaffPage } from "@/lib/staffSession";
+import CarInvoiceForm from "./CarInvoiceForm";
+import CarInvoiceList, { ContractRow } from "./ContractsTable";
+import { vehicleTitle } from "../lib";
 
 export const dynamic = "force-dynamic";
 
-export default async function ContractsPage() {
-  const access = await guardStaffPage(["carsales.installments", "carsales.sales"]);
+// The Car Invoice opens as a voucher, the way Sales Invoice and Purchase
+// Voucher do — the form IS the screen, with New / Previous / Next and the
+// invoice number to move between them. The list of every invoice raised is
+// still here, under the form, because outstanding and overdue per invoice is
+// not something the voucher itself can show.
+export default async function CarInvoicePage() {
+  const access = await guardStaffPage(["carsales.installments", "carsales.sales"], "car_invoice");
   const supabase = createClient();
-  const { data } = await supabase
-    .from("car_contracts")
-    .select("id, contract_no, contract_date, sale_price, advance, status, customer:customer_id(name), vehicle:vehicle_id(vehicle_no, make, model, model_year, plate_no), car_installments(amount, paid_amount, due_date)")
-    .order("created_at", { ascending: false })
-    .limit(1000);
+  const [{ data: customers }, { data: vehicles }, { data: ccs }, { data: tags }, { data: list }] = await Promise.all([
+    supabase.from("parties").select("id, name").eq("party_type", "customer").eq("is_active", true).order("name"),
+    // select("*") so is_trading (added by migration 259) is available when
+    // present, without breaking before the column exists.
+    supabase.from("car_vehicles").select("*, item:product_id(name)").eq("status", "in_stock").order("created_at", { ascending: false }),
+    supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
+    supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
+    supabase.from("car_contracts")
+      .select("id, contract_no, contract_date, sale_price, advance, status, customer:customer_id(name), vehicle:vehicle_id(vehicle_no, make, model, model_year, plate_no), car_installments(amount, paid_amount, due_date)")
+      .order("created_at", { ascending: false }).limit(1000),
+  ]);
+
+  const vOpts = (vehicles ?? []).map((v: any) => ({
+    id: v.id, label: `${vehicleTitle({ ...v, item: v.item?.name })} · ${v.plate_no ?? v.vehicle_no}`, is_trading: !!v.is_trading,
+  }));
 
   const today = new Date().toISOString().slice(0, 10);
-  const rows: ContractRow[] = (data ?? []).map((c: any) => {
+  const rows: ContractRow[] = (list ?? []).map((c: any) => {
     const insts = (c.car_installments ?? []) as any[];
     const paid = insts.reduce((a, i) => a + Number(i.paid_amount || 0), 0);
     const outstanding = Number(c.sale_price || 0) - Number(c.advance || 0) - paid;
@@ -34,10 +49,10 @@ export default async function ContractsPage() {
   });
 
   return (
-    <div>
-      <RealtimeRefresh tables={["car_contracts", "car_installments"]} />
-      <PageHeader title="Installment Contracts" action={staffCan(access, "carsales.installments") ? { href: "/car-sales/contracts/new", label: "New Contract" } : undefined} />
-      <ContractsTable rows={rows} canManage={staffCan(access, "carsales.installments")} />
+    <div className="space-y-8">
+      <CarInvoiceForm existing={null} installments={[]} customers={(customers ?? []) as any}
+        vehicles={vOpts} costCenters={(ccs ?? []) as any} tagAreas={(tags ?? []) as any} />
+      <CarInvoiceList rows={rows} canManage={access.unrestricted || !!access.permissions["carsales.installments"]} />
     </div>
   );
 }

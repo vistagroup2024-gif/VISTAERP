@@ -92,7 +92,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
         <section className="card">
           <h2 className="mb-3 font-semibold text-slate-700">Dates & Value</h2>
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
-            <dt className="text-slate-400">Contract Date</dt><dd className="font-medium">{dateStr(contract.contract_date)}</dd>
+            <dt className="text-slate-400">Date</dt><dd className="font-medium">{dateStr(contract.contract_date)}</dd>
             <dt className="text-slate-400">Start Date</dt><dd className="font-medium">{dateStr(contract.start_date)}</dd>
             <dt className="text-slate-400">Delivery Date</dt><dd className="font-medium">{dateStr(contract.delivery_date)}</dd>
             <dt className="text-slate-400">Expected Completion</dt><dd className="font-medium">{dateStr(contract.expected_completion_date)}</dd>

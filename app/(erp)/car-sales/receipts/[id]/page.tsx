@@ -22,7 +22,7 @@ export default async function ReceiptDoc({ params }: { params: { id: string } })
         <div>
           <Field l="Received From" v={(r as any).customer?.name} />
           <Field l="Mobile" v={(r as any).customer?.phone} />
-          <Field l="Contract" v={(r as any).contract?.contract_no} />
+          <Field l="Car Invoice" v={(r as any).contract?.contract_no} />
         </div>
         <div>
           <Field l="Date" v={dateStr(r.receipt_date)} />

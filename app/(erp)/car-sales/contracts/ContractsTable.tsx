@@ -45,7 +45,7 @@ export default function ContractsTable({ rows, canManage }: { rows: ContractRow[
   }), [rows, status, q]);
 
   async function del(r: ContractRow) {
-    if (!confirm(`Delete draft contract ${r.contract_no}?`)) return;
+    if (!confirm(`Delete draft car invoice ${r.contract_no}?`)) return;
     const { error } = await supabase.rpc("car_contract_delete", { p_id: r.id });
     if (error) return setErr(error.message);
     router.refresh();
@@ -53,6 +53,7 @@ export default function ContractsTable({ rows, canManage }: { rows: ContractRow[
 
   return (
     <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-slate-800">All Car Invoices</h2>
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -63,7 +64,7 @@ export default function ContractsTable({ rows, canManage }: { rows: ContractRow[
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <input className="input max-w-xs" placeholder="Search contract / customer / vehicle…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input max-w-xs" placeholder="Search invoice / customer / vehicle…" value={q} onChange={(e) => setQ(e.target.value)} />
         <MultiSelectFilter label="Status" options={Object.keys(CONTRACT_STATUS_LABEL).map((k) => ({ value: k, label: CONTRACT_STATUS_LABEL[k] }))} selected={status} onChange={setStatus} />
         <span className="ml-auto text-sm text-slate-500">{filtered.length} / {rows.length}</span>
       </div>
@@ -71,7 +72,7 @@ export default function ContractsTable({ rows, canManage }: { rows: ContractRow[
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[980px]">
           <thead className="bg-slate-50"><tr>
-            <th className="th">Contract</th><th className="th">Customer</th><th className="th">Vehicle</th>
+            <th className="th">Invoice</th><th className="th">Customer</th><th className="th">Vehicle</th>
             <th className="th text-right">Sale Price</th><th className="th text-right">Advance</th>
             <th className="th text-right">Paid</th><th className="th text-right">Outstanding</th>
             <th className="th text-right">Overdue</th><th className="th">Next Due</th><th className="th">Status</th><th className="th text-right">Actions</th>
@@ -100,7 +101,7 @@ export default function ContractsTable({ rows, canManage }: { rows: ContractRow[
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={11}>No contracts.</td></tr>}
+            {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={11}>No car invoices.</td></tr>}
           </tbody>
         </table>
       </div>
