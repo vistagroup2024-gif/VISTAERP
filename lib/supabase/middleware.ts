@@ -45,10 +45,20 @@ export async function updateSession(request: NextRequest) {
   // The B2B agent and Transport vendor portals (and their APIs) run on their own
   // cookie sessions and never need staff Supabase auth. Short-circuit here so we
   // skip the auth-server round-trip for every navigation inside those portals.
+  //
+  // The last two are not browsed by anybody — they are called by machines that
+  // have no Supabase session and never will: pg_net, when a notification row is
+  // inserted, and the scheduler. Without them here the guard below sent both to
+  // /login, which is a page and answers a POST with 405 — so every push since
+  // the feature was built was redirected instead of delivered, and neither cron
+  // job ever reached its own body. Each carries its own secret and checks it
+  // before doing anything (push_dispatch_targets takes p_secret; the cron routes
+  // require CRON_SECRET), which is what makes them safe to let past staff auth.
   const p0 = request.nextUrl.pathname;
   if (p0.startsWith("/agent") || p0.startsWith("/api/agent") || p0.startsWith("/vendor") || p0.startsWith("/api/vendor")
       || p0.startsWith("/driver") || p0.startsWith("/api/driver")
-      || p0.startsWith("/v/") || p0.startsWith("/hv/")) {
+      || p0.startsWith("/v/") || p0.startsWith("/hv/")
+      || p0 === "/api/push/dispatch" || p0.startsWith("/api/cron/")) {
     // /v/ = public transport voucher, /hv/ = public hotel voucher (shared via QR).
     return response;
   }
