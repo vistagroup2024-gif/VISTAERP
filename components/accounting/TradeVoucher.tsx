@@ -74,6 +74,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // Car-sales cost centres (CAR SALES INSTALLMENT / CAR TRADING) reveal the
   // costing block and the vehicle expense columns.
   const isCar = isCarCostCenter(costCenter);
+  // A car sale is one vehicle at one price, both already in the costing block,
+  // so the grid is not shown. The LINE is still written on save — it is what
+  // carries the vehicle to the Car Invoice — it is just not typed by hand.
+  const hideLines = isCar && !!cfg.hideLinesForCar;
   const headerExtras: HeaderExtra[] = useMemo(
     () => [...(cfg.headerExtras ?? []), ...(isCar ? cfg.carHeaderExtras ?? [] : [])],
     [cfg, isCar]);
@@ -161,7 +165,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     if (f.derived) setOverridden((o) => ({ ...o, [f.key]: value.trim() !== "" }));
   }
 
-  const subtotal = useMemo(() => rows.reduce((s, r) => s + num(r.amount), 0), [rows]);
+  const subtotal = useMemo(
+    () => (hideLines ? num(extraValues.selling_price ?? "") : rows.reduce((s, r) => s + num(r.amount), 0)),
+    [rows, hideLines, extraValues],
+  );
   const total = subtotal + num(roundOff);
   // Landed cost = the line amounts plus every expense column flagged as a cost.
   const costColumns = useMemo(() => lineExtras.filter((x) => x.cost), [lineExtras]);
@@ -331,7 +338,21 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       terms: terms || null, narration: narration || null, round_off: num(roundOff), meta,
       source_doc_id: sourceId, source_car_contract: sourceCar,
     };
-    const lines = rows.filter((r) => (r.item_name.trim() || r.product_id) || num(r.amount))
+    // With the grid hidden the document still needs its line, because that line
+    // is what the Car Invoice reads the vehicle from and what the totals are
+    // built from. One line, from the header: the Item / Vehicle at the Selling
+    // Price the costing block worked out.
+    const carLine = (() => {
+      const pid = (extraValues.item_id ?? "").trim() || null;
+      const price = num(extraValues.selling_price ?? "");
+      return [{
+        product_id: pid,
+        item_name: pid ? (products.find((p) => p.id === pid)?.name ?? null) : null,
+        units: "NOS", quantity: 1, rate: price, amount: price, link1: null, meta: {},
+      }];
+    })();
+
+    const lines = hideLines ? carLine : rows.filter((r) => (r.item_name.trim() || r.product_id) || num(r.amount))
       .map((r) => {
         const lm: Record<string, any> = {};
         if (cfg.tagAreaInLine && r.extras.tag_area) lm.tag_area = r.extras.tag_area;
@@ -344,7 +365,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           quantity: num(r.quantity), rate: num(r.rate), amount: num(r.amount), link1: r.link1 || null, meta: lm,
         };
       });
-    if (lines.length === 0) return setErr("Enter at least one item line.");
+    if (hideLines) {
+      if (!lines[0].product_id) return setErr("Choose the Item / Vehicle.");
+      if (!(lines[0].amount > 0)) return setErr("Enter the costing — the Selling Price is zero.");
+    } else if (lines.length === 0) return setErr("Enter at least one item line.");
     setBusy(true);
     const { data, error } = await supabase.rpc("trade_doc_save", {
       p_type: cfg.type, p_prefix: cfg.prefix, p_id: id,
@@ -394,6 +418,11 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     if (f.kind === "text") {
       return <div key={f.key}><label className="label">{f.label}</label>
         <input className="input" value={val} onChange={(e) => setExtra(f, e.target.value)} /></div>;
+    }
+    if (f.kind === "product") {
+      return <div key={f.key}><label className="label">{f.label}</label>
+        <ProductPicker products={products} value={val || null}
+          onChange={(id) => setExtra(f, id ?? "")} placeholder="Item / product" /></div>;
     }
     const derived = !!f.derived && !overridden[f.key];
     return (
@@ -503,6 +532,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           </div>
         )}
 
+        {!hideLines && (
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -570,6 +600,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
             )}
           </table>
         </div>
+        )}
 
         <div className="flex flex-wrap items-end justify-end gap-6">
           {costColumns.length > 0 && extraCosts !== 0 && (
@@ -590,7 +621,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
             {busy ? "Saving…" : posted ? "Posted (locked)" : awaiting ? "Awaiting authorisation"
               : !mayWrite() ? (id ? "No Edit rights" : "No Create rights") : id ? "Save changes" : "Save"}
           </button>
-          <button onClick={() => setRows((r) => [...r, blankRow()])} className="btn-outline text-sm">+ Line</button>
+          {!hideLines && <button onClick={() => setRows((r) => [...r, blankRow()])} className="btn-outline text-sm">+ Line</button>}
           <span className="ml-auto text-xs text-slate-400">{id ? `Editing ${docNo}` : "New document — number auto-assigned on save."}</span>
         </div>
       </div>

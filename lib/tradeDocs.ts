@@ -18,7 +18,7 @@ export interface LineExtra {
 export interface HeaderExtra {
   key: string;
   label: string;
-  kind: "money" | "text" | "date" | "int" | "percent" | "account" | "check";
+  kind: "money" | "text" | "date" | "int" | "percent" | "account" | "check" | "product";
   /** Derived from the other values — shown read-only unless the user overrides it. */
   derived?: (v: Record<string, string>) => number;
   /** A `check` field that starts ticked. Without this a new voucher saves it
@@ -50,6 +50,15 @@ export interface TradeDocCfg {
   tagAreaInLine?: boolean;    // Tag Area as the grid's first column instead
   showWarehouse?: boolean;    // warehouse picker on GL-posting vouchers
   hideRateAmount?: boolean;   // delivery note records what left, not what it cost
+  /**
+   * Hide the item grid on a car cost centre. A car sale is one vehicle at one
+   * price, and both are already in the costing block — the grid underneath was
+   * the same two numbers typed a second time, with nothing checking that they
+   * agreed. The document still gets its line: it is built on save from the
+   * header's Item / Vehicle and the Selling Price, because the line is what
+   * carries the vehicle forward to the Car Invoice.
+   */
+  hideLinesForCar?: boolean;
   qtyLabel?: string;
   headerExtras?: HeaderExtra[];     // always shown
   carHeaderExtras?: HeaderExtra[];  // shown only for a car-sales cost centre
@@ -142,14 +151,18 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   },
   sales_quotation: {
     type: "sales_quotation", prefix: "SQ-", title: "Sales Quotation", party: "customer",
-    showTerms: true, showTagArea: false,
-    carHeaderExtras: [{ key: "item_name", label: "Item Name", kind: "text" }, ...CAR_COSTING],
+    showTerms: true, showTagArea: false, hideLinesForCar: true,
+    // Item / Vehicle picks from the Product Tree rather than being typed: the
+    // Car Invoice finds the car in the yard by this product, and free text
+    // cannot be matched against anything.
+    carHeaderExtras: [{ key: "item_id", label: "Item / Vehicle", kind: "product" }, ...CAR_COSTING],
   },
   sale_order: {
     type: "sale_order", prefix: "SO-", title: "Sale Order", party: "customer",
     loadsFrom: { type: "sales_quotation", title: "Sales Quotation" },
-    showDelivery: true, showTerms: true, showMode: true, showTagArea: false,
+    showDelivery: true, showTerms: true, showMode: true, showTagArea: false, hideLinesForCar: true,
     carHeaderExtras: [
+      { key: "item_id", label: "Item / Vehicle", kind: "product" },
       ...CAR_COSTING,
       { key: "advance_due_date", label: "Advance Due Date", kind: "date" },
       { key: "mega_installment", label: "Mega Installment", kind: "text" },
