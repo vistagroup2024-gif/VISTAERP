@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getStaffAccess } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import RateMaster from "./RateMaster";
 
@@ -6,6 +7,9 @@ export const dynamic = "force-dynamic";
 
 export default async function RateMasterPage() {
   const sb = createClient();
+  // Deleting a rate period is admin-only in the database; the button follows, so
+  // the screen never offers what the RPC behind it will refuse.
+  const access = await getStaffAccess();
   const [{ data: routes }, { data: vehicles }, { data: agents }, { data: vendors }, { data: agentRates }, { data: vendorRates }, { data: routeRates }] =
     await Promise.all([
       sb.from("transport_routes").select("id, name").eq("is_active", true).order("name"),
@@ -38,6 +42,7 @@ export default async function RateMasterPage() {
         vendorRates={(vendorRates as any[]) ?? []}
         routeRates={(routeRates as any[]) ?? []}
         chartParties={(chartParties as any[]) ?? []}
+        isAdmin={access.isAdmin}
       />
     </div>
   );

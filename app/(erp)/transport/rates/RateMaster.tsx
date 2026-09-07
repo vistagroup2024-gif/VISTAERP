@@ -23,9 +23,9 @@ interface RouteRate { id: string; route_id: string; vehicle_id: string; extra_ch
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function RateMaster({ routes, vehicles, agents, vendors, agentRates, vendorRates, routeRates = [], chartParties = [] }: {
+export default function RateMaster({ routes, vehicles, agents, vendors, agentRates, vendorRates, routeRates = [], chartParties = [], isAdmin = false }: {
   routes: Ref[]; vehicles: Ref[]; agents: AgentRef[]; vendors: Ref[]; agentRates: AgentRate[]; vendorRates: VendorRate[];
-  routeRates?: RouteRate[]; chartParties?: ChartParty[];
+  routeRates?: RouteRate[]; chartParties?: ChartParty[]; isAdmin?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -44,12 +44,18 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   const [cMeta, setCMeta] = useState<{ own: number } | null>(null);
   const [cBusy, setCBusy] = useState(false);
   const [cErr, setCErr] = useState<string | null>(null);
+  const [cMsg, setCMsg] = useState<string | null>(null);
+  // Bumped after a delete: the periods themselves changed shape, and the effect
+  // that loads them keys on the agent, so a router.refresh() alone would leave a
+  // deleted period sitting in the picker.
+  const [cReload, setCReload] = useState(0);
 
   // The periods this agent's chart is divided into, and which one to open on:
   // the one in force today, or the last one if every period is behind us.
   useEffect(() => {
     if (tab !== "chart") return;
     let live = true;
+    setCMsg(null);
     supabase.rpc("transport_rate_periods", { p_party: cParty || null }).then(({ data }) => {
       if (!live) return;
       const ps = (data as RatePeriod[]) ?? [];
@@ -59,7 +65,7 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
       setCDate(open ? open.from : today());
     });
     return () => { live = false; };
-  }, [tab, cParty, supabase]);
+  }, [tab, cParty, cReload, supabase]);
 
   useEffect(() => {
     if (tab !== "chart") return;
@@ -80,6 +86,28 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   }, [tab, cParty, cDate, supabase]);
 
   const openPeriod = periods.find((p) => p.from === cDate) ?? null;
+
+  // Deleting a period deletes the rate rows that START it, so what was in force
+  // before simply carries on. Only the rows of the chart on screen go: on an
+  // agent, theirs; on Standard, the standard ones. Admin only, in the database
+  // as well as here.
+  async function deletePeriod() {
+    if (!openPeriod) return;
+    const who = chosenParty ? chosenParty.name : "the Standard rates";
+    const span = `${openPeriod.from} → ${openPeriod.to ?? "onwards"}`;
+    if (!confirm(`Delete the rate period ${span} for ${who}?\n\nThe rates that start on ${openPeriod.from} are removed and whatever was in force before carries on. Bookings already saved keep the price they were quoted. This cannot be undone.`)) return;
+    setCBusy(true); setCErr(null); setCMsg(null);
+    const { data, error } = await supabase.rpc("transport_rate_period_delete", { p_party: cParty || null, p_from: openPeriod.from });
+    setCBusy(false);
+    if (error) { setCErr(error.message); return; }
+    const d: any = data ?? {};
+    setCErr(null);
+    setCMsg(`Deleted the period starting ${d.from} for ${d.agent}: ${d.rates} route rate(s) and ${d.prices} package price(s). The rates in force before it now carry on.`);
+    // Re-read: the periods themselves have changed shape, not just the chart.
+    setCDate(today());
+    setCReload((n) => n + 1);
+    router.refresh();
+  }
   const pastPeriods = periods.filter((p) => p.past);
   const livePeriods = periods.filter((p) => !p.past);
 
@@ -496,6 +524,7 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
           )}
 
           {cErr && <div className="rounded-md border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{cErr}</div>}
+          {cMsg && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">{cMsg}</div>}
 
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
@@ -503,6 +532,13 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
             </span>
             {chosenParty && !chosenParty.has_login && (
               <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700" title="Priced, but has no portal login to see it with">no portal login</span>
+            )}
+            {isAdmin && openPeriod && (
+              <button onClick={deletePeriod} disabled={cBusy}
+                title="Remove the rates that start this period; the ones before it carry on"
+                className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:border-red-300 hover:bg-red-50 disabled:opacity-40">
+                Delete this period
+              </button>
             )}
             {openPeriod && (
               <span className={`rounded-full px-3 py-1 font-medium ${
