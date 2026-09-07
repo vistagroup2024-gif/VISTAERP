@@ -398,7 +398,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         <button onClick={() => nav("next")} disabled={busy} className="btn-outline text-sm">Next ›</button>
         {cfg.loadsFrom && (
           <button onClick={() => setLoadOpen(true)} disabled={busy || posted || awaiting} className="btn text-sm disabled:opacity-40">
-            ⤓ Load {cfg.loadsFrom.title}
+            ⤓ Load {cfg.loadsFrom.title}{cfg.alsoLoadsFrom ? ` / ${cfg.alsoLoadsFrom.title}` : ""}
           </button>
         )}
         {sourceNo && (
@@ -415,7 +415,8 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       </div>
 
       {loadOpen && cfg.loadsFrom && (
-        <LoadFromPicker targetType={cfg.type} sourceTitle={cfg.loadsFrom.title}
+        <LoadFromPicker targetType={cfg.type}
+          sourceTitle={cfg.loadsFrom.title + (cfg.alsoLoadsFrom ? ` or ${cfg.alsoLoadsFrom.title}` : "")}
           onPick={loadFrom} onClose={() => setLoadOpen(false)} />
       )}
 

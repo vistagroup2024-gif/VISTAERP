@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 export type PendingDoc = {
   id: string; doc_no: string; doc_date: string; party_name: string | null;
   cost_center: string | null; reference: string | null; total: number; lines: number;
+  /** "trade" for the document chain, "car" for a Car Invoice. */
+  source_kind?: string | null;
 };
 
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -56,7 +58,7 @@ export default function LoadFromPicker({ targetType, sourceTitle, onPick, onClos
           {rows === null && <p className="px-4 py-8 text-center text-sm text-slate-400">Loading…</p>}
           {rows !== null && list.length === 0 && (
             <p className="px-4 py-10 text-center text-sm text-slate-400">
-              No pending {sourceTitle.toLowerCase()} to load.
+              Nothing pending to load — every {sourceTitle.toLowerCase()} has already been carried forward.
             </p>
           )}
           {list.length > 0 && (
@@ -70,7 +72,17 @@ export default function LoadFromPicker({ targetType, sourceTitle, onPick, onClos
               <tbody>
                 {list.map((r) => (
                   <tr key={r.id} className="border-t border-slate-100 hover:bg-brand-50/40">
-                    <td className="px-4 py-2 font-medium">{r.doc_no}</td>
+                    <td className="px-4 py-2 font-medium">
+                      {r.doc_no}
+                      {/* Two kinds of document can share this list, so each row
+                          says which it is rather than leaving it to be guessed
+                          from the cost centre. */}
+                      {r.source_kind === "car" && (
+                        <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">
+                          Car Invoice
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-slate-600">{r.doc_date}</td>
                     <td className="px-4 py-2 text-slate-600">{r.party_name ?? "—"}</td>
                     <td className="px-4 py-2 text-slate-500">{r.cost_center ?? "—"}</td>

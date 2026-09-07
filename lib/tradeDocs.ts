@@ -35,6 +35,10 @@ export interface TradeDocCfg {
    * Must match trade_doc_source_type() in the database, which is the authority.
    */
   loadsFrom?: { type: string; title: string };
+  /** A second kind of document this voucher can be raised from, outside the
+   *  trade-document chain. trade_doc_pending / trade_doc_load already return it;
+   *  this is what lets the SCREEN say so. */
+  alsoLoadsFrom?: { title: string };
   prefix: string;      // document-number prefix
   title: string;
   party: TradeParty;   // whose picker to show (b2b agents count as customers)
@@ -167,6 +171,9 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   delivery_note: {
     type: "delivery_note", prefix: "DN-", title: "Delivery Note", party: "customer",
     loadsFrom: { type: "sales_invoice", title: "Sales Invoice" },
+    // A car is delivered against its Car Invoice, which lives in Car Sales
+    // rather than in the trade-document chain.
+    alsoLoadsFrom: { title: "Car Invoice" },
     showDelivery: true, showTagArea: true, hideRateAmount: true,
   },
 };
