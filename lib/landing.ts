@@ -42,7 +42,9 @@ export const LANDING: [string, string][] = [
   ["carsales.installments", "/car-sales/contracts"],
   ["carsales.charges", "/car-sales/service-charges"],
   ["sales.view", "/accounting/sales/orders"],
-  ["parties.manage", "/parties"],
+  // The Customers / Agents / Suppliers screen is gone — a customer, agent or
+  // supplier is an account in the chart now, so that is where this lands.
+  ["parties.manage", "/accounting/accounts"],
   ["accounting.view", "/accounting/accounts"],
   ["purchase.view", "/purchase/bills"],
   ["users.view", "/settings/users"],

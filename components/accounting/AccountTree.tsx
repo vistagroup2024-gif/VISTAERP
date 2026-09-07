@@ -16,6 +16,12 @@ export type AcctNode = {
   /** Set when this account IS a customer, agent or supplier — the record the
    *  bookings, groups, rate charts and vouchers pick their parties from. */
   party_type: "customer" | "supplier" | "b2b_agent" | null;
+  /** The party record itself, for Party Details. Null unless party_type is set. */
+  party: {
+    id: string; code: string | null; phone: string | null; email: string | null;
+    currency: string | null; credit_limit: number | null; credit_days: number | null;
+    sales_target: number | null; is_active: boolean;
+  } | null;
   own_debit: number; own_credit: number;
 };
 
@@ -57,6 +63,7 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
   const [editing, setEditing] = useState<AcctNode | null>(null);
   const [moving, setMoving] = useState<AcctNode | null>(null);
   const [linking, setLinking] = useState<AcctNode | null>(null);
+  const [party, setParty] = useState<AcctNode | null>(null);
 
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const selNode = sel ? byId.get(sel) ?? null : null;
@@ -141,6 +148,20 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
     setLinking(null); router.refresh();
   }
 
+  async function saveParty(f: PartyFields) {
+    if (!party) return;
+    setBusy(true); setOpErr(null);
+    const { error } = await supabase.rpc("acct_party_save", {
+      p_account: party.id, p_name: f.name.trim(), p_code: f.code || null,
+      p_phone: f.phone || null, p_email: f.email || null, p_currency: f.currency,
+      p_credit_limit: Number(f.credit_limit) || 0, p_credit_days: Number(f.credit_days) || 0,
+      p_sales_target: Number(f.sales_target) || 0, p_is_active: f.is_active,
+    });
+    setBusy(false);
+    if (error) return setOpErr(error.message);
+    setParty(null); router.refresh();
+  }
+
   async function doMove(target: string) {
     if (!moving) return;
     setBusy(true); setOpErr(null);
@@ -151,14 +172,17 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
     setMoving(null); router.refresh();
   }
 
+  // Deleting goes through acct_delete rather than straight off the table: an
+  // account can be a customer, agent or supplier now, and deleting one half of
+  // that pair would leave a party nothing posts to. The routine does both and
+  // refuses either if the account carries postings or the party is spoken for.
   async function doDelete() {
     if (!selNode) return;
     if ((childrenOf.get(selNode.id)?.length ?? 0) > 0) { setOpErr(`"${selNode.name}" has sub-accounts — remove or move them first.`); return; }
-    if (!confirm(`Delete "${selNode.name}"? This cannot be undone.`)) return;
+    const alsoParty = selNode.party_type ? ` It is also a ${PARTY_LABEL[selNode.party_type].toLowerCase()}, and that record goes with it.` : "";
+    if (!confirm(`Delete "${selNode.name}"?${alsoParty} This cannot be undone.`)) return;
     setBusy(true); setOpErr(null);
-    const { count: jl } = await supabase.from("journal_lines").select("id", { count: "exact", head: true }).eq("account_id", selNode.id);
-    if ((jl ?? 0) > 0) { setBusy(false); setOpErr("This account has posted transactions — it cannot be deleted."); return; }
-    const { error } = await supabase.from("accounts").delete().eq("id", selNode.id);
+    const { error } = await supabase.rpc("acct_delete", { p_account: selNode.id });
     setBusy(false);
     if (error) return setOpErr(error.message);
     setSel(null); router.refresh();
@@ -238,6 +262,10 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
           disabled={!selNode || selNode.is_group || !!selNode.party_type || !rights.canEdit}
           title={selNode?.party_type ? `Already a ${PARTY_LABEL[selNode.party_type].toLowerCase()}` : rights.denied("edit")}
           className={btn}>Make a Party</button>
+        <button onClick={() => selNode && setParty(selNode)}
+          disabled={!selNode || !selNode.party_type || !rights.canEdit}
+          title={selNode && !selNode.party_type ? "Only a customer, agent or supplier has these" : rights.denied("edit")}
+          className={btn}>Party Details</button>
         <button onClick={doDelete} disabled={!selNode || busy || !rights.canDelete} title={rights.denied("delete")} className={`${btn} text-danger`}>Delete</button>
         <span className="mx-1 h-5 w-px bg-slate-200" />
         <button onClick={() => setCollapsed(new Set())} className={btn}>Expand all</button>
@@ -265,6 +293,7 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
       {editing && <PropsModal node={editing} busy={busy} onCancel={() => setEditing(null)} onSave={saveProps} />}
       {moving && <MoveModal node={moving} targets={moveTargets} busy={busy} onCancel={() => setMoving(null)} onMove={doMove} />}
       {linking && <LinkPartyModal node={linking} busy={busy} onCancel={() => setLinking(null)} onLink={doLink} />}
+      {party && <PartyModal node={party} busy={busy} onCancel={() => setParty(null)} onSave={saveParty} />}
     </div>
   );
 }
@@ -300,6 +329,70 @@ function PropsModal({ node, busy, onCancel, onSave }: {
           <select className="input" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
             <option value="active">Active</option><option value="inactive">Inactive</option>
           </select></div>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onCancel} className="btn-outline">Cancel</button>
+        <button onClick={() => onSave(f)} disabled={busy || !f.name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Party Details modal ──────────────────────────────────────────────────────
+// The code, phone, email, credit terms, sales target and active flag that used
+// to live on the Customers / Agents / Suppliers screen. The name is here rather
+// than under Edit because it is the party's name as well as the account's, and
+// acct_party_save writes it to both so they cannot drift apart.
+export type PartyFields = {
+  name: string; code: string; phone: string; email: string; currency: string;
+  credit_limit: string; credit_days: string; sales_target: string; is_active: boolean;
+};
+
+function PartyModal({ node, busy, onCancel, onSave }: {
+  node: AcctNode; busy: boolean; onCancel: () => void; onSave: (f: PartyFields) => void;
+}) {
+  const p = node.party;
+  const [f, setF] = useState<PartyFields>({
+    name: node.name,
+    code: p?.code ?? "", phone: p?.phone ?? "", email: p?.email ?? "",
+    currency: p?.currency ?? node.currency ?? "SAR",
+    credit_limit: String(p?.credit_limit ?? 0),
+    credit_days: String(p?.credit_days ?? 0),
+    sales_target: String(p?.sales_target ?? 0),
+    is_active: p?.is_active ?? true,
+  });
+  const set = (k: keyof PartyFields, v: any) => setF((x) => ({ ...x, [k]: v }));
+  return (
+    <Modal title={`Party Details · ${PARTY_LABEL[node.party_type ?? ""] ?? "Party"}`} onClose={onCancel}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2"><label className="label">Name</label>
+          <input className="input" value={f.name} onChange={(e) => set("name", e.target.value)} autoFocus />
+          <p className="mt-1 text-xs text-slate-400">Renames the ledger account too — one name in both places.</p></div>
+        <div><label className="label">Code</label>
+          <input className="input" value={f.code} onChange={(e) => set("code", e.target.value)} /></div>
+        <div><label className="label">Phone</label>
+          <input className="input" value={f.phone} onChange={(e) => set("phone", e.target.value)} /></div>
+        <div className="sm:col-span-2"><label className="label">Email</label>
+          <input className="input" type="email" value={f.email} onChange={(e) => set("email", e.target.value)} /></div>
+        <div><label className="label">Currency</label>
+          <select className="input" value={f.currency} onChange={(e) => set("currency", e.target.value)}>
+            <option>SAR</option><option>PKR</option><option>USD</option><option>AED</option>
+          </select></div>
+        <div><label className="label">Credit limit</label>
+          <input className="input text-right tabular-nums" inputMode="decimal" value={f.credit_limit}
+            onChange={(e) => set("credit_limit", e.target.value)} /></div>
+        <div><label className="label">Credit days</label>
+          <input className="input text-right tabular-nums" inputMode="numeric" value={f.credit_days}
+            onChange={(e) => set("credit_days", e.target.value)} /></div>
+        {node.party_type !== "supplier" && (
+          <div><label className="label">Sales target</label>
+            <input className="input text-right tabular-nums" inputMode="decimal" value={f.sales_target}
+              onChange={(e) => set("sales_target", e.target.value)} /></div>
+        )}
+        <label className="flex items-center gap-2 text-sm sm:col-span-2">
+          <input type="checkbox" checked={f.is_active} onChange={(e) => set("is_active", e.target.checked)} />
+          Active — an inactive one is no longer offered on bookings, groups or vouchers
+        </label>
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="btn-outline">Cancel</button>

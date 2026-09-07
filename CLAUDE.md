@@ -85,6 +85,45 @@ walked around.
 Nothing creates or edits Product Tree items, accounts or cost centres behind the
 user's back. Vouchers **choose** an existing item; they never invent one.
 
+## A customer, agent or supplier is an account in the chart
+
+There is no Customers / Agents / Suppliers screen any more. `/accounting/accounts`
+is the one place: New Account asks *what the account is*, and choosing Customer,
+B2B Agent or Supplier creates the `parties` record with it. **Party Details** on
+the tree edits the rest (code, phone, email, credit limit, credit days, sales
+target, active), **Make a Party** gives the record to an account already there,
+and Delete takes both halves.
+
+This matters because there are **two** party concepts and about thirty screens
+read the wrong one to notice: `parties` is what every picker offers — the visa
+group agent, the hotel booking agent and supplier, the Transport Rate Master
+agent list (and so the fare chart), the BRN supplier, every trade voucher's
+party, Bill Record, Product Rates, the B2B login — while `accounts` is only the
+ledger. An account with no `parties` row behind it can be posted to and is
+invisible to all of them.
+
+Two rules hold it together, and undoing either splits the master again:
+
+- **One party, one account, and one routine that creates it.** Inserting a
+  `parties` row is what raises the ledger account — `trg_party_ensure_ledger`
+  fires `ensure_party_account`, and has always done so. `acct_create` therefore
+  **adopts** the account the trigger made (moving it to the group the user
+  picked and recoding it there) rather than inserting its own. A first cut did
+  insert its own, and gave every party made from the tree two accounts, one of
+  them dead. `acct_link_party` deletes the spare the trigger raises, after
+  checking it carries no postings.
+- **A supplier is a Payable, a customer or an agent is a Receivable.** That is
+  how `ensure_party_account` finds the account again, so it is checked and
+  refused rather than quietly corrected — it decides where the account sits in
+  the chart, which is the user's to say.
+
+The name lives on both rows and `acct_party_save` writes both, so the ledger and
+the booking screens cannot end up calling somebody different things. Deleting
+goes through `acct_delete`, which leans on `delete_party` for the refusals — it
+already knows every place a party can be spoken for. `parties.manage` opens the
+chart now, and both the menu and the middleware grant it there; a landing that
+its own guard bounces is the redirect loop this file warns about below.
+
 ## Three different "invoices"
 
 - `/invoices` — booking invoice, raised automatically, read-only (hidden).

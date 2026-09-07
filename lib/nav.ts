@@ -205,7 +205,10 @@ export const GROUPS: NavGroup[] = [
     { href: "/hr/payroll", label: "Payroll" },
   ] },
   { label: "Masters", icon: "masters", section: "Settings", perm: ["accounting.view"], items: [
-    { href: "/accounting/accounts", label: "Chart of Accounts" },
+    // Also the customer / agent / supplier master: an account says what it is
+    // and its party record is created, edited and deleted with it, so
+    // parties.manage opens this screen.
+    { href: "/accounting/accounts", label: "Chart of Accounts", perm: ["accounting.view", "parties.manage"] },
     { href: "/accounting/masters/products", label: "Product Tree" },
     { href: "/accounting/masters/tag-areas", label: "Tag Area" },
     { href: "/accounting/masters/cost-centers", label: "Cost Center" },

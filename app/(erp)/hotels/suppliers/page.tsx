@@ -27,7 +27,7 @@ export default async function HotelSuppliersPage() {
 
   return (
     <div>
-      <PageHeader title="Hotel Suppliers / Vendors" action={{ href: "/parties", label: "Manage Parties" }} />
+      <PageHeader title="Hotel Suppliers / Vendors" action={{ href: "/accounting/accounts", label: "Manage in Chart of Accounts" }} />
       <p className="mb-3 text-sm text-slate-500">Suppliers come from the shared party master; hotel purchases post to the shared payables ledger.</p>
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[720px]">

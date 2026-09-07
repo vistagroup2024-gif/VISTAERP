@@ -13,12 +13,14 @@ const ROUTE_PERMS: [string, string[]][] = [
   ["/sales", ["sales.view"]],
   ["/packages", ["sales.view"]],
   ["/invoices", ["sales.view"]],
-  ["/parties", ["sales.view", "parties.manage"]],
   ["/hotels", ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.hcn", "hotels.reports", "hotels.purchase"]],
   ["/transport", ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.driver_assign", "transport.trip_ledger"]],
   ["/car-sales", ["carsales.view", "carsales.vehicles", "carsales.sales", "carsales.installments", "carsales.receipts", "carsales.charges", "carsales.ownership", "carsales.reports", "carsales.accounting"]],
   ["/purchase", ["purchase.view"]],
   ["/accounting", ["accounting.view"]],
+  // Customers, agents and suppliers live in the chart now, so the permission
+  // that used to open their own screen opens this one. Longest prefix wins.
+  ["/accounting/accounts", ["accounting.view", "parties.manage"]],
   ["/settings/users", ["users.view"]],
   ["/settings/roles", ["users.view", "users.manage_roles"]],
   ["/settings/agents", ["users.view"]],
@@ -92,6 +94,15 @@ export async function updateSession(request: NextRequest) {
   if (path === "/portal" || path.startsWith("/portal/")) {
     const url = request.nextUrl.clone();
     url.pathname = "/agent";
+    return NextResponse.redirect(url);
+  }
+
+  // The Customers / Agents / Suppliers screen was folded into the Chart of
+  // Accounts: an account says what it is, and the party record is created,
+  // edited and deleted with it. Old bookmarks land on the tree.
+  if (path === "/parties" || path.startsWith("/parties/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/accounting/accounts";
     return NextResponse.redirect(url);
   }
 
