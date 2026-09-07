@@ -80,6 +80,27 @@ Anything new that posts must go through one of those two gates. The internal
 `*_post_now` routines are not granted to `authenticated`, so the gate cannot be
 walked around.
 
+## The document chain is data, in one place
+
+Which voucher is loaded from which lives in **`workflow_steps`** and nowhere
+else. It used to be written down three times — a CASE in
+`trade_doc_source_type`, a VALUES list in `workflow_summary`, and hand-laid rows
+in the board's JSX — so changing how the business works meant editing three
+things and hoping they agreed.
+
+`workflow_source_type()` resolves a step's source **through anything switched
+off**, so turning a step off closes the chain up rather than breaking it: switch
+off Material Receipt Note and a Purchase Voucher loads straight from the
+Purchase Order. `trade_doc_source_type` is a one-line wrapper over it, so the
+Load button on every voucher follows the definition. `workflow_step_save`
+refuses a circle and a self-reference — `workflow_source_type` is on the path of
+every Load in the ERP, so a chain configured into a loop would hang all of them.
+
+The board draws itself from the same table: a step's **depth** is how far along
+the chain it sits, and a second child starts a new row at its parent's depth,
+which is what puts the purchase branch beside the Sale Order without anybody
+positioning it. Nothing about the layout is written down.
+
 ## A rule decides whether a voucher needs authorising — nothing else does
 
 No rule matches, the voucher posts on save. That is the default and it is what

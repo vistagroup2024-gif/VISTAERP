@@ -1,6 +1,6 @@
 import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
-import WorkFlowBoard from "@/components/accounting/WorkFlowBoard";
+import WorkFlowDefinitions from "./WorkFlowDefinitions";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export default async function WorkFlowPage() {
     <div>
       <PageHeader title="Work Flow"
         subtitle="Each document is loaded from the one before it. Pending is what the next step can still pick up." />
-      <WorkFlowBoard />
+      <WorkFlowDefinitions />
     </div>
   );
 }

@@ -80,6 +80,10 @@ export const DOC_TREE: DocModule[] = [
     { group: "Authorisation", docs: [
       { key: "approvals",    label: "Approval Inbox",        rights: ["access", "print"], href: "/accounting/approvals" },
       { key: "auth_rules",   label: "Voucher Authorisation", rights: M, href: "/accounting/rules" },
+      // The Work Flow board is open to anyone with the module; "edit" is what
+      // gates changing the DEFINITION, which changes what every Load button
+      // offers. Without a key here a restricted user could never be granted it.
+      { key: "workflow",     label: "Work Flow",             rights: M, href: "/accounting/workflow" },
     ] },
     { group: "Reports", docs: [
       { key: "ledger",         label: "Ledger / Statement", rights: R, href: "/accounting/ledger" },
