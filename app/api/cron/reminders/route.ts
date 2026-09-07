@@ -4,10 +4,17 @@ import { cronDenied } from "@/lib/cronAuth";
 
 export const dynamic = "force-dynamic";
 
-// Hotel-details reminder job. Wire this to a scheduler (Vercel Cron or an
-// external uptime pinger) to run roughly hourly. It scans upcoming arrivals for
-// Non Masar / Masar groups still missing Hotel Details and generates the
-// 48h / 24h / 12h agent reminders plus the 24h admin escalation (deduped in DB).
+// Hotel-details reminder job. It wants to run roughly HOURLY — the reminders it
+// raises are 48h / 24h / 12h before arrival, so a daily sweep will miss the
+// tighter ones. vercel.json can only ask for daily: the account is on Hobby,
+// where a cron may fire once a day, and an hourly expression there is not a
+// slower job but a REJECTED DEPLOYMENT — the push that first added one never
+// built at all. For true hourly, either move the project to Pro and set
+// "0 * * * *", or point an external pinger at this URL with ?secret=CRON_SECRET.
+//
+// It scans upcoming arrivals for Non Masar / Masar groups still missing Hotel
+// Details and generates the 48h / 24h / 12h agent reminders plus the 24h admin
+// escalation (deduped in DB).
 // Requires CRON_SECRET: pass ?secret= or a Bearer token.
 async function run() {
   const supabase = createClient();
