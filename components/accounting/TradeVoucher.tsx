@@ -165,6 +165,15 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const total = subtotal + num(roundOff);
   // Landed cost = the line amounts plus every expense column flagged as a cost.
   const costColumns = useMemo(() => lineExtras.filter((x) => x.cost), [lineExtras]);
+  /** Lines whose rate is above the SO Purchase Rate they were raised against. */
+  const overCeiling = useMemo(() => {
+    const bad = new Set<number>();
+    rows.forEach((r, i) => {
+      const cap = num(r.extras.so_purchase_rate ?? "");
+      if (cap > 0 && num(r.rate) > cap + 0.005) bad.add(i);
+    });
+    return bad;
+  }, [rows]);
   const landedCost = useMemo(
     () => rows.reduce((s, r) => s + num(r.amount) + costColumns.reduce((c, x) => c + num(r.extras[x.key]), 0), 0),
     [rows, costColumns]);
@@ -255,6 +264,15 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         link1: l.link1 ?? "", extras: ex,
       };
     });
+    // The Purchase Order's ceiling. A car Sale Order says what the vehicle costs
+    // us — Total Cost (COGS), the figure the whole margin is calculated from —
+    // so paying the supplier more than that eats the margin the customer was
+    // quoted on. The SO Purchase Rate column has been on this voucher all along
+    // with nothing to fill it; this is what fills it.
+    if (cfg.type === "purchase_order") {
+      const ceiling = num(String(src.total_cost ?? ""));
+      if (ceiling > 0) for (const r of ls) r.extras.so_purchase_rate = String(ceiling);
+    }
     setRows(ls.length ? [...ls, blankRow()] : [blankRow()]);
 
     if (v.source_kind === "car") { setSourceCar(v.id); setSourceId(null); }
@@ -294,6 +312,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   async function save() {
     if (!mayWrite()) return;
     setErr(null);
+    if (overCeiling.size) {
+      const n1 = Array.from(overCeiling).map((i) => i + 1).join(", ");
+      return setErr(`Line ${n1}: the rate is above the SO Purchase Rate this order was raised against. Lower the rate, or raise the Sale Order's Total Cost (COGS) first.`);
+    }
     // Only persist the extras this voucher/cost-centre actually shows, so
     // switching cost centre doesn't leave stale car fields on the document.
     const meta: Record<string, any> = {};
@@ -512,7 +534,14 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                   </td>
                   <td className="px-2 py-1"><input className="input w-20" value={r.units} onChange={(e) => setRow(i, { units: e.target.value })} /></td>
                   <td className="px-2 py-1"><input className="input w-24 text-right tabular-nums" inputMode="decimal" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} /></td>
-                  {showRateAmount && <td className="px-2 py-1"><input className="input w-28 text-right tabular-nums" inputMode="decimal" value={r.rate} onChange={(e) => setRow(i, { rate: e.target.value })} /></td>}
+                  {showRateAmount && (
+                    <td className="px-2 py-1">
+                      <input
+                        className={`input w-28 text-right tabular-nums ${overCeiling.has(i) ? "border-red-400 bg-red-50 text-red-700" : ""}`}
+                        title={overCeiling.has(i) ? `Above the SO Purchase Rate (${r.extras.so_purchase_rate})` : undefined}
+                        inputMode="decimal" value={r.rate} onChange={(e) => setRow(i, { rate: e.target.value })} />
+                    </td>
+                  )}
                   {showRateAmount && <td className="px-2 py-1"><input className="input w-32 text-right tabular-nums" inputMode="decimal" value={r.amount} onChange={(e) => setRow(i, { amount: e.target.value })} /></td>}
                   {lineExtras.map((x) => (
                     <td key={x.key} className="px-2 py-1">
