@@ -1,0 +1,20 @@
+-- The Settle screen is gone, and party_settle goes with it.
+--
+-- /accounting/settle was a second way to knock a receipt off a customer's
+-- oldest bills: pick a party, type an amount, and party_settle posted the
+-- entry and allocated it FIFO. Receipt and Payment already do that — the
+-- bill-wise panel on the voucher itself, through gl_receipt_billwise — and
+-- they do it the way everything else does: gl_submit, so an authorisation
+-- rule can hold the voucher for its approvers.
+--
+-- party_settle does not. It calls gl_post directly, so it posts whatever it
+-- is given the moment it is called, past the approval gate, and it checks no
+-- screen right on the way in. Nothing links to the screen — it was in no menu
+-- and no other page pointed at it — so the only way to reach it was to type
+-- the URL, or to call the routine straight from the browser bundle.
+--
+-- The screen is deleted in this same change. Here the routine is closed the
+-- way every other internal engine is: no grant at all. Nothing in the app
+-- calls it, so nothing breaks; it stays in the schema, ungranted, rather than
+-- being dropped, so the definition is still on the record.
+revoke all on function public.party_settle(uuid, text, date, uuid, uuid, numeric, text, text) from public, anon, authenticated;

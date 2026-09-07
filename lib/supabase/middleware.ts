@@ -15,7 +15,6 @@ const ROUTE_PERMS: [string, string[]][] = [
   ["/invoices", ["sales.view"]],
   ["/parties", ["sales.view", "parties.manage"]],
   ["/hotels", ["hotels.masters", "hotels.bookings", "hotels.suppliers", "hotels.hcn", "hotels.reports", "hotels.purchase"]],
-  ["/allotments", ["hotels.masters", "hotels.bookings"]],
   ["/transport", ["transport.masters", "transport.bookings", "transport.operations", "transport.vehicles", "transport.reports", "transport.driver_assign", "transport.trip_ledger"]],
   ["/car-sales", ["carsales.view", "carsales.vehicles", "carsales.sales", "carsales.installments", "carsales.receipts", "carsales.charges", "carsales.ownership", "carsales.reports", "carsales.accounting"]],
   ["/purchase", ["purchase.view"]],
@@ -84,6 +83,15 @@ export async function updateSession(request: NextRequest) {
   if (path === "/signup" || path.startsWith("/signup/")) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  // /portal was a half-built second agent portal, reading tables the live one
+  // does not use. The agent portal is /agent; old bookmarks land there rather
+  // than on a 404.
+  if (path === "/portal" || path.startsWith("/portal/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/agent";
     return NextResponse.redirect(url);
   }
 

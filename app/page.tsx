@@ -14,7 +14,11 @@ export default function Home() {
         <Link href="/login" className="btn">
           Staff Login
         </Link>
-        <Link href="/portal" className="btn-outline">
+        {/* The agent portal is /agent — it has its own login and its own
+            session. There used to be a second, half-built one at /portal that
+            this button pointed at; agents landed on the staff login and could
+            get no further. */}
+        <Link href="/agent" className="btn-outline">
           B2B Partner Portal
         </Link>
       </div>
