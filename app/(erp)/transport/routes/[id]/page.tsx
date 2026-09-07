@@ -21,7 +21,7 @@ export default async function RouteRatesPage({ params }: { params: { id: string 
     <div className="max-w-3xl">
       <PageHeader title={`Rates — ${(route as any).name}`} />
       <p className="mb-4 text-sm text-slate-500">
-        Set a selling rate per vehicle for this route. <Link href="/transport/routes" className="text-brand hover:underline">← All routes</Link>
+        Set a selling rate per vehicle for this route.
       </p>
       <RouteRatesManager
         routeId={params.id}

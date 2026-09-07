@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { AccessProvider } from "@/components/AccessProvider";
 import AppHeader from "@/components/AppHeader";
+import NavButtons from "@/components/NavButtons";
 import { getSessionUser, getStaffAccess } from "@/lib/staffSession";
 
 export default async function ErpLayout({
@@ -30,6 +31,12 @@ export default async function ErpLayout({
         />
         <main className="min-w-0 flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-6">
           <AccessProvider value={{ isAdmin: access.isAdmin, docRights: access.docRights }}>
+            {/* Back and Home for EVERY screen, drawn once here rather than by each
+                page. Putting it in PageHeader covered the 137 screens that use
+                one and missed 46 that draw their own title bar; putting it here
+                covers all of them, and no page can show a second pair because no
+                page renders it. */}
+            <div className="no-print mb-3"><NavButtons /></div>
             {children}
           </AccessProvider>
         </main>

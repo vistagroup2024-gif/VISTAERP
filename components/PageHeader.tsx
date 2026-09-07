@@ -1,5 +1,4 @@
 import Link from "next/link";
-import BackButton from "@/components/BackButton";
 import Icon from "@/components/ui/Icon";
 
 // Shared page header used across the ERP. Title + optional subtitle on the left,
@@ -21,7 +20,8 @@ export default function PageHeader({
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
       <div className="flex items-start gap-3">
-        {!hideBack && <BackButton />}
+        {/* Back / Home is drawn once by the ERP layout for every screen, so it is
+            deliberately not here. `hideBack` is kept for callers that pass it. */}
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900">{title}</h1>
           {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}

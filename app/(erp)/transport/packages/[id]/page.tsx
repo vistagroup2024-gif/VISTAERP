@@ -27,7 +27,7 @@ export default async function PackageBuilderPage({ params }: { params: { id: str
     <div className="max-w-3xl">
       <PageHeader title={`Build — ${(pkg as any).name}`} />
       <p className="mb-4 text-sm text-slate-500">
-        Add the trips included in this package, in order. <Link href="/transport/packages" className="text-brand hover:underline">← All packages</Link>
+        Add the trips included in this package, in order.
       </p>
       <PackageBuilder
         packageId={params.id}
