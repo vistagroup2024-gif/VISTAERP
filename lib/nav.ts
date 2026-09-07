@@ -261,6 +261,11 @@ const EXTRA_ITEMS: { item: NavItem; group: string; icon: IconName }[] = [
     group: "Car Sales", icon: "car" },
   { item: { href: "/car-sales/service-charges", label: "Monthly Charges", perm: ["carsales.charges"] },
     group: "Car Sales", icon: "car" },
+  // The costs that land on a vehicle after it is bought. It replaces the nine
+  // expense columns the Purchase Voucher used to carry, so it belongs with the
+  // purchase side rather than with the two invoice screens.
+  { item: { href: "/car-sales/expenses", label: "Car Expense", perm: ["carsales.installments", "carsales.sales"] },
+    group: "Car Sales", icon: "car" },
 ];
 
 /** The sidebar's own entry for a route — label and permission included, so the
@@ -285,6 +290,7 @@ export const TRANSACTIONS: QuickGroupDef[] = [
     "/accounting/purchases/returns",
     "/accounting/purchases/orders",
     "/accounting/purchases/mrn",
+    "/car-sales/expenses",
     // Focus's "Bill Record".
     "/purchase/bills",
   ] },

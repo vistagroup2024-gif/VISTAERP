@@ -106,18 +106,21 @@ const PV_COMMON_EXTRAS: LineExtra[] = [
   { key: "remarks", label: "Remarks", kind: "text" },
 ];
 
-// Purchase Voucher cost columns for a car purchase — every expense that makes up
-// the landed cost of the vehicle.
+// Purchase Voucher columns for a car purchase.
+//
+// There used to be nine expense columns here — insurance, registration, camera,
+// transport, customs, car inspection, agent, others, commission. They are gone,
+// and they are now the Car Expense voucher (migration 305), raised against the
+// vehicle as each cost arrives. Two reasons. Most of them are not knowable on
+// the day the car is bought: registration and insurance land weeks later, and a
+// column you cannot fill is a column left at zero. And they never reached the
+// vehicle's cost anyway — car_vehicle_from_trade_doc splits the voucher TOTAL
+// across the cars it creates, and the total is the supplier's billed amount, so
+// the nine only ever moved the "landed cost" figure under the grid.
+//
+// Discount stays, because that one IS on the supplier's bill.
 const PV_CAR_EXTRAS: LineExtra[] = [
-  { key: "insurance", label: "Insurance", cost: true },
-  { key: "registration", label: "Registration", cost: true },
-  { key: "camera", label: "Camera", cost: true },
-  { key: "transport", label: "Transport", cost: true },
-  { key: "customs", label: "Customs", cost: true },
-  { key: "car_inspection", label: "Car Inspection", cost: true },
-  { key: "agent", label: "Agent", cost: true },
-  { key: "others", label: "Others", cost: true },
-  { key: "commission", label: "Commission", cost: true },
+  { key: "discount", label: "Discount" },
   { key: "remarks", label: "Remarks", kind: "text" },
 ];
 
