@@ -110,7 +110,14 @@ Rates are keyed by **party**, not by portal login — `transport_agent_rates.age
 references `parties`, and a login resolves to `coalesce(agent_party_id, id)`. A
 null party is not "no chart", it is the **standard** rate an agent with nothing
 of their own is quoted. Rates are effective-dated, so a chart is only ever true
-*as on* a date; today is what the agent is looking at.
+*as on* a date. The office picks a **period** rather than a date —
+`transport_rate_periods()` turns the rows back into the stretches over which the
+resolved chart does not change, by taking every date a rate could change and then
+**merging consecutive boundaries whose chart is identical**, so a bulk update
+that changes nothing for this agent does not start a period they would click
+past. A period ends where the next begins; once its end date has passed it is
+`past` and moves into Old rates on its own, with no job to run. The agent's own
+portal stays on today.
 
 ## Staff access is three separate things
 

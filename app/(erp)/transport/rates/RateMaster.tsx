@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, dateStr } from "@/lib/format";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
 import RateChartTable from "@/components/transport/RateChartTable";
 import { buildRateChart, type RateChart } from "@/lib/transportRateChart";
@@ -13,6 +13,10 @@ interface AgentRef { id: string; agency_name: string }
 // A party there is a fare chart for: one with a portal login, or one priced
 // differently from the standard. See transport_rate_chart_parties().
 export interface ChartParty { party_id: string; name: string; has_login: boolean; has_own_rates: boolean }
+// One stretch over which this agent's fare chart does not change. Derived from
+// the effective-dated rows by transport_rate_periods(); a period that has ended
+// is `past` and drops out of the picker into the history behind it.
+export interface RatePeriod { from: string; to: string | null; cells: number; past: boolean; current: boolean; future: boolean }
 interface AgentRate { id: string; agent_id: string | null; route_id: string; vehicle_id: string; effective_from: string; effective_to: string | null; selling_rate: number; status: string }
 interface VendorRate { id: string; vendor_id: string; route_id: string; vehicle_id: string; effective_from: string; effective_to: string | null; purchase_rate: number; status: string }
 interface RouteRate { id: string; route_id: string; vehicle_id: string; extra_charge_enabled: boolean; extra_charge_desc: string | null; extra_charge_amount: number }
@@ -34,10 +38,28 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
   // menu of its own.
   const [cParty, setCParty] = useState("");            // "" = the standard rate
   const [cDate, setCDate] = useState(today());
+  const [periods, setPeriods] = useState<RatePeriod[]>([]);
+  const [showPast, setShowPast] = useState(false);
   const [chart, setChart] = useState<RateChart | null>(null);
   const [cMeta, setCMeta] = useState<{ own: number } | null>(null);
   const [cBusy, setCBusy] = useState(false);
   const [cErr, setCErr] = useState<string | null>(null);
+
+  // The periods this agent's chart is divided into, and which one to open on:
+  // the one in force today, or the last one if every period is behind us.
+  useEffect(() => {
+    if (tab !== "chart") return;
+    let live = true;
+    supabase.rpc("transport_rate_periods", { p_party: cParty || null }).then(({ data }) => {
+      if (!live) return;
+      const ps = (data as RatePeriod[]) ?? [];
+      setPeriods(ps);
+      setShowPast(false);
+      const open = ps.find((p) => p.current) ?? ps[ps.length - 1];
+      setCDate(open ? open.from : today());
+    });
+    return () => { live = false; };
+  }, [tab, cParty, supabase]);
 
   useEffect(() => {
     if (tab !== "chart") return;
@@ -56,6 +78,10 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
     // otherwise let an earlier chart land last and be shown under a later name.
     return () => { live = false; };
   }, [tab, cParty, cDate, supabase]);
+
+  const openPeriod = periods.find((p) => p.from === cDate) ?? null;
+  const pastPeriods = periods.filter((p) => p.past);
+  const livePeriods = periods.filter((p) => !p.past);
 
   const chosenParty = chartParties.find((p) => p.party_id === cParty) ?? null;
   const chartCells = chart
@@ -386,7 +412,9 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
         <>
           <p className="text-xs text-slate-500">
             What an agent is actually quoted, resolved from the effective-dated rates above — the same chart the
-            agent sees when they sign in to their own portal.
+            agent sees when they sign in to their own portal. A <b>period</b> is a stretch over which their chart
+            does not change; a bulk update that changes nothing for this agent does not start a new one. Periods
+            end by themselves — the day after one finishes it drops into <b>Old rates</b>.
           </p>
           <div className="flex flex-wrap items-end gap-3">
             <div><label className="label">Agent</label>
@@ -400,10 +428,37 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
                   </option>
                 ))}
               </select></div>
-            <div><label className="label">As on</label>
-              <input type="date" className="input" value={cDate} onChange={(e) => setCDate(e.target.value || today())} /></div>
-            <p className="pb-2 text-xs text-slate-400">★ has rates of its own · rates are effective-dated, so the date decides which apply</p>
+            <p className="pb-2 text-xs text-slate-400">★ has rates of its own</p>
           </div>
+
+          {/* Rates are effective-dated, so a chart is only true for a stretch of
+              time. Pick the stretch, not a date: a period ends where the next one
+              begins, and once it has ended it moves into the history below. */}
+          {periods.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {(showPast ? periods : livePeriods).map((p) => (
+                <button key={p.from} onClick={() => setCDate(p.from)}
+                  className={`rounded-md border px-3 py-1.5 text-left text-xs transition-colors ${
+                    cDate === p.from
+                      ? "border-brand bg-brand-50 text-brand"
+                      : p.past
+                      ? "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300"
+                      : "border-slate-300 bg-white text-slate-600 hover:border-brand-300"}`}>
+                  <span className="font-semibold tabular-nums">
+                    {dateStr(p.from)} → {p.to ? dateStr(p.to) : "onwards"}
+                  </span>
+                  <span className={`ml-2 ${p.current ? "text-green-700" : p.future ? "text-amber-600" : "text-slate-400"}`}>
+                    {p.current ? "current" : p.future ? "upcoming" : "ended"}
+                  </span>
+                </button>
+              ))}
+              {pastPeriods.length > 0 && (
+                <button onClick={() => setShowPast((v) => !v)} className="text-xs text-brand hover:underline">
+                  {showPast ? "Hide old rates" : `Old rates (${pastPeriods.length})`}
+                </button>
+              )}
+            </div>
+          )}
 
           {cErr && <div className="rounded-md border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{cErr}</div>}
 
@@ -413,6 +468,15 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
             </span>
             {chosenParty && !chosenParty.has_login && (
               <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700" title="Priced, but has no portal login to see it with">no portal login</span>
+            )}
+            {openPeriod && (
+              <span className={`rounded-full px-3 py-1 font-medium ${
+                openPeriod.current ? "bg-green-100 text-green-700"
+                : openPeriod.future ? "bg-amber-100 text-amber-700"
+                : "bg-slate-200 text-slate-600"}`}>
+                {dateStr(openPeriod.from)} → {openPeriod.to ? dateStr(openPeriod.to) : "onwards"}
+                {openPeriod.past ? " · ended" : openPeriod.future ? " · not started" : ""}
+              </span>
             )}
             <span className="text-slate-500">
               {cBusy ? "Loading…" : `${chartCells} price${chartCells === 1 ? "" : "s"}`}
