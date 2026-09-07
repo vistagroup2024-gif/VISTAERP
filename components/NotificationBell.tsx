@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { playChime, chimeMuted, setChimeMuted } from "@/lib/notificationChime";
 
 interface Notif {
   id: string; category: string; title: string; body: string | null;
@@ -35,6 +36,10 @@ export default function NotificationBell({
   // The panel is therefore positioned in viewport coordinates and clamped so
   // it is always fully visible, whichever edge its bell happens to be near.
   const [panel, setPanel] = useState<{ top: number; left: number; maxH: number } | null>(null);
+  const [muted, setMuted] = useState(false);
+  // Read the mute preference on mount, not during render: it lives in
+  // localStorage, which the server does not have.
+  useEffect(() => { setMuted(chimeMuted()); }, []);
 
   const post = useCallback(async (body: any) => {
     const res = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -45,9 +50,13 @@ export default function NotificationBell({
     const j = await post({ action: "list" });
     const list: Notif[] = j.notifications ?? [];
     // Fire desktop notifications for genuinely new items (skip the first load).
-    if (primed.current && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-      for (const n of list) {
-        if (!seen.current.has(n.id)) {
+    const fresh = primed.current ? list.filter((n) => !seen.current.has(n.id)) : [];
+    if (fresh.length && typeof window !== "undefined") {
+      // One tone for the batch, not one per item: three things arriving at once
+      // should sound like an arrival, not an alarm.
+      playChime();
+      if ("Notification" in window && Notification.permission === "granted") {
+        for (const n of fresh) {
           try { new Notification(n.title, { body: n.body ?? undefined, tag: n.id }); } catch { /* ignore */ }
         }
       }
@@ -141,7 +150,17 @@ export default function NotificationBell({
              style={panel ? { top: panel.top, left: panel.left, maxHeight: panel.maxH } : { visibility: "hidden" }}>
           <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-2">
             <span className="font-semibold text-slate-700">Notifications</span>
-            {unread > 0 && <button onClick={markAll} className="text-xs text-brand hover:underline">Mark all read</button>}
+            <div className="flex items-center gap-3">
+              {/* Tapping it also plays the tone, which is the only way to find
+                  out what it sounds like without waiting for something to happen. */}
+              <button
+                onClick={() => { const next = !muted; setMuted(next); setChimeMuted(next); if (!next) playChime(); }}
+                title={muted ? "Sound is off — turn it on and hear it" : "Sound is on — click to mute"}
+                className="text-xs text-slate-500 hover:text-brand">
+                {muted ? "🔇 Sound off" : "🔔 Sound on"}
+              </button>
+              {unread > 0 && <button onClick={markAll} className="text-xs text-brand hover:underline">Mark all read</button>}
+            </div>
           </div>
           <ul className="min-h-0 flex-1 overflow-y-auto">
             {items.length === 0 && <li className="px-4 py-6 text-center text-sm text-slate-400">No notifications.</li>}
