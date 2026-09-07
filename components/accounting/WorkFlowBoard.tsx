@@ -76,8 +76,14 @@ export default function WorkFlowBoard() {
 
   return (
     <div className="space-y-8 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-6">
-      {/* The purchase side: what we owe the supplier for. */}
+      {/* The purchase side branches off the SALE ORDER, not the quotation — a
+          Purchase Order is loaded from a Sale Order (trade_doc_source_type maps
+          purchase_order -> sale_order). Two spacers put the arrow under the Sale
+          Order column; one put it under Quotation, which is what made the board
+          say the wrong thing. */}
       <div className="flex items-center gap-1">
+        <div className="w-56 shrink-0" />
+        <span className="invisible" aria-hidden><Arrow /></span>
         <div className="w-56 shrink-0" />
         <Arrow dotted />
         <Card type="purchase_order" />
@@ -111,8 +117,11 @@ export default function WorkFlowBoard() {
         <Card type="delivery_note" />
       </div>
 
-      {/* The car branch lives in its own module, so it is linked, not counted here. */}
+      {/* The car branch also comes off the Sale Order, and lives in its own
+          module, so it is linked rather than counted here. */}
       <div className="flex items-center gap-1">
+        <div className="w-56 shrink-0" />
+        <span className="invisible" aria-hidden><Arrow /></span>
         <div className="w-56 shrink-0" />
         <Arrow />
         <Link href="/car-sales/contracts" className="block w-56 rounded-md border border-dashed border-slate-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors hover:border-brand-400">

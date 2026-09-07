@@ -1,0 +1,24 @@
+-- 300 Two dashboard cards, and a value on the car ownership one.
+--
+-- Balance Sheet: assets, liabilities, equity and the retained result, plus the
+-- DIFFERENCE — assets less liabilities less equity less profit. It is the only
+-- number on that card worth shouting about, because anything other than zero
+-- means the books do not balance. (Measured now: 0.00.)
+--
+-- Cash Flow: what MOVED through cash and bank, in and out, month and year. The
+-- Cash & Bank card already shows the closing balance; this is the movement,
+-- which is a different question and the one people actually ask.
+--
+-- "Cars registered in Vista's name" is NOT a new card: the Car Ownership card
+-- already counts them (ownership = 'vista'). What it could not say is what they
+-- are worth, so the block gains vista_value and the card gains a cell — an
+-- answer to the question rather than a second card asking it again.
+--
+-- Both blocks are spliced into the existing functions from pg_get_functiondef,
+-- so dashboard_metrics stays security invoker and stable: it is a report, and a
+-- restricted user's balance sheet must still be built only from the accounts
+-- they may see.
+--
+-- Applied via MCP; the splice anchors are 'car_balances', in dashboard_metrics
+-- and the 'held' line of the car_ownership block in dashboard_module_metrics.
+-- Each anchor is required to match exactly once or the migration fails.

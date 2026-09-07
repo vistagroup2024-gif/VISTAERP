@@ -41,6 +41,24 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "Cash", value: cash(d.cash) },
       { label: "Total", value: cash(d.balance), strong: true, tone: sign(N(d.balance)) },
     ];
+    case "cash_flow": return [
+      { label: "In (m)", value: cash(d.in_month), tone: "pos" },
+      { label: "Out (m)", value: cash(d.out_month), tone: "neg" },
+      { label: "Net (m)", value: cash(d.net_month), strong: true, tone: N(d.net_month) >= 0 ? "pos" : "neg" },
+      { label: "Net (ytd)", value: cash(d.net_year), tone: N(d.net_year) >= 0 ? "pos" : "neg" },
+    ];
+    case "balance_sheet": {
+      const diff = N(d.difference);
+      return [
+        { label: "Assets", value: cash(d.assets), strong: true },
+        { label: "Liabilities", value: cash(d.liabilities), tone: "neg" },
+        { label: "Equity", value: cash(d.equity) },
+        { label: N(d.profit) >= 0 ? "Profit" : "Loss", value: cash(Math.abs(N(d.profit))), tone: N(d.profit) >= 0 ? "pos" : "neg" },
+        // A balance sheet that does not balance is the only thing worth shouting
+        // about on this card, so it is the one cell that changes colour.
+        { label: "Difference", value: cash(diff), tone: Math.abs(diff) > 0.005 ? "neg" : "pos" },
+      ];
+    }
     case "ar_ap": return [
       { label: "Receivable", value: cash(d.ar), tone: "pos" },
       { label: "Payable", value: cash(d.ap), tone: "neg" },
@@ -141,6 +159,7 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "Transf.", value: qty(d.transferred) },
       { label: "Vista", value: qty(d.vista) },
       { label: "Held", value: qty(d.held), tone: N(d.held) > 0 ? "neg" : undefined },
+      { label: "Vista value", value: cash(d.vista_value) },
     ];
     case "hotel_financials": return [
       { label: "Sales", value: cash(d.sales) },

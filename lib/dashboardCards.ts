@@ -12,7 +12,7 @@
 // ============================================================
 
 export type CardKey =
-  | "cash_bank" | "ar_ap" | "sales" | "expenses" | "pnl"
+  | "cash_bank" | "cash_flow" | "ar_ap" | "sales" | "expenses" | "pnl" | "balance_sheet"
   | "car_balances" | "pending_sales_orders" | "pending_purchase_orders"
   | "order_status" | "so_advance_receipt" | "purchase_vs_sale"
   | "stock" | "bookings" | "delivery_status"
@@ -31,6 +31,12 @@ export interface CardDef {
 export const DASHBOARD_CARDS: CardDef[] = [
   { key: "cash_bank", label: "Cash & Bank",
     hint: "Balance across every cash and bank account", href: "/accounting/ledger" },
+  { key: "cash_flow", label: "Cash Flow",
+    hint: "What moved through cash and bank — in, out and net, month and year. The Cash & Bank card shows the closing balance; this shows the movement",
+    href: "/accounting/ledger" },
+  { key: "balance_sheet", label: "Balance Sheet",
+    hint: "Assets, liabilities, equity and the retained result, with the difference that says whether the books balance",
+    href: "/accounting/balance-sheet" },
   { key: "ar_ap", label: "A/R & A/P Balance",
     hint: "Open customer and supplier balances, and what is overdue", href: "/accounting/aging" },
   { key: "sales", label: "Sales",
