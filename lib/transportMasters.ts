@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 // Shared master data needed by the transport booking form (new + edit).
 export async function loadBookingMasters() {
@@ -13,9 +14,19 @@ export async function loadBookingMasters() {
       // All active selling rates with their effective window — the form resolves
       // the rate for the selected agent AND the booking date (supports back-dated
       // bookings), matching what the server saves.
-      sb.from("transport_agent_rates").select("agent_id, route_id, vehicle_id, selling_rate, effective_from, effective_to")
-        .eq("status", "active")
-        .order("effective_from", { ascending: false }),
+      // Paged, not a plain select: PostgREST stops at 1000 rows and says
+      // nothing, and this table is at 735 with a bulk update adding a row per
+      // agent x route x vehicle. Truncated here, the booking form would quote
+      // the wrong price — or none — for whichever agents fell off the end.
+      //
+      // Ordered by id because paging needs a TOTAL order: 21 groups here share
+      // the same agent + route + vehicle + effective_from, so ordering on those
+      // leaves ties free to move between requests, and a row can be skipped or
+      // read twice at a page boundary. The primary key cannot tie. Newest-first
+      // is restored below, where the rate is actually resolved.
+      fetchAllRows<any>((from, to) =>
+        sb.from("transport_agent_rates").select("id, agent_id, route_id, vehicle_id, selling_rate, effective_from, effective_to")
+          .eq("status", "active").order("id").range(from, to)),
       // Standard (agent_id null) + agent-specific package prices; the form picks
       // the selected agent's price, else the standard one.
       sb.from("transport_package_prices").select("package_id, vehicle_id, price, agent_id"),
@@ -40,10 +51,15 @@ export async function loadBookingMasters() {
 
   // Keep every active rate row (agent-specific + default) with its effective
   // window; the form resolves the right one per agent + booking date.
-  const rates = (agentRates ?? []).map((r: any) => ({
-    agent_id: r.agent_id ?? null, route_id: r.route_id, vehicle_id: r.vehicle_id,
-    sell_rate: r.selling_rate, effective_from: r.effective_from ?? null, effective_to: r.effective_to ?? null,
-  }));
+  const rates = (agentRates ?? [])
+    // Paging needs a total order on the key columns, so newest-first is applied
+    // here instead — the form takes the first row whose window covers the date.
+    .slice()
+    .sort((a: any, b: any) => String(b.effective_from ?? "").localeCompare(String(a.effective_from ?? "")))
+    .map((r: any) => ({
+      agent_id: r.agent_id ?? null, route_id: r.route_id, vehicle_id: r.vehicle_id,
+      sell_rate: r.selling_rate, effective_from: r.effective_from ?? null, effective_to: r.effective_to ?? null,
+    }));
 
   const extraCharges = (extras ?? []).map((e: any) => ({
     route_id: e.route_id, vehicle_id: e.vehicle_id, desc: e.extra_charge_desc, amount: Number(e.extra_charge_amount),

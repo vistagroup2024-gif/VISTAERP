@@ -33,6 +33,14 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
     ? await sb.from("accounts").select("name").eq("id", acctId).maybeSingle()
     : { data: null as any };
 
+  // A "product" header field holds an id, not a name — printing it raw put a
+  // UUID on the document where the vehicle should be.
+  const productIds = carFields.filter((f) => f.kind === "product").map((f) => String(meta[f.key]));
+  const { data: prodRows } = productIds.length
+    ? await sb.from("acct_products").select("id, name").in("id", productIds)
+    : { data: [] as any[] };
+  const prodName = new Map(((prodRows as any[]) ?? []).map((p) => [p.id, p.name]));
+
   const costCols = lineExtras.filter((x) => x.cost);
   const landed = lines.reduce((s, l) => s + num(l.amount) + costCols.reduce((c, x) => c + num((l.meta ?? {})[x.key]), 0), 0);
   const span = 3 + (tagInLine ? 1 : 0) + (showRateAmount ? 1 : 0);
@@ -79,6 +87,9 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
                   {f.kind === "money" ? money(num(meta[f.key]))
                     : f.kind === "percent" ? `${meta[f.key]}%`
                     : f.kind === "date" ? dateStr(meta[f.key])
+                    : f.kind === "product"
+                      ? (prodName.get(String(meta[f.key]))
+                          ?? lines[0]?.item_name ?? String(meta[f.key]))
                     : String(meta[f.key])}
                 </div>
               ))}
