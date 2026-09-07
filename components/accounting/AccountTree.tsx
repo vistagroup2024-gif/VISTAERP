@@ -13,7 +13,14 @@ export type AcctNode = {
   nature: "asset" | "liability" | "equity" | "income" | "expense" | "control";
   is_group: boolean; is_postable: boolean; parent_id: string | null; path: string | null;
   currency: string; subtype: string | null; status: string;
+  /** Set when this account IS a customer, agent or supplier — the record the
+   *  bookings, groups, rate charts and vouchers pick their parties from. */
+  party_type: "customer" | "supplier" | "b2b_agent" | null;
   own_debit: number; own_credit: number;
+};
+
+const PARTY_LABEL: Record<string, string> = {
+  customer: "Customer", supplier: "Supplier", b2b_agent: "B2B Agent",
 };
 
 const NATURE_BADGE: Record<string, string> = {
@@ -49,6 +56,7 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
   const [opErr, setOpErr] = useState<string | null>(null);
   const [editing, setEditing] = useState<AcctNode | null>(null);
   const [moving, setMoving] = useState<AcctNode | null>(null);
+  const [linking, setLinking] = useState<AcctNode | null>(null);
 
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const selNode = sel ? byId.get(sel) ?? null : null;
@@ -121,6 +129,18 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
     setEditing(null); router.refresh();
   }
 
+  // Give an account that is already in the tree its customer / agent / supplier
+  // record. Only for the ones typed in before the New Account form could do it
+  // in one step; the database applies the same rules either way.
+  async function doLink(partyType: string) {
+    if (!linking) return;
+    setBusy(true); setOpErr(null);
+    const { error } = await supabase.rpc("acct_link_party", { p_account: linking.id, p_party_type: partyType });
+    setBusy(false);
+    if (error) return setOpErr(error.message);
+    setLinking(null); router.refresh();
+  }
+
   async function doMove(target: string) {
     if (!moving) return;
     setBusy(true); setOpErr(null);
@@ -188,6 +208,12 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
               ) : n.name}
               {n.status !== "active" && <span className="ml-2 rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">{n.status}</span>}
             </span>
+            {n.party_type && (
+              <span className="hidden shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700 sm:inline-flex"
+                    title="This account is also a party — it can be picked on bookings, groups, rate charts and vouchers">
+                {PARTY_LABEL[n.party_type]}
+              </span>
+            )}
             {!n.is_group && <span className={`badge ${NATURE_BADGE[n.nature]} hidden shrink-0 sm:inline-flex`}>{n.subtype ?? n.nature}</span>}
             <span className={`w-20 shrink-0 text-right tabular-nums text-xs sm:w-40 sm:text-sm ${n.is_group ? "font-semibold" : ""}`}>{drcr(net)}</span>
           </div>
@@ -208,6 +234,10 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
         <span className="mx-1 h-5 w-px bg-slate-200" />
         <button onClick={() => selNode && setEditing(selNode)} disabled={!selNode || !rights.canEdit} title={rights.denied("edit")} className={btn}>Edit</button>
         <button onClick={() => selNode && setMoving(selNode)} disabled={!selNode || !rights.canEdit} title={rights.denied("edit")} className={btn}>Move</button>
+        <button onClick={() => selNode && setLinking(selNode)}
+          disabled={!selNode || selNode.is_group || !!selNode.party_type || !rights.canEdit}
+          title={selNode?.party_type ? `Already a ${PARTY_LABEL[selNode.party_type].toLowerCase()}` : rights.denied("edit")}
+          className={btn}>Make a Party</button>
         <button onClick={doDelete} disabled={!selNode || busy || !rights.canDelete} title={rights.denied("delete")} className={`${btn} text-danger`}>Delete</button>
         <span className="mx-1 h-5 w-px bg-slate-200" />
         <button onClick={() => setCollapsed(new Set())} className={btn}>Expand all</button>
@@ -234,6 +264,7 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
 
       {editing && <PropsModal node={editing} busy={busy} onCancel={() => setEditing(null)} onSave={saveProps} />}
       {moving && <MoveModal node={moving} targets={moveTargets} busy={busy} onCancel={() => setMoving(null)} onMove={doMove} />}
+      {linking && <LinkPartyModal node={linking} busy={busy} onCancel={() => setLinking(null)} onLink={doLink} />}
     </div>
   );
 }
@@ -273,6 +304,53 @@ function PropsModal({ node, busy, onCancel, onSave }: {
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="btn-outline">Cancel</button>
         <button onClick={() => onSave(f)} disabled={busy || !f.name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Make a Party modal ───────────────────────────────────────────────────────
+// The account keeps its name, its place in the tree and its balance; what it
+// gains is the record every booking, visa group, rate chart and voucher reads
+// its customers, agents and suppliers from.
+function LinkPartyModal({ node, busy, onCancel, onLink }: {
+  node: AcctNode; busy: boolean; onCancel: () => void; onLink: (partyType: string) => void;
+}) {
+  // A supplier is a payable, a customer or an agent is a receivable — so this
+  // account's sub-type already decides which of the two it can be. The database
+  // refuses the mismatch; offering only what fits saves finding that out.
+  const options = node.subtype === "Payable"
+    ? [{ v: "supplier", l: "Supplier" }]
+    : node.subtype === "Receivable"
+      ? [{ v: "customer", l: "Customer" }, { v: "b2b_agent", l: "B2B Agent" }]
+      : [];
+  const [choice, setChoice] = useState(options[0]?.v ?? "");
+  return (
+    <Modal title={`Make a Party · ${node.name}`} onClose={onCancel}>
+      {options.length === 0 ? (
+        <p className="text-sm text-slate-600">
+          Only a <b>Receivable</b> or <b>Payable</b> account can be a party, and this one is{" "}
+          <b>{node.subtype || "not set"}</b>. Set its sub-type under Edit first.
+        </p>
+      ) : (
+        <>
+          <label className="label">This account is a</label>
+          <select className="input" value={choice} onChange={(e) => setChoice(e.target.value)}>
+            {options.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
+          </select>
+          <p className="mt-2 text-xs text-slate-400">
+            The account is not moved, renamed or re-posted. It becomes pickable on bookings,
+            visa groups, rate charts and vouchers — which read parties, not the chart.
+          </p>
+        </>
+      )}
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onCancel} className="btn-outline">Cancel</button>
+        {options.length > 0 && (
+          <button onClick={() => onLink(choice)} disabled={busy || !choice} className="btn">
+            {busy ? "Saving…" : "Make a Party"}
+          </button>
+        )}
       </div>
     </Modal>
   );

@@ -20,6 +20,9 @@ export default function NewAccountPage() {
     parent: sp.get("parent") ?? "",
     name: "", name_ar: "", is_group: sp.get("group") === "1", subtype: "",
     nature: "expense", currency: "SAR", opening: "", opening_dr: true, code: "",
+    // "" = an ordinary ledger account. Anything else also creates the customer /
+    // agent / supplier record that the rest of the ERP picks parties from.
+    party_type: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -31,6 +34,13 @@ export default function NewAccountPage() {
 
   const parent = useMemo(() => groups.find((g) => g.id === form.parent), [groups, form.parent]);
 
+  // A supplier is a payable, a customer or an agent is a receivable. The same
+  // rule lives in party_subtype_for() in the database, which refuses the save
+  // if the two disagree — this just means the sub-type is never wrong to begin
+  // with, rather than wrong and then rejected.
+  const partySubtype = form.party_type ? (form.party_type === "supplier" ? "Payable" : "Receivable") : null;
+  const subtype = partySubtype ?? form.subtype;
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true); setError(null);
@@ -40,12 +50,13 @@ export default function NewAccountPage() {
       p_name: form.name,
       p_name_ar: form.name_ar || null,
       p_is_group: form.is_group,
-      p_subtype: form.subtype || null,
+      p_subtype: subtype || null,
       p_nature: form.parent ? null : form.nature,
       p_currency: form.currency,
       p_opening: form.opening ? Number(form.opening) : 0,
       p_opening_is_debit: form.opening_dr,
       p_code: null,  // codes are hidden ERP-wide; always auto-generated
+      p_party_type: form.party_type || null,
     });
     setSaving(false);
     if (error) return setError(error.message);
@@ -87,15 +98,36 @@ export default function NewAccountPage() {
           </Field>
 
           <label className="flex items-center gap-2 text-sm sm:col-span-full">
-            <input type="checkbox" checked={form.is_group} onChange={(e) => setForm({ ...form, is_group: e.target.checked })} />
+            <input type="checkbox" checked={form.is_group}
+              onChange={(e) => setForm({ ...form, is_group: e.target.checked, party_type: e.target.checked ? "" : form.party_type })} />
             This is a <b>group</b> (container — cannot be posted to)
           </label>
         </FormSection>
 
         {!form.is_group && (
+          <FormSection title="Customer / Agent / Supplier">
+            <Field label="This account is a" full
+              hint="Choose one and the customer, agent or supplier record is created with the account, so it can be picked on bookings, groups, rate charts and vouchers — not only posted to.">
+              <select className="input" value={form.party_type} onChange={(e) => setForm({ ...form, party_type: e.target.value })}>
+                <option value="">— just a ledger account —</option>
+                <option value="customer">Customer</option>
+                <option value="b2b_agent">B2B Agent</option>
+                <option value="supplier">Supplier</option>
+              </select>
+            </Field>
+            {partySubtype && (
+              <p className="text-xs text-slate-500 sm:col-span-full">
+                Sub-type is set to <b>{partySubtype}</b> for you — a supplier is a payable, a customer or an agent is a receivable.
+              </p>
+            )}
+          </FormSection>
+        )}
+
+        {!form.is_group && (
           <FormSection title="Posting Details">
             <Field label="Sub-type">
-              <select className="input" value={form.subtype} onChange={(e) => setForm({ ...form, subtype: e.target.value })}>
+              <select className="input" value={subtype} disabled={!!partySubtype}
+                onChange={(e) => setForm({ ...form, subtype: e.target.value })}>
                 <option value="">—</option>
                 {SUBTYPES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
