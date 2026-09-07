@@ -4,6 +4,7 @@ import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import { dateStr } from "@/lib/format";
 import { HOTEL_STATUS_LABEL, HOTEL_STATUS_TONE } from "../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function CheckoutPage() {
   await guardStaffPage("hotels.bookings");
   const supabase = createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const { data } = await supabase
     .from("hotel_bookings")
     .select("id, booking_no, guest_name, city, hotel_name, check_in, check_out, rooms, status, checked_out_at, hotels:hotel_id(name)")

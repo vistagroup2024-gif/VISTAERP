@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID, money } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import { todaySA } from "@/lib/saudiTime";
 
 type Line = { description: string; qty: number; unit_price: number };
 const blank: Line = { description: "", qty: 1, unit_price: 0 };
@@ -15,7 +16,7 @@ export default function NewBillPage() {
   const supabase = createClient();
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [supplierId, setSupplierId] = useState("");
-  const [billDate, setBillDate] = useState(new Date().toISOString().slice(0, 10));
+  const [billDate, setBillDate] = useState(todaySA());
   const [currency, setCurrency] = useState("SAR");
   const [fxRate, setFxRate] = useState(75);
   const [tax, setTax] = useState(0);

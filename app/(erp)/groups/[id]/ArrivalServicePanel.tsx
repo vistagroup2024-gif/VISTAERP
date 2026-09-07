@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { dateStr } from "@/lib/format";
 
 // Staff control for a Visa Group's mandatory arrival service. Completion is
 // derived: 'transport' once a booking exists, 'tafweej' once Vista records it.
@@ -57,7 +58,7 @@ export default function ArrivalServicePanel({
       )}
       {state === "tafweej" && (
         <div className="mt-3 flex items-center gap-3">
-          <span className="text-sm text-slate-600">Tafweej recorded{tafweejAt ? ` on ${new Date(tafweejAt).toLocaleDateString()}` : ""}.</span>
+          <span className="text-sm text-slate-600">Tafweej recorded{tafweejAt ? ` on ${dateStr(tafweejAt)}` : ""}.</span>
           <button disabled={busy} onClick={() => call("mark_group_tafweej", { p_group: groupId, p_done: false })} className="text-sm text-slate-400 hover:underline">Undo</button>
         </div>
       )}

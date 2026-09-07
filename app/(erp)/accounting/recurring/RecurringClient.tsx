@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import AccountPicker, { type PickAccount } from "@/components/accounting/AccountPicker";
 import { useDocRights } from "@/components/AccessProvider";
+import { todaySA } from "@/lib/saudiTime";
 
 type Sched = { id: string; name: string; cadence: string; next_run: string; narration: string | null; auto_authorize: boolean; active: boolean; last_run: string | null };
 type Line = { account: string | null; debit: string; credit: string; remarks: string };
@@ -18,7 +19,7 @@ export default function RecurringClient({ schedules, accounts }: { schedules: Sc
   const supabase = createClient();
   const [name, setName] = useState("");
   const [cadence, setCadence] = useState("monthly");
-  const [nextRun, setNextRun] = useState(new Date().toISOString().slice(0, 10));
+  const [nextRun, setNextRun] = useState(todaySA());
   const [narration, setNarration] = useState("");
   const [autoAuth, setAutoAuth] = useState(true);
   const [lines, setLines] = useState<Line[]>([empty(), empty()]);
@@ -53,7 +54,7 @@ export default function RecurringClient({ schedules, accounts }: { schedules: Sc
   }
   async function generate() {
     setErr(null); setMsg(null); setBusy(true);
-    const { data, error } = await supabase.rpc("generate_recurring", { p_company: COMPANY_ID, p_as_of: new Date().toISOString().slice(0, 10) });
+    const { data, error } = await supabase.rpc("generate_recurring", { p_company: COMPANY_ID, p_as_of: todaySA() });
     setBusy(false);
     if (error) return setErr(error.message);
     setMsg(`Generated ${(data as any).generated} due voucher(s).`); router.refresh();

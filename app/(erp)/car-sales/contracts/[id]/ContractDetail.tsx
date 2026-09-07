@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
 import { CONTRACT_STATUS_LABEL, CONTRACT_STATUS_TONE, INST_STATUS_LABEL, INST_STATUS_TONE, instStatus, sar, vehicleTitle } from "../../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 function Money({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
@@ -24,7 +25,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const paid = installments.reduce((a, i) => a + Number(i.paid_amount || 0), 0);
   const schedTotal = installments.reduce((a, i) => a + Number(i.amount || 0), 0);
   const outstanding = Number(contract.sale_price || 0) - Number(contract.advance || 0) - paid;
@@ -213,10 +214,10 @@ function LifecyclePanel({ contract, onDone }: { contract: any; onDone: () => voi
         <h2 className="font-semibold text-slate-700">Vehicle Lifecycle</h2>
         <span className="text-sm text-slate-400">{contract.vehicle ? `${contract.vehicle.plate_no ?? contract.vehicle.vehicle_no}` : ""}</span>
         <div className="ml-auto flex flex-wrap gap-2">
-          {vs !== "delivered" && vs !== "held" && <button className="btn-outline text-sm" onClick={() => { setF({ delivery_date: new Date().toISOString().slice(0, 10) }); setModal("deliver"); }}>Deliver</button>}
-          {vs !== "held" && owner === "vista" && <button className="btn-outline text-sm text-amber-700" onClick={() => { setF({ held_date: new Date().toISOString().slice(0, 10) }); setModal("hold"); }}>Hold Vehicle</button>}
+          {vs !== "delivered" && vs !== "held" && <button className="btn-outline text-sm" onClick={() => { setF({ delivery_date: todaySA() }); setModal("deliver"); }}>Deliver</button>}
+          {vs !== "held" && owner === "vista" && <button className="btn-outline text-sm text-amber-700" onClick={() => { setF({ held_date: todaySA() }); setModal("hold"); }}>Hold Vehicle</button>}
           {vs === "held" && <button className="btn-outline text-sm" disabled={busy} onClick={() => run("car_vehicle_release", { p_vehicle: vid, p_notes: null })}>Release Hold</button>}
-          {owner === "vista" && <button className="btn-outline text-sm" onClick={() => { setF({ transfer_date: new Date().toISOString().slice(0, 10) }); setModal("transfer"); }}>Transfer Out</button>}
+          {owner === "vista" && <button className="btn-outline text-sm" onClick={() => { setF({ transfer_date: todaySA() }); setModal("transfer"); }}>Transfer Out</button>}
           {owner === "transferred" && <span className="badge bg-green-100 text-green-700">Transferred — charges stopped</span>}
         </div>
       </div>
@@ -317,7 +318,7 @@ function PaymentPanel({ contractId, installments, onDone }: { contractId: string
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todaySA());
   const [method, setMethod] = useState("cash");
   const [reference, setReference] = useState("");
   const unpaid = installments.filter((i) => Number(i.paid_amount || 0) < Number(i.amount || 0));

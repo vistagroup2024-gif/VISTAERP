@@ -6,6 +6,7 @@
 // ============================================================
 
 import { Brn, Consumption, nightsBetween, usedOnNight } from "./brn";
+import { todaySA } from "@/lib/saudiTime";
 
 export interface PendGroup {
   id: string; group_no: string; pax: number; arrival_date: string; departure_date: string;
@@ -373,7 +374,7 @@ export function combinedCityDemand(
 }
 
 export function todayUTC(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todaySA();
 }
 
 export function addDaysUTC(dateStr: string, n: number): string {

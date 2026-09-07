@@ -1,5 +1,6 @@
 // Shared Car Sales module label maps + helpers (client-safe).
 import { money } from "@/lib/format";
+import { todaySA } from "@/lib/saudiTime";
 
 export const VEHICLE_STATUS_LABEL: Record<string, string> = {
   ordered: "Ordered",
@@ -64,7 +65,7 @@ export const INST_STATUS_TONE: Record<string, string> = {
 // Derived installment status (mirrors car_installment_status in SQL). No penalties.
 export function instStatus(amount: number, paid: number, due: string | null): string {
   const a = Number(amount || 0), p = Number(paid || 0);
-  const overdue = !!due && due < new Date().toISOString().slice(0, 10);
+  const overdue = !!due && due < todaySA();
   if (p >= a && a > 0) return "paid";
   if (p > 0 && p < a) return overdue ? "overdue_partial" : "partial";
   if (overdue) return "overdue";
@@ -83,7 +84,7 @@ export const SCHARGE_STATUS_TONE: Record<string, string> = {
 };
 export function schargeStatus(amount: number, paid: number, due: string | null): string {
   const a = Number(amount || 0), p = Number(paid || 0);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   if (p >= a && a > 0) return "paid";
   if (p > 0 && p < a) return "partial";
   if (due && due < today) return "overdue";

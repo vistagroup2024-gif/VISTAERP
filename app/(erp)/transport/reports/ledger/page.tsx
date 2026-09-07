@@ -6,10 +6,11 @@ import { getStaffAccess, staffCan, getSessionUser } from "@/lib/staffSession";
 import { distributeWhole } from "@/lib/transportFare";
 import LedgerRange from "./LedgerRange";
 import LedgerTable from "./LedgerTable";
+import { todaySA, monthStartSA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
-function monthStart() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }
+const monthStart = () => monthStartSA();
 
 export default async function TransportLedgerPage({ searchParams }: { searchParams: { from?: string; to?: string; pending?: string } }) {
   const access = await getStaffAccess();
@@ -20,7 +21,7 @@ export default async function TransportLedgerPage({ searchParams }: { searchPara
   const user = await getSessionUser();
   const { data: roleRows } = await sb.from("user_roles").select("role").eq("user_id", user?.id ?? "");
   const isAdmin = (roleRows ?? []).some((r: any) => r.role === "admin");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const from = searchParams.from || monthStart();
   const to = searchParams.to || today;
   const pendingOnly = searchParams.pending === "1";

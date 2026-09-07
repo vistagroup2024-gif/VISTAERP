@@ -4,6 +4,7 @@ import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import { sar } from "../../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 const days = (d: string) => Math.floor((Date.now() - new Date(d + "T00:00:00Z").getTime()) / 86400000);
@@ -14,7 +15,7 @@ export default async function AgingReport() {
   const { data } = await supabase.from("car_contracts")
     .select("id, contract_no, status, customer:customer_id(name), car_installments(amount, paid_amount, due_date)")
     .neq("status", "cancelled");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const rows = (data ?? []).map((c: any) => {
     const b = { current: 0, d30: 0, d60: 0, d90: 0, d90p: 0, total: 0 };
     for (const i of c.car_installments ?? []) {

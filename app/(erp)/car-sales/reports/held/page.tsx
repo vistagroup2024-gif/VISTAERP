@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import { dateStr } from "@/lib/format";
 import { sar, vehicleTitle } from "../../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function HeldReport() {
   const { data } = await supabase.from("car_holdings")
     .select("id, held_date, reason, agreement_notes, vehicle:vehicle_id(id, make, model, model_year, plate_no, vehicle_no), contract:contract_id(id, contract_no, sale_price, advance, customer:customer_id(name), car_installments(amount, paid_amount, due_date))")
     .is("released_at", null).order("held_date", { ascending: false });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
 
   const rows = (data ?? []).map((h: any) => {
     const c = h.contract; const insts = c?.car_installments ?? [];

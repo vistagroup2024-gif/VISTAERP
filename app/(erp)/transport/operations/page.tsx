@@ -4,6 +4,7 @@ import OperationsBoard from "./OperationsBoard";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import { getStaffAccess, staffCan } from "@/lib/staffSession";
 import { distributeWhole } from "@/lib/transportFare";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: {
   const access = await getStaffAccess();
   const canEdit = staffCan(access, "transport.bookings");
   const canAssign = staffCan(access, "transport.operations") || staffCan(access, "transport.driver_assign");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const date = searchParams.date || today;
 
   // These four don't depend on the trips result, so fire them in parallel with it

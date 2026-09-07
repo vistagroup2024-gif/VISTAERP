@@ -11,6 +11,7 @@ import {
   VENDOR_STATUS_LABEL, VENDOR_STATUS_TONE,
   PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE,
 } from "../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 // Vendor flow shown on the main list. Once "vendor_confirmed" the booking is
 // complete here — HCN handling moves to Check-in / Arrivals.
@@ -52,7 +53,7 @@ function headlineStatus(r: HRow): { label: string; tone: string } {
 export default function HotelBookingsTable({ rows }: { rows: HRow[] }) {
   const router = useRouter();
   const supabase = createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState("");

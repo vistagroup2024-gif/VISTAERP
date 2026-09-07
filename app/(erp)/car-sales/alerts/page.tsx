@@ -4,6 +4,7 @@ import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import { dateStr } from "@/lib/format";
 import { sar, vehicleTitle } from "../lib";
+import { todaySA, addDaysSA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +32,8 @@ function Group({ title, items, tone }: { title: string; items: Alert[]; tone: st
 export default async function AlertsPage() {
   await guardStaffPage(["carsales.view", "carsales.reports"]);
   const supabase = createClient();
-  const today = new Date();
-  const todayS = today.toISOString().slice(0, 10);
-  const soonS = new Date(today.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  const todayS = todaySA();
+  const soonS = addDaysSA(7);
 
   const [{ data: contracts }, { data: charges }, { data: vehicles }] = await Promise.all([
     supabase.from("car_contracts").select("id, contract_no, status, customer:customer_id(name), vehicle:vehicle_id(make, model), car_installments(inst_no, amount, paid_amount, due_date)").in("status", ["active", "completed"]),

@@ -4,12 +4,13 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { todaySA } from "@/lib/saudiTime";
 
 interface Ref { id: string; name: string }
 interface Expense { id: string; category: string; amount: number; currency: string; spent_on: string; vehicle_id: string | null; driver_id: string | null; note: string | null }
 
 const CATS = ["fuel", "toll", "parking", "maintenance", "fine", "other"];
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todaySA();
 const BLANK = () => ({ category: "fuel", amount: "", spent_on: today(), vehicle_id: "", driver_id: "", note: "" });
 
 export default function ExpenseManager({ initial, vehicles, drivers }: { initial: Expense[]; vehicles: Ref[]; drivers: Ref[] }) {

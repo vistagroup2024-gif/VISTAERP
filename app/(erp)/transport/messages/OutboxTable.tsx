@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { dateTimeStr } from "@/lib/format";
 
 interface Msg { id: string; channel: string; to_addr: string | null; body: string | null; status: string; created_at: string; sent_at: string | null }
 const COLOR: Record<string, string> = { queued: "bg-amber-100 text-amber-700", sent: "bg-green-100 text-green-700", failed: "bg-red-100 text-red-700" };
@@ -51,7 +52,7 @@ export default function OutboxTable({ initial }: { initial: Msg[] }) {
           <tbody>
             {rows.map((m) => (
               <tr key={m.id} className="border-t border-slate-100 align-top">
-                <td className="td whitespace-nowrap">{new Date(m.created_at).toLocaleString()}</td>
+                <td className="td whitespace-nowrap">{dateTimeStr(m.created_at)}</td>
                 <td className="td capitalize">{m.channel}</td>
                 <td className="td">{m.to_addr ?? "—"}</td>
                 <td className="td max-w-sm whitespace-pre-wrap text-left text-xs text-slate-600">{m.body}</td>

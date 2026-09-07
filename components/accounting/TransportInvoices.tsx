@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
+import { todaySA, yearSA } from "@/lib/saudiTime";
 
 type Row = { trip_id: string; doc: string; date: string; agent: string | null; route: string | null;
   sell: number; outsourced: boolean; vendor: string | null; vendor_cost: number; posted: boolean;
   entry_id: string | null; entry_no: string | null };
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
-const y = new Date().getFullYear();
+const y = yearSA();
 
 // Transport invoices = completed trips posted to the GL per trip (Dr Agent / Cr
 // Transport Sales; outsourced adds Dr Transport Cost / Cr Vendor). Auto-posts on
@@ -17,7 +18,7 @@ const y = new Date().getFullYear();
 export default function TransportInvoices() {
   const supabase = createClient();
   const [from, setFrom] = useState(`${y}-01-01`);
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState(todaySA());
   const [onlyUnposted, setOnlyUnposted] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState<string | null>(null);

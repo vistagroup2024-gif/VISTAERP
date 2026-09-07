@@ -7,6 +7,7 @@ import { sar } from "../lib";
 import FormSection, { Field } from "@/components/ui/FormSection";
 import LoadFromPicker from "@/components/accounting/LoadFromPicker";
 import { useDocRights } from "@/components/AccessProvider";
+import { todaySA } from "@/lib/saudiTime";
 
 interface Opt { id: string; name: string }
 interface VehicleOpt { id: string; label: string; is_trading?: boolean }
@@ -17,7 +18,7 @@ function addMonthsISO(iso: string, n: number) {
   const dt = new Date(Date.UTC(y, m - 1 + n, d));
   return dt.toISOString().slice(0, 10);
 }
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todaySA();
 
 const blank = () => ({
   customer_id: "", vehicle_id: "", contract_date: today(),

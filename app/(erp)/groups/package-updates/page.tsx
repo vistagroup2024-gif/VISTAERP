@@ -3,10 +3,11 @@ import { guardStaffPage } from "@/lib/staffSession";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import CompanyFilter from "@/components/CompanyFilter";
-import { dateStr } from "@/lib/format";
+import { dateStr, dateTimeStr } from "@/lib/format";
 import { nightsBetween } from "@/lib/brn";
 import MarkUpdatedButton from "./MarkUpdatedButton";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function PackageUpdatesPage({ searchParams }: { searchParam
   await guardStaffPage("visa.package_update");
   const company = searchParams.company ?? "";
   const tab = searchParams.tab === "history" ? "history" : "pending";
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const supabase = createClient();
 
   // Monitor inventory: flip update_required <-> update_available as stock changes
@@ -201,7 +202,7 @@ async function HistoryTab({ companyName }: { companyName?: string }) {
                 ? <span className="badge bg-slate-200 text-slate-700" title="Status changed by hand — no BRN was allocated">Manual</span>
                 : <span className="badge bg-teal-100 text-teal-700">Allocated</span>}</td>
               <td className="td text-sm text-slate-500">{r.updated_by_name ?? "Staff"}</td>
-              <td className="td text-sm text-slate-500">{new Date(r.updated_at).toLocaleString()}</td>
+              <td className="td text-sm text-slate-500">{dateTimeStr(r.updated_at)}</td>
             </tr>
           ))}
           {H.length === 0 && <tr><td className="td text-slate-400" colSpan={10}>No completed package updates yet.</td></tr>}

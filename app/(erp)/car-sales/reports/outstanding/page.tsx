@@ -4,6 +4,7 @@ import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import { sar } from "../../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function OutstandingReport() {
   const { data } = await supabase.from("car_contracts")
     .select("id, contract_no, sale_price, advance, status, customer:customer_id(name), vehicle:vehicle_id(make, model, plate_no), car_installments(amount, paid_amount, due_date)")
     .neq("status", "cancelled").order("created_at", { ascending: false });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const rows = (data ?? []).map((c: any) => {
     const insts = c.car_installments ?? [];
     const paid = insts.reduce((a: number, i: any) => a + Number(i.paid_amount || 0), 0);

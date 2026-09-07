@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { todaySA, yearSA, monthStartSA } from "@/lib/saudiTime";
 
 export type ItemNode = {
   id: string; parent_id: string | null; name: string; is_group: boolean;
@@ -18,24 +19,29 @@ export interface Filters {
   limit: number;
 }
 
-const iso = (d: Date) => d.toISOString().slice(0, 10);
 export function defaultFilters(): Filters {
-  const now = new Date();
+  const today = todaySA();
   return {
-    from: iso(new Date(now.getFullYear(), 0, 1)),
-    to: iso(now), asof: iso(now),
+    from: `${yearSA()}-01-01`,
+    to: today, asof: today,
     items: null, warehouse: null, movedOnly: false, limit: 50,
   };
 }
 
 // Report Range presets, the same list the desktop dialog offers.
-const RANGES: Record<string, (t: Date) => [string, string]> = {
-  "Date Range": (t) => [iso(new Date(t.getFullYear(), 0, 1)), iso(t)],
-  "Today": (t) => [iso(t), iso(t)],
-  "This Month": (t) => [iso(new Date(t.getFullYear(), t.getMonth(), 1)), iso(t)],
-  "Last Month": (t) => [iso(new Date(t.getFullYear(), t.getMonth() - 1, 1)), iso(new Date(t.getFullYear(), t.getMonth(), 0))],
-  "This Year": (t) => [iso(new Date(t.getFullYear(), 0, 1)), iso(t)],
-  "Last Year": (t) => [iso(new Date(t.getFullYear() - 1, 0, 1)), iso(new Date(t.getFullYear() - 1, 11, 31))],
+const pad = (n: number) => String(n).padStart(2, "0");
+const RANGES: Record<string, () => [string, string]> = {
+  "Date Range": () => [`${yearSA()}-01-01`, todaySA()],
+  "Today": () => [todaySA(), todaySA()],
+  "This Month": () => [monthStartSA(), todaySA()],
+  "Last Month": () => {
+    const t = todaySA(), y = Number(t.slice(0, 4)), m = Number(t.slice(5, 7));
+    const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
+    const last = new Date(Date.UTC(py, pm, 0)).getUTCDate();
+    return [`${py}-${pad(pm)}-01`, `${py}-${pad(pm)}-${pad(last)}`];
+  },
+  "This Year": () => [`${yearSA()}-01-01`, todaySA()],
+  "Last Year": () => [`${yearSA() - 1}-01-01`, `${yearSA() - 1}-12-31`],
 };
 
 /**
@@ -84,7 +90,7 @@ export default function ReportFilters({ needs, value, onChange, onRun, busy }: {
               <select className="input w-40" value={range}
                 onChange={(e) => {
                   const k = e.target.value; setRange(k);
-                  if (k !== "Date Range") { const [f, t] = RANGES[k](new Date()); set({ from: f, to: t }); }
+                  if (k !== "Date Range") { const [f, t] = RANGES[k](); set({ from: f, to: t }); }
                 }}>
                 {Object.keys(RANGES).map((k) => <option key={k}>{k}</option>)}
               </select>

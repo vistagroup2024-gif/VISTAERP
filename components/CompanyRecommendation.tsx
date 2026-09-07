@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { dateStr } from "@/lib/format";
+import { dateStr, fmtTime12 } from "@/lib/format";
 
 export interface RecoResult {
   id: string;
@@ -211,7 +211,7 @@ export default function CompanyRecommendation({
                     <td className="td">{dateStr(r.arrival_date)} → {dateStr(r.departure_date)}</td>
                     <td className="td">{r.pax}</td>
                     <td className="td text-slate-500">{r.created_by || r.source}</td>
-                    <td className="td">{new Date(r.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="td">{fmtTime12(r.expires_at)}</td>
                     {canRelease && <td className="td"><button onClick={() => release(r.id)} className="text-xs text-red-600 hover:underline">Release</button></td>}
                   </tr>
                 ))}

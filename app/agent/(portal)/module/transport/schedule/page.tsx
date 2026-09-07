@@ -6,10 +6,11 @@ import { dateStr } from "@/lib/format";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import ScheduleTripCard, { Trip } from "./ScheduleTripCard";
 import ScheduleDateNav from "./ScheduleDateNav";
+import { addDaysSA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
-const iso = (offset = 0) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+const iso = (offset = 0) => addDaysSA(offset);
 
 export default async function AgentTransportSchedule({ searchParams }: { searchParams: { date?: string } }) {
   const agent = await getAgent();

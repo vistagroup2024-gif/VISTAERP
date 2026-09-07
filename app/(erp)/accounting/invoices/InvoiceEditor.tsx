@@ -7,6 +7,7 @@ import { COMPANY_ID } from "@/lib/format";
 import AccountPicker, { type PickAccount } from "@/components/accounting/AccountPicker";
 import FormSection, { Field } from "@/components/ui/FormSection";
 import { useDocRights } from "@/components/AccessProvider";
+import { todaySA } from "@/lib/saudiTime";
 
 type Party = { id: string; name: string; party_type: string; phone: string | null };
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -22,7 +23,7 @@ export default function InvoiceEditor({ parties, accounts, costCenters = [], sal
   const [party, setParty] = useState("");
   const [costCenter, setCostCenter] = useState("");
   const [salesperson, setSalesperson] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todaySA());
   const [due, setDue] = useState("");
   const [amount, setAmount] = useState("");
   const [taxable, setTaxable] = useState(true);

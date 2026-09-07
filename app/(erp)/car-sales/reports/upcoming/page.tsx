@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import { dateStr } from "@/lib/format";
 import { sar } from "../../lib";
+import { todaySA, addDaysSA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,8 @@ export default async function UpcomingReport({ searchParams }: { searchParams: {
   await guardStaffPage("carsales.reports");
   const supabase = createClient();
   const win = Number(searchParams.days ?? "30");
-  const today = new Date();
-  const until = new Date(today.getTime() + win * 86400000).toISOString().slice(0, 10);
-  const todayS = today.toISOString().slice(0, 10);
+  const todayS = todaySA();
+  const until = addDaysSA(win);
 
   const { data } = await supabase.from("car_contracts")
     .select("id, contract_no, status, customer:customer_id(name, phone), car_installments(inst_no, amount, paid_amount, due_date)")

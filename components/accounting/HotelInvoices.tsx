@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
+import { yearSA } from "@/lib/saudiTime";
 
 type Row = { row_id: string; doc: string; date: string; agent: string | null; hotel: string | null;
   city: string | null; sell: number; supplier: string | null; cost: number; posted: boolean };
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
-const y = new Date().getFullYear();
+const y = yearSA();
 
 // Hotel invoices = vendor-confirmed purchase bookings posted to the GL per stay
 // (Dr Agent / Cr Hotel Sales = sale; Dr Hotel Cost / Cr Supplier = purchase).

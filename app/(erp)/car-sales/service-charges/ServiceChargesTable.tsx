@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
 import { SCHARGE_STATUS_LABEL, SCHARGE_STATUS_TONE, schargeStatus, monthLabel, sar } from "../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 export interface ChargeRow {
   id: string; charge_month: string | null; due_date: string | null; amount: number; paid: number;
@@ -32,7 +33,7 @@ export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
   const [pay, setPay] = useState<null | { id: string; vehicle: string; month: string | null; remaining: number }>(null);
 
   const withStatus = useMemo(() => rows.map((r) => ({ ...r, st: schargeStatus(r.amount, r.paid, r.due_date) })), [rows]);
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = todaySA().slice(0, 7);
   const totals = {
     thisMonth: withStatus.filter((r) => (r.charge_month ?? "").slice(0, 7) === thisMonth).reduce((a, r) => a + r.amount, 0),
     collected: withStatus.reduce((a, r) => a + r.paid, 0),
@@ -112,7 +113,7 @@ function PayModal({ charge, onClose, onDone }: { charge: { id: string; vehicle: 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [amount, setAmount] = useState(String(charge.remaining));
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todaySA());
   const [method, setMethod] = useState("cash");
   const [reference, setReference] = useState("");
 

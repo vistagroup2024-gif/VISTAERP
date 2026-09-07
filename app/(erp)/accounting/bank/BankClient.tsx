@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { useDocRights } from "@/components/AccessProvider";
+import { todaySA } from "@/lib/saudiTime";
 
 type Acc = { id: string; code: string; name: string; subtype: string };
 type Line = { id: string; line_date: string | null; description: string | null; ref: string | null; amount: number; status: string };
@@ -23,7 +24,7 @@ export default function BankClient({ banks, contras, statement, lines }: { banks
   const router = useRouter();
   const supabase = createClient();
   const [bank, setBank] = useState(statement?.bank_account_id ?? "");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todaySA());
   const [csv, setCsv] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);

@@ -7,6 +7,7 @@ import { COMPANY_ID, dateStr } from "@/lib/format";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
 import RateChartTable from "@/components/transport/RateChartTable";
 import { buildRateChart, type RateChart } from "@/lib/transportRateChart";
+import { todaySA } from "@/lib/saudiTime";
 
 interface Ref { id: string; name: string }
 interface AgentRef { id: string; agency_name: string }
@@ -21,7 +22,7 @@ interface AgentRate { id: string; agent_id: string | null; route_id: string; veh
 interface VendorRate { id: string; vendor_id: string; route_id: string; vehicle_id: string; effective_from: string; effective_to: string | null; purchase_rate: number; status: string }
 interface RouteRate { id: string; route_id: string; vehicle_id: string; extra_charge_enabled: boolean; extra_charge_desc: string | null; extra_charge_amount: number }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todaySA();
 
 export default function RateMaster({ routes, vehicles, agents, vendors, agentRates, vendorRates, routeRates = [], chartParties = [], isAdmin = false }: {
   routes: Ref[]; vehicles: Ref[]; agents: AgentRef[]; vendors: Ref[]; agentRates: AgentRate[]; vendorRates: VendorRate[];

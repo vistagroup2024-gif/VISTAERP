@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { useDocRights } from "@/components/AccessProvider";
+import { todaySA } from "@/lib/saudiTime";
 
 type Acc = { id: string; code: string; name: string };
 type FA = { id: string; name: string; cost: number; salvage: number; purchase_date: string; life_months: number; accumulated: number; depreciated_to: string | null; status: string };
@@ -14,8 +15,8 @@ export default function AssetsClient({ assets, assetAccounts }: { assets: FA[]; 
   const rights = useDocRights("fixed_assets");
   const router = useRouter();
   const supabase = createClient();
-  const [f, setF] = useState({ name: "", asset_account_id: "", cost: "", salvage: "0", purchase_date: new Date().toISOString().slice(0, 10), life_months: "60" });
-  const [period, setPeriod] = useState(new Date().toISOString().slice(0, 10));
+  const [f, setF] = useState({ name: "", asset_account_id: "", cost: "", salvage: "0", purchase_date: todaySA(), life_months: "60" });
+  const [period, setPeriod] = useState(todaySA());
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

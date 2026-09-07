@@ -4,6 +4,7 @@ import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import { sar } from "../../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function CustomerSummaryReport() {
   const { data } = await supabase.from("car_contracts")
     .select("customer_id, sale_price, advance, status, customer:customer_id(name, phone, tax_number), car_installments(amount, paid_amount, due_date)")
     .neq("status", "cancelled");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
 
   const byC = new Map<string, any>();
   for (const c of (data ?? []) as any[]) {

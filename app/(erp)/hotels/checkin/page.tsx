@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { dateStr } from "@/lib/format";
 import { HOTEL_STATUS_LABEL, HCN_STAGE_LABEL, HCN_STAGE_TONE } from "../lib";
 import CheckinActions from "./CheckinActions";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ const stageOf = (s: string) => (s === "received" ? "ready_to_send" : s === "shar
 export default async function CheckinPage() {
   await guardStaffPage("hotels.bookings");
   const supabase = createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const { data } = await supabase
     .from("hotel_bookings")
     .select("id, booking_no, guest_name, group_no, guests, city, hotel_name, check_in, check_out, status, hotels:hotel_id(name), hotel_purchase_bookings(id, hcn_status, hcn, hotel_name, city, check_in, check_out, rooms, sort, supplier:supplier_id(name), hotels:hotel_id(name))")

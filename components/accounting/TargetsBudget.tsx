@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { todaySA, yearSA } from "@/lib/saudiTime";
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
-const thisYear = new Date().getFullYear();
+const thisYear = yearSA();
 const jan = `${thisYear}-01-01`;
-const today = new Date().toISOString().slice(0, 10);
+const today = todaySA();
 
 type Row = { label: string; target: number; actual: number; variance: number };
 type Budget = { account_id: string; code: string; name: string; budget: number; actual: number; variance: number };

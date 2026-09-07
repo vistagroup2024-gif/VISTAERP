@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { fmtTime12 } from "@/lib/format";
+import { addDaysSA } from "@/lib/saudiTime";
 
 interface Trip {
   trip_id: string; booking_no: string | null; passenger_name: string | null; mobile: string | null; pax: number | null;
@@ -22,7 +23,7 @@ const CHIP: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700", cancelled: "bg-red-100 text-red-700",
 };
 
-function todayISO(off = 0) { return new Date(Date.now() + off * 86400000).toISOString().slice(0, 10); }
+function todayISO(off = 0) { return addDaysSA(off); }
 
 export default function DriverPortal() {
   const [driver, setDriver] = useState<{ name: string; vehicle?: string } | null>(null);

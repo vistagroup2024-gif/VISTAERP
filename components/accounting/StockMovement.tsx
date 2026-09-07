@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AccountPicker, { type PickAccount } from "./AccountPicker";
+import { todaySA } from "@/lib/saudiTime";
 
 type Named = { id: string; name: string };
 const num = (s: string) => (s.trim() === "" ? 0 : Number(s) || 0);
@@ -19,7 +20,7 @@ export default function StockMovement({ counterAccounts }: { counterAccounts: Pi
   const [warehouses, setWarehouses] = useState<Named[]>([]);
   const [item, setItem] = useState("");
   const [wh, setWh] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todaySA());
   const [qty, setQty] = useState("");
   const [rate, setRate] = useState("");
   const [reference, setReference] = useState("");

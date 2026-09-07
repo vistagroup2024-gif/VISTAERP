@@ -7,6 +7,7 @@ import ProductPicker, { productOptions } from "./ProductPicker";
 import LoadFromPicker from "./LoadFromPicker";
 import { TRADE_DOCS, isCarCostCenter, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
 import type { DocRight } from "@/lib/docRights";
+import { todaySA } from "@/lib/saudiTime";
 
 type Row = {
   product_id: string | null; item_name: string; units: string; quantity: string; rate: string; amount: string;
@@ -35,7 +36,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
 
   const [id, setId] = useState<string | null>(null);
   const [docNo, setDocNo] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todaySA());
   const [party, setParty] = useState("");
   const [costCenter, setCostCenter] = useState("");
   const [tagArea, setTagArea] = useState("");
@@ -123,7 +124,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
 
   function resetNew() {
     setId(null); setDocNo(""); setDone(null); setErr(null);
-    setDate(new Date().toISOString().slice(0, 10)); setParty(""); setCostCenter(""); setTagArea("");
+    setDate(todaySA()); setParty(""); setCostCenter(""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff("");
     setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({});
     setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false);
@@ -236,7 +237,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     if (!v) return setErr("Document not found.");
 
     setId(null); setDocNo(""); setPosted(false); setDone(null);
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(todaySA());
     setParty(v.party_id ?? ""); setCostCenter(v.cost_center ?? "");
     setTagArea(cfg.showTagArea === false ? "" : v.tag_area ?? "");
     setReference(v.doc_no ?? ""); setTerms(v.terms ?? ""); setNarration(v.narration ?? "");

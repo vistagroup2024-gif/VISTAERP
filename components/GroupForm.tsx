@@ -9,6 +9,7 @@ import ReservationSelect, { ResOption } from "@/components/ReservationSelect";
 import AttachmentsPanel from "@/components/AttachmentsPanel";
 import { useUnsavedChanges, confirmDiscardIfDirty } from "@/lib/useUnsavedChanges";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import { todaySA } from "@/lib/saudiTime";
 
 export interface GroupInitial {
   id?: string;
@@ -65,7 +66,7 @@ export default function GroupForm({
 
   const [f, setF] = useState({
     group_no: existing?.group_no ?? "",
-    group_date: existing?.group_date ?? new Date().toISOString().slice(0, 10),
+    group_date: existing?.group_date ?? todaySA(),
     group_name: existing?.group_name ?? "",
     pax: existing?.pax ?? 0,
     agent_id: existing?.agent_id ?? "",

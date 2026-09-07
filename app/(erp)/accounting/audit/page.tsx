@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
+import { dateTimeStr } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function AuditPage() {
           <tbody>
             {rows.map((r, i) => (
               <tr key={i} className="border-t border-slate-100">
-                <td className="px-3 py-1.5 whitespace-nowrap text-slate-500">{new Date(r.at).toLocaleString()}</td>
+                <td className="px-3 py-1.5 whitespace-nowrap text-slate-500">{dateTimeStr(r.at)}</td>
                 <td className="px-3 py-1.5"><span className={`badge ${ACTION_BADGE[r.action] ?? "bg-slate-100 text-slate-600"}`}>{r.action}</span></td>
                 <td className="px-3 py-1.5">{r.doc_type}</td>
                 <td className="px-3 py-1.5 font-mono text-xs">{r.ref}</td>

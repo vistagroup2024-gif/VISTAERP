@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { yearSA } from "@/lib/saudiTime";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -120,7 +121,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-slate-400">© {new Date().getFullYear()} Vista Group. All rights reserved.</p>
+        <p className="mt-6 text-center text-xs text-slate-400">© {yearSA()} Vista Group. All rights reserved.</p>
       </div>
     </main>
   );

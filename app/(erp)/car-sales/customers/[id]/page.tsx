@@ -5,6 +5,7 @@ import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import { dateStr } from "@/lib/format";
 import { sar, CONTRACT_STATUS_LABEL, CONTRACT_STATUS_TONE, vehicleTitle } from "../../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ function Money({ label, value, tone }: { label: string; value: string; tone?: st
 export default async function CustomerProfile({ params }: { params: { id: string } }) {
   await guardStaffPage(["carsales.view", "carsales.installments", "carsales.sales"]);
   const supabase = createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
 
   const [{ data: cust }, { data: contracts }, { data: receipts }, { data: charges }] = await Promise.all([
     supabase.from("parties").select("id, name, phone, email, address, tax_number, notes").eq("id", params.id).single(),

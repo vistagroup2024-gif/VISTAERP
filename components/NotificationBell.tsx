@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { playChime, chimeMuted, setChimeMuted } from "@/lib/notificationChime";
+import { dateTimeStr } from "@/lib/format";
 
 interface Notif {
   id: string; category: string; title: string; body: string | null;
@@ -172,7 +173,7 @@ export default function NotificationBell({
                     <p className="break-words font-medium text-slate-800">{n.title}</p>
                     {n.body && <p className="break-words text-xs text-slate-500">{n.body}</p>}
                     <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
-                      {new Date(n.created_at).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      {dateTimeStr(n.created_at)}
                       {n.module ? ` · ${n.module}` : ""}
                     </p>
                     <div className="mt-1 flex gap-3 text-xs">

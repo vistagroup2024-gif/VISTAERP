@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { sar } from "../lib";
 import { dateStr } from "@/lib/format";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import { todaySA } from "@/lib/saudiTime";
 
 type VehicleOpt = { id: string; label: string; cost: number };
 type Head = { id: string; name: string; amount: number | null };
@@ -16,7 +17,7 @@ type Row = {
   vehicle: { vehicle_no: string; make: string | null; model: string | null; model_year: number | null; plate_no: string | null } | null;
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todaySA();
 const blank = () => ({ vehicle_id: "", expense_id: "", expense_date: today(), amount: "", credit_account: "", narration: "" });
 
 export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {

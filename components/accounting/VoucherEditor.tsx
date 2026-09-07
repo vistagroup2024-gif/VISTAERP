@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { DocRight } from "@/lib/docRights";
 import { COMPANY_ID } from "@/lib/format";
 import AccountPicker, { type PickAccount } from "./AccountPicker";
+import { todaySA } from "@/lib/saudiTime";
 
 export type VoucherKind = "journal" | "receipt" | "payment" | "contra";
 
@@ -55,7 +56,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
     () => (variant?.cashMatch ? cashBank.filter((a) => a.name.toUpperCase().includes(variant.cashMatch!.toUpperCase())) : cashBank),
     [cashBank, variant?.cashMatch]);
 
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todaySA());
   const [narration, setNarration] = useState("");
   const [reference, setReference] = useState("");
   const [cash, setCash] = useState<string | null>(null);
@@ -127,7 +128,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
 
   function resetToNew() {
     setEntryId(null); setEntryNo(null); setEditable(true); setDone(null); setError(null); setDocField("");
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(todaySA());
     setNarration(""); setReference(""); setAmount(""); setToAcct(null); setCostCenter(""); setTagArea("");
     setLines([emptyLine(), emptyLine()]);
     try { const m = JSON.parse(localStorage.getItem(memKey) || "{}"); setCash(m.cash ?? null); } catch { setCash(null); }

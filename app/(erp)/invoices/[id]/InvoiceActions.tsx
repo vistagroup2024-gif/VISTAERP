@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID, money } from "@/lib/format";
+import { todaySA } from "@/lib/saudiTime";
 
 export default function InvoiceActions({
   invoiceId,
@@ -19,7 +20,7 @@ export default function InvoiceActions({
   const [accounts, setAccounts] = useState<any[]>([]);
   const [amount, setAmount] = useState(balance);
   const [accountId, setAccountId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todaySA());
   const [memo, setMemo] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

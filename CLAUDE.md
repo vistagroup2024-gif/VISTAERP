@@ -393,3 +393,36 @@ skipped or repeated. `.eq()`/`.in()` bounds the *filter*, not the row count: man
 groups with a few allocations each still adds up past a thousand.
 
 Better still, count in SQL and return the answer, the way the reports do.
+
+## The clock is Saudi, on both sides
+
+The business runs on Asia/Riyadh (UTC+3, no daylight saving), so both halves of
+the app answer in it. Neither half is optional: the browser deciding what "today"
+is and the database deciding it separately is how a voucher gets saved with
+tomorrow's number under yesterday's date.
+
+- **The database** is set on the roles (migration 311), not on a connection, so
+  `current_date`, `now()::date` and `localtimestamp` are Saudi in every session —
+  PostgREST, the cron endpoints, psql. Before this, for the first three hours of
+  every Saudi day they were all still on yesterday, which also opened and closed
+  the login window (`is_staff()`) three hours late.
+- **The browser** goes through `lib/saudiTime.ts`. `todaySA()` is what a date
+  input is defaulted to — never `new Date().toISOString().slice(0, 10)`, which is
+  the UTC day, and never `getFullYear()/getMonth()`, which is the viewer's.
+  `addDaysSA`, `monthStartSA` and `yearSA` are the same idea for a window.
+
+Nothing stored moved: a `timestamptz` is an absolute instant and only its
+rendering changed, a `date` is a wall-clock day and was not converted.
+
+**Displaying** keeps the two apart, and that distinction is the whole of
+`lib/format.ts`. A `date` column (or a naive timestamp) is read **literally** —
+putting it through `new Date()` lets the viewer's zone decide which day it is. A
+`timestamptz` is an instant, so `dateStr`, `fmtTime12` and `dateTimeStr` render
+it **in Riyadh**. `new Date(x).toLocaleString()` does neither and is why the
+audit log, the outbox and the notification bell used to read differently on a
+phone abroad; use `dateTimeStr` instead.
+
+Date *arithmetic* on a wall-clock string stays UTC-anchored (`new Date(d +
+"T00:00:00Z")`, `setUTCDate`, `toISOString().slice(0, 10)`) — `lib/brn.ts`,
+`lib/planning.ts` and the schedule navigators do it that way on purpose. That is
+correct and is not the same bug: it never asks what time it is.

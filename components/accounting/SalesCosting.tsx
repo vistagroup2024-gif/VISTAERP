@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
+import { todaySA, yearSA } from "@/lib/saudiTime";
 
 type Row = { source: string; doc_no: string; date: string; revenue: number; cost: number; profit: number; margin: number };
 type ProdRow = {
@@ -10,12 +11,12 @@ type ProdRow = {
   revenue: number; cost: number; cost_basis: "stock" | "rate"; profit: number; margin: number;
 };
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
-const y = new Date().getFullYear();
+const y = yearSA();
 
 export default function SalesCosting() {
   const supabase = createClient();
   const [from, setFrom] = useState(`${y}-01-01`);
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState(todaySA());
   const [rows, setRows] = useState<Row[]>([]);
   const [prods, setProds] = useState<ProdRow[]>([]);
   // Two questions, not two screens: "what did each booking make?" and "what did

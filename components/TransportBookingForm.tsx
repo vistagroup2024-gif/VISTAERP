@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import CountrySelect from "@/components/CountrySelect";
 import AttachmentsPanel from "@/components/AttachmentsPanel";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import { todaySA } from "@/lib/saudiTime";
 
 interface Route { id: string; name: string; is_airport?: boolean; from_location?: string | null; to_location?: string | null }
 interface Vehicle { id: string; name: string; seating_capacity?: number | null }
@@ -39,7 +40,7 @@ interface Trip {
 }
 
 const VISA_TYPES: [string, string][] = [["umrah", "Umrah Visa"], ["visit", "Visit Visa"], ["other", "Other"]];
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => todaySA();
 const blankTrip = (): Trip => ({ id: "", route_id: "", route_label: "", vehicle_id: "", trip_date: "", trip_time: "", pickup_location: "", drop_location: "", flight_no: "", remarks: "", hajj_terminal: false, passenger_visa_type: "", fare: "", is_extra: false, pax: "" });
 
 // Collapse family-split duplicate legs (identical route/date/time/vehicle saved

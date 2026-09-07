@@ -6,6 +6,7 @@ import DashboardCard from "@/components/dashboard/DashboardCard";
 import { visibleCards, type CardAccess } from "@/lib/dashboardCards";
 import { getStaffAccess, staffCan, staffLanding, getSessionUser } from "@/lib/staffSession";
 import { redirect } from "next/navigation";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export default async function Dashboard() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-extrabold uppercase tracking-wide text-slate-800">Dashboard</h1>
           <span className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-1 text-sm font-bold tabular-nums text-brand-700">
-            {dateStr(m.as_of ?? new Date().toISOString().slice(0, 10))}
+            {dateStr(m.as_of ?? todaySA())}
           </span>
         </div>
         <p className="text-xs text-slate-400">

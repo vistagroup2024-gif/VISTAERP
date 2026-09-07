@@ -3,6 +3,7 @@ import { guardStaffPage } from "@/lib/staffSession";
 import CarInvoiceForm from "./CarInvoiceForm";
 import CarInvoiceList, { ContractRow } from "./ContractsTable";
 import { vehicleTitle } from "../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function CarInvoicePage() {
     id: v.id, label: `${vehicleTitle({ ...v, item: v.item?.name })} · ${v.plate_no ?? v.vehicle_no}`, is_trading: !!v.is_trading,
   }));
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const rows: ContractRow[] = (list ?? []).map((c: any) => {
     const insts = (c.car_installments ?? []) as any[];
     const paid = insts.reduce((a, i) => a + Number(i.paid_amount || 0), 0);

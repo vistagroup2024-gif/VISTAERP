@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { dateStr, money } from "@/lib/format";
+import { dateStr, money, dateTimeStr } from "@/lib/format";
 import AttachmentsPanel from "@/components/AttachmentsPanel";
 import {
   HOTEL_STATUS_LABEL, HOTEL_STATUS_TONE, VENDOR_STATUS_LABEL, VENDOR_STATUS_ORDER,
@@ -123,7 +123,7 @@ export default function HotelBookingDetail({
         <ul className="space-y-2 text-sm">
           {timeline.map((t) => (
             <li key={t.id} className="flex gap-3 border-b border-slate-50 pb-2">
-              <span className="w-32 shrink-0 text-slate-400">{new Date(t.created_at).toLocaleString()}</span>
+              <span className="w-32 shrink-0 text-slate-400">{dateTimeStr(t.created_at)}</span>
               <span className="font-medium">{t.action.replace(/^hotel_/, "").replace(/_/g, " ")}</span>
               <span className="text-slate-500">{t.detail && Object.keys(t.detail).length ? JSON.stringify(t.detail) : ""}</span>
             </li>

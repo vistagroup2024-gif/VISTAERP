@@ -4,10 +4,11 @@ import PrintButton from "@/components/PrintButton";
 import Link from "next/link";
 import ReportRange from "./ReportRange";
 import { getStaffAccess, staffCan } from "@/lib/staffSession";
+import { todaySA, monthStartSA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
-function monthStart() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }
+const monthStart = () => monthStartSA();
 
 function Table({ title, cols, rows }: { title: string; cols: string[]; rows: any[][] }) {
   return (
@@ -28,7 +29,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { fr
   const sb = createClient();
   const access = await getStaffAccess();
   const canLedger = staffCan(access, "transport.trip_ledger");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const from = searchParams.from || monthStart();
   const to = searchParams.to || today;
 

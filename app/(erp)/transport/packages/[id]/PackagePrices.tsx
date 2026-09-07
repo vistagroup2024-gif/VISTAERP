@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => todaySA();
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
+import { todaySA } from "@/lib/saudiTime";
 
 interface Vehicle { id: string; name: string; category: string | null; is_active: boolean }
 interface Price { id: string; vehicle_id: string; price: number; agent_id: string | null; effective_from: string; effective_to: string | null; status: string | null }

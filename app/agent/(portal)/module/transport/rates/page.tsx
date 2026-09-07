@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import RateChartTable from "@/components/transport/RateChartTable";
 import { buildRateChart } from "@/lib/transportRateChart";
 import AgentPeriods, { type Period } from "./AgentPeriods";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function AgentRatesPage({ searchParams }: { searchParams: {
   const fallback = periods.find((p) => p.current) ?? periods[periods.length - 1];
   const on = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.on ?? "") && periods.some((p) => p.from === searchParams.on)
     ? searchParams.on!
-    : fallback?.from ?? new Date().toISOString().slice(0, 10);
+    : fallback?.from ?? todaySA();
 
   const { data: chartJson } = await sb.rpc("b2b_transport_rate_chart", { p_token: agent.token, p_date: on });
   const chart = buildRateChart(chartJson);

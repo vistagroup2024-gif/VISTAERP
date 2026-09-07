@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PO_STATUS_LABEL, sar } from "../lib";
 import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import { todaySA } from "@/lib/saudiTime";
 
 interface Opt { id: string; name: string }
 interface Line { id?: string; make: string; model: string; variant: string; model_year: string; color: string; vin: string; plate_no: string; engine_no: string; purchase_cost: string; purchase_vat: string; received?: boolean }
@@ -19,7 +20,7 @@ export default function PurchaseOrderForm({ existing, items = [], suppliers }: {
   const [err, setErr] = useState<string | null>(null);
   const [h, setH] = useState({
     supplier_id: existing?.supplier_id ?? "",
-    po_date: existing?.po_date ?? new Date().toISOString().slice(0, 10),
+    po_date: existing?.po_date ?? todaySA(),
     expected_date: existing?.expected_date ?? "",
     status: existing?.status ?? "draft",
     notes: existing?.notes ?? "",

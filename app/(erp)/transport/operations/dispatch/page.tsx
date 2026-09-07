@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PrintButton from "@/components/PrintButton";
 import { fmtTime12 } from "@/lib/format";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ function mapLink(q: string | null) {
 
 export default async function DispatchPage({ searchParams }: { searchParams: { date?: string; driver?: string } }) {
   const sb = createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const date = searchParams.date || today;
 
   let tq = sb.from("transport_trip_sched")

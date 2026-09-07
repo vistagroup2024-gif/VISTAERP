@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
+import { todaySA } from "@/lib/saudiTime";
 
 // Shared master data needed by the transport booking form (new + edit).
 export async function loadBookingMasters() {
   const sb = createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const [{ data: routes }, { data: vehicles }, { data: packages }, { data: legs }, { data: agentRates }, { data: pkgPrices }, { data: agents }, { data: extras }] =
     await Promise.all([
       sb.from("transport_routes").select("id, name, is_airport, from_location, to_location").eq("is_active", true).order("name"),

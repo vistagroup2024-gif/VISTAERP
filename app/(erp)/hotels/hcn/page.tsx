@@ -4,6 +4,7 @@ import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import { dateStr } from "@/lib/format";
 import { VENDOR_STATUS_LABEL, HCN_STATUS_LABEL } from "../lib";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function HcnManagementPage() {
     .filter((p: any) => p.b && p.b.status !== "cancelled")
     .sort((a: any, b: any) => (a.b.check_in ?? "9999").localeCompare(b.b.check_in ?? "9999"));
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todaySA();
   const risk = (ci: string | null, hcnStatus: string) => {
     if (!ci || hcnStatus === "received" || hcnStatus === "shared") return "";
     const days = Math.round((new Date(ci + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime()) / 86400000);
