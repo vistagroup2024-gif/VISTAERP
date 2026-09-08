@@ -360,6 +360,14 @@ There is no module dashboard any more. `/accounting`, `/car-sales`,
 the routes stay so links and bookmarks keep working, but every card they used to
 carry is in the register. A new card goes there, never onto a module screen.
 
+A card's buckets must not overlap. Car Customer Balances showed **Due** (unpaid
+instalments dated this month) beside **Overdue** (unpaid instalments dated
+before *today*), so an instalment dated earlier this month sat in both and the
+card read double. An instalment is overdue once **the month it was due in has
+ended** — that is how a monthly instalment is actually chased, and it makes the
+two disjoint, with both still subsets of Outstanding. The service-charge card is
+not the same shape: its "this month" is what was BILLED, not what is owed.
+
 Two things follow. The landing lists in `lib/staffSession.ts` and
 `lib/supabase/middleware.ts` must not point at a forwarding route: a user
 without `dashboard.view` would be sent to their landing, forwarded back to
