@@ -174,6 +174,36 @@ already knows every place a party can be spoken for. `parties.manage` opens the
 chart now, and both the menu and the middleware grant it there; a landing that
 its own guard bounces is the redirect loop this file warns about below.
 
+## Car money belongs to the customer, not to a bucket
+
+The Car Sales module used to post every receivable to a house control account —
+Car Installment Receivable for the sale, Service Charge Receivable for the
+monthly charge — so the customer's own account, which exists because **a
+customer IS an account in this chart**, stayed at nil. The one screen that
+answers "what does this customer owe" answered nothing.
+
+    the car sale        Dr the customer     Cr Vehicle Sales
+    the monthly charge  Dr the customer     Cr Monthly Service Charges
+    a receipt           Dr Cash / Bank      Cr the customer
+    a charge payment    Dr Cash / Bank      Cr the customer
+
+`car_party_account()` resolves it and `car_post_entry` takes an `account_id` on
+a line for exactly this reason: every car posting named its account by CODE,
+and a customer's code is not one a routine can know. The control accounts are
+still in the chart carrying their history; nothing new lands there unless a
+contract has no customer at all.
+
+**An advance on a Car Invoice posts nothing.** It is what the invoice says is
+due up front. Cash moves when a Car Receipt says it moved — posting both is how
+the same 40,000 gets counted twice.
+
+**A car expense reaches the stock ledger as well as the GL.** It capitalises
+into Vehicle Inventory *and* re-values the car's stock receipt
+(`car_vehicle_stock_revalue`), because a car is one serialised unit and its
+receipt is its landed cost. Without that the same car reads two different
+numbers in two ledgers. `stock_apply` refuses a zero quantity — rightly, it
+moves goods — so re-valuing is its own routine.
+
 ## Three different "invoices"
 
 - `/invoices` — booking invoice, raised automatically, read-only (hidden).
