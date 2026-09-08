@@ -1,66 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type AccountType = "asset" | "liability" | "equity" | "income" | "expense";
-
-export type LedgerAccount = {
-  id: string;
-  code: string;
-  name: string;
-  type: AccountType;
-  debit: number; // total debits posted
-  credit: number; // total credits posted
-  net: number; // debit - credit
-};
-
-/**
- * Aggregates all POSTED journal lines by account, in base currency (PKR).
- * Returns accounts that have activity plus convenience totals by type.
- */
-export async function loadLedger() {
-  const supabase = createClient();
-
-  const { data: accounts } = await supabase
-    .from("accounts")
-    .select("id, code, name, type")
-    .order("code");
-
-  const { data: lines } = await supabase
-    .from("journal_lines")
-    .select("account_id, debit, credit, journal_entries!inner(status)")
-    .eq("journal_entries.status", "posted");
-
-  const agg = new Map<string, { debit: number; credit: number }>();
-  for (const l of lines ?? []) {
-    const cur = agg.get(l.account_id) ?? { debit: 0, credit: 0 };
-    cur.debit += Number(l.debit);
-    cur.credit += Number(l.credit);
-    agg.set(l.account_id, cur);
-  }
-
-  const ledger: LedgerAccount[] = (accounts ?? []).map((a: any) => {
-    const t = agg.get(a.id) ?? { debit: 0, credit: 0 };
-    return { ...a, debit: t.debit, credit: t.credit, net: t.debit - t.credit };
-  });
-
-  const sumNet = (type: AccountType) =>
-    ledger.filter((a) => a.type === type).reduce((s, a) => s + a.net, 0);
-
-  const totalIncome = -sumNet("income"); // income carries credit balance
-  const totalExpense = sumNet("expense"); // expense carries debit balance
-  const netProfit = totalIncome - totalExpense;
-
-  return {
-    ledger,
-    totals: {
-      assets: sumNet("asset"),
-      liabilities: -sumNet("liability"),
-      equity: -sumNet("equity"),
-      income: totalIncome,
-      expense: totalExpense,
-      netProfit,
-    },
-  };
-}
+// NOTE — there is deliberately no whole-ledger loader here any more.
+//
+// `loadLedger()` used to read EVERY posted journal line and add them up in
+// JavaScript to produce a trial balance: assets, liabilities, equity, income,
+// net profit. PostgREST stops at 1000 rows and says nothing, so past that it
+// would have gone on returning a tidy set of figures, all of them wrong —
+// exactly how the Daily Calendar came to disagree with itself over BRN beds.
+// It had no callers, so nothing was ever wrong; it was a trap left lying about.
+//
+// Totals like these are counted in SQL and returned already summed:
+// `trial_balance`, `acct_ledger_multi`, `dashboard_metrics`. Read a whole table
+// only through `fetchAllRows`, which pages until a short page comes back.
 
 // Postable, active accounts for voucher pickers (server-side).
 export async function loadPickAccounts() {

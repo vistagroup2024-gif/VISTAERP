@@ -403,6 +403,25 @@ granted to `authenticated` to compensate — the property still holds.
 authenticated`, and an internal engine needs none: leaving it ungranted is what
 makes it internal.
 
+**That count drifts, so re-measure rather than trust it.** It was 100 at the
+September 2026 sweep, not 78 — twenty-two routines had picked up the PUBLIC
+default since 293. Most are harmless (a trigger function cannot be called
+directly however it is granted) but five were not:
+
+    select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute')
+       and p.prorettype <> 'trigger'::regtype;
+
+`car_monthly_run`, `refresh_brn_availability` and the three
+`generate_*_reminders` are **anon-callable and carry no gate of their own**.
+CRON_SECRET is checked in the Next.js route, but the route calls the database as
+anon — there is no service-role key in this project — so the RPC is reachable
+directly with the key that ships in the browser bundle, and the route can simply
+be skipped. `car_monthly_run` generates monthly charges and posts journals. The
+fix is the one `push_prune` already uses: a `p_secret` argument checked in the
+body. Not yet done: it needs the secret agreed between Vercel and the database
+in the same change, or the jobs stop instead of closing.
+
 ## A select() without a bound is a bug waiting for the 1001st row
 
 PostgREST caps a response at **1000 rows and says nothing** — no error, just a
