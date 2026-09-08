@@ -11,19 +11,26 @@ const drcr = (n: number) => `${money(n)} ${n >= 0 ? "Dr" : "Cr"}`;
 
 export default async function LedgerPage({ searchParams }: { searchParams: { account?: string; from?: string; to?: string } }) {
   const sb = createClient();
-  const { data: accs } = await sb.from("accounts")
-    .select("id, code, name").eq("is_postable", true).order("code");
-  const accounts = (accs ?? []) as any[];
   const account = searchParams.account ?? "";
   const from = searchParams.from ?? "";
   const to = searchParams.to ?? "";
 
+  // The picker's account list and the ledger itself are asked for at the same
+  // time: the ledger is keyed on the id already in the URL, so it never needed
+  // to wait for the list to come back first.
+  const [{ data: accs }, { data: ledger }] = await Promise.all([
+    sb.from("accounts").select("id, code, name").eq("is_postable", true).order("code"),
+    account
+      ? sb.rpc("acct_ledger", {
+          p_company: COMPANY_ID, p_account_ids: [account], p_from: from || null, p_to: to || null,
+        })
+      : Promise.resolve({ data: null }),
+  ]);
+  const accounts = (accs ?? []) as any[];
+
   let opening = 0; let rows: any[] = []; let acctName = "";
   if (account) {
-    const { data } = await sb.rpc("acct_ledger", {
-      p_company: COMPANY_ID, p_account_ids: [account], p_from: from || null, p_to: to || null,
-    });
-    const d = (data ?? {}) as any;
+    const d = (ledger ?? {}) as any;
     opening = Number(d.opening ?? 0);
     rows = (d.rows ?? []) as any[];
     acctName = accounts.find((a) => a.id === account) ? accounts.find((a) => a.id === account).name : "";

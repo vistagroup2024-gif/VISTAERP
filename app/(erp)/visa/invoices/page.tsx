@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
-import { getStaffAccess, staffCan, getSessionUser } from "@/lib/staffSession";
+import { getStaffAccess, staffCan } from "@/lib/staffSession";
 import VisaLedgerRange from "./VisaLedgerRange";
 import VisaLedgerTable from "./VisaLedgerTable";
 import { todaySA, monthStartSA } from "@/lib/saudiTime";
@@ -17,9 +17,10 @@ export default async function VisaInvoicesPage({ searchParams }: { searchParams:
     return <div className="card m-6 text-slate-500">You don’t have permission to view Visa Invoices.</div>;
   }
   const sb = createClient();
-  const user = await getSessionUser();
-  const { data: roleRows } = await sb.from("user_roles").select("role").eq("user_id", user?.id ?? "");
-  const isAdmin = (roleRows ?? []).some((r: any) => r.role === "admin");
+  // The access loaded above already carries the admin flag: staff_access()'s
+  // is_admin IS has_role('admin'), and user_roles' read policy always shows a
+  // user their own row — so the query this replaces could only ever agree.
+  const isAdmin = access.isAdmin;
   const today = todaySA();
   const from = searchParams.from || monthStart();
   const to = searchParams.to || today;

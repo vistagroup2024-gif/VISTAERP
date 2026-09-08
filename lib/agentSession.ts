@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,14 +21,25 @@ export interface AgentSession {
 }
 
 // Reads the b2b_session cookie and resolves it to the agent profile (or null).
-export async function getAgent(): Promise<AgentSession | null> {
+//
+// Wrapped in React cache() for the same reason getStaffAccess is: the portal
+// layout and the page inside it both ask, so an agent's every screen was paying
+// for b2b_me TWICE. cache() is scoped to a single server request, so the two
+// calls in one render share an answer and two agents browsing at the same time
+// still each get their own — the memo cannot outlive the request that made it.
+//
+// Safe here because the session cannot change underneath a request that reads
+// it: nothing calls getAgent() and then changes the cookie, and the only routes
+// that set or clear b2b_session (agent login and logout) read the cookie
+// directly and never call this at all.
+export const getAgent = cache(async function getAgent(): Promise<AgentSession | null> {
   const token = cookies().get("b2b_session")?.value;
   if (!token) return null;
   const supabase = createClient();
   const { data } = await supabase.rpc("b2b_me", { p_token: token });
   if (!data) return null;
   return { ...(data as any), token };
-}
+});
 
 export function can(agent: AgentSession | null, key: string): boolean {
   return !!agent?.permissions?.[key];

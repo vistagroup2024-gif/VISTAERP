@@ -38,11 +38,12 @@ export default async function UsersPage() {
   const canCreate = staffPermStrict(access, "users.create");
   const canDelete = staffPermStrict(access, "users.delete");
 
-  const { data: users } = await supabase.rpc("staff_users_list");
-
-  const { data: allRoles } = await supabase
-    .from("user_roles")
-    .select("user_id, role");
+  // The user list and the role map are independent reads. (This one is every
+  // user's roles, not the caller's, so it is not the query staff_access covers.)
+  const [{ data: users }, { data: allRoles }] = await Promise.all([
+    supabase.rpc("staff_users_list"),
+    supabase.from("user_roles").select("user_id, role"),
+  ]);
 
   const rolesByUser: Record<string, string[]> = {};
   (allRoles ?? []).forEach((r: any) => {

@@ -6,14 +6,16 @@ export const dynamic = "force-dynamic";
 
 export default async function BillDetail({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const { data: bill } = await supabase
-    .from("bills")
-    .select("*, parties:supplier_id(name, address), bookings:booking_id(booking_no)")
-    .eq("id", params.id)
-    .single();
+  // Header and lines are both keyed on the id in the URL.
+  const [{ data: bill }, { data: lines }] = await Promise.all([
+    supabase
+      .from("bills")
+      .select("*, parties:supplier_id(name, address), bookings:booking_id(booking_no)")
+      .eq("id", params.id)
+      .single(),
+    supabase.from("bill_lines").select("*").eq("bill_id", params.id),
+  ]);
   if (!bill) notFound();
-
-  const { data: lines } = await supabase.from("bill_lines").select("*").eq("bill_id", params.id);
   const c: any = bill;
 
   return (

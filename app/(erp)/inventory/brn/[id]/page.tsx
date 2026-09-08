@@ -9,11 +9,13 @@ export const dynamic = "force-dynamic";
 
 export default async function BrnDetail({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const { data: brn } = await supabase.from("brn_inventory").select("*").eq("id", params.id).single();
+  // Both are keyed on the id in the URL — the consumption rows do not depend on
+  // anything the BRN row says — so they go out together.
+  const [{ data: brn }, { data: cons }] = await Promise.all([
+    supabase.from("brn_inventory").select("*").eq("id", params.id).single(),
+    supabase.from("brn_consumption").select("*").eq("brn_id", params.id).order("check_in"),
+  ]);
   if (!brn) notFound();
-
-  const { data: cons } = await supabase
-    .from("brn_consumption").select("*").eq("brn_id", params.id).order("check_in");
 
   const b = brn as Brn;
   const C = (cons ?? []) as Consumption[];

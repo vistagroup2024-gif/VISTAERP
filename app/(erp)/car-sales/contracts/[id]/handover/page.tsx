@@ -10,11 +10,15 @@ export const dynamic = "force-dynamic";
 export default async function HandoverDoc({ params }: { params: { id: string } }) {
   await guardStaffPage(["carsales.ownership", "carsales.installments"]);
   const supabase = createClient();
-  const { data: c } = await supabase.from("car_contracts")
-    .select("contract_no, delivery_date, customer:customer_id(name, phone), vehicle:vehicle_id(id, make, model, model_year, plate_no, vin, color)")
-    .eq("id", params.id).single();
+  // The delivery record is keyed on the contract id from the URL, not on
+  // anything the contract row says, so the two go out together.
+  const [{ data: c }, { data: del }] = await Promise.all([
+    supabase.from("car_contracts")
+      .select("contract_no, delivery_date, customer:customer_id(name, phone), vehicle:vehicle_id(id, make, model, model_year, plate_no, vin, color)")
+      .eq("id", params.id).single(),
+    supabase.from("car_deliveries").select("*").eq("contract_id", params.id).order("delivery_date", { ascending: false }).limit(1).maybeSingle(),
+  ]);
   if (!c) notFound();
-  const { data: del } = await supabase.from("car_deliveries").select("*").eq("contract_id", params.id).order("delivery_date", { ascending: false }).limit(1).maybeSingle();
   const veh = (c as any).vehicle;
 
   return (

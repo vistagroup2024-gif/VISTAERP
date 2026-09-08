@@ -6,14 +6,13 @@ export const dynamic = "force-dynamic";
 
 export default async function PackageDetail({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const { data: pkg } = await supabase.from("packages").select("*").eq("id", params.id).single();
+  // Both are keyed on the id in the URL, so the lines go out with the header
+  // rather than after it.
+  const [{ data: pkg }, { data: items }] = await Promise.all([
+    supabase.from("packages").select("*").eq("id", params.id).single(),
+    supabase.from("package_items").select("*").eq("package_id", params.id).order("sort_order"),
+  ]);
   if (!pkg) notFound();
-
-  const { data: items } = await supabase
-    .from("package_items")
-    .select("*")
-    .eq("package_id", params.id)
-    .order("sort_order");
 
   const totalSell = (items ?? []).reduce((s, i) => s + Number(i.sell_price) * Number(i.qty), 0);
 

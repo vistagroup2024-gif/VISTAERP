@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { guardStaffPage, getSessionUser } from "@/lib/staffSession";
+import { guardStaffPage } from "@/lib/staffSession";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { dateStr } from "@/lib/format";
@@ -25,7 +25,12 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default async function GroupDetail({ params }: { params: { id: string } }) {
-  await guardStaffPage("visa.view");
+  // The admin flag comes from the access this guard already loaded. It used to
+  // be a second query against user_roles, which asked the same question twice:
+  // staff_access().is_admin IS has_role('admin'), and user_roles' read policy
+  // (user_id = auth.uid() or is_staff()) always shows a user their own row, so
+  // the two could not disagree.
+  const { isAdmin } = await guardStaffPage("visa.view");
   const supabase = createClient();
   const { data: g } = await supabase
     .from("umrah_groups")
@@ -34,30 +39,31 @@ export default async function GroupDetail({ params }: { params: { id: string } }
     .single();
   if (!g) notFound();
 
-  const { data: allocations } = await supabase
-    .from("group_brn_allocation")
-    .select("id, beds, locked, brn_inventory:brn_id(id, brn, hotel_name, city, beds), brn_consumption:consumption_id(check_in, check_out)")
-    .eq("group_id", params.id);
+  // The group has to be read first — the BRN check below reads its workflow and
+  // visa type. Everything that only needs the id then goes out together rather
+  // than one waiting on the next: allocations, the BRN readiness badge and the
+  // arrival-service state are independent of each other.
+  const [{ data: allocations }, { data: brnAvail }, { data: arrState }] = await Promise.all([
+    supabase
+      .from("group_brn_allocation")
+      .select("id, beds, locked, brn_inventory:brn_id(id, brn, hotel_name, city, beds), brn_consumption:consumption_id(check_in, check_out)")
+      .eq("group_id", params.id),
+    // BRN readiness once the group is in Process (complete / partial / none).
+    g.workflow_status === "process" && g.visa_type !== "long_stay"
+      ? supabase.rpc("brn_availability", { p_group: g.id })
+      : Promise.resolve({ data: null }),
+    // Arrival-service state (transport booking exists / tafweej recorded / pending).
+    supabase.rpc("arrival_service_state", { p_group: g.id }),
+  ]);
 
   const A = (allocations ?? []) as any[];
 
-  // BRN readiness once the group is in Process (complete / partial / none).
-  const { data: brnAvail } = g.workflow_status === "process" && g.visa_type !== "long_stay"
-    ? await supabase.rpc("brn_availability", { p_group: g.id })
-    : { data: null };
   // The arithmetic behind that badge, so a group that cannot be allocated says
-  // why rather than sending the user to BRN Inventory to guess.
+  // why rather than sending the user to BRN Inventory to guess. This one really
+  // does wait on brnAvail — it is only asked when the badge is short.
   const { data: brnWhy } = brnAvail === "none" || brnAvail === "partial"
     ? await supabase.rpc("brn_shortfall", { p_group: g.id })
     : { data: null };
-
-  // Arrival-service state (transport booking exists / tafweej recorded / pending).
-  const { data: arrState } = await supabase.rpc("arrival_service_state", { p_group: g.id });
-
-  // Is the current user an admin? (controls reopen)
-  const user = await getSessionUser();
-  const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user?.id ?? "");
-  const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
 
   // ---- External ERP export mapping (uses actual allocated dates + city names) ----
   const cityName = (j: any, code: string | null) => j?.city ?? code ?? "";

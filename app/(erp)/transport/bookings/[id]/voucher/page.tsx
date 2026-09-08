@@ -37,8 +37,12 @@ export default async function VoucherPage({ params, searchParams }: { params: { 
   // login, its branding (logo, voucher note, contact) via agent_party_id.
   let agent: any = null;
   if (brand === "agent" && b.agent_id) {
-    const { data: party } = await sb.from("parties").select("name, phone").eq("id", b.agent_id).maybeSingle();
-    const { data: login } = await sb.from("b2b_agents").select("agency_name, contact_person, email, mobile, address, logo, voucher_note, voucher_show_name").eq("agent_party_id", b.agent_id).maybeSingle();
+    // Both are keyed on the same agent id — the party master and, when the agent
+    // also has a portal login, its branding. Neither reads the other.
+    const [{ data: party }, { data: login }] = await Promise.all([
+      sb.from("parties").select("name, phone").eq("id", b.agent_id).maybeSingle(),
+      sb.from("b2b_agents").select("agency_name, contact_person, email, mobile, address, logo, voucher_note, voucher_show_name").eq("agent_party_id", b.agent_id).maybeSingle(),
+    ]);
     if (party || login) {
       agent = {
         agency_name: party?.name ?? login?.agency_name,

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { guardStaffPage, getSessionUser } from "@/lib/staffSession";
+import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import { Brn, Consumption, dailyForBrn, totalNights, isArchived, sellableRun } from "@/lib/brn";
 import BrnTable, { BrnRow } from "./BrnTable";
@@ -8,17 +8,16 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 export const dynamic = "force-dynamic";
 
 export default async function BrnListPage() {
-  await guardStaffPage("brn.view");
+  // The admin flag comes from the access the guard already loaded rather than a
+  // third query for the caller's own roles — see groups/[id].
+  const { isAdmin } = await guardStaffPage("brn.view");
   const supabase = createClient();
-  const user = await getSessionUser();
-  const [{ data: brns }, { data: cons }, { data: roles }] = await Promise.all([
+  const [{ data: brns }, { data: cons }] = await Promise.all([
     supabase.from("brn_inventory")
       .select("*, parties:supplier_id(name), group_companies:group_company_id(name)")
       .order("created_at", { ascending: false }),
     fetchAllRows<Consumption>((from, to) => supabase.from("brn_consumption").select("*").order("id").range(from, to)),
-    supabase.from("user_roles").select("role").eq("user_id", user?.id ?? ""),
   ]);
-  const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
 
   const B = (brns ?? []) as (Brn & { parties: { name: string } | null; group_companies: { name: string } | null })[];
   const C = (cons ?? []) as Consumption[];

@@ -16,9 +16,12 @@ export default async function BankPage({ searchParams }: { searchParams: { state
 
   let statement: any = null; let lines: any[] = [];
   if (searchParams.statement) {
-    const { data: s } = await sb.from("bank_statements").select("id, bank_account_id, statement_date").eq("id", searchParams.statement).maybeSingle();
+    // Both are keyed on the statement id in the URL, not on each other.
+    const [{ data: s }, { data: l }] = await Promise.all([
+      sb.from("bank_statements").select("id, bank_account_id, statement_date").eq("id", searchParams.statement).maybeSingle(),
+      sb.from("bank_lines").select("id, line_date, description, ref, amount, status").eq("statement_id", searchParams.statement).order("line_date"),
+    ]);
     statement = s;
-    const { data: l } = await sb.from("bank_lines").select("id, line_date, description, ref, amount, status").eq("statement_id", searchParams.statement).order("line_date");
     lines = l ?? [];
   }
 

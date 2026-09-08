@@ -8,11 +8,15 @@ const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDig
 
 export default async function VoucherPage({ params }: { params: { id: string } }) {
   const sb = createClient();
-  const { data: je } = await sb.from("journal_entries")
-    .select("id, entry_no, entry_date, memo, source, reference, status").eq("id", params.id).maybeSingle();
+  // Both are keyed on the id in the URL, so the lines never had to wait for the
+  // entry to come back before they could be asked for.
+  const [{ data: je }, { data: lines }] = await Promise.all([
+    sb.from("journal_entries")
+      .select("id, entry_no, entry_date, memo, source, reference, status").eq("id", params.id).maybeSingle(),
+    sb.from("journal_lines")
+      .select("account_id, description, debit, credit, accounts(code, name)").eq("entry_id", params.id).order("created_at"),
+  ]);
   if (!je) return <div className="card text-slate-500">Voucher not found. <Link href="/accounting/journal" className="text-brand hover:underline">Back</Link></div>;
-  const { data: lines } = await sb.from("journal_lines")
-    .select("account_id, description, debit, credit, accounts(code, name)").eq("entry_id", params.id).order("created_at");
 
   const rows = (lines ?? []) as any[];
   const totD = rows.reduce((s, l) => s + Number(l.debit), 0);
