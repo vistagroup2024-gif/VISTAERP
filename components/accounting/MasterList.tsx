@@ -14,7 +14,14 @@ const TABLE_DOC: Record<string, string> = {
   warehouses: "warehouses",
 };
 
-export type MasterField = { key: string; label: string; type?: "text" | "number"; width?: string; required?: boolean };
+export type MasterOption = { v: string; l: string };
+export type MasterField = {
+  key: string; label: string; type?: "text" | "number" | "select";
+  width?: string; required?: boolean;
+  /** For a select: what it may hold. The list is passed in rather than fetched
+   *  here so the master and the voucher that reads it offer the same thing. */
+  options?: MasterOption[];
+};
 
 // Reusable CRUD list for a simple accounting master (cost centers, tag areas,
 // car-purchase expenses, currencies…). Server passes the initial rows; this
@@ -34,6 +41,23 @@ export default function MasterList({
   const [edit, setEdit] = useState<Record<string, string>>({});
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // The label for a stored value, so a list column shows the vendor's name and
+  // not the uuid behind it.
+  const labelFor = (f: MasterField, v: any) =>
+    f.type === "select" ? (f.options?.find((o) => o.v === v)?.l ?? (v ? "—" : "—")) : v;
+
+  const Input = ({ f, value, onChange }: { f: MasterField; value: string; onChange: (v: string) => void }) =>
+    f.type === "select" ? (
+      <select className="input" value={value ?? ""} onChange={(e) => onChange(e.target.value)}>
+        <option value="">— none —</option>
+        {(f.options ?? []).map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
+      </select>
+    ) : (
+      <input className="input" type={f.type === "number" ? "number" : "text"}
+        step={f.type === "number" ? "any" : undefined}
+        value={value ?? ""} onChange={(e) => onChange(e.target.value)} />
+    );
 
   const coerce = (obj: Record<string, string>) => {
     const out: any = {};
@@ -78,8 +102,7 @@ export default function MasterList({
         {fields.map((f) => (
           <div key={f.key} className={f.width ?? "sm:col-span-2"}>
             <label className="label">{f.label}{f.required !== false ? " *" : ""}</label>
-            <input className="input" type={f.type === "number" ? "number" : "text"} step={f.type === "number" ? "any" : undefined}
-              value={form[f.key] ?? ""} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+            <Input f={f} value={form[f.key] ?? ""} onChange={(v) => setForm({ ...form, [f.key]: v })} />
           </div>
         ))}
         <div className="flex items-end"><button className="btn w-full disabled:opacity-40" disabled={busy || !rights.canCreate} title={rights.denied("create")}>{busy ? "…" : "+ Add"}</button></div>
@@ -97,8 +120,9 @@ export default function MasterList({
             {initial.map((r) => editId === r[pk] ? (
               <tr key={r[pk]} className="border-t border-slate-100 bg-amber-50/40">
                 {fields.map((f) => (
-                  <td key={f.key} className="td"><input className="input" type={f.type === "number" ? "number" : "text"} step={f.type === "number" ? "any" : undefined}
-                    value={edit[f.key] ?? ""} onChange={(e) => setEdit({ ...edit, [f.key]: e.target.value })} /></td>
+                  <td key={f.key} className="td">
+                    <Input f={f} value={edit[f.key] ?? ""} onChange={(v) => setEdit({ ...edit, [f.key]: v })} />
+                  </td>
                 ))}
                 {hasActive && <td className="td" />}
                 <td className="td whitespace-nowrap">
@@ -108,7 +132,9 @@ export default function MasterList({
               </tr>
             ) : (
               <tr key={r[pk]} className="border-t border-slate-100">
-                {fields.map((f) => <td key={f.key} className="td">{f.type === "number" ? Number(r[f.key] ?? 0).toLocaleString() : (r[f.key] ?? "—")}</td>)}
+                {fields.map((f) => <td key={f.key} className="td">
+                  {f.type === "number" ? Number(r[f.key] ?? 0).toLocaleString() : (labelFor(f, r[f.key]) ?? "—")}
+                </td>)}
                 {hasActive && <td className="td">
                   <button onClick={() => toggle(r)} disabled={!rights.canEdit} title={rights.denied("edit")} className={`rounded-full px-2 py-0.5 text-xs font-medium disabled:opacity-50 ${r.is_active ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500"}`}>{r.is_active ? "Active" : "Inactive"}</button>
                 </td>}

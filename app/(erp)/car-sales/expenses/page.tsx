@@ -18,9 +18,8 @@ export default async function CarExpensesPage() {
   // there is nothing in car_vehicles to select it from.
   const [{ data: vehicles }, { data: heads }, { data: accounts }, { data: rows }] = await Promise.all([
     sb.rpc("car_expense_vehicle_options"),
-    sb.from("acct_car_purchase_expenses").select("id, name, amount").order("name"),
-    sb.from("accounts").select("id, name, code, subtype").eq("is_group", false)
-      .in("subtype", ["Payable", "Cash", "Bank"]).order("code"),
+    sb.from("acct_car_purchase_expenses").select("id, name, amount, credit_account").order("name"),
+    sb.rpc("car_expense_credit_accounts"),
     sb.from("car_vehicle_expenses")
       .select("id, expense_name, expense_date, amount, narration, reference, vehicle:vehicle_id(vehicle_no, make, model, model_year, plate_no)")
       .order("expense_date", { ascending: false }).limit(500),

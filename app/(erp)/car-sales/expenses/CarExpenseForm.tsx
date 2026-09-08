@@ -12,7 +12,7 @@ type VehicleOpt = {
   kind: "vehicle" | "po_line"; id: string | null; po_line: string | null;
   label: string; cost: number; status: string; grp: string;
 };
-type Head = { id: string; name: string; amount: number | null };
+type Head = { id: string; name: string; amount: number | null; credit_account: string | null };
 type Acct = { id: string; name: string; code: string; subtype: string };
 type Row = {
   id: string; expense_name: string; expense_date: string; amount: number;
@@ -39,20 +39,26 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
   const vehicle = useMemo(() => vehicles.find((v) => keyOf(v) === f.pick) ?? null, [vehicles, f.pick]);
   const amount = Number(f.amount) || 0;
   const headAmount = Number(heads.find((h) => h.id === f.expense_id)?.amount ?? 0) || 0;
+  const headVendor = heads.find((h) => h.id === f.expense_id)?.credit_account ?? null;
   const groups = useMemo(() => {
     const m = new Map<string, VehicleOpt[]>();
     for (const v of vehicles) { if (!m.has(v.grp)) m.set(v.grp, []); m.get(v.grp)!.push(v); }
     return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [vehicles]);
 
-  // Choosing a head brings its amount over from Masters — "registration = 1,200"
-  // is typed once, there, rather than remembered here every time. It stays
-  // editable: the master holds the usual figure, not the only one. Changing the
-  // head REPLACES the amount rather than leaving the last head's figure behind,
-  // which is the whole point of it coming from the master.
+  // Choosing a head brings its amount AND its vendor over from Masters —
+  // "registration = 1,200, paid to the traffic department" is typed once,
+  // there, rather than remembered here every time. Both stay editable: the
+  // master holds the usual case, not the only one. Changing the head REPLACES
+  // them rather than leaving the last head's behind, which is the whole point
+  // of them coming from the master.
   function pickHead(id: string) {
     const h = heads.find((x) => x.id === id);
-    setF((c) => ({ ...c, expense_id: id, amount: h?.amount ? String(h.amount) : "" }));
+    setF((c) => ({
+      ...c, expense_id: id,
+      amount: h?.amount ? String(h.amount) : "",
+      credit_account: h?.credit_account ?? "",
+    }));
   }
 
   async function save(e: React.FormEvent) {
@@ -73,7 +79,7 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
     setDone(`${sar(amount)} added to the vehicle's cost`);
     // A car on order becomes a car in the yard the moment the first expense is
     // booked against it, so the key it was picked by is gone. Start clean.
-    setF({ ...blank(), pick: f.pick.startsWith("v:") ? f.pick : "", credit_account: f.credit_account });
+    setF({ ...blank(), pick: f.pick.startsWith("v:") ? f.pick : "" });
     router.refresh();
   }
 
@@ -143,7 +149,9 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
               paid. That is what this field has always been; it was named after
               the wrong side of the entry. */}
           <Field label="Vendor (credited)" full
-            hint="Who is owed, or the cash/bank that settled it. Left empty it sits on Vehicle Supplier Payable.">
+            hint={headVendor
+              ? "Filled in from the expense head in Masters — change it for a bill that came from somewhere else."
+              : "Who is owed, or the cash/bank that settled it. Left empty it sits on Vehicle Supplier Payable."}>
             <select className="input" value={f.credit_account} onChange={(e) => setF({ ...f, credit_account: e.target.value })}>
               <option value="">— Vehicle Supplier Payable —</option>
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
