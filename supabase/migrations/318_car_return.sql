@@ -299,6 +299,13 @@ drop trigger if exists trg_car_return on trade_documents;
 create trigger trg_car_return after insert or update on trade_documents
 for each row execute function car_return_trigger();
 
+-- A new function comes into the world with EXECUTE to PUBLIC, and anon is a
+-- member of PUBLIC — the very thing migration 316 was written to fix. A trigger
+-- function cannot actually be called over PostgREST (it returns `trigger`), but
+-- leaving the grant there is how the schema drifts back. Close it on the way in.
+revoke all on function car_return_trigger() from public, anon, authenticated;
+revoke all on function trade_doc_car_return_guard() from public, anon, authenticated;
+
 -- The guard that refuses a car Purchase Return has to say where to go instead,
 -- now that there is somewhere.
 create or replace function trade_doc_car_return_guard()
