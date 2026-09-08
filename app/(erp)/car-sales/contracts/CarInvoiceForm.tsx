@@ -114,9 +114,10 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
     openInvoice(data);
   }
 
-  function resetNew() {
+  function resetNew(keepMessage?: string) {
     setId(null); setDocNo(""); setStatus("draft"); setH(blank()); setRows([]);
-    setSourceId(null); setSourceNo(null); setItemName(null); setErr(null); setDone(null);
+    setSourceId(null); setSourceNo(null); setItemName(null); setErr(null);
+    setDone(keepMessage ?? null);
   }
 
   /**
@@ -197,7 +198,11 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
     }
     const { data: row } = await supabase.from("car_contracts").select(SELECT).eq("id", data).maybeSingle();
     setSaving(false);
-    if (row) { await openInvoice(row); setDone(`saved ${row.contract_no}`); }
+    // Straight into the next blank invoice, as every other voucher now does.
+    // The one just saved is a keystroke away: its number in Invoice No., or
+    // ‹ Previous.
+    resetNew(row ? `saved ${row.contract_no} — new Car Invoice ready` : "saved");
+    router.refresh();
     router.refresh();
   }
 
@@ -212,7 +217,7 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
       </div>
 
       <div className="card flex flex-wrap items-center gap-2 py-2">
-        <button type="button" onClick={resetNew} disabled={saving} className="btn-outline text-sm">＋ New</button>
+        <button type="button" onClick={() => resetNew()} disabled={saving} className="btn-outline text-sm">＋ New</button>
         <button type="button" onClick={() => nav("prev")} disabled={saving} className="btn-outline text-sm">‹ Previous</button>
         <button type="button" onClick={() => nav("next")} disabled={saving} className="btn-outline text-sm">Next ›</button>
         <button type="button" onClick={() => setLoadOpen(true)} disabled={saving || finalised} className="btn text-sm disabled:opacity-40">⤓ Load Sale Order</button>
@@ -339,7 +344,7 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
             title={finalised ? "This car invoice is finalised — use adjustments to change it" : rights.denied(id ? "edit" : "create")}>
             {!mayEdit ? (id ? "No Edit rights" : "No Create rights") : saving ? "Saving…" : id ? "Save changes" : "Save car invoice"}
           </button>
-          <button type="button" className="btn-outline" onClick={resetNew}>Clear</button>
+          <button type="button" className="btn-outline" onClick={() => resetNew()}>Clear</button>
         </div>
       </form>
     </div>

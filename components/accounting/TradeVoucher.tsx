@@ -47,6 +47,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [terms, setTerms] = useState("");
   const [narration, setNarration] = useState("");
   const [roundOff, setRoundOff] = useState("");
+  const [discount, setDiscount] = useState("");
   const [rows, setRows] = useState<Row[]>([blankRow()]);
   // Header extras (incl. the car costing block) live in the document meta.
   const [extras, setExtras] = useState<Record<string, string>>({});
@@ -57,7 +58,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [busy, setBusy] = useState(false);
 
   const [parties, setParties] = useState<{ id: string; name: string }[]>([]);
-  const [products, setProducts] = useState<{ id: string; name: string; group?: string | null }[]>([]);
+  const [products, setProducts] = useState<{ id: string; name: string; group?: string | null; purchase_rate?: number | null }[]>([]);
   const [costCenters, setCostCenters] = useState<{ id: string; name: string }[]>([]);
   const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
@@ -98,7 +99,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       const types = cfg.party === "supplier" ? ["supplier"] : cfg.party === "customer" ? ["customer", "b2b_agent"] : ["customer", "supplier", "b2b_agent"];
       const [{ data: pa }, { data: pr }, { data: cc }, { data: ta }, { data: wh }, { data: ac }] = await Promise.all([
         supabase.from("parties").select("id, name").in("party_type", types).eq("is_active", true).order("name"),
-        supabase.from("acct_products").select("id, name, parent_id, is_group").eq("is_active", true).order("name"),
+        supabase.from("acct_products").select("id, name, parent_id, is_group, purchase_rate").eq("is_active", true).order("name"),
         supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("warehouses").select("id, name").eq("is_active", true).order("name"),
@@ -131,7 +132,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   function resetNew(keepMessage?: string) {
     setId(null); setDocNo(""); setDone(keepMessage ?? null); setErr(null);
     setDate(todaySA()); setParty(""); setCostCenter(""); setTagArea("");
-    setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff("");
+    setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setDiscount("");
     setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({});
     setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false);
   }
@@ -151,7 +152,14 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // The picker hands back an item id; the name is stored alongside it only so a
   // saved document still reads correctly if the item is later renamed.
   function pickItem(i: number, id: string | null) {
-    setRow(i, { product_id: id, item_name: id ? (products.find((p) => p.id === id)?.name ?? "") : "" });
+    const p = id ? products.find((x) => x.id === id) : null;
+    setRow(i, { product_id: id, item_name: p?.name ?? "" });
+    // On a Purchase Order the ceiling comes from the Product Tree, so choosing
+    // the item fills it whether the order was loaded or typed from scratch.
+    if (cfg.type === "purchase_order") {
+      const rate = Number(p?.purchase_rate ?? 0);
+      setRowExtra(i, "so_purchase_rate", rate > 0 ? String(rate) : "");
+    }
   }
   function removeRow(i: number) { setRows((rs) => (rs.length <= 1 ? rs : rs.filter((_, j) => j !== i))); }
 
@@ -176,7 +184,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     () => (hideLines ? num(extraValues.selling_price ?? "") : rows.reduce((s, r) => s + num(r.amount), 0)),
     [rows, hideLines, extraValues],
   );
-  const total = subtotal + num(roundOff);
+  // The discount comes off before the round-off, so Net Total is what the
+  // supplier is actually owed — and it is this figure that posts.
+  const discountAmt = cfg.showDiscount ? num(discount) : 0;
+  const total = subtotal - discountAmt + num(roundOff);
   // Landed cost = the line amounts plus every expense column flagged as a cost.
   const costColumns = useMemo(() => lineExtras.filter((x) => x.cost), [lineExtras]);
   /** Lines whose rate is above the SO Purchase Rate they were raised against. */
@@ -198,6 +209,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setDate(v.doc_date ?? ""); setParty(v.party_id ?? ""); setCostCenter(v.cost_center ?? ""); setTagArea(v.tag_area ?? "");
     setReference(v.reference ?? ""); setMode(v.mode_of_payment ?? ""); setDueDate(v.due_date ?? ""); setDeliveryDate(v.delivery_date ?? "");
     setTerms(v.terms ?? ""); setNarration(v.narration ?? ""); setRoundOff(v.round_off ? String(v.round_off) : "");
+    setDiscount(v.meta?.discount ? String(v.meta.discount) : "");
     setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry); setAwaiting(v.status === "awaiting_approval");
     setSourceId(v.source_doc_id ?? null); setSourceCar(v.source_car_contract ?? null); setSourceNo(v.source_doc_no ?? null);
     const meta = (v.meta ?? {}) as Record<string, any>;
@@ -248,7 +260,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setTagArea(cfg.showTagArea === false ? "" : v.tag_area ?? "");
     setReference(v.doc_no ?? ""); setTerms(v.terms ?? ""); setNarration(v.narration ?? "");
     setMode(v.mode_of_payment ?? ""); setDeliveryDate(v.delivery_date ?? "");
-    setDueDate(""); setRoundOff(""); setWarehouse("");
+    setDueDate(""); setRoundOff(""); setDiscount(""); setWarehouse("");
 
     // Which fields this voucher shows depends on the cost centre we have just
     // been handed, NOT the one that was on screen a moment ago. headerExtras is
@@ -295,12 +307,20 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     // quoted on. The SO Purchase Rate column has been on this voucher all along
     // with nothing to fill it; this is what fills it.
     if (cfg.type === "purchase_order") {
-      const ceiling = num(String(src.total_cost ?? ""));
-      if (ceiling > 0) for (const r of ls) r.extras.so_purchase_rate = String(ceiling);
-      // The Sale Order's rate is what we SELL the vehicle for. Carrying it over
-      // as the Purchase Order's rate quietly proposed paying the supplier the
-      // selling price. What we pay is a negotiation, so the buyer types it —
-      // with the ceiling above sitting next to the box.
+      // The ceiling is what the ITEM costs to buy, read from the Product Tree.
+      // It used to be the Sale Order's Total Cost (COGS) — but that figure
+      // includes the expenses that land on the vehicle later (registration,
+      // insurance, transport), so checking a supplier's price against it
+      // allowed paying the supplier the expenses too.
+      for (const r of ls) {
+        const rate = r.product_id ? Number(products.find((p) => p.id === r.product_id)?.purchase_rate ?? 0) : 0;
+        if (rate > 0) r.extras.so_purchase_rate = String(rate);
+        else delete r.extras.so_purchase_rate;
+      }
+      // The Sale Order's rate is what we SELL for. Carrying it over as the
+      // Purchase Order's rate quietly proposed paying the supplier the selling
+      // price. What we pay is a negotiation, so the buyer types it — with the
+      // ceiling above sitting next to the box.
       for (const r of ls) { r.rate = ""; r.amount = ""; }
     }
     setRows(ls.length ? [...ls, blankRow()] : [blankRow()]);
@@ -344,7 +364,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setErr(null);
     if (overCeiling.size) {
       const n1 = Array.from(overCeiling).map((i) => i + 1).join(", ");
-      return setErr(`Line ${n1}: the rate is above the SO Purchase Rate this order was raised against. Lower the rate, or raise the Sale Order's Total Cost (COGS) first.`);
+      return setErr(`Line ${n1}: the rate is above the Purchase Rate on the item's Product Tree record. Lower the rate, or raise the item's purchase rate in Masters → Products first.`);
     }
     // Only persist the extras this voucher/cost-centre actually shows, so
     // switching cost centre doesn't leave stale car fields on the document.
@@ -358,7 +378,8 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       doc_date: date, party_id: party || null, cost_center: costCenter || null,
       tag_area: cfg.showTagArea === false ? null : tagArea || null,
       reference: reference || null, mode_of_payment: mode || null, due_date: dueDate || null, delivery_date: deliveryDate || null,
-      terms: terms || null, narration: narration || null, round_off: num(roundOff), meta,
+      terms: terms || null, narration: narration || null, round_off: num(roundOff),
+      meta: cfg.showDiscount ? { ...meta, discount: discountAmt } : meta,
       source_doc_id: sourceId, source_car_contract: sourceCar,
     };
     // With the grid hidden the document still needs its line, because that line
@@ -602,7 +623,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                     <td className="px-2 py-1">
                       <input
                         className={`input w-36 text-right tabular-nums ${overCeiling.has(i) ? "border-red-400 bg-red-50 text-red-700" : ""}`}
-                        title={overCeiling.has(i) ? `Above the SO Purchase Rate (${r.extras.so_purchase_rate})` : undefined}
+                        title={overCeiling.has(i) ? `Above the item's Purchase Rate (${r.extras.so_purchase_rate})` : undefined}
                         inputMode="decimal" value={r.rate} onChange={(e) => setRow(i, { rate: e.target.value })} />
                     </td>
                   )}
@@ -651,8 +672,23 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
               <div className="text-xs text-slate-400">Recorded on the lines for costing; the document total below stays the supplier&apos;s billed amount.</div>
             </div>
           )}
+          {showRateAmount && cfg.showDiscount && (
+            <div>
+              <label className="label">Discount</label>
+              <input className="input w-32 text-right tabular-nums" inputMode="decimal" value={discount}
+                onChange={(e) => setDiscount(e.target.value)} placeholder="0.00" />
+            </div>
+          )}
           {showRateAmount && <div><label className="label">Round Off</label><input className="input w-28 text-right tabular-nums" inputMode="decimal" value={roundOff} onChange={(e) => setRoundOff(e.target.value)} placeholder="0.00" /></div>}
-          {showRateAmount && <div className="text-right"><div className="text-xs uppercase tracking-wide text-slate-400">Net Total</div><div className="text-2xl font-bold text-brand">{money(total)}</div></div>}
+          {showRateAmount && (
+            <div className="text-right">
+              <div className="text-xs uppercase tracking-wide text-slate-400">Net Total</div>
+              <div className="text-2xl font-bold text-brand">{money(total)}</div>
+              {discountAmt !== 0 && (
+                <div className="text-xs text-slate-400">{money(subtotal)} &minus; {money(discountAmt)} discount</div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

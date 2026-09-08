@@ -333,9 +333,11 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
           p_entry: entryId, p_date: date, p_memo: narration || null, p_reference: reference || null, p_lines: jl,
         });
         if (error) throw new Error(error.message);
-        setDone(`updated ${(data as any)?.entry_no ?? ""}`);
-        router.refresh();
+        // Editing clears down to a blank voucher too, the same as posting one.
+        // Print first: printVoucher reads the entry that is about to be cleared.
         if (printAfter) printVoucher();
+        resetToNew(`updated ${(data as any)?.entry_no ?? ""} — new voucher ready`);
+        router.refresh();
         return;
       }
 
