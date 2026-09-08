@@ -5,12 +5,14 @@ import { cronDenied } from "@/lib/cronAuth";
 export const dynamic = "force-dynamic";
 
 // Hotel-details reminder job. It wants to run roughly HOURLY — the reminders it
-// raises are 48h / 24h / 12h before arrival, so a daily sweep will miss the
-// tighter ones. vercel.json can only ask for daily: the account is on Hobby,
-// where a cron may fire once a day, and an hourly expression there is not a
-// slower job but a REJECTED DEPLOYMENT — the push that first added one never
-// built at all. For true hourly, either move the project to Pro and set
-// "0 * * * *", or point an external pinger at this URL with ?secret=CRON_SECRET.
+// raises are 48h / 24h / 12h before arrival, and a daily sweep cannot fire the
+// tighter two — whichever of them a 03:00 run happened to straddle went out and
+// the rest never did. It ran daily because the account was on Hobby, where a
+// cron may fire once a day and an hourly expression is not a slower job but a
+// REJECTED DEPLOYMENT: the push that first added one never built at all. The
+// account is on Pro now, so vercel.json asks for "0 * * * *" and the 48h / 24h /
+// 12h reminders each land in their own hour. The work is deduped in the
+// database, so an hour that has nothing due writes nothing.
 //
 // It scans upcoming arrivals for Non Masar / Masar groups still missing Hotel
 // Details and generates the 48h / 24h / 12h agent reminders plus the 24h admin

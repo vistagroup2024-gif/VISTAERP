@@ -3,6 +3,6 @@
   "regions": ["syd1"],
   "crons": [
     { "path": "/api/cron/car-sales", "schedule": "0 2 1 * *" },
-    { "path": "/api/cron/reminders", "schedule": "0 3 * * *" }
+    { "path": "/api/cron/reminders", "schedule": "0 * * * *" }
   ]
 }
