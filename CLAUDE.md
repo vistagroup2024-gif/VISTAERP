@@ -350,6 +350,22 @@ All the figures come from a single `dashboard_metrics()` call, which is
 `security invoker` so a restricted user's dashboard is built from only the
 accounts and products they may see.
 
+**A card is only worth what its number is, so check the number, not the code.**
+Reading a card's SQL tells you it runs; it does not tell you it is right. Every
+dashboard figure was checked against an independent query in September 2026 and
+one was badly wrong: Receivables and Payables read `open_items`, the invoice and
+bill subsystem, so the business looked owed 47,505 when its receivable accounts
+held 199,133.48 — nineteen accounts carried a balance and eight were counted. A
+car sale, a visa invoice, a transport charge and a hotel booking all debit the
+customer's account directly and make no open item. **Money questions read the
+ledger.** Only overdue still comes from `open_items`, because a due date exists
+nowhere else, and the card says it is a floor.
+
+Two other traps that sweep caught, both in Car Customer Balances: summing a
+PARENT's column across a join to its children multiplies it by the child count
+(a 12-instalment contract counted its own value twelve times), and buckets shown
+side by side must be disjoint or the reader adds them and double-counts.
+
 Card access **reverses** the convention used everywhere else: an empty
 `profiles.dashboard_cards` grants **nothing**. Only an admin sees every card;
 everyone else sees exactly what an admin ticked. A dashboard puts the whole
