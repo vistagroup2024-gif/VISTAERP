@@ -55,6 +55,14 @@ alter table car_receipts
 
 create index if not exists car_receipts_source_doc_idx on car_receipts(source_doc_id);
 
+-- The Receipt Voucher asks WHICH cash or bank account the money went into, and
+-- a company with three banks needs that answer. A car receipt only ever carried
+-- a method word, which the posting turned into the house Cash (1000) or Bank
+-- (1010) account. The account is recorded when it is chosen; the method stays as
+-- the fallback, so every receipt taken before this still posts where it did.
+alter table car_receipts
+  add column if not exists cash_account_id uuid references accounts(id);
+
 -- A receipt is money against something. It is never against nothing.
 alter table car_receipts drop constraint if exists car_receipts_anchored;
 alter table car_receipts add constraint car_receipts_anchored
@@ -68,7 +76,7 @@ language plpgsql
 security definer
 set search_path to 'public'
 as $fn$
-declare r car_receipts; cc text; ta text; v_cust uuid;
+declare r car_receipts; cc text; ta text; v_cust uuid; v_cash uuid;
 begin
   select * into r from car_receipts where id = p_id;
   if not found then return false; end if;
@@ -91,12 +99,14 @@ begin
   end if;
 
   v_cust := coalesce(car_party_account(r.customer_id), acct(r.company_id, '1150'));
+  v_cash := coalesce(r.cash_account_id,
+                     acct(r.company_id, case when r.method = 'cash' then '1000' else '1010' end));
 
   return car_post_entry(r.company_id, r.receipt_date,
     case when r.contract_id is null then 'Advance receipt ' else 'Installment receipt ' end || r.receipt_no,
     'car_receipt', r.receipt_no,
-    jsonb_build_array(jsonb_build_object('code', case when r.method = 'cash' then '1000' else '1010' end,
-                                         'debit', r.amount, 'cost_center', cc, 'tag_area', ta),
+    jsonb_build_array(jsonb_build_object('account_id', v_cash, 'debit', r.amount,
+                                         'cost_center', cc, 'tag_area', ta),
                       jsonb_build_object('account_id', v_cust, 'credit', r.amount,
                                          'cost_center', cc, 'tag_area', ta)));
 end $fn$;
@@ -187,6 +197,7 @@ begin
     receipt_date  = coalesce(nullif(p_header->>'receipt_date','')::date, current_date),
     amount        = v_amount,
     method        = coalesce(nullif(p_header->>'method',''), 'cash'),
+    cash_account_id = nullif(p_header->>'cash_account_id','')::uuid,
     reference     = nullif(p_header->>'reference',''),
     notes         = nullif(p_header->>'notes','')
   where id = v_id and company_id = v_company

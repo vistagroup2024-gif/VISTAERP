@@ -127,6 +127,7 @@ begin
 end $fn$;
 
 alter table car_receipts drop constraint if exists car_receipts_anchored;
+alter table car_receipts drop column if exists cash_account_id;
 drop index if exists car_receipts_source_doc_idx;
 alter table car_receipts drop column if exists source_doc_id;
 alter table car_receipts alter column contract_id set not null;

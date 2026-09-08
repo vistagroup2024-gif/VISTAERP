@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { DocRight } from "@/lib/docRights";
 import { COMPANY_ID } from "@/lib/format";
 import AccountPicker, { type PickAccount } from "./AccountPicker";
+import AdvanceReceiptForm from "./AdvanceReceiptForm";
 import SearchSelect from "@/components/ui/SearchSelect";
 import { todaySA } from "@/lib/saudiTime";
 
@@ -56,6 +57,13 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
   const payAccounts = useMemo(
     () => (variant?.cashMatch ? cashBank.filter((a) => a.name.toUpperCase().includes(variant.cashMatch!.toUpperCase())) : cashBank),
     [cashBank, variant?.cashMatch]);
+
+  /* Money coming in has one door. A car advance is a receipt like any other —
+     it just names a Sale Order instead of a ledger account — so it is a tab on
+     this voucher rather than a screen somebody has to remember to go to. */
+  const advanceTabAvailable = kind === "receipt" && !variant;
+  const [tab, setTab] = useState<"voucher" | "advance">("voucher");
+  const onAdvance = advanceTabAvailable && tab === "advance";
 
   const [date, setDate] = useState(() => todaySA());
   const [narration, setNarration] = useState("");
@@ -434,10 +442,25 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">{title}</h1>
-        {readOnly && <span className="badge badge-neutral">Locked</span>}
-        {done && <span className="badge badge-success capitalize">{done}</span>}
+        {!onAdvance && readOnly && <span className="badge badge-neutral">Locked</span>}
+        {!onAdvance && done && <span className="badge badge-success capitalize">{done}</span>}
       </div>
 
+      {advanceTabAvailable && (
+        <div className="flex flex-wrap gap-1 border-b border-slate-200" role="tablist">
+          {([["voucher", "Receipt"], ["advance", "Advance on a Sale Order"]] as const).map(([k, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+                tab === k ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {onAdvance && <AdvanceReceiptForm cashBank={cashBank} />}
+
+      {!onAdvance && <>
       {/* Record toolbar */}
       <div className="panel flex flex-wrap items-center gap-2 px-3 py-2">
         <button type="button" onClick={() => resetToNew()} disabled={busy} className="btn-outline btn-sm">New</button>
@@ -627,6 +650,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
           </div>
         </div>
       )}
+      </>}
     </div>
   );
 }
