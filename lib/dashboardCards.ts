@@ -17,7 +17,7 @@ export type CardKey =
   | "order_status" | "so_advance_receipt" | "purchase_vs_sale"
   | "stock" | "bookings" | "delivery_status"
   // Absorbed from the module dashboards, which no longer exist.
-  | "approvals" | "pdc" | "car_contracts" | "car_service_charges" | "car_ownership"
+  | "approvals" | "pdc" | "car_contracts" | "car_ownership"
   | "hotel_financials" | "brn_beds" | "brn_availability" | "brn_agreements"
   | "transport" | "visa_groups";
 
@@ -46,7 +46,7 @@ export const DASHBOARD_CARDS: CardDef[] = [
   { key: "pnl", label: "Profit & Loss",
     hint: "Income less expense, month and year", href: "/accounting/profit-loss" },
   { key: "car_balances", label: "Car Customer Balances",
-    hint: "Due (its date has arrived, this month), Overdue (its month has ended), Total of the two — they never overlap — plus the customers' ledger balance and what has been collected",
+    hint: "Everything a car customer owes — instalments, the invoice advance AND the monthly service charge. Due (its date has arrived), Overdue (its month has ended), Total of the two, the customers' ledger balance, and what has been collected",
     href: "/car-sales/contracts" },
   { key: "pending_sales_orders", label: "Pending Sales Orders",
     hint: "Sale Orders not yet turned into an invoice or a purchase order", href: "/accounting/sales/orders" },
@@ -72,8 +72,6 @@ export const DASHBOARD_CARDS: CardDef[] = [
     hint: "Post-dated cheques pending, and how many fall due within 14 days", href: "/accounting/pdc" },
   { key: "car_contracts", label: "Car Contracts",
     hint: "Contracts total, active and completed, and their sale value", href: "/car-sales/contracts" },
-  { key: "car_service_charges", label: "Car Monthly Charges",
-    hint: "Service charges this month, outstanding and overdue", href: "/car-sales/service-charges" },
   { key: "car_ownership", label: "Car Ownership",
     hint: "Vehicles transferred, Vista-owned and held", href: "/car-sales/vehicles" },
   { key: "hotel_financials", label: "Hotel Sales & Profit",

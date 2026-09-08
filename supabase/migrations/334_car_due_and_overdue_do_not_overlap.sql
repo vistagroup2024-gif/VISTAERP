@@ -89,3 +89,25 @@ end $$;
 --
 -- Applied as three exact anchored replacements against the live definition; see
 -- migration 334's earlier note on why this function is not retyped.
+
+-- ---------------------------------------------------------------------------
+-- Third pass. Two more things the card was not saying.
+--
+-- THE ADVANCE IS DUE TOO. It has its own date (car_contracts.advance_due_date)
+-- and is paid by a receipt allocated to it, but it lives outside the instalment
+-- schedule — so it appeared nowhere. CI-000003's 40,000 was due on 8 September
+-- and the card showed only the 6,833.34 instalment. Due is 46,833.34.
+--
+-- AND THE MONTHLY SERVICE CHARGE IS THE SAME MONEY. It is owed by the same
+-- customer against the same car, so it is folded in rather than kept on a card
+-- of its own; the separate "Car Monthly Charges" card is gone. Seeing charges
+-- alone is a report by cost centre, not a second tile saying a third of the
+-- story.
+--
+-- All three now flow through one car_due_items list — instalment, advance,
+-- service charge, each with the date it became askable — and one rule buckets
+-- them. That is also why Total is safe: nothing can be in two buckets.
+--
+-- The whole car_money block is replaced by position (from its own start to the
+-- next CTE) rather than by matching its old text, after checking each boundary
+-- appears exactly once. dashboard_metrics is far too long to retype.

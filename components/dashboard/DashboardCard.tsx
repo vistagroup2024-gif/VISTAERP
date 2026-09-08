@@ -84,17 +84,21 @@ function cells(key: CardKey, m: any): Cell[] {
         { label: yy >= 0 ? "Profit (ytd)" : "Loss (ytd)", value: cash(Math.abs(yy)), tone: yy >= 0 ? "pos" : "neg" },
       ];
     }
-    // Due and Overdue are DISJOINT and both are money whose date has arrived:
-    // Due is this month's instalment once its day has come, Overdue is one whose
-    // month has ended. Total is the two together — what is collectable today.
-    // Balance is the customers' LEDGER balance, not the instalment schedule:
-    // the schedule leaves out the advance, so it was never what they owe.
+    // Everything a car customer owes, in one card: the instalments, the advance
+    // on the invoice, and the monthly service charge — all money from the same
+    // customer against the same car, so there is no separate charges card.
+    // Due and Overdue are DISJOINT. Due is anything whose date has arrived and
+    // whose month has not ended; Overdue is anything whose month has ended.
+    // Total is the two added, which is only sound because they cannot overlap.
+    // Ledger Balance is read off the customers' accounts, NOT the instalment
+    // schedule — the schedule leaves the advance out, so it never was what
+    // they owe.
     case "car_balances": return [
       { label: "Due", value: cash(d.due_this_month), tone: "warn" },
       { label: "Overdue", value: cash(d.overdue), tone: N(d.overdue) > 0 ? "neg" : undefined },
       { label: "Total", value: cash(N(d.due_this_month) + N(d.overdue)), strong: true,
         tone: N(d.due_this_month) + N(d.overdue) > 0 ? "warn" : undefined },
-      { label: "Balance", value: cash(d.balance) },
+      { label: "Ledger Balance", value: cash(d.balance) },
       { label: "Collected", value: cash(d.collected), tone: "pos" },
     ];
     case "pending_sales_orders":
@@ -155,11 +159,6 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "Active", value: qty(d.active), tone: "info" },
       { label: "Completed", value: qty(d.completed), tone: "pos" },
       { label: "Value", value: cash(d.value) },
-    ];
-    case "car_service_charges": return [
-      { label: "This month", value: cash(d.this_month), strong: true },
-      { label: "Outstd.", value: cash(d.outstanding) },
-      { label: "Overdue", value: cash(d.overdue), tone: N(d.overdue) > 0 ? "neg" : undefined },
     ];
     case "car_ownership": return [
       { label: "Vehicles", value: qty(d.total), strong: true },
