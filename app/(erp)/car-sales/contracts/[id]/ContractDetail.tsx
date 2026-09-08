@@ -28,7 +28,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
   const today = todaySA();
   const paid = installments.reduce((a, i) => a + Number(i.paid_amount || 0), 0);
   const schedTotal = installments.reduce((a, i) => a + Number(i.amount || 0), 0);
-  const outstanding = Number(contract.sale_price || 0) - Number(contract.advance || 0) - paid;
+  const outstanding = Number(contract.net_payable || 0) - Number(contract.advance || 0) - paid;
   const overdue = installments.reduce((a, i) => a + (i.due_date < today ? Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)) : 0), 0);
   const dueNow = installments.filter((i) => i.due_date <= today).reduce((a, i) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
   const next = installments.filter((i) => Number(i.paid_amount || 0) < Number(i.amount || 0)).sort((a, b) => (a.due_date < b.due_date ? -1 : 1))[0];
@@ -58,7 +58,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
 
       {/* Financial summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-        <Money label="Contract Value" value={sar(contract.sale_price)} />
+        <Money label="Contract Value" value={sar(contract.net_payable ?? contract.sale_price)} />
         <Money label="Advance" value={sar(contract.advance)} />
         <Money label="Total Paid" value={sar(paid)} tone="text-emerald-700" />
         <Money label="Outstanding" value={sar(outstanding)} />
@@ -98,7 +98,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
             <dt className="text-slate-400">Delivery Date</dt><dd className="font-medium">{dateStr(contract.delivery_date)}</dd>
             <dt className="text-slate-400">Expected Completion</dt><dd className="font-medium">{dateStr(contract.expected_completion_date)}</dd>
             {canCost && <><dt className="text-slate-400">Purchase Cost</dt><dd className="font-medium">{sar(contract.purchase_cost)}</dd></>}
-            {canCost && <><dt className="text-slate-400">Gross Profit</dt><dd className="font-medium text-emerald-700">{sar(Number(contract.sale_price || 0) - Number(contract.purchase_cost || 0))}</dd></>}
+            {canCost && <><dt className="text-slate-400">Gross Profit</dt><dd className="font-medium text-emerald-700">{sar(Number(contract.net_payable || 0) - Number(contract.purchase_cost || 0))}</dd></>}
           </dl>
         </section>
       </div>
@@ -137,7 +137,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
       )}
 
       {canManage && contract.status !== "cancelled" && (
-        <CommissionPanel contractId={contract.id} commission={commission} salePrice={Number(contract.sale_price || 0)} onDone={() => router.refresh()} />
+        <CommissionPanel contractId={contract.id} commission={commission} salePrice={Number(contract.net_payable || 0)} onDone={() => router.refresh()} />
       )}
 
       {canReceipts && contract.status === "active" && (

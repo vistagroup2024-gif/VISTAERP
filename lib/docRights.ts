@@ -9,10 +9,15 @@
 // Stored on profiles.doc_rights as {docKey: {right: true}}. An EMPTY map means
 // every screen and every right — same convention as permissions — so nothing
 // changes for a user until an admin ticks something.
+//
+// STRICT_DOC_RIGHTS is the one exception, and it exists for the same reason
+// staff_perm_strict does: a right that reaches into POSTED accounts must be
+// handed over deliberately, never inherited from a blank profile.
 // ============================================================
 
 export type DocRight =
-  | "access" | "create" | "edit" | "delete" | "print" | "edit_others" | "edit_authorized";
+  | "access" | "create" | "edit" | "delete" | "print" | "edit_others" | "edit_authorized"
+  | "edit_posted";
 
 export const RIGHT_LABEL: Record<DocRight, string> = {
   access: "Access",
@@ -22,12 +27,21 @@ export const RIGHT_LABEL: Record<DocRight, string> = {
   print: "Print",
   edit_others: "Edit documents entered by other users",
   edit_authorized: "Edit documents already authorised",
+  edit_posted: "Edit or delete a voucher already posted to the ledger",
 };
+
+// Rights where an EMPTY map grants NOTHING, against the convention everywhere
+// else. Handing somebody the ledger is like handing them the Users screen: a
+// fresh account with nothing ticked must not arrive holding it. This is the
+// client-side half of staff_doc_right_strict, and the two have to agree — the
+// database refuses either way, but a button the RPC behind it will refuse is a
+// button that should never have been offered.
+export const STRICT_DOC_RIGHTS: DocRight[] = ["edit_posted"];
 
 export const ALL_DOC_RIGHTS: DocRight[] = Object.keys(RIGHT_LABEL) as DocRight[];
 
 // What a data-entry voucher can carry, and the shorter set a report screen can.
-export const VOUCHER_RIGHTS: DocRight[] = ["access", "create", "edit", "delete", "print", "edit_others", "edit_authorized"];
+export const VOUCHER_RIGHTS: DocRight[] = ["access", "create", "edit", "delete", "print", "edit_others", "edit_authorized", "edit_posted"];
 export const REPORT_RIGHTS: DocRight[] = ["access", "print"];
 export const MASTER_RIGHTS: DocRight[] = ["access", "create", "edit", "delete", "print"];
 
@@ -163,9 +177,11 @@ export function docForPath(path: string): string | null {
 export type DocRightsMap = Record<string, Record<string, boolean>>;
 
 // Same convention as staffCan: an empty map is unrestricted, anything ticked
-// switches the user to "only what is ticked".
+// switches the user to "only what is ticked". The exception is STRICT_DOC_RIGHTS,
+// which have to be ticked outright.
 export function hasDocRight(rights: DocRightsMap, isAdmin: boolean, doc: string, right: DocRight): boolean {
   if (isAdmin) return true;
+  if (STRICT_DOC_RIGHTS.includes(right)) return !!doc && !!rights?.[doc]?.[right];
   // No screen key = not a rights-managed screen (a report the Access tab does
   // not name, a master shared by a component that has no entry). Allowed, the
   // same way the database's staff_doc_key returns null for a module posting.

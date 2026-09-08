@@ -20,7 +20,7 @@ export default async function CustomerProfile({ params }: { params: { id: string
 
   const [{ data: cust }, { data: contracts }, { data: receipts }, { data: charges }] = await Promise.all([
     supabase.from("parties").select("id, name, phone, email, address, tax_number, notes").eq("id", params.id).single(),
-    supabase.from("car_contracts").select("id, contract_no, contract_date, sale_price, advance, status, vehicle:vehicle_id(make, model, model_year, plate_no), car_installments(amount, paid_amount, due_date)").eq("customer_id", params.id).order("created_at", { ascending: false }),
+    supabase.from("car_contracts").select("id, contract_no, contract_date, sale_price, net_payable, advance, status, vehicle:vehicle_id(make, model, model_year, plate_no), car_installments(amount, paid_amount, due_date)").eq("customer_id", params.id).order("created_at", { ascending: false }),
     supabase.from("car_receipts").select("receipt_no, receipt_date, amount, method, contract:contract_id(contract_no)").eq("customer_id", params.id).order("receipt_date", { ascending: false }).limit(200),
     supabase.from("car_service_charges").select("amount, paid_amount, due_date").eq("customer_id", params.id),
   ]);
@@ -32,8 +32,8 @@ export default async function CustomerProfile({ params }: { params: { id: string
     if (c.status === "cancelled") continue;
     const insts = c.car_installments ?? [];
     const p = insts.reduce((a: number, i: any) => a + Number(i.paid_amount || 0), 0);
-    value += Number(c.sale_price || 0); paid += Number(c.advance || 0) + p;
-    outstanding += Number(c.sale_price || 0) - Number(c.advance || 0) - p;
+    value += Number(c.net_payable || 0); paid += Number(c.advance || 0) + p;
+    outstanding += Number(c.net_payable || 0) - Number(c.advance || 0) - p;
     overdue += insts.filter((i: any) => i.due_date < today).reduce((a: number, i: any) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
   }
   const scOut = (charges ?? []).reduce((a: number, c: any) => a + Math.max(0, Number(c.amount || 0) - Number(c.paid_amount || 0)), 0);
@@ -75,13 +75,13 @@ export default async function CustomerProfile({ params }: { params: { id: string
           <tbody>
             {C.map((c) => {
               const p = (c.car_installments ?? []).reduce((a: number, i: any) => a + Number(i.paid_amount || 0), 0);
-              const out = Number(c.sale_price || 0) - Number(c.advance || 0) - p;
+              const out = Number(c.net_payable || 0) - Number(c.advance || 0) - p;
               return (
                 <tr key={c.id} className="border-t border-slate-100">
                   <td className="td"><Link href={`/car-sales/contracts/${c.id}`} className="text-brand hover:underline">{c.contract_no}</Link></td>
                   <td className="td">{vehicleTitle(c.vehicle ?? {})}</td>
                   <td className="td">{dateStr(c.contract_date)}</td>
-                  <td className="td text-right tabular-nums">{sar(c.sale_price)}</td>
+                  <td className="td text-right tabular-nums">{sar(c.net_payable)}</td>
                   <td className="td text-right tabular-nums">{sar(out)}</td>
                   <td className="td"><span className={`badge ${CONTRACT_STATUS_TONE[c.status] ?? "bg-slate-100"}`}>{CONTRACT_STATUS_LABEL[c.status] ?? c.status}</span></td>
                 </tr>

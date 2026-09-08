@@ -37,10 +37,15 @@ export default async function AgreementDoc({ params }: { params: { id: string } 
         </div>
       </div>
 
+      {/* The agreement shows both figures: the price that was agreed, and what
+          is actually payable after the discount. Discount is left out entirely
+          when there is none, so an ordinary sale reads exactly as before. */}
       <div className="mt-6 grid grid-cols-3 gap-4">
         <Field l="Sale Price" v={sar(c.sale_price)} />
+        {Number(c.discount || 0) !== 0 && <Field l="Discount" v={sar(c.discount)} />}
+        {Number(c.discount || 0) !== 0 && <Field l="Net Payable" v={sar(c.net_payable)} />}
         <Field l="Advance" v={sar(c.advance)} />
-        <Field l="Installment Balance" v={sar(Number(c.sale_price || 0) - Number(c.advance || 0))} />
+        <Field l="Installment Balance" v={sar(Number(c.net_payable ?? c.sale_price ?? 0) - Number(c.advance || 0))} />
       </div>
 
       <div className="mt-6">

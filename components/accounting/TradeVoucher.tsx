@@ -30,7 +30,15 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // Rights come resolved from the server page. Absent = unrestricted, which is
   // what an admin or a user with no Access rights configured gets.
   const may = (r: DocRight) => (rights ? !!rights[r] : true);
-  const mayWrite = () => (id ? may("edit") : may("create"));
+  // A posted voucher is not frozen, it is RESTRICTED. Changing or deleting one
+  // makes the database unwind the ledger entry, the stock and any vehicles the
+  // purchase created, so it takes the Edit/Delete Posted right on top of the
+  // ordinary Edit or Delete. Admins have it; everybody else is ticked for it by
+  // name. hasDocRight reads this one strictly, so a blank profile does NOT
+  // arrive holding it.
+  const mayUnpost = () => may("edit_posted");
+  const postedLock = () => posted && !mayUnpost();
+  const mayWrite = () => (id ? may("edit") && (!posted || mayUnpost()) : may("create"));
   const router = useRouter();
   const supabase = createClient();
 
@@ -350,7 +358,15 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   async function del() {
     if (!may("delete")) return;
     if (!id) return;
-    if (!confirm(`Delete ${cfg.title} ${docNo}? This cannot be undone.`)) return;
+    if (posted && !mayUnpost()) return;
+    const warning = posted
+      ? `Delete ${cfg.title} ${docNo}?\n\nIt is posted, so deleting it also undoes what it did:\n`
+        + "  • its ledger entry is removed, so the party balance goes back\n"
+        + "  • the stock it moved is put back, at what it was booked at\n"
+        + "  • any vehicle this purchase created is removed\n\n"
+        + "This cannot be undone."
+      : `Delete ${cfg.title} ${docNo}? This cannot be undone.`;
+    if (!confirm(warning)) return;
     setBusy(true);
     const { error } = await supabase.rpc("trade_doc_delete", { p_id: id });
     setBusy(false);
@@ -361,6 +377,12 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
 
   async function save() {
     if (!mayWrite()) return;
+    if (posted && !confirm(
+      `${docNo} is posted. Saving re-does it from what is on screen now:\n\n`
+      + "  • the old ledger entry is replaced\n"
+      + "  • the stock it moved goes back and is re-applied at the new figures\n"
+      + "  • any vehicle this purchase created is re-created from the lines\n\n"
+      + "It happens in one step, so if anything refuses, nothing changes.")) return;
     setErr(null);
     if (overCeiling.size) {
       const n1 = Array.from(overCeiling).map((i) => i + 1).join(", ");
@@ -512,7 +534,11 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           {posted && <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium uppercase text-green-700">posted</span>}
           {awaiting && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium uppercase text-amber-700">awaiting authorisation</span>}
           <button onClick={printDoc} disabled={!id || !may("print")} title={may("print") ? undefined : "You don't have Print rights on this voucher"} className="btn-outline text-sm disabled:opacity-40">🖨 Print</button>
-          <button onClick={del} disabled={!id || busy || posted || awaiting || !may("delete")} title={may("delete") ? undefined : "You don't have Delete rights on this voucher"} className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
+          <button onClick={del} disabled={!id || busy || postedLock() || awaiting || !may("delete")}
+            title={!may("delete") ? "You don't have Delete rights on this voucher"
+              : postedLock() ? "This voucher is posted. Deleting it needs the Edit/Delete Posted right, which an administrator grants."
+              : undefined}
+            className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
         </div>
       </div>
 
@@ -520,6 +546,14 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         <LoadFromPicker targetType={cfg.type}
           sourceTitle={cfg.loadsFrom.title + (cfg.alsoLoadsFrom ? ` or ${cfg.alsoLoadsFrom.title}` : "")}
           onPick={loadFrom} onClose={() => setLoadOpen(false)} />
+      )}
+
+      {posted && mayUnpost() && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span className="font-medium">This voucher is already in the ledger.</span>{" "}
+          Saving it again replaces its ledger entry and re-applies the stock at the new figures; deleting it
+          takes both back out. Anything raised from it has to go first.
+        </div>
       )}
 
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
@@ -692,9 +726,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={save} disabled={busy || posted || awaiting || !mayWrite()} className="btn disabled:opacity-40">
-            {busy ? "Saving…" : posted ? "Posted (locked)" : awaiting ? "Awaiting authorisation"
-              : !mayWrite() ? (id ? "No Edit rights" : "No Create rights") : id ? "Save changes" : "Save"}
+          <button onClick={save} disabled={busy || postedLock() || awaiting || !mayWrite()} className="btn disabled:opacity-40">
+            {busy ? "Saving…" : postedLock() ? "Posted (locked)" : awaiting ? "Awaiting authorisation"
+              : !mayWrite() ? (id ? "No Edit rights" : "No Create rights")
+              : posted ? "Re-post changes" : id ? "Save changes" : "Save"}
           </button>
           {!hideLines && <button onClick={() => setRows((r) => [...r, blankRow()])} className="btn-outline text-sm">+ Line</button>}
           <span className="ml-auto text-xs text-slate-400">{id ? `Editing ${docNo}` : "New document — number auto-assigned on save."}</span>

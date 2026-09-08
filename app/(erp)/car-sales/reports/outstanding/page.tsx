@@ -12,7 +12,7 @@ export default async function OutstandingReport() {
   await guardStaffPage("carsales.reports");
   const supabase = createClient();
   const { data } = await supabase.from("car_contracts")
-    .select("id, contract_no, sale_price, advance, status, customer:customer_id(name), vehicle:vehicle_id(make, model, plate_no), car_installments(amount, paid_amount, due_date)")
+    .select("id, contract_no, sale_price, net_payable, advance, status, customer:customer_id(name), vehicle:vehicle_id(make, model, plate_no), car_installments(amount, paid_amount, due_date)")
     .neq("status", "cancelled").order("created_at", { ascending: false });
   const today = todaySA();
   const rows = (data ?? []).map((c: any) => {
@@ -23,8 +23,8 @@ export default async function OutstandingReport() {
     return {
       id: c.id, contract_no: c.contract_no, customer: c.customer?.name ?? "—",
       vehicle: [c.vehicle?.make, c.vehicle?.model, c.vehicle?.plate_no].filter(Boolean).join(" "),
-      total: Number(c.sale_price || 0), advance: Number(c.advance || 0), paid,
-      outstanding: Number(c.sale_price || 0) - Number(c.advance || 0) - paid, due, overdue,
+      total: Number(c.net_payable || 0), advance: Number(c.advance || 0), paid,
+      outstanding: Number(c.net_payable || 0) - Number(c.advance || 0) - paid, due, overdue,
     };
   }).filter((r) => r.outstanding > 0.005);
   const t = rows.reduce((a, r) => ({ total: a.total + r.total, paid: a.paid + r.paid, outstanding: a.outstanding + r.outstanding, due: a.due + r.due, overdue: a.overdue + r.overdue }), { total: 0, paid: 0, outstanding: 0, due: 0, overdue: 0 });

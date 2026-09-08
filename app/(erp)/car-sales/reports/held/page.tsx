@@ -13,14 +13,14 @@ export default async function HeldReport() {
   await guardStaffPage("carsales.reports");
   const supabase = createClient();
   const { data } = await supabase.from("car_holdings")
-    .select("id, held_date, reason, agreement_notes, vehicle:vehicle_id(id, make, model, model_year, plate_no, vehicle_no), contract:contract_id(id, contract_no, sale_price, advance, customer:customer_id(name), car_installments(amount, paid_amount, due_date))")
+    .select("id, held_date, reason, agreement_notes, vehicle:vehicle_id(id, make, model, model_year, plate_no, vehicle_no), contract:contract_id(id, contract_no, sale_price, net_payable, advance, customer:customer_id(name), car_installments(amount, paid_amount, due_date))")
     .is("released_at", null).order("held_date", { ascending: false });
   const today = todaySA();
 
   const rows = (data ?? []).map((h: any) => {
     const c = h.contract; const insts = c?.car_installments ?? [];
     const paid = insts.reduce((a: number, i: any) => a + Number(i.paid_amount || 0), 0);
-    const outstanding = c ? Number(c.sale_price || 0) - Number(c.advance || 0) - paid : 0;
+    const outstanding = c ? Number(c.net_payable || 0) - Number(c.advance || 0) - paid : 0;
     const overdue = insts.filter((i: any) => i.due_date < today).reduce((a: number, i: any) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
     const nextDue = insts.filter((i: any) => Number(i.paid_amount || 0) < Number(i.amount || 0)).map((i: any) => i.due_date).sort()[0] ?? null;
     return { id: h.id, held_date: h.held_date, reason: h.reason, vehicle: h.vehicle, customer: c?.customer?.name ?? "—", contract: c, outstanding, overdue, nextDue };

@@ -23,7 +23,7 @@ export default async function CarInvoicePage() {
     supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
     supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
     supabase.from("car_contracts")
-      .select("id, contract_no, contract_date, sale_price, advance, status, customer:customer_id(name), vehicle:vehicle_id(vehicle_no, make, model, model_year, plate_no), car_installments(amount, paid_amount, due_date)")
+      .select("id, contract_no, contract_date, sale_price, net_payable, advance, status, customer:customer_id(name), vehicle:vehicle_id(vehicle_no, make, model, model_year, plate_no), car_installments(amount, paid_amount, due_date)")
       .order("created_at", { ascending: false }).limit(1000),
   ]);
 
@@ -35,7 +35,7 @@ export default async function CarInvoicePage() {
   const rows: ContractRow[] = (list ?? []).map((c: any) => {
     const insts = (c.car_installments ?? []) as any[];
     const paid = insts.reduce((a, i) => a + Number(i.paid_amount || 0), 0);
-    const outstanding = Number(c.sale_price || 0) - Number(c.advance || 0) - paid;
+    const outstanding = Number(c.net_payable || 0) - Number(c.advance || 0) - paid;
     const overdue = insts.reduce((a, i) => a + (i.due_date && i.due_date < today ? Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)) : 0), 0);
     const nextDue = insts
       .filter((i) => Number(i.paid_amount || 0) < Number(i.amount || 0))
@@ -45,7 +45,7 @@ export default async function CarInvoicePage() {
       customer: c.customer?.name ?? null,
       vehicle: [c.vehicle?.make, c.vehicle?.model, c.vehicle?.model_year].filter(Boolean).join(" ") || c.vehicle?.vehicle_no || "—",
       plate: c.vehicle?.plate_no ?? null,
-      sale_price: Number(c.sale_price || 0), advance: Number(c.advance || 0), paid, outstanding, overdue, next_due: nextDue,
+      sale_price: Number(c.net_payable || 0), advance: Number(c.advance || 0), paid, outstanding, overdue, next_due: nextDue,
     };
   });
 

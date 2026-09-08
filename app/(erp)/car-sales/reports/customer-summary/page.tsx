@@ -12,7 +12,7 @@ export default async function CustomerSummaryReport() {
   await guardStaffPage("carsales.reports");
   const supabase = createClient();
   const { data } = await supabase.from("car_contracts")
-    .select("customer_id, sale_price, advance, status, customer:customer_id(name, phone, tax_number), car_installments(amount, paid_amount, due_date)")
+    .select("customer_id, sale_price, net_payable, advance, status, customer:customer_id(name, phone, tax_number), car_installments(amount, paid_amount, due_date)")
     .neq("status", "cancelled");
   const today = todaySA();
 
@@ -24,8 +24,8 @@ export default async function CustomerSummaryReport() {
     const overdue = insts.filter((i: any) => i.due_date < today).reduce((a: number, i: any) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
     const due = insts.filter((i: any) => i.due_date <= today).reduce((a: number, i: any) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
     const cur = byC.get(k) ?? { id: k, name: c.customer?.name ?? "—", phone: c.customer?.phone ?? "—", iqama: c.customer?.tax_number ?? "—", cars: 0, value: 0, paid: 0, outstanding: 0, due: 0, overdue: 0 };
-    cur.cars += 1; cur.value += Number(c.sale_price || 0); cur.paid += Number(c.advance || 0) + paid;
-    cur.outstanding += Number(c.sale_price || 0) - Number(c.advance || 0) - paid; cur.due += due; cur.overdue += overdue;
+    cur.cars += 1; cur.value += Number(c.net_payable || 0); cur.paid += Number(c.advance || 0) + paid;
+    cur.outstanding += Number(c.net_payable || 0) - Number(c.advance || 0) - paid; cur.due += due; cur.overdue += overdue;
     byC.set(k, cur);
   }
   const rows = Array.from(byC.values()).sort((a, b) => b.outstanding - a.outstanding);
