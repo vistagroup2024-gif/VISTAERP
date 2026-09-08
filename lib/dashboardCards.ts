@@ -14,7 +14,7 @@
 export type CardKey =
   | "cash_bank" | "cash_flow" | "ar_ap" | "sales" | "expenses" | "pnl" | "balance_sheet"
   | "car_balances" | "pending_sales_orders" | "pending_purchase_orders"
-  | "order_status" | "so_advance_receipt" | "purchase_vs_sale"
+  | "order_status" | "purchase_vs_sale"
   | "stock" | "bookings" | "delivery_status"
   // Absorbed from the module dashboards, which no longer exist.
   | "approvals" | "pdc" | "car_contracts" | "car_ownership"
@@ -55,8 +55,6 @@ export const DASHBOARD_CARDS: CardDef[] = [
     hint: "Purchase Orders not yet received against", href: "/accounting/purchases/orders" },
   { key: "order_status", label: "Order Status",
     hint: "Ordered vs stock on hand vs on order, and the balance", href: "/accounting/workflow" },
-  { key: "so_advance_receipt", label: "Sale Order · Advance vs Receipt",
-    hint: "Order value against the advance and the money actually received", href: "/accounting/sales/orders" },
   { key: "purchase_vs_sale", label: "Purchase vs Sale",
     hint: "What was bought against what was sold, month and year", href: "/accounting/sales/invoices" },
   { key: "stock", label: "Stock",

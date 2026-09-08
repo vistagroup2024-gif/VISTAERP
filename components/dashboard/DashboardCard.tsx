@@ -113,12 +113,6 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "PO qty", value: qty(d.po_qty) },
       { label: "Balance", value: qty(d.balance), strong: true, tone: N(d.balance) < 0 ? "neg" : "pos" },
     ];
-    case "so_advance_receipt": return [
-      { label: "Order", value: cash(d.order_value), strong: true },
-      { label: "Advance", value: cash(d.advance) },
-      { label: "Received", value: cash(d.received), tone: "pos" },
-      { label: "Balance", value: cash(d.balance), tone: N(d.balance) > 0 ? "warn" : undefined },
-    ];
     case "purchase_vs_sale": {
       const gm = N(d.sale_month) - N(d.purchase_month);
       return [
