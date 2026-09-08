@@ -114,14 +114,14 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "Balance", value: qty(d.balance), strong: true, tone: N(d.balance) < 0 ? "neg" : "pos" },
     ];
     // Sale orders still AWAITING their invoice — one drops off the moment a Car
-    // Invoice is raised from it. Balance is the ADVANCE still to come in
-    // (advance − received), not the order less everything paid.
+    // Invoice is raised from it. Advance is the one agreed ON THE ORDER, in its
+    // Car Sales Details. Balance is the ADVANCE still to come in, not the order
+    // less everything paid.
     case "so_advance_receipt": return [
       { label: "Order", value: cash(d.order_value), strong: true },
       { label: "Advance", value: cash(d.advance) },
       { label: "Received", value: cash(d.received), tone: "pos" },
-      { label: "Balance", value: cash(N(d.advance) - N(d.received)),
-        tone: N(d.advance) - N(d.received) > 0 ? "warn" : undefined },
+      { label: "Balance", value: cash(d.balance), tone: N(d.balance) > 0 ? "warn" : undefined },
     ];
     case "purchase_vs_sale": {
       const gm = N(d.sale_month) - N(d.purchase_month);

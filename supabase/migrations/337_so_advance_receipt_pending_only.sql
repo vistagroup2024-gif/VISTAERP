@@ -76,3 +76,21 @@ begin
   execute v_new;
   raise notice 'Card restored: pending sale orders only, balance = advance - received.';
 end $mig$;
+
+-- ---------------------------------------------------------------------------
+-- Correction to the caveat above: THE SALE ORDER DOES CARRY AN ADVANCE.
+--
+-- I looked for an `advance` COLUMN on trade_documents, found none, and reported
+-- that a Sale Order had nowhere to record one. It has: a car Sale Order shows a
+-- Car Sales Details block (lib/tradeDocs.ts, CAR_COSTING) with Total Cost,
+-- Advance, Investment, Installment Months, Percentage, Margin, Selling Price
+-- and an Advance Due Date, and those live in trade_documents.meta as JSON.
+-- SO-00001 holds advance "40000" and advance_due_date "2026-09-08".
+--
+-- So the advance is read off THE ORDER now, which is the whole point of the
+-- card: an order shows what advance was agreed on it, and leaves when its Car
+-- Invoice is raised. Reading it off the car contract, as it did before, could
+-- only ever have shown money belonging to orders that had already left.
+--
+-- meta values are strings typed by a user, so anything that is not plainly a
+-- number counts as 0 rather than throwing the whole dashboard on one bad cast.
