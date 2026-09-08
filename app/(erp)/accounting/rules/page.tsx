@@ -6,28 +6,79 @@ import { useDocRights } from "@/components/AccessProvider";
 
 type Approver = { user_id: string; name: string | null };
 type Rule = {
-  id: string; name: string | null; doc_type: string; min_amount: number;
-  cost_center: string | null; created_by: string | null; created_by_name: string | null;
+  id: string; name: string | null; doc_type: string; doc_types: string[]; min_amount: number;
+  cost_center: string | null; cost_centers: string[];
+  created_by: string | null; created_bys: string[];
+  created_by_name: string | null; created_by_names: string[];
   approvals_needed: number; active: boolean; approvers: Approver[];
 };
 type StaffUser = { id: string; full_name: string | null; email: string | null };
 type Authorizer = { user_id: string; name: string; is_admin: boolean; limit: number | null };
 
-// Every voucher a rule can hold. The first four go through gl_submit; the trade
-// documents and payroll are held as whole documents and posted by their own
-// routine on approval — either way the rule decides.
-const DOC_TYPES: [string, string][] = [
-  ["gl_receipt", "Receipt"], ["gl_payment", "Payment"], ["gl_contra", "Contra"],
-  ["gl_journal", "Journal Entry"], ["gl_payroll", "Payroll"],
-  ["purchase_voucher", "Purchase Voucher"], ["purchase_return", "Purchase Return"],
-  ["sales_invoice", "Sales Invoice"], ["sales_return", "Sales Return"],
+// Every voucher in the ERP, and whether a rule can actually hold it.
+//
+// `gated` is not a preference — it is whether the voucher's save goes through
+// one of the two authorisation gates. The line vouchers go through gl_submit;
+// the four trade documents that post and payroll are held as whole documents
+// and posted by their own routine on approval. Everything else posts through an
+// engine that never consults the rules, so a rule naming it would sit there
+// looking effective and hold nothing. They are listed, and they are listed as
+// unavailable, because "it is not in the list" and "it cannot be held" are
+// different answers and only one of them is true.
+type DocType = { key: string; label: string; group: string; gated: boolean };
+const DOC_TYPES: DocType[] = [
+  { key: "gl_receipt",       label: "Receipt",           group: "Cash and Bank", gated: true },
+  { key: "gl_payment",       label: "Payment",           group: "Cash and Bank", gated: true },
+  { key: "gl_contra",        label: "Contra",            group: "Cash and Bank", gated: true },
+  { key: "gl_petty",         label: "Petty Cash",        group: "Cash and Bank", gated: true },
+  { key: "gl_journal",       label: "Journal Entry",     group: "Journals",      gated: true },
+  { key: "gl_payroll",       label: "Payroll",           group: "Payroll",       gated: true },
+  { key: "purchase_voucher", label: "Purchase Voucher",  group: "Purchases",     gated: true },
+  { key: "purchase_return",  label: "Purchase Return",   group: "Purchases",     gated: true },
+  { key: "sales_invoice",    label: "Sales Invoice",     group: "Sales",         gated: true },
+  { key: "sales_return",     label: "Sales Return",      group: "Sales",         gated: true },
+  // Post through an engine rather than through a gate.
+  { key: "pdc",              label: "PDC Register",      group: "Cash and Bank", gated: false },
+  { key: "invoice_bill",     label: "Bill Record",       group: "Journals",      gated: false },
+  { key: "car_invoice",      label: "Car Invoice",       group: "Car Sales",     gated: false },
+  { key: "car_expense",      label: "Car Expense",       group: "Car Sales",     gated: false },
+  { key: "visa_invoice",     label: "Visa Invoice",      group: "Module Invoicing", gated: false },
+  { key: "transport_invoice",label: "Transport Invoice", group: "Module Invoicing", gated: false },
+  { key: "hotel_invoice",    label: "Hotel Invoice",     group: "Module Invoicing", gated: false },
 ];
-const label = (k: string) => DOC_TYPES.find((d) => d[0] === k)?.[1] ?? k;
+const label = (k: string) => DOC_TYPES.find((d) => d.key === k)?.label ?? k;
+const DOC_GROUPS = Array.from(new Set(DOC_TYPES.map((d) => d.group)));
+
+/** A row of chips: click to add, click again to drop. Empty means the whole
+ *  set, which is the convention the rest of the access model uses. */
+function Chips({ options, value, onChange, empty }: {
+  options: { v: string; l: string; off?: boolean; why?: string }[];
+  value: string[]; onChange: (v: string[]) => void; empty: string;
+}) {
+  const toggle = (v: string) =>
+    onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((o) => (
+        <button key={o.v} type="button" disabled={o.off} title={o.why}
+          onClick={() => toggle(o.v)}
+          className={`rounded-full border px-2.5 py-1 text-xs ${
+            o.off ? "cursor-not-allowed border-slate-100 text-slate-300"
+            : value.includes(o.v) ? "border-brand bg-brand/10 font-medium text-brand-700"
+            : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+          {value.includes(o.v) ? "✓ " : ""}{o.l}
+        </button>
+      ))}
+      {value.length === 0 && <span className="self-center text-xs text-slate-400">{empty}</span>}
+    </div>
+  );
+}
 const money = (n: number) => Number(n || 0).toLocaleString();
 
 const blank = () => ({
-  id: null as string | null, name: "", doc_type: "gl_payment", min_amount: "0",
-  cost_center: "", created_by: "", approvals_needed: "1", active: true,
+  id: null as string | null, name: "", doc_types: [] as string[], min_amount: "0",
+  cost_centers: [] as string[], created_bys: [] as string[],
+  approvals_needed: "1", active: true,
   approvers: [] as string[],
 });
 
@@ -63,8 +114,10 @@ export default function RulesPage() {
 
   function edit(r: Rule) {
     setF({
-      id: r.id, name: r.name ?? "", doc_type: r.doc_type, min_amount: String(r.min_amount),
-      cost_center: r.cost_center ?? "", created_by: r.created_by ?? "",
+      id: r.id, name: r.name ?? "",
+      doc_types: r.doc_types?.length ? r.doc_types : [r.doc_type],
+      min_amount: String(r.min_amount),
+      cost_centers: r.cost_centers ?? [], created_bys: r.created_bys ?? [],
       approvals_needed: String(r.approvals_needed), active: r.active,
       approvers: r.approvers.map((a) => a.user_id),
     });
@@ -76,8 +129,8 @@ export default function RulesPage() {
     const { error } = await supabase.rpc("acct_rule_save", {
       p_id: f.id,
       p_rule: {
-        name: f.name, doc_type: f.doc_type, min_amount: f.min_amount,
-        cost_center: f.cost_center, created_by: f.created_by,
+        name: f.name, doc_types: f.doc_types, min_amount: f.min_amount,
+        cost_centers: f.cost_centers, created_bys: f.created_bys,
         approvals_needed: f.approvals_needed, active: f.active,
       },
       p_approvers: f.approvers,
@@ -110,8 +163,9 @@ export default function RulesPage() {
     <div className="max-w-5xl space-y-5">
       <h1 className="text-xl font-bold tracking-tight text-slate-900">Voucher Authorisation</h1>
       <p className="text-sm text-slate-500">
-        A voucher posts the moment it is saved <b>unless a rule says otherwise</b>. A rule can test the
-        voucher type, the amount, the cost centre and who raised it — in any combination — so
+        A voucher posts the moment it is saved <b>unless a rule says otherwise</b>. A rule can test
+        several voucher types, an amount, several cost centres and several people — in any
+        combination — so
         &ldquo;over 100 in Car Sales Installment&rdquo; and &ldquo;anything Saad raises&rdquo; are both
         rules, and the more specific one wins when both match. A minimum of 0 means every voucher of
         that type.
@@ -129,27 +183,44 @@ export default function RulesPage() {
             <input className="input" placeholder="e.g. Car sales payments over 100"
               value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
 
-          <div><label className="label">Voucher type</label>
-            <select className="input" value={f.doc_type} onChange={(e) => setF({ ...f, doc_type: e.target.value })}>
-              {DOC_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select></div>
+          <div className="sm:col-span-3"><label className="label">Voucher types</label>
+            <div className="space-y-2">
+              {DOC_GROUPS.map((g) => (
+                <div key={g} className="flex flex-wrap items-baseline gap-2">
+                  <span className="w-32 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{g}</span>
+                  <Chips
+                    options={DOC_TYPES.filter((d) => d.group === g).map((d) => ({
+                      v: d.key, l: d.label, off: !d.gated,
+                      why: d.gated ? undefined
+                        : "This voucher posts through an engine rather than through the authorisation gate, so a rule cannot hold it.",
+                    }))}
+                    value={f.doc_types} onChange={(v) => setF({ ...f, doc_types: v })}
+                    empty="" />
+                </div>
+              ))}
+            </div>
+            {f.doc_types.length === 0 && (
+              <p className="mt-1 text-xs text-amber-600">Pick at least one — a rule with no voucher type holds nothing.</p>
+            )}
+            <p className="mt-1 text-xs text-slate-400">
+              Greyed out means the voucher posts through an engine rather than through the
+              authorisation gate, so no rule can hold it.
+            </p></div>
 
           <div><label className="label">Amount from (SAR)</label>
             <input className="input text-right tabular-nums" inputMode="decimal"
               value={f.min_amount} onChange={(e) => setF({ ...f, min_amount: e.target.value })} />
-            <p className="mt-1 text-xs text-slate-400">0 = every voucher of this type.</p></div>
+            <p className="mt-1 text-xs text-slate-400">0 = every voucher of these types.</p></div>
 
-          <div><label className="label">Cost centre</label>
-            <select className="input" value={f.cost_center} onChange={(e) => setF({ ...f, cost_center: e.target.value })}>
-              <option value="">Any cost centre</option>
-              {costCenters.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-            </select></div>
+          <div className="sm:col-span-2"><label className="label">Cost centres</label>
+            <Chips options={costCenters.map((c) => ({ v: c.name, l: c.name }))}
+              value={f.cost_centers} onChange={(v) => setF({ ...f, cost_centers: v })}
+              empty="Any cost centre" /></div>
 
-          <div><label className="label">Only when raised by</label>
-            <select className="input" value={f.created_by} onChange={(e) => setF({ ...f, created_by: e.target.value })}>
-              <option value="">Anyone</option>
-              {staff.map((u) => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-            </select></div>
+          <div className="sm:col-span-3"><label className="label">Only when raised by</label>
+            <Chips options={staff.map((u) => ({ v: u.id, l: u.full_name || u.email || "—" }))}
+              value={f.created_bys} onChange={(v) => setF({ ...f, created_bys: v })}
+              empty="Anyone" /></div>
 
           <div><label className="label">Approvals needed</label>
             <input className="input text-right" type="number" min={1}
@@ -180,7 +251,7 @@ export default function RulesPage() {
         </div>
 
         <div className="flex gap-2 border-t border-slate-100 pt-3">
-          <button className="btn disabled:opacity-40" disabled={saving || !(f.id ? rights.canEdit : rights.canCreate)}
+          <button className="btn disabled:opacity-40" disabled={saving || f.doc_types.length === 0 || !(f.id ? rights.canEdit : rights.canCreate)}
             title={rights.denied(f.id ? "edit" : "create")}>
             {saving ? "Saving…" : f.id ? "Save changes" : "Add rule"}
           </button>
@@ -202,10 +273,10 @@ export default function RulesPage() {
             {rules.map((r) => (
               <tr key={r.id} className={`border-t border-slate-100 ${r.active ? "" : "text-slate-400"}`}>
                 <td className="px-3 py-2 font-medium">{r.name || "—"}</td>
-                <td className="px-3 py-2">{label(r.doc_type)}</td>
+                <td className="px-3 py-2">{(r.doc_types?.length ? r.doc_types : [r.doc_type]).map(label).join(", ")}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{Number(r.min_amount) === 0 ? "any" : money(r.min_amount)}</td>
-                <td className="px-3 py-2">{r.cost_center ?? <span className="text-slate-400">any</span>}</td>
-                <td className="px-3 py-2">{r.created_by_name ?? <span className="text-slate-400">anyone</span>}</td>
+                <td className="px-3 py-2">{r.cost_centers?.length ? r.cost_centers.join(", ") : <span className="text-slate-400">any</span>}</td>
+                <td className="px-3 py-2">{r.created_by_names?.length ? r.created_by_names.join(", ") : <span className="text-slate-400">anyone</span>}</td>
                 <td className="px-3 py-2 text-right">{r.approvals_needed}</td>
                 <td className="px-3 py-2">
                   {r.approvers.length ? r.approvers.map((a) => a.name ?? nameOf(a.user_id)).join(", ")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -62,6 +62,11 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
   const [opErr, setOpErr] = useState<string | null>(null);
   const [editing, setEditing] = useState<AcctNode | null>(null);
   const [moving, setMoving] = useState<AcctNode | null>(null);
+  // Ticked accounts, for a move that covers more than one. Separate from `sel`
+  // on purpose: `sel` is what Edit, Delete and Party Details act on, and that
+  // is still one account. Reorganising a chart is the job that comes in bulk.
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [movingMany, setMovingMany] = useState(false);
   const [linking, setLinking] = useState<AcctNode | null>(null);
   const [party, setParty] = useState<AcctNode | null>(null);
 
@@ -162,15 +167,20 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
     setParty(null); router.refresh();
   }
 
-  async function doMove(target: string) {
-    if (!moving) return;
+  // One routine for one account and for fifty. It runs in a single
+  // transaction, refuses a destination that is not a group or that sits inside
+  // what is being moved, and rebuilds the paths once at the end — none of which
+  // the old browser-side update did.
+  async function moveInto(ids: string[], target: string) {
+    if (ids.length === 0) return;
     setBusy(true); setOpErr(null);
-    const { error } = await supabase.from("accounts").update({ parent_id: target || null }).eq("id", moving.id);
-    if (!error) await supabase.rpc("acct_rebuild_paths", { p_company: COMPANY_ID });
+    const { error } = await supabase.rpc("acct_move_many",
+      { p_accounts: ids, p_parent: target || null });
     setBusy(false);
     if (error) return setOpErr(error.message);
-    setMoving(null); router.refresh();
+    setMoving(null); setMovingMany(false); setChecked(new Set()); router.refresh();
   }
+  const doMove = (target: string) => moveInto(moving ? [moving.id] : [], target);
 
   // Deleting goes through acct_delete rather than straight off the table: an
   // account can be a customer, agent or supplier now, and deleting one half of
@@ -188,13 +198,20 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
     setSel(null); router.refresh();
   }
 
-  // Groups eligible as a move target: not the node itself and not its descendants.
-  const moveTargets = useMemo(() => {
-    if (!moving) return [];
-    const p = moving.path;
-    const blocked = new Set(nodes.filter((n) => p && n.path && (n.path === p || n.path.startsWith(p + "/"))).map((n) => n.id));
-    return nodes.filter((n) => n.is_group && !blocked.has(n.id)).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
-  }, [moving, nodes]);
+  // Groups eligible as a move target: never one of the accounts being moved,
+  // and never anything inside one of them — that would cut the subtree off the
+  // chart. The database refuses it too; this keeps it out of the list.
+  const targetsFor = useCallback((movingNodes: AcctNode[]) => {
+    const paths = movingNodes.map((n) => n.path).filter(Boolean) as string[];
+    const blocked = new Set(
+      nodes.filter((n) => n.path && paths.some((p) => n.path === p || n.path!.startsWith(p + "/")))
+           .map((n) => n.id));
+    return nodes.filter((n) => n.is_group && !blocked.has(n.id))
+                .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+  }, [nodes]);
+  const moveTargets = useMemo(() => (moving ? targetsFor([moving]) : []), [moving, targetsFor]);
+  const checkedNodes = useMemo(() => nodes.filter((n) => checked.has(n.id)), [nodes, checked]);
+  const manyTargets = useMemo(() => targetsFor(checkedNodes), [checkedNodes, targetsFor]);
 
   function Row({ n, depth }: { n: AcctNode; depth: number }) {
     if (visible && !visible.has(n.id)) return null;
@@ -210,6 +227,15 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
           {Array.from({ length: depth }).map((_, i) => (
             <span key={i} className="shrink-0 border-l border-slate-400" style={{ width: "var(--tree-indent, 18px)" }} />
           ))}
+          <label className="flex shrink-0 cursor-pointer items-center pl-1" onClick={(e) => e.stopPropagation()}
+                 title="Tick to move several at once">
+            <input type="checkbox" className="h-3.5 w-3.5" checked={checked.has(n.id)}
+              onChange={(e) => setChecked((c) => {
+                const next = new Set(c);
+                if (e.target.checked) next.add(n.id); else next.delete(n.id);
+                return next;
+              })} />
+          </label>
           <div className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 py-1.5 pl-1 pr-2 sm:gap-2 sm:pr-3" onClick={() => setSel(n.id)}>
             {hasKids ? (
               <button onClick={(e) => { e.stopPropagation(); toggle(n.id); }} className="w-4 shrink-0 text-slate-400 hover:text-slate-700" aria-label={isOpen ? "Collapse" : "Expand"}>
@@ -268,11 +294,19 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
           className={btn}>Party Details</button>
         <button onClick={doDelete} disabled={!selNode || busy || !rights.canDelete} title={rights.denied("delete")} className={`${btn} text-danger`}>Delete</button>
         <span className="mx-1 h-5 w-px bg-slate-200" />
+        <button onClick={() => setMovingMany(true)} disabled={checked.size === 0 || !rights.canEdit}
+          title={checked.size === 0 ? "Tick the accounts you want to move" : rights.denied("edit")}
+          className={btn}>Move {checked.size || ""} selected</button>
+        {checked.size > 0 && (
+          <button onClick={() => setChecked(new Set())} className={btn}>Clear ticks</button>
+        )}
+        <span className="mx-1 h-5 w-px bg-slate-200" />
         <button onClick={() => setCollapsed(new Set())} className={btn}>Expand all</button>
         <button onClick={() => setCollapsed(new Set(nodes.filter((n) => n.is_group).map((n) => n.id)))} className={btn}>Collapse all</button>
         <button onClick={() => window.print()} disabled={!rights.canPrint} title={rights.denied("print")} className={btn}>Print</button>
         <span className="ml-auto max-w-[40%] truncate text-xs text-slate-400">
-          {selNode ? <>Selected: <b className="text-slate-600">{selNode.name}</b></> : `${nodes.length} accounts`}
+          {checked.size > 0 ? <><b className="text-slate-600">{checked.size}</b> ticked</>
+            : selNode ? <>Selected: <b className="text-slate-600">{selNode.name}</b></> : `${nodes.length} accounts`}
         </span>
       </div>
 
@@ -283,7 +317,7 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
       </div>
 
       <div className="hidden items-center gap-2 border-b border-slate-200 bg-slate-50 py-2 pr-3 pl-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:flex">
-        <span className="w-4" /><span className="flex-1">Account</span><span className="w-40 text-right">Balance</span>
+        <span className="w-4" /><span className="w-4" /><span className="flex-1">Account</span><span className="w-40 text-right">Balance</span>
       </div>
       <div className="max-h-[70vh] overflow-auto text-sm [--tree-indent:11px] sm:[--tree-indent:18px]">
         {roots.map((r) => <Row key={r.id} n={r} depth={0} />)}
@@ -292,6 +326,11 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
 
       {editing && <PropsModal node={editing} busy={busy} onCancel={() => setEditing(null)} onSave={saveProps} />}
       {moving && <MoveModal node={moving} targets={moveTargets} busy={busy} onCancel={() => setMoving(null)} onMove={doMove} />}
+      {movingMany && (
+        <MoveManyModal nodes={checkedNodes} targets={manyTargets} busy={busy}
+          onCancel={() => setMovingMany(false)}
+          onMove={(t) => moveInto(checkedNodes.map((n) => n.id), t)} />
+      )}
       {linking && <LinkPartyModal node={linking} busy={busy} onCancel={() => setLinking(null)} onLink={doLink} />}
       {party && <PartyModal node={party} busy={busy} onCancel={() => setParty(null)} onSave={saveParty} />}
     </div>
@@ -480,5 +519,43 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         {children}
       </div>
     </div>
+  );
+}
+
+// ── Move several at once ─────────────────────────────────────────────────────
+// The same modal, told what it is moving. Listing the accounts matters here in
+// a way it does not for one: a tick made three screens ago is easy to forget,
+// and this is the last moment before the chart is rearranged.
+function MoveManyModal({ nodes, targets, busy, onCancel, onMove }: {
+  nodes: AcctNode[]; targets: AcctNode[]; busy: boolean;
+  onCancel: () => void; onMove: (target: string) => void;
+}) {
+  const [target, setTarget] = useState<string>("");
+  return (
+    <Modal title={`Move ${nodes.length} account${nodes.length === 1 ? "" : "s"}`} onClose={onCancel}>
+      <div className="max-h-40 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
+        {nodes.map((n) => (
+          <div key={n.id} className="truncate">
+            <span className="font-mono text-slate-400">{n.code}</span> {n.name}
+            {n.is_group && <span className="ml-1 text-[10px] uppercase text-amber-600">group</span>}
+          </div>
+        ))}
+      </div>
+      <label className="label mt-3">New parent group</label>
+      <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
+        <option value="">— top of the chart —</option>
+        {targets.map((t) => <option key={t.id} value={t.id}>{t.code} · {t.name}</option>)}
+      </select>
+      <p className="mt-2 text-xs text-slate-400">
+        Only where they SIT changes. An account keeps its id, so its ledger, its postings and
+        anything pointing at it are untouched.
+      </p>
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onCancel} className="btn-outline">Cancel</button>
+        <button onClick={() => onMove(target)} disabled={busy} className="btn">
+          {busy ? "Moving…" : `Move ${nodes.length}`}
+        </button>
+      </div>
+    </Modal>
   );
 }
