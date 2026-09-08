@@ -48,7 +48,14 @@ export default function ContractDetail({ contract, installments, receipts = [], 
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <div className="card flex flex-wrap items-center gap-3">
-        <span className={`badge ${CONTRACT_STATUS_TONE[st] ?? "bg-slate-100"}`}>{CONTRACT_STATUS_LABEL[st] ?? st}</span>
+        {/* A returned invoice is cancelled, but "Cancelled" alone reads as if
+            the sale never happened. It did — and it was reversed on a date, by
+            a document. Say which. */}
+        {contract.returned_at ? (
+          <span className="badge bg-amber-100 text-amber-800">Returned {dateStr(contract.returned_at)}</span>
+        ) : (
+          <span className={`badge ${CONTRACT_STATUS_TONE[st] ?? "bg-slate-100"}`}>{CONTRACT_STATUS_LABEL[st] ?? st}</span>
+        )}
         <div className="ml-auto flex flex-wrap gap-2">
           {canManage && st === "draft" && <Link href={`/car-sales/contracts/${contract.id}/edit`} className="btn-outline text-sm">Edit</Link>}
           {canManage && st === "draft" && <button disabled={busy} className="btn text-sm" onClick={() => call("car_contract_activate", "Activate this contract? The vehicle will be marked Sold.")}>Activate</button>}

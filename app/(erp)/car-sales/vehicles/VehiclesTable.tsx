@@ -13,6 +13,7 @@ export interface VehicleRow {
   id: string; vehicle_no: string; vin: string | null; plate_no: string | null; item: string | null;
   make: string | null; model: string | null; variant: string | null; model_year: number | null; color: string | null;
   purchase_date: string | null; total_cost: number | null; status: string; ownership: string;
+  returned_at?: string | null;
   location: string | null; supplier: string | null; customer: string | null;
 }
 
@@ -115,7 +116,12 @@ export default function VehiclesTable({ rows, perms }: { rows: VehicleRow[]; per
                 <td className="td">{r.location ?? "—"}</td>
                 <td className="td">{r.customer ?? "—"}</td>
                 <td className="td"><span className={`badge ${r.ownership === "transferred" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>{OWNERSHIP_LABEL[r.ownership] ?? r.ownership}</span></td>
-                <td className="td"><span className={`badge ${VEHICLE_STATUS_TONE[r.status] ?? "bg-slate-100"}`}>{VEHICLE_STATUS_LABEL[r.status] ?? r.status}</span></td>
+                <td className="td">
+                  <span className={`badge ${VEHICLE_STATUS_TONE[r.status] ?? "bg-slate-100"}`}>{VEHICLE_STATUS_LABEL[r.status] ?? r.status}</span>
+                  {/* Back in stock, but not the same as never sold — a buyer
+                      will want to know, and so will whoever prices it again. */}
+                  {r.returned_at && <span className="badge ml-1 bg-amber-100 text-amber-800">Returned</span>}
+                </td>
                 <td className="td text-right">
                   <RowMenu items={[
                     { label: "Open", onClick: () => router.push(`/car-sales/vehicles/${r.id}`) },

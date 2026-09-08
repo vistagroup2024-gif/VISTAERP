@@ -36,6 +36,11 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // ordinary Edit or Delete. Admins have it; everybody else is ticked for it by
   // name. hasDocRight reads this one strictly, so a blank profile does NOT
   // arrive holding it.
+  // What the Load button offers. A voucher may sit in the document chain
+  // (loadsFrom), take a document from outside it (alsoLoadsFrom), or — like the
+  // Sales Return, which exists to take a car back — only the second.
+  const loadTitle = [cfg.loadsFrom?.title, cfg.alsoLoadsFrom?.title].filter(Boolean).join(" / ");
+  const loadSourceTitle = [cfg.loadsFrom?.title, cfg.alsoLoadsFrom?.title].filter(Boolean).join(" or ");
   const mayUnpost = () => may("edit_posted");
   const postedLock = () => posted && !mayUnpost();
   const mayWrite = () => (id ? may("edit") && (!posted || mayUnpost()) : may("create"));
@@ -77,6 +82,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [sourceCar, setSourceCar] = useState<string | null>(null);
   const [sourceNo, setSourceNo] = useState<string | null>(null);
+  // A car coming back. Set when a Car Invoice was loaded into this Sales
+  // Return; it carries what the car sold for, so the return value can be typed
+  // with that figure in front of the operator rather than looked up.
+  const [carReturn, setCarReturn] = useState<{ vehicle_no?: string; sold_for?: number } | null>(null);
   const [loadOpen, setLoadOpen] = useState(false);
   // These trade documents post to the GL (+ stock); the rest are paperwork only.
   const canPost = ["purchase_voucher", "purchase_return", "sales_return", "sales_invoice"].includes(cfg.type);
@@ -142,7 +151,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setDate(todaySA()); setParty(""); setCostCenter(""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setDiscount("");
     setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({});
-    setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false);
+    setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false); setCarReturn(null);
   }
   function setRow(i: number, patch: Partial<Row>) {
     setRows((rs) => {
@@ -221,6 +230,9 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry); setAwaiting(v.status === "awaiting_approval");
     setSourceId(v.source_doc_id ?? null); setSourceCar(v.source_car_contract ?? null); setSourceNo(v.source_doc_no ?? null);
     const meta = (v.meta ?? {}) as Record<string, any>;
+    setCarReturn(meta.car_return
+      ? { vehicle_no: meta.vehicle_no ?? undefined, sold_for: Number(meta.sold_for ?? 0) || undefined }
+      : null);
     const saved: Record<string, string> = { ...extraDefaults() };
     for (const [k, val] of Object.entries(meta)) saved[k] = val == null ? "" : String(val);
     setExtras(saved);
@@ -335,6 +347,9 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
 
     if (v.source_kind === "car") { setSourceCar(v.id); setSourceId(null); }
     else { setSourceId(v.id); setSourceCar(null); }
+    setCarReturn(src.car_return
+      ? { vehicle_no: src.vehicle_no ?? undefined, sold_for: Number(src.sold_for ?? 0) || undefined }
+      : null);
     setSourceNo(v.doc_no ?? null);
     setDone(`loaded from ${v.doc_no}`);
   }
@@ -401,7 +416,16 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       tag_area: cfg.showTagArea === false ? null : tagArea || null,
       reference: reference || null, mode_of_payment: mode || null, due_date: dueDate || null, delivery_date: deliveryDate || null,
       terms: terms || null, narration: narration || null, round_off: num(roundOff),
-      meta: cfg.showDiscount ? { ...meta, discount: discountAmt } : meta,
+      meta: {
+        ...meta,
+        ...(cfg.showDiscount ? { discount: discountAmt } : {}),
+        // A car return remembers where it came from, so re-opening it shows the
+        // same figures the operator decided against.
+        ...(carReturn
+          ? { car_return: true, vehicle_no: carReturn.vehicle_no ?? null,
+              sold_for: carReturn.sold_for ?? null, update_stock: false }
+          : {}),
+      },
       source_doc_id: sourceId, source_car_contract: sourceCar,
     };
     // With the grid hidden the document still needs its line, because that line
@@ -520,9 +544,9 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         <button onClick={() => resetNew()} disabled={busy} className="btn-outline text-sm">＋ New</button>
         <button onClick={() => nav("prev")} disabled={busy} className="btn-outline text-sm">‹ Previous</button>
         <button onClick={() => nav("next")} disabled={busy} className="btn-outline text-sm">Next ›</button>
-        {cfg.loadsFrom && (
+        {loadTitle && (
           <button onClick={() => setLoadOpen(true)} disabled={busy || posted || awaiting} className="btn text-sm disabled:opacity-40">
-            ⤓ Load {cfg.loadsFrom.title}{cfg.alsoLoadsFrom ? ` / ${cfg.alsoLoadsFrom.title}` : ""}
+            ⤓ Load {loadTitle}
           </button>
         )}
         {sourceNo && (
@@ -542,10 +566,21 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         </div>
       </div>
 
-      {loadOpen && cfg.loadsFrom && (
-        <LoadFromPicker targetType={cfg.type}
-          sourceTitle={cfg.loadsFrom.title + (cfg.alsoLoadsFrom ? ` or ${cfg.alsoLoadsFrom.title}` : "")}
+      {loadOpen && loadTitle && (
+        <LoadFromPicker targetType={cfg.type} sourceTitle={loadSourceTitle}
           onPick={loadFrom} onClose={() => setLoadOpen(false)} />
+      )}
+
+      {carReturn && (
+        <div className="rounded border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800">
+          <span className="font-medium">
+            Vehicle {carReturn.vehicle_no ?? ""} coming back{sourceNo ? ` against ${sourceNo}` : ""}.
+          </span>{" "}
+          {carReturn.sold_for ? <>It was sold for <strong>{money(carReturn.sold_for)}</strong>. </> : null}
+          Type what it is worth on the way back — that amount comes off the customer&apos;s account, and the
+          balance there decides whether they still owe or we owe them a refund. The car goes back into stock at
+          its own cost, flagged as returned.
+        </div>
       )}
 
       {posted && mayUnpost() && (
@@ -598,7 +633,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           )}
           {cfg.showDue && <div><label className="label">Due Date</label><input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>}
           {cfg.showDelivery && <div><label className="label">Delivery Date</label><input type="date" className="input" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} /></div>}
-          {headerExtras.filter((f) => f.kind === "check").map(headerField)}
+          {headerExtras.filter((f) => f.kind === "check" && !(carReturn && f.key === "update_stock")).map(headerField)}
           {cfg.showTerms && <div className="md:col-span-2"><label className="label">Terms</label><input className="input" value={terms} onChange={(e) => setTerms(e.target.value)} /></div>}
           <div className="md:col-span-2"><label className="label">Narration</label><input className="input" value={narration} onChange={(e) => setNarration(e.target.value)} /></div>
         </div>

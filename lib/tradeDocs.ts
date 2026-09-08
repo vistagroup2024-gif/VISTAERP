@@ -195,6 +195,10 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   sales_return: {
     type: "sales_return", prefix: "SRN-", title: "Sales Return", party: "customer",
     showTagArea: true, showWarehouse: false,
+    // A Sales Return has no step in the document chain — goods coming back are
+    // typed. A CAR coming back is not: it is returned against the Car Invoice
+    // that sold it, which is where the vehicle, the customer and the cost are.
+    alsoLoadsFrom: { title: "Car Invoice" },
     headerExtras: [
       { key: "sale_account", label: "Sale Account", kind: "account" },
       { key: "update_stock", label: "Update Stocks", kind: "check", defaultOn: true },
