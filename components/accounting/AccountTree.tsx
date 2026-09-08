@@ -13,6 +13,8 @@ export type AcctNode = {
   nature: "asset" | "liability" | "equity" | "income" | "expense" | "control";
   is_group: boolean; is_postable: boolean; parent_id: string | null; path: string | null;
   currency: string; subtype: string | null; status: string;
+  /** Where it sits among its siblings. 0 everywhere until somebody reorders. */
+  sort_order?: number | null;
   /** Set when this account IS a customer, agent or supplier — the record the
    *  bookings, groups, rate charts and vouchers pick their parties from. */
   party_type: "customer" | "supplier" | "b2b_agent" | null;
@@ -96,7 +98,11 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(n);
     }
-    Array.from(m.values()).forEach((arr) => arr.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })));
+    // sort_order first, code second. Everything starts at 0, so a chart nobody
+    // has reordered still comes out in code order exactly as it always did.
+    Array.from(m.values()).forEach((arr) => arr.sort((a, b) =>
+      (Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0)) ||
+      a.code.localeCompare(b.code, undefined, { numeric: true })));
     return m;
   }, [nodes]);
 
@@ -182,6 +188,22 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
   }
   const doMove = (target: string) => moveInto(moving ? [moving.id] : [], target);
 
+  // Moving WITHIN a group. A chart has an order as well as a shape, and this is
+  // the only thing that sets it — the alternative was renumbering the account,
+  // which changes the code it is known by everywhere else.
+  async function reorder(dir: "up" | "down" | "top" | "bottom") {
+    if (!selNode) return;
+    setBusy(true); setOpErr(null);
+    const { data, error } = await supabase.rpc("acct_reorder", { p_account: selNode.id, p_dir: dir });
+    setBusy(false);
+    if (error) return setOpErr(error.message);
+    // "already first" is worth saying out loud; a button that silently does
+    // nothing reads as a broken button.
+    const r = data as any;
+    if (r && r.moved === false) setOpErr(`${selNode.name} is ${r.reason}.`);
+    router.refresh();
+  }
+
   // Deleting goes through acct_delete rather than straight off the table: an
   // account can be a customer, agent or supplier now, and deleting one half of
   // that pair would leave a party nothing posts to. The routine does both and
@@ -213,65 +235,32 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
   const checkedNodes = useMemo(() => nodes.filter((n) => checked.has(n.id)), [nodes, checked]);
   const manyTargets = useMemo(() => targetsFor(checkedNodes), [checkedNodes, targetsFor]);
 
-  function Row({ n, depth }: { n: AcctNode; depth: number }) {
-    if (visible && !visible.has(n.id)) return null;
-    const kids = childrenOf.get(n.id) ?? [];
-    const hasKids = kids.length > 0;
-    const isOpen = visible ? true : !collapsed.has(n.id);
-    const net = rollup.get(n.id) ?? 0;
-    const isSel = sel === n.id;
-    const groupBg = n.is_group ? (depth === 0 ? "bg-slate-100" : depth === 1 ? "bg-slate-50" : "bg-slate-50/60") : "";
-    return (
-      <>
-        <div className={`group flex items-stretch border-b border-slate-100 ${isSel ? "bg-brand-100 ring-1 ring-inset ring-brand-300" : `hover:bg-brand-50/40 ${groupBg}`}`}>
-          {Array.from({ length: depth }).map((_, i) => (
-            <span key={i} className="shrink-0 border-l border-slate-400" style={{ width: "var(--tree-indent, 18px)" }} />
-          ))}
-          <label className="flex shrink-0 cursor-pointer items-center pl-1" onClick={(e) => e.stopPropagation()}
-                 title="Tick to move several at once">
-            <input type="checkbox" className="h-3.5 w-3.5" checked={checked.has(n.id)}
-              onChange={(e) => setChecked((c) => {
-                const next = new Set(c);
-                if (e.target.checked) next.add(n.id); else next.delete(n.id);
-                return next;
-              })} />
-          </label>
-          <div className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 py-1.5 pl-1 pr-2 sm:gap-2 sm:pr-3" onClick={() => setSel(n.id)}>
-            {hasKids ? (
-              <button onClick={(e) => { e.stopPropagation(); toggle(n.id); }} className="w-4 shrink-0 text-slate-400 hover:text-slate-700" aria-label={isOpen ? "Collapse" : "Expand"}>
-                {isOpen ? "▾" : "▸"}
-              </button>
-            ) : <span className="w-4 shrink-0" />}
-            {n.is_group ? (
-              <svg viewBox="0 0 24 24" width="16" height="16" className="shrink-0 text-amber-500" fill="currentColor" aria-hidden>
-                <path d="M3 6a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z" opacity=".25" />
-                <path d="M3 8a2 2 0 012-2h4l2 2h8a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" width="14" height="14" className="shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeLinecap="round" />
-              </svg>
-            )}
-            <span className={`min-w-0 flex-1 truncate ${n.is_group ? "font-semibold text-slate-800" : "text-slate-700"}`}>
-              {n.is_postable ? (
-                <Link href={`/accounting/ledger?account=${n.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-brand hover:underline">{n.name}</Link>
-              ) : n.name}
-              {n.status !== "active" && <span className="ml-2 rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">{n.status}</span>}
-            </span>
-            {n.party_type && (
-              <span className="hidden shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700 sm:inline-flex"
-                    title="This account is also a party — it can be picked on bookings, groups, rate charts and vouchers">
-                {PARTY_LABEL[n.party_type]}
-              </span>
-            )}
-            {!n.is_group && <span className={`badge ${NATURE_BADGE[n.nature]} hidden shrink-0 sm:inline-flex`}>{n.subtype ?? n.nature}</span>}
-            <span className={`w-20 shrink-0 text-right tabular-nums text-xs sm:w-40 sm:text-sm ${n.is_group ? "font-semibold" : ""}`}>{drcr(net)}</span>
-          </div>
-        </div>
-        {isOpen && hasKids && kids.map((k) => <Row key={k.id} n={k} depth={depth + 1} />)}
-      </>
-    );
-  }
+  // The tree, flattened once into the rows that are actually on screen.
+  //
+  // This used to be a <Row> component declared inside this one, which recursed.
+  // That is what made the list JUMP TO THE TOP every time a checkbox was
+  // ticked: a component declared inside a render is a NEW function on every
+  // render, so React treats it as a different component type, unmounts the
+  // whole tree and mounts it again. For the split second the rows are gone the
+  // scroll container has nothing in it, so the browser clamps scrollTop to 0 —
+  // and it stays there when the rows come back. Nothing remounts now, so the
+  // scroll position is simply never disturbed.
+  const flat = useMemo(() => {
+    const out: { n: AcctNode; depth: number }[] = [];
+    const walk = (list: AcctNode[], depth: number) => {
+      for (const n of list) {
+        if (visible && !visible.has(n.id)) continue;
+        out.push({ n, depth });
+        const kids = childrenOf.get(n.id) ?? [];
+        // A search shows everything it matched, so the collapse state is
+        // ignored while one is running.
+        const open = visible ? true : !collapsed.has(n.id);
+        if (open && kids.length) walk(kids, depth + 1);
+      }
+    };
+    walk(roots, 0);
+    return out;
+  }, [roots, childrenOf, collapsed, visible]);
 
   const btn = "btn-outline btn-sm disabled:opacity-40";
 
@@ -283,7 +272,20 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
         <button onClick={() => add(true)} disabled={!rights.canCreate} title={rights.denied("create")} className={btn}>+ Add Group</button>
         <span className="mx-1 h-5 w-px bg-slate-200" />
         <button onClick={() => selNode && setEditing(selNode)} disabled={!selNode || !rights.canEdit} title={rights.denied("edit")} className={btn}>Edit</button>
-        <button onClick={() => selNode && setMoving(selNode)} disabled={!selNode || !rights.canEdit} title={rights.denied("edit")} className={btn}>Move</button>
+        <button onClick={() => selNode && setMoving(selNode)} disabled={!selNode || !rights.canEdit} title={rights.denied("edit")} className={btn}>Move to group</button>
+        {/* Order within the group it is already in. */}
+        <span className="inline-flex overflow-hidden rounded border border-slate-200">
+          {([["top", "⤒", "Move to the top of its group"],
+             ["up", "↑", "Move up one"],
+             ["down", "↓", "Move down one"],
+             ["bottom", "⤓", "Move to the bottom of its group"]] as const).map(([d, sym, tip]) => (
+            <button key={d} onClick={() => reorder(d)} disabled={!selNode || busy || !rights.canEdit}
+              title={rights.canEdit ? tip : rights.denied("edit")}
+              className="border-r border-slate-200 px-2 py-1 text-sm text-slate-600 last:border-r-0 hover:bg-slate-50 disabled:opacity-40">
+              {sym}
+            </button>
+          ))}
+        </span>
         <button onClick={() => selNode && setLinking(selNode)}
           disabled={!selNode || selNode.is_group || !!selNode.party_type || !rights.canEdit}
           title={selNode?.party_type ? `Already a ${PARTY_LABEL[selNode.party_type].toLowerCase()}` : rights.denied("edit")}
@@ -320,8 +322,62 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
         <span className="w-4" /><span className="w-4" /><span className="flex-1">Account</span><span className="w-40 text-right">Balance</span>
       </div>
       <div className="max-h-[70vh] overflow-auto text-sm [--tree-indent:11px] sm:[--tree-indent:18px]">
-        {roots.map((r) => <Row key={r.id} n={r} depth={0} />)}
-        {roots.length === 0 && <div className="p-6 text-center text-slate-400">No accounts.</div>}
+        {flat.map(({ n, depth }) => {
+          const kids = childrenOf.get(n.id) ?? [];
+          const hasKids = kids.length > 0;
+          const isOpen = visible ? true : !collapsed.has(n.id);
+          const net = rollup.get(n.id) ?? 0;
+          const isSel = sel === n.id;
+          const groupBg = n.is_group ? (depth === 0 ? "bg-slate-100" : depth === 1 ? "bg-slate-50" : "bg-slate-50/60") : "";
+          return (
+            <div key={n.id} className={`group flex items-stretch border-b border-slate-100 ${isSel ? "bg-brand-100 ring-1 ring-inset ring-brand-300" : `hover:bg-brand-50/40 ${groupBg}`}`}>
+              {Array.from({ length: depth }).map((_, i) => (
+                <span key={i} className="shrink-0 border-l border-slate-400" style={{ width: "var(--tree-indent, 18px)" }} />
+              ))}
+              <label className="flex shrink-0 cursor-pointer items-center pl-1" onClick={(e) => e.stopPropagation()}
+                     title="Tick to move several at once">
+                <input type="checkbox" className="h-3.5 w-3.5" checked={checked.has(n.id)}
+                  onChange={(e) => setChecked((c) => {
+                    const next = new Set(c);
+                    if (e.target.checked) next.add(n.id); else next.delete(n.id);
+                    return next;
+                  })} />
+              </label>
+              <div className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 py-1.5 pl-1 pr-2 sm:gap-2 sm:pr-3" onClick={() => setSel(n.id)}>
+                {hasKids ? (
+                  <button onClick={(e) => { e.stopPropagation(); toggle(n.id); }} className="w-4 shrink-0 text-slate-400 hover:text-slate-700" aria-label={isOpen ? "Collapse" : "Expand"}>
+                    {isOpen ? "▾" : "▸"}
+                  </button>
+                ) : <span className="w-4 shrink-0" />}
+                {n.is_group ? (
+                  <svg viewBox="0 0 24 24" width="16" height="16" className="shrink-0 text-amber-500" fill="currentColor" aria-hidden>
+                    <path d="M3 6a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z" opacity=".25" />
+                    <path d="M3 8a2 2 0 012-2h4l2 2h8a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" width="14" height="14" className="shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeLinecap="round" />
+                  </svg>
+                )}
+                <span className={`min-w-0 flex-1 truncate ${n.is_group ? "font-semibold text-slate-800" : "text-slate-700"}`}>
+                  {n.is_postable ? (
+                    <Link href={`/accounting/ledger?account=${n.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-brand hover:underline">{n.name}</Link>
+                  ) : n.name}
+                  {n.status !== "active" && <span className="ml-2 rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">{n.status}</span>}
+                </span>
+                {n.party_type && (
+                  <span className="hidden shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700 sm:inline-flex"
+                        title="This account is also a party — it can be picked on bookings, groups, rate charts and vouchers">
+                    {PARTY_LABEL[n.party_type]}
+                  </span>
+                )}
+                {!n.is_group && <span className={`badge ${NATURE_BADGE[n.nature]} hidden shrink-0 sm:inline-flex`}>{n.subtype ?? n.nature}</span>}
+                <span className={`w-20 shrink-0 text-right tabular-nums text-xs sm:w-40 sm:text-sm ${n.is_group ? "font-semibold" : ""}`}>{drcr(net)}</span>
+              </div>
+            </div>
+          );
+        })}
+        {flat.length === 0 && <div className="p-6 text-center text-slate-400">No accounts.</div>}
       </div>
 
       {editing && <PropsModal node={editing} busy={busy} onCancel={() => setEditing(null)} onSave={saveProps} />}
