@@ -66,3 +66,26 @@ begin
   execute v_new;
   raise notice 'Car instalments are overdue once their month has ended.';
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Second pass, after the first was still wrong on two counts.
+--
+-- DUE STARTS ON THE DUE DATE, NOT ON THE FIRST OF ITS MONTH. Due was every
+-- unpaid instalment dated anywhere in this month, so one dated the 20th was
+-- already "due" on the 1st. It is due when its date arrives:
+--     Due     = unpaid, due date has arrived, its month has not ended
+--     Overdue = unpaid, its month has ended
+-- Still disjoint, and now neither counts money that is not yet askable for.
+--
+-- OUTSTANDING WAS NOT OUTSTANDING. It summed the instalment schedule, but the
+-- schedule is not what the customer owes: the advance is on the invoice and not
+-- in the schedule. CI-000003 scheduled 82,000 against a real ledger balance of
+-- 123,000 (122,000 car + 1,000 service charge). It is the customers' LEDGER
+-- balance now, read off their accounts — which is only possible because 331 put
+-- car receivables on the customer's own account instead of a control bucket.
+--
+-- The card gains a Total (Due + Overdue), which is safe to add precisely
+-- because the two no longer overlap.
+--
+-- Applied as three exact anchored replacements against the live definition; see
+-- migration 334's earlier note on why this function is not retyped.

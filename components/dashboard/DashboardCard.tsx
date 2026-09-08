@@ -84,10 +84,17 @@ function cells(key: CardKey, m: any): Cell[] {
         { label: yy >= 0 ? "Profit (ytd)" : "Loss (ytd)", value: cash(Math.abs(yy)), tone: yy >= 0 ? "pos" : "neg" },
       ];
     }
+    // Due and Overdue are DISJOINT and both are money whose date has arrived:
+    // Due is this month's instalment once its day has come, Overdue is one whose
+    // month has ended. Total is the two together — what is collectable today.
+    // Balance is the customers' LEDGER balance, not the instalment schedule:
+    // the schedule leaves out the advance, so it was never what they owe.
     case "car_balances": return [
       { label: "Due", value: cash(d.due_this_month), tone: "warn" },
       { label: "Overdue", value: cash(d.overdue), tone: N(d.overdue) > 0 ? "neg" : undefined },
-      { label: "Outstd.", value: cash(d.outstanding), strong: true },
+      { label: "Total", value: cash(N(d.due_this_month) + N(d.overdue)), strong: true,
+        tone: N(d.due_this_month) + N(d.overdue) > 0 ? "warn" : undefined },
+      { label: "Balance", value: cash(d.balance) },
       { label: "Collected", value: cash(d.collected), tone: "pos" },
     ];
     case "pending_sales_orders":

@@ -360,13 +360,25 @@ There is no module dashboard any more. `/accounting`, `/car-sales`,
 the routes stay so links and bookmarks keep working, but every card they used to
 carry is in the register. A new card goes there, never onto a module screen.
 
-A card's buckets must not overlap. Car Customer Balances showed **Due** (unpaid
-instalments dated this month) beside **Overdue** (unpaid instalments dated
-before *today*), so an instalment dated earlier this month sat in both and the
-card read double. An instalment is overdue once **the month it was due in has
-ended** — that is how a monthly instalment is actually chased, and it makes the
-two disjoint, with both still subsets of Outstanding. The service-charge card is
-not the same shape: its "this month" is what was BILLED, not what is owed.
+A card's buckets must not overlap, and a label must mean what it says. Car
+Customer Balances got both wrong. **Due** and **Overdue** each counted the same
+instalment, and **Outstanding** was the instalment schedule rather than what the
+customer owes. All three are money questions, so:
+
+- **Due** — its date has ARRIVED and its month has not ended. Not "dated this
+  month": an instalment dated the 20th is not due on the 1st.
+- **Overdue** — the month it was due in has ended. Not merely past its date;
+  nobody chases a customer on the 9th for something dated the 8th.
+- **Total** — Due + Overdue, which is safe to add only because they are disjoint.
+- **Balance** — the customers' LEDGER balance, summed off their accounts. The
+  instalment schedule is not it: an advance is on the invoice but not in the
+  schedule, so CI-000003 scheduled 82,000 against a real balance of 123,000.
+
+Two traps found in that one card. Contract-level figures (`sale_value`,
+`advance`) were summed across the join to `car_installments`, so a 12-instalment
+contract counted its own total twelve times — take those from `car_contracts`
+alone. And the service-charge card is NOT the same shape: its "this month" is
+what was BILLED, not what is owed, so it needs none of this.
 
 Two things follow. The landing lists in `lib/staffSession.ts` and
 `lib/supabase/middleware.ts` must not point at a forwarding route: a user

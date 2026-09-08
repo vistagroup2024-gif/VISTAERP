@@ -46,7 +46,7 @@ export const DASHBOARD_CARDS: CardDef[] = [
   { key: "pnl", label: "Profit & Loss",
     hint: "Income less expense, month and year", href: "/accounting/profit-loss" },
   { key: "car_balances", label: "Car Customer Balances",
-    hint: "Instalments: due this month, overdue (its month has ENDED — not merely past its date, so Due and Overdue never count the same one twice), outstanding and collected",
+    hint: "Due (its date has arrived, this month), Overdue (its month has ended), Total of the two — they never overlap — plus the customers' ledger balance and what has been collected",
     href: "/car-sales/contracts" },
   { key: "pending_sales_orders", label: "Pending Sales Orders",
     hint: "Sale Orders not yet turned into an invoice or a purchase order", href: "/accounting/sales/orders" },
