@@ -1,0 +1,36 @@
+-- acct_hold_document is anon-callable again. Close it.
+--
+-- Migration 293 swept the schema and closed the fourteen internal engines that
+-- had a hand-written `grant execute ... to anon`. acct_hold_document was one of
+-- them: measured as anon it reached its own body and got a foreign-key
+-- violation while inserting a pending voucher.
+--
+-- Migration 306 gave it the cost centre and the rule. Because that changed the
+-- SIGNATURE it had to `drop function` first — and a dropped function comes back
+-- with the DEFAULT privileges, which in Postgres means EXECUTE to PUBLIC, and
+-- anon is a member of PUBLIC. So 306 silently handed back what 293 had taken
+-- away, and production has been sitting with
+--
+--     acct_hold_document = PUBLIC, anon, authenticated, service_role
+--
+-- ever since. It is the only routine in the schema in that state: everything
+-- else still anon-callable is anon by design (the b2b_* family, the portal
+-- logins and sessions, the two public voucher links, the cron endpoints, the
+-- p_secret push routines) or is a trigger function, which returns `trigger` and
+-- cannot be called over PostgREST at all.
+--
+-- This is what the note in CLAUDE.md means by "`revoke ... from anon` is not a
+-- gate; `revoke ... from public` is" — and it is the second half of that lesson:
+-- a revoke does not survive a `drop function`, so a migration that changes a
+-- signature has to write the revoke again.
+--
+-- Nothing is granted to `authenticated` to compensate. acct_hold_document is an
+-- internal engine, called by gl_submit / trade_doc_post / payroll_post on a
+-- user's behalf; leaving it ungranted is what makes it internal, and matches
+-- trade_doc_post_now, payroll_post_now and stock_apply, which all sit at
+-- `postgres, service_role` today.
+--
+-- Reversible: see 316_rollback_close_acct_hold_document.sql.
+
+revoke all on function public.acct_hold_document(uuid, text, date, text, text, numeric, integer, text, uuid, uuid)
+  from public, anon, authenticated;
