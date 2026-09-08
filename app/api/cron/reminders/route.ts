@@ -16,20 +16,24 @@ export const dynamic = "force-dynamic";
 // Details and generates the 48h / 24h / 12h agent reminders plus the 24h admin
 // escalation (deduped in DB).
 // Requires CRON_SECRET: pass ?secret= or a Bearer token.
+// Each routine is handed CRON_SECRET as well: this route calls the database as
+// `anon` (a scheduler has no session), so the routines must be anon-reachable,
+// and the secret is what stands in front of them. See the car-sales route.
 async function run() {
   const supabase = createClient();
-  const { data, error } = await supabase.rpc("generate_hotel_reminders");
+  const secret = process.env.CRON_SECRET;
+  const { data, error } = await supabase.rpc("generate_hotel_reminders", { p_secret: secret });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   // Tafweej reminders (~6h before Jeddah-airport Umrah arrivals).
-  const { data: tafweej, error: tErr } = await supabase.rpc("generate_tafweej_reminders");
+  const { data: tafweej, error: tErr } = await supabase.rpc("generate_tafweej_reminders", { p_secret: secret });
   if (tErr) return NextResponse.json({ ok: false, error: tErr.message }, { status: 500 });
   // Hotel HCN reminders (48h / 24h / check-in-day when the HCN is still not received).
-  const { data: hotelHcn, error: hErr } = await supabase.rpc("generate_hotel_hcn_reminders");
+  const { data: hotelHcn, error: hErr } = await supabase.rpc("generate_hotel_hcn_reminders", { p_secret: secret });
   if (hErr) return NextResponse.json({ ok: false, error: hErr.message }, { status: 500 });
   // Refresh cached BRN readiness (Ready to Allocate / Waiting BRN) for in-flight
   // groups, so labels stay current as shared inventory is consumed. The function
   // carries its own high statement_timeout, so it completes off the request path.
-  const { error: aErr } = await supabase.rpc("refresh_brn_availability");
+  const { error: aErr } = await supabase.rpc("refresh_brn_availability", { p_secret: secret });
   return NextResponse.json({ ok: true, created: data ?? 0, tafweej: tafweej ?? 0, hotelHcn: hotelHcn ?? 0, availability: aErr ? aErr.message : "refreshed" });
 }
 

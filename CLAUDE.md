@@ -413,14 +413,22 @@ directly however it is granted) but five were not:
        and p.prorettype <> 'trigger'::regtype;
 
 `car_monthly_run`, `refresh_brn_availability` and the three
-`generate_*_reminders` are **anon-callable and carry no gate of their own**.
+`generate_*_reminders` **were anon-callable with no gate of their own** —
 CRON_SECRET is checked in the Next.js route, but the route calls the database as
-anon — there is no service-role key in this project — so the RPC is reachable
-directly with the key that ships in the browser bundle, and the route can simply
-be skipped. `car_monthly_run` generates monthly charges and posts journals. The
-fix is the one `push_prune` already uses: a `p_secret` argument checked in the
-body. Not yet done: it needs the secret agreed between Vercel and the database
-in the same change, or the jobs stop instead of closing.
+anon (there is no service-role key in this project), so the RPC was reachable
+directly with the key that ships in the browser bundle and the route could be
+stepped around. `car_monthly_run` generates monthly charges and posts journals.
+
+Migration 333 gave each of the five a `p_secret` argument, checked against
+`cron_config.secret`, exactly as `push_prune` checks `push_config`. **They are
+still anon-callable and must be** — the scheduler has no session — so the secret
+is the whole gate. It lives in two places and has to match: `cron_config.secret`
+in the database, and `CRON_SECRET` in the deployment environment, which the
+route passes through to the routine. Change one without the other and the jobs
+stop rather than run unprotected, which is the right way round to fail.
+
+A new scheduled job goes the same way: `p_secret` first, checked before anything
+else, and the route hands `process.env.CRON_SECRET` to it.
 
 ## A select() without a bound is a bug waiting for the 1001st row
 
