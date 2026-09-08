@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { guardStaffPage } from "@/lib/staffSession";
 import CarExpenseForm from "./CarExpenseForm";
-import { vehicleTitle } from "../lib";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +12,12 @@ export const dynamic = "force-dynamic";
 export default async function CarExpensesPage() {
   await guardStaffPage(["carsales.installments", "carsales.sales", "accounting.view"]);
   const sb = createClient();
+  // The vehicle list is built in SQL rather than here, because it is TWO lists:
+  // the cars in the yard and the cars still on a purchase order that nothing has
+  // made a record for yet. The second half only exists as a document line, so
+  // there is nothing in car_vehicles to select it from.
   const [{ data: vehicles }, { data: heads }, { data: accounts }, { data: rows }] = await Promise.all([
-    sb.from("car_vehicles").select("*, item:product_id(name)").order("created_at", { ascending: false }),
+    sb.rpc("car_expense_vehicle_options"),
     sb.from("acct_car_purchase_expenses").select("id, name, amount").order("name"),
     sb.from("accounts").select("id, name, code, subtype").eq("is_group", false)
       .in("subtype", ["Payable", "Cash", "Bank"]).order("code"),
@@ -23,15 +26,9 @@ export default async function CarExpensesPage() {
       .order("expense_date", { ascending: false }).limit(500),
   ]);
 
-  const vOpts = (vehicles ?? []).map((v: any) => ({
-    id: v.id,
-    label: `${vehicleTitle({ ...v, item: v.item?.name })} · ${v.plate_no ?? v.vehicle_no}`,
-    cost: Number(v.total_cost || 0),
-  }));
-
   return (
     <CarExpenseForm
-      vehicles={vOpts}
+      vehicles={(vehicles ?? []) as any}
       heads={(heads ?? []) as any}
       accounts={(accounts ?? []) as any}
       rows={(rows ?? []) as any}

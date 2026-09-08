@@ -8,7 +8,10 @@ import { dateStr } from "@/lib/format";
 import FormSection, { Field } from "@/components/ui/FormSection";
 import { todaySA } from "@/lib/saudiTime";
 
-type VehicleOpt = { id: string; label: string; cost: number };
+type VehicleOpt = {
+  kind: "vehicle" | "po_line"; id: string | null; po_line: string | null;
+  label: string; cost: number; status: string; grp: string;
+};
 type Head = { id: string; name: string; amount: number | null };
 type Acct = { id: string; name: string; code: string; subtype: string };
 type Row = {
@@ -18,7 +21,9 @@ type Row = {
 };
 
 const today = () => todaySA();
-const blank = () => ({ vehicle_id: "", expense_id: "", expense_date: today(), amount: "", credit_account: "", narration: "" });
+// The picker holds one value for two kinds of thing, so the key says which:
+// "v:<id>" is a car in the yard, "p:<line>" is one still on a purchase order.
+const blank = () => ({ pick: "", expense_id: "", expense_date: today(), amount: "", credit_account: "", narration: "" });
 
 export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
   vehicles: VehicleOpt[]; heads: Head[]; accounts: Acct[]; rows: Row[];
@@ -30,14 +35,24 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
-  const vehicle = useMemo(() => vehicles.find((v) => v.id === f.vehicle_id) ?? null, [vehicles, f.vehicle_id]);
+  const keyOf = (v: VehicleOpt) => (v.kind === "vehicle" ? `v:${v.id}` : `p:${v.po_line}`);
+  const vehicle = useMemo(() => vehicles.find((v) => keyOf(v) === f.pick) ?? null, [vehicles, f.pick]);
   const amount = Number(f.amount) || 0;
+  const headAmount = Number(heads.find((h) => h.id === f.expense_id)?.amount ?? 0) || 0;
+  const groups = useMemo(() => {
+    const m = new Map<string, VehicleOpt[]>();
+    for (const v of vehicles) { if (!m.has(v.grp)) m.set(v.grp, []); m.get(v.grp)!.push(v); }
+    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [vehicles]);
 
-  // Choosing a head fills its default amount, if it has one — the master carries
-  // "registration = 1,200" so the usual case is typed once, in Masters.
+  // Choosing a head brings its amount over from Masters — "registration = 1,200"
+  // is typed once, there, rather than remembered here every time. It stays
+  // editable: the master holds the usual figure, not the only one. Changing the
+  // head REPLACES the amount rather than leaving the last head's figure behind,
+  // which is the whole point of it coming from the master.
   function pickHead(id: string) {
     const h = heads.find((x) => x.id === id);
-    setF((c) => ({ ...c, expense_id: id, amount: c.amount || (h?.amount ? String(h.amount) : "") }));
+    setF((c) => ({ ...c, expense_id: id, amount: h?.amount ? String(h.amount) : "" }));
   }
 
   async function save(e: React.FormEvent) {
@@ -46,14 +61,19 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
     const { error } = await supabase.rpc("car_expense_save", {
       p_id: null,
       p_header: {
-        vehicle_id: f.vehicle_id, expense_id: f.expense_id, expense_date: f.expense_date,
+        // A car still on order has no vehicle record; the routine makes one.
+        vehicle_id: f.pick.startsWith("v:") ? f.pick.slice(2) : null,
+        po_line_id: f.pick.startsWith("p:") ? f.pick.slice(2) : null,
+        expense_id: f.expense_id, expense_date: f.expense_date,
         amount: String(amount), credit_account: f.credit_account || null, narration: f.narration || null,
       },
     });
     setBusy(false);
     if (error) return setErr(error.message);
     setDone(`${sar(amount)} added to the vehicle's cost`);
-    setF({ ...blank(), vehicle_id: f.vehicle_id, credit_account: f.credit_account });
+    // A car on order becomes a car in the yard the moment the first expense is
+    // booked against it, so the key it was picked by is gone. Start clean.
+    setF({ ...blank(), pick: f.pick.startsWith("v:") ? f.pick : "", credit_account: f.credit_account });
     router.refresh();
   }
 
@@ -81,15 +101,25 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
 
       <form onSubmit={save} className="card space-y-6">
         <FormSection title="Expense" cols={3}>
-          <Field label="Vehicle" required full>
-            <select required className="input" value={f.vehicle_id} onChange={(e) => setF({ ...f, vehicle_id: e.target.value })}>
+          <Field label="Vehicle" required full
+            hint="Cars in the yard, and cars still on a purchase order — customs and transport are billed long before the car turns up.">
+            <select required className="input" value={f.pick} onChange={(e) => setF({ ...f, pick: e.target.value })}>
               <option value="">— select —</option>
-              {vehicles.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+              {groups.map(([g, list]) => (
+                <optgroup key={g} label={g.replace(/^\d\s/, "")}>
+                  {list.map((v) => <option key={keyOf(v)} value={keyOf(v)}>{v.label}</option>)}
+                </optgroup>
+              ))}
             </select>
             {vehicle && (
               <p className="mt-1 text-xs text-slate-500">
-                Cost so far <b className="tabular-nums">{sar(vehicle.cost)}</b>
-                {amount > 0 && <> → <b className="tabular-nums text-brand">{sar(vehicle.cost + amount)}</b></>}
+                {vehicle.status === "on_order" ? (
+                  <>Still on order — saving this makes its vehicle record, and the Purchase Voucher
+                     fills the rest in when the car arrives.</>
+                ) : (
+                  <>Cost so far <b className="tabular-nums">{sar(vehicle.cost)}</b>
+                    {amount > 0 && <> → <b className="tabular-nums text-brand">{sar(vehicle.cost + amount)}</b></>}</>
+                )}
               </p>
             )}
           </Field>
@@ -103,12 +133,17 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
           <Field label="Date">
             <input type="date" className="input" value={f.expense_date} onChange={(e) => setF({ ...f, expense_date: e.target.value })} />
           </Field>
-          <Field label="Amount (SAR)" required>
+          <Field label="Amount (SAR)" required
+            hint={headAmount > 0 ? `Masters has ${sar(headAmount)} for this head — change it if this bill differs.` : undefined}>
             <input required type="number" step="0.01" min="0.01" className="input text-right tabular-nums"
               value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
           </Field>
-          <Field label="Paid by / owed to" full
-            hint="Left empty this sits on Vehicle Supplier Payable until it is settled.">
+          {/* The vehicle is debited — the cost lands on the car — so the other
+              side is credited, and the other side is whoever we owe or whoever
+              paid. That is what this field has always been; it was named after
+              the wrong side of the entry. */}
+          <Field label="Vendor (credited)" full
+            hint="Who is owed, or the cash/bank that settled it. Left empty it sits on Vehicle Supplier Payable.">
             <select className="input" value={f.credit_account} onChange={(e) => setF({ ...f, credit_account: e.target.value })}>
               <option value="">— Vehicle Supplier Payable —</option>
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -120,7 +155,7 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
         </FormSection>
 
         <div className="flex gap-2 border-t border-slate-100 pt-4">
-          <button className="btn disabled:opacity-40" disabled={busy || !f.vehicle_id || !f.expense_id || amount <= 0}>
+          <button className="btn disabled:opacity-40" disabled={busy || !f.pick || !f.expense_id || amount <= 0}>
             {busy ? "Saving…" : "Save & Post"}
           </button>
           <button type="button" className="btn-outline" onClick={() => setF(blank())}>Clear</button>

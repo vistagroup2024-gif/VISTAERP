@@ -170,7 +170,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/journal", label: "Voucher Register" },
     { href: "/accounting/trial-balance", label: "Trial Balance" },
     { href: "/accounting/targets", label: "Targets & Budget" },
-    { href: "/accounting/product-costing", label: "Product Costing" },
     { href: "/accounting/profit-loss", label: "Profit & Loss" },
     { href: "/accounting/balance-sheet", label: "Balance Sheet" },
     { href: "/accounting/vat", label: "VAT Return" },
