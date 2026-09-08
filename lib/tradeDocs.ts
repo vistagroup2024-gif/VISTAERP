@@ -12,6 +12,9 @@ export interface LineExtra {
   label: string;
   kind?: "money" | "text";   // money (default) right-aligns and totals; text does not
   cost?: boolean;            // counts toward the landed-cost figure under the grid
+  /** Sits to the LEFT of Rate instead of after Amount. A ceiling is read while
+   *  the rate is being typed, so it has to be beside it, not past the total. */
+  beforeRate?: boolean;
 }
 
 /** Extra header field, stored in the document meta. */
@@ -129,7 +132,12 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     type: "purchase_order", prefix: "PO-", title: "Purchase Order", party: "supplier",
     loadsFrom: { type: "sale_order", title: "Sale Order" },
     showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
-    lineExtras: [{ key: "so_purchase_rate", label: "SO Purchase Rate" }, { key: "remarks", label: "Remarks", kind: "text" }],
+    lineExtras: [
+      // Before Rate: it is the ceiling the rate is checked against, so it reads
+      // left-to-right as "allowed, then actual".
+      { key: "so_purchase_rate", label: "SO Purchase Rate", beforeRate: true },
+      { key: "remarks", label: "Remarks", kind: "text" },
+    ],
   },
   purchase_voucher: {
     type: "purchase_voucher", prefix: "PV-", title: "Purchase Voucher", party: "supplier",
@@ -150,7 +158,9 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   mrn: {
     type: "mrn", prefix: "MRN-", title: "Material Receipt Note", party: "supplier",
     loadsFrom: { type: "purchase_order", title: "Purchase Order" },
-    showDelivery: true, showTagArea: true,
+    // No Tag Area: an MRN records that goods arrived. The tagging that matters
+    // is done on the Purchase Voucher, which is the one that posts.
+    showDelivery: true, showTagArea: false,
   },
   sales_quotation: {
     type: "sales_quotation", prefix: "SQ-", title: "Sales Quotation", party: "customer",

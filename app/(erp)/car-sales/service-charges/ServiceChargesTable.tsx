@@ -30,7 +30,6 @@ export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string[]>([]);
-  const [pay, setPay] = useState<null | { id: string; vehicle: string; month: string | null; remaining: number }>(null);
 
   const withStatus = useMemo(() => rows.map((r) => ({ ...r, st: schargeStatus(r.amount, r.paid, r.due_date) })), [rows]);
   const thisMonth = todaySA().slice(0, 7);
@@ -80,7 +79,7 @@ export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
           <thead className="bg-slate-50"><tr>
             <th className="th">Vehicle</th><th className="th">Customer</th><th className="th">Charge Month</th><th className="th">Due Date</th>
             <th className="th text-right">Amount</th><th className="th text-right">Paid</th><th className="th text-right">Outstanding</th>
-            <th className="th">Status</th><th className="th text-right">Actions</th>
+            <th className="th">Status</th><th className="th text-right">Collected by</th>
           </tr></thead>
           <tbody>
             {filtered.map((r) => (
@@ -93,8 +92,8 @@ export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
                 <td className="td text-right tabular-nums">{sar(r.paid)}</td>
                 <td className="td text-right tabular-nums">{sar(r.amount - r.paid)}</td>
                 <td className="td"><span className={`badge ${SCHARGE_STATUS_TONE[r.st] ?? "bg-slate-100"}`}>{SCHARGE_STATUS_LABEL[r.st] ?? r.st}</span></td>
-                <td className="td text-right">
-                  {r.paid < r.amount && <button className="text-brand hover:underline" onClick={() => setPay({ id: r.id, vehicle: r.vehicle, month: r.charge_month, remaining: r.amount - r.paid })}>Pay</button>}
+                <td className="td text-right text-xs text-slate-400">
+                  {r.paid < r.amount ? "Receipt Voucher" : ""}
                 </td>
               </tr>
             ))}
@@ -103,47 +102,6 @@ export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
         </table>
       </div>
 
-      {pay && <PayModal charge={pay} onClose={() => setPay(null)} onDone={() => { setPay(null); router.refresh(); }} />}
-    </div>
-  );
-}
-
-function PayModal({ charge, onClose, onDone }: { charge: { id: string; vehicle: string; month: string | null; remaining: number }; onClose: () => void; onDone: () => void }) {
-  const supabase = createClient();
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [amount, setAmount] = useState(String(charge.remaining));
-  const [date, setDate] = useState(todaySA());
-  const [method, setMethod] = useState("cash");
-  const [reference, setReference] = useState("");
-
-  async function save() {
-    setBusy(true); setErr(null);
-    const { error } = await supabase.rpc("car_scharge_pay", { p_charge: charge.id, p_amount: Number(amount), p_date: date, p_method: method, p_ref: reference });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    onDone();
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-lg bg-white p-5" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold">Service Charge Payment</h3>
-        <p className="mb-3 text-xs text-slate-500">{charge.vehicle} · {monthLabel(charge.month)} · remaining {sar(charge.remaining)}</p>
-        {err && <div className="mb-2 rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
-        <div className="space-y-3">
-          <div><label className="label">Amount (SAR)</label><input type="number" step="0.01" className="input" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="label">Date</label><input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-            <div><label className="label">Method</label><select className="input" value={method} onChange={(e) => setMethod(e.target.value)}><option value="cash">Cash</option><option value="bank">Bank</option><option value="card">Card</option><option value="transfer">Transfer</option></select></div>
-          </div>
-          <div><label className="label">Reference</label><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} /></div>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <button className="btn" disabled={busy || Number(amount) <= 0} onClick={save}>{busy ? "Saving…" : "Save payment"}</button>
-          <button className="btn-outline" onClick={onClose}>Cancel</button>
-        </div>
-      </div>
     </div>
   );
 }
