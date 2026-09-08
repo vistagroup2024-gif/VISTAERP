@@ -197,6 +197,36 @@ contract has no customer at all.
 due up front. Cash moves when a Car Receipt says it moved — posting both is how
 the same 40,000 gets counted twice.
 
+**And the advance is usually received before the invoice exists.** The customer
+pays to hold the car weeks before the Car Invoice is raised, so a Car Receipt is
+anchored to EITHER a `car_contracts` row or the Sale Order it is an advance
+against (`car_receipts.source_doc_id`; a check constraint refuses both null). It
+posts the same either side of that line, so the customer simply stands in credit
+until the invoice debits them. `car_contract_link_source` — the routine that ties
+an invoice to its order — **adopts** those receipts: it fills in `contract_id`,
+and their `advance` allocation is already there, so the invoice reads as
+advance-paid the moment it exists and the dashboard never asks for it twice.
+Nothing is re-posted.
+
+Money coming in has one door: the **Receipt voucher's second tab** (Accounting →
+Receipt → Advance on a Sale Order), not a screen of its own. Because it is that
+voucher it asks which cash or bank account the money went into —
+`car_receipts.cash_account_id`, with the old `method` word (→ 1000 / 1010) still
+the fallback for everything posted before it existed.
+
+Two traps that were live in this flow until migration 338, and are the shape to
+watch for in any autopost trigger:
+
+- **`car_receipt_save` writes in two moves** — a bare row, then an UPDATE that
+  puts the amount on it. The autopost trigger fired `AFTER INSERT` only, so it
+  posted a ZERO: `car_post_entry` wrote the entry header, filtered both empty
+  lines away, and returned true. That header is keyed (source, reference), so it
+  then refused the real posting as a duplicate — for ever. The trigger fires on
+  the update too now, and `car_post_receipt` refuses a zero amount; the two
+  changes only work together.
+- **Deleting a receipt left its journal entry standing**, so the cash book kept
+  money no receipt claimed. `car_receipt_delete` unposts.
+
 **A car expense reaches the stock ledger as well as the GL.** It capitalises
 into Vehicle Inventory *and* re-values the car's stock receipt
 (`car_vehicle_stock_revalue`), because a car is one serialised unit and its
