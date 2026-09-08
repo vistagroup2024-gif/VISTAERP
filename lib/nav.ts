@@ -175,6 +175,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/vat", label: "VAT Return" },
     { href: "/accounting/assets", label: "Fixed Assets" },
     { href: "/accounting/close", label: "Year-End Close" },
+    { href: "/accounting/product-costing", label: "Product Costing" },
     { href: "/accounting/rules", label: "Voucher Authorisation" },
     { href: "/accounting/audit", label: "Audit Trail" },
   ] },
