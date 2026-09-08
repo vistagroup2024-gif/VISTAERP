@@ -70,6 +70,7 @@ export const DOC_TREE: DocModule[] = [
       { key: "delivery_note",   label: "Delivery Note",   rights: V, href: "/accounting/sales/delivery-notes" },
       { key: "sales_return",    label: "Sales Return",    rights: V, href: "/accounting/sales/returns" },
       { key: "car_invoice",     label: "Car Invoice",     rights: V, href: "/car-sales/contracts" },
+      { key: "car_expense",     label: "Car Expense",     rights: V, href: "/car-sales/expenses" },
     ] },
     { group: "Purchases", docs: [
       { key: "purchase_order",   label: "Purchase Order",         rights: V, href: "/accounting/purchases/orders" },

@@ -16,7 +16,8 @@ type VehicleOpt = {
 type Head = { id: string; name: string; amount: number | null; credit_account: string | null };
 type Acct = { id: string; name: string; code: string; subtype: string };
 type Row = {
-  id: string; expense_name: string; expense_date: string; amount: number;
+  id: string; vehicle_id: string; expense_id: string | null; credit_account: string | null;
+  expense_name: string; expense_date: string; amount: number;
   narration: string | null; reference: string | null;
   vehicle: { vehicle_no: string; make: string | null; model: string | null; model_year: number | null; plate_no: string | null } | null;
 };
@@ -26,12 +27,15 @@ const today = () => todaySA();
 // "v:<id>" is a car in the yard, "p:<line>" is one still on a purchase order.
 const blank = () => ({ pick: "", expense_id: "", expense_date: today(), amount: "", credit_account: "", narration: "" });
 
-export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
+export default function CarExpenseForm({ vehicles, heads, accounts, rows, rights }: {
   vehicles: VehicleOpt[]; heads: Head[]; accounts: Acct[]; rows: Row[];
+  rights: Record<string, boolean>;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [f, setF] = useState(blank());
+  // null while raising a new one; the expense's id while reopening one.
+  const [editing, setEditing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -39,6 +43,9 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
   const keyOf = (v: VehicleOpt) => (v.kind === "vehicle" ? `v:${v.id}` : `p:${v.po_line}`);
   const vehicle = useMemo(() => vehicles.find((v) => keyOf(v) === f.pick) ?? null, [vehicles, f.pick]);
   const amount = Number(f.amount) || 0;
+  // Reopening one, its old amount is already inside the car's cost, so the
+  // "after" figure has to take it back out before adding the new one.
+  const wasAmount = editing ? Number(rows.find((r) => r.id === editing)?.amount ?? 0) : 0;
   const headAmount = Number(heads.find((h) => h.id === f.expense_id)?.amount ?? 0) || 0;
   const headVendor = heads.find((h) => h.id === f.expense_id)?.credit_account ?? null;
   const groups = useMemo(() => {
@@ -62,11 +69,29 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
     }));
   }
 
+  // Reopening one sets the fields directly rather than going through pickHead:
+  // the head is only the DEFAULT amount and vendor, and this voucher may well
+  // have been saved with different ones on purpose.
+  function edit(r: Row) {
+    setEditing(r.id); setErr(null); setDone(null);
+    setF({
+      pick: `v:${r.vehicle_id}`,
+      expense_id: r.expense_id ?? "",
+      expense_date: r.expense_date,
+      amount: String(r.amount),
+      credit_account: r.credit_account ?? "",
+      narration: r.narration ?? "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancel() { setEditing(null); setF(blank()); setErr(null); setDone(null); }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true); setErr(null); setDone(null);
     const { error } = await supabase.rpc("car_expense_save", {
-      p_id: null,
+      p_id: editing,
       p_header: {
         // A car still on order has no vehicle record; the routine makes one.
         vehicle_id: f.pick.startsWith("v:") ? f.pick.slice(2) : null,
@@ -77,10 +102,13 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
     });
     setBusy(false);
     if (error) return setErr(error.message);
-    setDone(`${sar(amount)} added to the vehicle's cost`);
+    setDone(editing
+      ? `Updated — the vehicle's cost is ${sar(amount)} on this voucher`
+      : `${sar(amount)} added to the vehicle's cost`);
     // A car on order becomes a car in the yard the moment the first expense is
     // booked against it, so the key it was picked by is gone. Start clean.
-    setF({ ...blank(), pick: f.pick.startsWith("v:") ? f.pick : "" });
+    setF({ ...blank(), pick: !editing && f.pick.startsWith("v:") ? f.pick : "" });
+    setEditing(null);
     router.refresh();
   }
 
@@ -96,6 +124,11 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">Car Expense</h1>
         <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-brand">car sales</span>
+        {editing && (
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
+            Editing {rows.find((r) => r.id === editing)?.reference ?? "voucher"}
+          </span>
+        )}
         {done && <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">{done}</span>}
       </div>
       <p className="text-sm text-slate-500">
@@ -120,7 +153,8 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
                      fills the rest in when the car arrives.</>
                 ) : (
                   <>Cost so far <b className="tabular-nums">{sar(vehicle.cost)}</b>
-                    {amount > 0 && <> → <b className="tabular-nums text-brand">{sar(vehicle.cost + amount)}</b></>}</>
+                    {amount > 0 && amount !== wasAmount &&
+                      <> → <b className="tabular-nums text-brand">{sar(vehicle.cost - wasAmount + amount)}</b></>}</>
                 )}
               </p>
             )}
@@ -155,11 +189,22 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
           </Field>
         </FormSection>
 
-        <div className="flex gap-2 border-t border-slate-100 pt-4">
-          <button className="btn disabled:opacity-40" disabled={busy || !f.pick || !f.expense_id || amount <= 0}>
-            {busy ? "Saving…" : "Save & Post"}
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+          <button className="btn disabled:opacity-40"
+            disabled={busy || !f.pick || !f.expense_id || amount <= 0 || !(editing ? rights.edit : rights.create)}>
+            {busy ? "Saving…" : editing ? "Update & Repost" : "Save & Post"}
           </button>
-          <button type="button" className="btn-outline" onClick={() => setF(blank())}>Clear</button>
+          <button type="button" className="btn-outline" onClick={cancel}>{editing ? "Cancel" : "Clear"}</button>
+          {/* Editing reposts: the old ledger entry is voided and a new one
+              raised, so the voucher number changes. Better said than found out. */}
+          {editing && (
+            <span className="text-xs text-slate-500">
+              Saving voids this voucher&apos;s ledger entry and raises a new one.
+            </span>
+          )}
+          {!editing && !rights.create && (
+            <span className="text-xs text-slate-500">You do not have create rights on this screen.</span>
+          )}
         </div>
       </form>
 
@@ -183,8 +228,14 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
                   <td className="td">{r.expense_name}</td>
                   <td className="td text-right tabular-nums">{sar(r.amount)}</td>
                   <td className="td text-slate-500">{r.narration ?? ""}</td>
-                  <td className="td text-right">
-                    <button onClick={() => del(r.id)} className="text-red-500 hover:underline">Delete</button>
+                  <td className="td text-right whitespace-nowrap">
+                    {rights.edit && (
+                      <button onClick={() => edit(r)} className="text-brand hover:underline">Edit</button>
+                    )}
+                    {rights.edit && rights.delete && <span className="mx-2 text-slate-300">|</span>}
+                    {rights.delete && (
+                      <button onClick={() => del(r.id)} className="text-red-500 hover:underline">Delete</button>
+                    )}
                   </td>
                 </tr>
               ))}

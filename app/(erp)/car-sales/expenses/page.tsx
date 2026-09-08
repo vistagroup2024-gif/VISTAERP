@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { guardStaffPage } from "@/lib/staffSession";
+import { guardStaffPage, docRightsFor } from "@/lib/staffSession";
 import CarExpenseForm from "./CarExpenseForm";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,11 @@ export const dynamic = "force-dynamic";
 // which never actually reached the vehicle's cost. Raised here they do: each
 // one capitalises into Vehicle Inventory and adds to that car's Total Cost.
 export default async function CarExpensesPage() {
-  await guardStaffPage(["carsales.installments", "carsales.sales", "accounting.view"]);
+  // A rights-managed screen like every other voucher, so "access" is checked
+  // here and the rest at the buttons — and again inside car_expense_save and
+  // car_expense_delete, which are the only ways in.
+  const access = await guardStaffPage(
+    ["carsales.installments", "carsales.sales", "accounting.view"], "car_expense");
   const sb = createClient();
   // The vehicle list is built in SQL rather than here, because it is TWO lists:
   // the cars in the yard and the cars still on a purchase order that nothing has
@@ -20,8 +24,10 @@ export default async function CarExpensesPage() {
     sb.rpc("car_expense_vehicle_options"),
     sb.from("acct_car_purchase_expenses").select("id, name, amount, credit_account").order("name"),
     sb.rpc("car_expense_credit_accounts"),
+    // vehicle_id, expense_id and credit_account are what reopening one needs:
+    // the three fields the form asks for that are not on the row's face.
     sb.from("car_vehicle_expenses")
-      .select("id, expense_name, expense_date, amount, narration, reference, vehicle:vehicle_id(vehicle_no, make, model, model_year, plate_no)")
+      .select("id, vehicle_id, expense_id, credit_account, expense_name, expense_date, amount, narration, reference, vehicle:vehicle_id(vehicle_no, make, model, model_year, plate_no)")
       .order("expense_date", { ascending: false }).limit(500),
   ]);
 
@@ -31,6 +37,7 @@ export default async function CarExpensesPage() {
       heads={(heads ?? []) as any}
       accounts={(accounts ?? []) as any}
       rows={(rows ?? []) as any}
+      rights={docRightsFor(access, "car_expense")}
     />
   );
 }
