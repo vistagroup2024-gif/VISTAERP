@@ -11,6 +11,7 @@ import {
   HCN_STAGE_LABEL, HCN_STAGE_TONE, buildHcnCopyText,
   ROOM_LABEL, roomNightly,
 } from "../../lib";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Perms {
   canEdit: boolean; canPurchase: boolean; canPurchaseRate: boolean; canProfit: boolean;
@@ -258,10 +259,7 @@ function StayCard({ stay, index, booking, suppliers, hotels, perms, rpc, busy }:
           <div className="grid gap-4 md:grid-cols-3">
             {perms.canSupplier && (
               <div><label className="label">Vendor / Supplier</label>
-                <select className="input" value={pf.supplier_id} onChange={(e) => setP("supplier_id", e.target.value)}>
-                  <option value="">— Select —</option>
-                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <SearchSelect value={pf.supplier_id} onChange={(v) => setP("supplier_id", v)} placeholder="— Select —" options={suppliers.map((s) => ({ value: s.id, label: s.name }))} />
               </div>
             )}
             {perms.canPurchaseRate && <div><label className="label">Purchase Total <span className="text-slate-400">(set per room in Edit)</span></label><input className="input bg-slate-50" value={money(Number(stay.purchase_total) || 0, "SAR")} readOnly tabIndex={-1} /></div>}

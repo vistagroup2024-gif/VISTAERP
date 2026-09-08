@@ -7,6 +7,7 @@ import { PO_STATUS_LABEL, sar } from "../lib";
 import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
 import { todaySA } from "@/lib/saudiTime";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Opt { id: string; name: string }
 interface Line { id?: string; make: string; model: string; variant: string; model_year: string; color: string; vin: string; plate_no: string; engine_no: string; purchase_cost: string; purchase_vat: string; received?: boolean }
@@ -54,10 +55,7 @@ export default function PurchaseOrderForm({ existing, items = [], suppliers }: {
       <div className="card space-y-6">
         <FormSection title="Purchase Order" cols={3}>
           <Field label="Supplier">
-            <select className="input" value={h.supplier_id} onChange={(e) => setH({ ...h, supplier_id: e.target.value })}>
-              <option value="">— none —</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <SearchSelect value={h.supplier_id} onChange={(v) => setH({ ...h, supplier_id: v })} placeholder="— none —" options={suppliers.map((s) => ({ value: s.id, label: s.name }))} />
           </Field>
           <Field label="PO Date"><input type="date" className="input" value={h.po_date} onChange={(e) => setH({ ...h, po_date: e.target.value })} /></Field>
           <Field label="Expected Date"><input type="date" className="input" value={h.expected_date} onChange={(e) => setH({ ...h, expected_date: e.target.value })} /></Field>

@@ -7,6 +7,7 @@ import { VEHICLE_STATUS_LABEL, VEHICLE_STATUSES } from "../lib";
 import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
 import ProductPicker, { type PickProduct } from "@/components/accounting/ProductPicker";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Opt { id: string; name: string }
 
@@ -91,10 +92,7 @@ export default function VehicleForm({ existing, suppliers, products }: { existin
 
         <FormSection title="Purchase" cols={3}>
           <Field label="Supplier">
-            <select className="input" value={f.supplier_id} onChange={(e) => set("supplier_id", e.target.value)}>
-              <option value="">— none —</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <SearchSelect value={f.supplier_id} onChange={(v) => set("supplier_id", v)} placeholder="— none —" options={suppliers.map((s) => ({ value: s.id, label: s.name }))} />
           </Field>
           <Field label="Purchase Date"><input type="date" className="input" value={f.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} /></Field>
           <div></div>

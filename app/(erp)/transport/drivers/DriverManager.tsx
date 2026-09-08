@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Vehicle { id: string; name: string }
 interface Driver {
@@ -106,9 +107,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       <div><label className="label">Registration No.</label><input className="input" placeholder="ABC-9334" value={f.license_no} onChange={(e) => set({ ...f, license_no: e.target.value })} /></div>
       <div><label className="label">Mobile</label><input className="input" value={f.mobile} onChange={(e) => set({ ...f, mobile: e.target.value })} /></div>
       <div><label className="label">Vehicle</label>
-        <select className="input" value={f.vehicle_id} onChange={(e) => set({ ...f, vehicle_id: e.target.value })}>
-          <option value="">— none —</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-        </select></div>
+        <SearchSelect value={f.vehicle_id} onChange={(v) => set({ ...f, vehicle_id: v })} placeholder="— none —" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} /></div>
       <div><label className="label">Base City</label><input className="input" placeholder="Makkah / Madinah / Jeddah" value={f.base_city} onChange={(e) => set({ ...f, base_city: e.target.value })} title="Home base — used to locate the driver for auto-assign when there is no recent trip or movement" /></div>
       <div><label className="label">Languages (comma)</label><input className="input" placeholder="Arabic, Urdu, English" value={f.languages} onChange={(e) => set({ ...f, languages: e.target.value })} /></div>
       <div><label className="label">Status</label>

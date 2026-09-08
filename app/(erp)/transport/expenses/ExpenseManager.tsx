@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { todaySA } from "@/lib/saudiTime";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Ref { id: string; name: string }
 interface Expense { id: string; category: string; amount: number; currency: string; spent_on: string; vehicle_id: string | null; driver_id: string | null; note: string | null }
@@ -46,8 +47,8 @@ export default function ExpenseManager({ initial, vehicles, drivers }: { initial
         <div><label className="label">Category</label><select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATS.map((c) => <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>)}</select></div>
         <div><label className="label">Amount (SAR) *</label><input className="input" type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required /></div>
         <div><label className="label">Date</label><input className="input" type="date" value={form.spent_on} onChange={(e) => setForm({ ...form, spent_on: e.target.value })} /></div>
-        <div><label className="label">Vehicle</label><select className="input" value={form.vehicle_id} onChange={(e) => setForm({ ...form, vehicle_id: e.target.value })}><option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
-        <div><label className="label">Driver</label><select className="input" value={form.driver_id} onChange={(e) => setForm({ ...form, driver_id: e.target.value })}><option value="">—</option>{drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+        <div><label className="label">Vehicle</label><SearchSelect value={form.vehicle_id} onChange={(v) => setForm({ ...form, vehicle_id: v })} placeholder="—" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} /></div>
+        <div><label className="label">Driver</label><SearchSelect value={form.driver_id} onChange={(v) => setForm({ ...form, driver_id: v })} placeholder="—" options={drivers.map((d) => ({ value: d.id, label: d.name }))} /></div>
         <div className="flex items-end"><button className="btn w-full" disabled={busy}>{busy ? "…" : "+ Add"}</button></div>
         <div className="sm:col-span-6"><label className="label">Note</label><input className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
         {err && <p className="text-sm text-red-600 sm:col-span-6">{err}</p>}

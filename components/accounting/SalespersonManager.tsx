@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { useDocRights } from "@/components/AccessProvider";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 type SP = { id: string; name: string; phone: string | null; is_active: boolean };
 type Rule = { id: string; salesperson_id: string; cost_center: string; method: string; rate: number; is_active: boolean };
@@ -147,9 +148,7 @@ export default function SalespersonManager({ initialSalespersons, initialRules, 
             </div>
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-8">
-              <select className="input sm:col-span-3" value={dr.cost_center} onChange={(e) => setD(s.id, { cost_center: e.target.value })}>
-                <option value="">Cost center…</option>{costCenters.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
+              <SearchSelect value={dr.cost_center} onChange={(v) => setD(s.id, { cost_center: v })} className="sm:col-span-3" placeholder="Cost center…" options={costCenters.map((c) => ({ value: c.name, label: c.name }))} />
               <select className="input sm:col-span-2" value={dr.method} onChange={(e) => setD(s.id, { method: e.target.value })}>
                 {METHODS.map((m) => <option key={m.v} value={m.v}>{m.label}</option>)}
               </select>

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 type Grp = { id: string; code: string; name: string; type: string };
 
@@ -71,10 +72,7 @@ export default function NewAccountPage() {
 
         <FormSection title="Account Details">
           <Field label="Parent group" full>
-            <select className="input" value={form.parent} onChange={(e) => setForm({ ...form, parent: e.target.value })}>
-              <option value="">— none (root) —</option>
-              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
+            <SearchSelect value={form.parent} onChange={(v) => setForm({ ...form, parent: v })} placeholder="— none (root) —" options={groups.map((g) => ({ value: g.id, label: g.name }))} />
             {parent && <p className="mt-1 text-xs text-slate-500">Nature inherited: <b>{parent.type}</b>.</p>}
           </Field>
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AccountPicker, { type PickAccount } from "./AccountPicker";
 import { todaySA } from "@/lib/saudiTime";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 type Named = { id: string; name: string };
 const num = (s: string) => (s.trim() === "" ? 0 : Number(s) || 0);
@@ -75,15 +76,11 @@ export default function StockMovement({ counterAccounts }: { counterAccounts: Pi
 
       <div className="card grid grid-cols-2 gap-4">
         <div className="col-span-2"><label className="label">Item</label>
-          <select className="input" value={item} onChange={(e) => setItem(e.target.value)}>
-            <option value="">— select stock item —</option>{items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
+          <SearchSelect value={item} onChange={setItem} placeholder="— select stock item —" options={items.map((i) => ({ value: i.id, label: i.name }))} />
           {items.length === 0 && <p className="mt-1 text-xs text-amber-600">No stock items yet — mark products as stock items in the Product Tree (Rates → Stock).</p>}
         </div>
         <div><label className="label">Warehouse</label>
-          <select className="input" value={wh} onChange={(e) => setWh(e.target.value)}>
-            <option value="">— select —</option>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select></div>
+          <SearchSelect value={wh} onChange={setWh} placeholder="— select —" options={warehouses.map((w) => ({ value: w.id, label: w.name }))} /></div>
         <div><label className="label">Date</label><input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
         <div><label className="label">Quantity</label><input className="input text-right tabular-nums" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
         {type !== "issue" && <div><label className="label">Rate (cost)</label><input className="input text-right tabular-nums" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></div>}

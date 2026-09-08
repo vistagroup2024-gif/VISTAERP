@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import ProductRatesModal from "./ProductRatesModal";
 import { useDocRights } from "@/components/AccessProvider";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 // Three masters share this component; the Access tab names them separately, so
 // the screen whose rights apply is the one whose table is being edited.
@@ -159,10 +160,7 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
         <div className="sm:col-span-2"><label className="label">Name *</label>
           <input ref={nameRef} className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
         <div className="sm:col-span-2"><label className="label">Under group</label>
-          <select className="input" value={parent} onChange={(e) => setParent(e.target.value)}>
-            <option value="">— top level —</option>
-            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select></div>
+          <SearchSelect value={parent} onChange={setParent} placeholder="— top level —" options={groups.map((g) => ({ value: g.id, label: g.name }))} /></div>
         {!isGroup && exs.map((ex) => (
           <div key={ex.key} className="sm:col-span-1"><label className="label">{ex.label}</label>
             <input className="input" type="number" step="any" value={extraVals[ex.key] ?? ""} onChange={(ev) => setExtraVals((o) => ({ ...o, [ex.key]: ev.target.value }))} /></div>
@@ -231,10 +229,7 @@ function MoveModal({ node, targets, busy, onCancel, onMove }: {
   return (
     <Modal title={`Move · ${node.name}`} onClose={onCancel}>
       <label className="label">New parent group</label>
-      <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
-        <option value="">— top level —</option>
-        {targets.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-      </select>
+      <SearchSelect value={target} onChange={setTarget} placeholder="— top level —" options={targets.map((g) => ({ value: g.id, label: g.name }))} />
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="btn-outline">Cancel</button>
         <button onClick={() => onMove(target)} disabled={busy} className="btn">{busy ? "Moving…" : "Move"}</button>

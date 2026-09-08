@@ -8,6 +8,7 @@ import MultiSelectFilter from "@/components/MultiSelectFilter";
 import RateChartTable from "@/components/transport/RateChartTable";
 import { buildRateChart, type RateChart } from "@/lib/transportRateChart";
 import { todaySA } from "@/lib/saudiTime";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Ref { id: string; name: string }
 interface AgentRef { id: string; agency_name: string }
@@ -266,11 +267,9 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
         <>
           <form onSubmit={addAgentRate} className="card grid grid-cols-1 gap-3 sm:grid-cols-7">
             <div><label className="label">Agent</label>
-              <select className="input" value={af.agent_id} onChange={(e) => setAf({ ...af, agent_id: e.target.value })}>
-                <option value="">Default / Direct</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}
-              </select></div>
-            <div><label className="label">Route *</label><select className="input" value={af.route_id} onChange={(e) => setAf({ ...af, route_id: e.target.value })}><option value="">—</option>{routes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-            <div><label className="label">Vehicle *</label><select className="input" value={af.vehicle_id} onChange={(e) => setAf({ ...af, vehicle_id: e.target.value })}><option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+              <SearchSelect value={af.agent_id} onChange={(v) => setAf({ ...af, agent_id: v })} placeholder="Default / Direct" options={agents.map((a) => ({ value: a.id, label: a.agency_name }))} /></div>
+            <div><label className="label">Route *</label><SearchSelect value={af.route_id} onChange={(v) => setAf({ ...af, route_id: v })} placeholder="—" options={routes.map((r) => ({ value: r.id, label: r.name }))} /></div>
+            <div><label className="label">Vehicle *</label><SearchSelect value={af.vehicle_id} onChange={(v) => setAf({ ...af, vehicle_id: v })} placeholder="—" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} /></div>
             <div><label className="label">Effective from</label><input className="input" type="date" value={af.effective_from} onChange={(e) => setAf({ ...af, effective_from: e.target.value })} /></div>
             <div><label className="label">Effective to</label><input className="input" type="date" value={af.effective_to} onChange={(e) => setAf({ ...af, effective_to: e.target.value })} /></div>
             <div><label className="label">Selling rate *</label><input className="input" type="number" min="0" step="0.01" value={af.selling_rate} onChange={(e) => setAf({ ...af, selling_rate: e.target.value })} /></div>
@@ -300,9 +299,9 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
       ) : tab === "vendor" ? (
         <>
           <form onSubmit={addVendorRate} className="card grid grid-cols-1 gap-3 sm:grid-cols-7">
-            <div><label className="label">Vendor *</label><select className="input" value={vf.vendor_id} onChange={(e) => setVf({ ...vf, vendor_id: e.target.value })}><option value="">—</option>{vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
-            <div><label className="label">Route *</label><select className="input" value={vf.route_id} onChange={(e) => setVf({ ...vf, route_id: e.target.value })}><option value="">—</option>{routes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-            <div><label className="label">Vehicle *</label><select className="input" value={vf.vehicle_id} onChange={(e) => setVf({ ...vf, vehicle_id: e.target.value })}><option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+            <div><label className="label">Vendor *</label><SearchSelect value={vf.vendor_id} onChange={(v) => setVf({ ...vf, vendor_id: v })} placeholder="—" options={vendors.map((v) => ({ value: v.id, label: v.name }))} /></div>
+            <div><label className="label">Route *</label><SearchSelect value={vf.route_id} onChange={(v) => setVf({ ...vf, route_id: v })} placeholder="—" options={routes.map((r) => ({ value: r.id, label: r.name }))} /></div>
+            <div><label className="label">Vehicle *</label><SearchSelect value={vf.vehicle_id} onChange={(v) => setVf({ ...vf, vehicle_id: v })} placeholder="—" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} /></div>
             <div><label className="label">Effective from</label><input className="input" type="date" value={vf.effective_from} onChange={(e) => setVf({ ...vf, effective_from: e.target.value })} /></div>
             <div><label className="label">Effective to</label><input className="input" type="date" value={vf.effective_to} onChange={(e) => setVf({ ...vf, effective_to: e.target.value })} /></div>
             <div><label className="label">Purchase rate *</label><input className="input" type="number" min="0" step="0.01" value={vf.purchase_rate} onChange={(e) => setVf({ ...vf, purchase_rate: e.target.value })} /></div>
@@ -339,7 +338,7 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
                 <option value="vendor">Vendor (purchase)</option>
               </select></div>
             {bKind === "vendor" && <div><label className="label">Vendor *</label>
-              <select className="input" value={bVendor} onChange={(e) => setBVendor(e.target.value)}><option value="">—</option>{vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>}
+              <SearchSelect value={bVendor} onChange={setBVendor} placeholder="—" options={vendors.map((v) => ({ value: v.id, label: v.name }))} /></div>}
             <div><label className="label">Vehicles *</label>
               <MultiSelectFilter label="Select vehicles" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} selected={bVehicles} onChange={setBVehicles} /></div>
             <div><label className="label">Effective from</label><input className="input" type="date" value={bDate} onChange={(e) => setBDate(e.target.value)} /></div>
@@ -448,8 +447,8 @@ export default function RateMaster({ routes, vehicles, agents, vendors, agentRat
         <>
           <p className="text-xs text-slate-500">Optional extra charges applied to a route + vehicle only when required (e.g. the <b>Hajj Terminal</b> surcharge for Jeddah Airport pickups). Booking staff tick “Hajj Terminal” on the trip to apply it.</p>
           <form onSubmit={saveExtra} className="card grid grid-cols-1 gap-3 sm:grid-cols-5">
-            <div><label className="label">Route *</label><select className="input" value={xf.route_id} onChange={(e) => setXf({ ...xf, route_id: e.target.value })}><option value="">—</option>{routes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-            <div><label className="label">Vehicle *</label><select className="input" value={xf.vehicle_id} onChange={(e) => setXf({ ...xf, vehicle_id: e.target.value })}><option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+            <div><label className="label">Route *</label><SearchSelect value={xf.route_id} onChange={(v) => setXf({ ...xf, route_id: v })} placeholder="—" options={routes.map((r) => ({ value: r.id, label: r.name }))} /></div>
+            <div><label className="label">Vehicle *</label><SearchSelect value={xf.vehicle_id} onChange={(v) => setXf({ ...xf, vehicle_id: v })} placeholder="—" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} /></div>
             <div><label className="label">Description</label><input className="input" placeholder="Hajj Terminal" value={xf.extra_charge_desc} onChange={(e) => setXf({ ...xf, extra_charge_desc: e.target.value })} /></div>
             <div><label className="label">Amount (SAR) *</label><input className="input" type="number" min="0" step="0.01" value={xf.extra_charge_amount} onChange={(e) => setXf({ ...xf, extra_charge_amount: e.target.value })} /></div>
             <div className="flex items-end"><button className="btn w-full" disabled={busy}>{busy ? "…" : "Save extra"}</button></div>

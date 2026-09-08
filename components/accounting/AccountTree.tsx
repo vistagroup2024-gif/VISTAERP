@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { useDocRights } from "@/components/AccessProvider";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 // One node as returned by the acct_tree RPC (flat list; tree built client-side).
 export type AcctNode = {
@@ -553,10 +554,8 @@ function MoveModal({ node, targets, busy, onCancel, onMove }: {
   return (
     <Modal title={`Move · ${node.name}`} onClose={onCancel}>
       <label className="label">New parent group</label>
-      <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
-        <option value="">— top level (root) —</option>
-        {targets.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-      </select>
+      <SearchSelect value={target} onChange={setTarget} placeholder="— top level (root) —"
+        options={targets.map((g) => ({ value: g.id, label: g.name, hint: g.code }))} />
       <p className="mt-2 text-xs text-slate-400">Balances and history are unaffected.</p>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="btn-outline">Cancel</button>
@@ -598,10 +597,8 @@ function MoveManyModal({ nodes, targets, busy, onCancel, onMove }: {
         ))}
       </div>
       <label className="label mt-3">New parent group</label>
-      <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
-        <option value="">— top of the chart —</option>
-        {targets.map((t) => <option key={t.id} value={t.id}>{t.code} · {t.name}</option>)}
-      </select>
+      <SearchSelect value={target} onChange={setTarget} placeholder="— top of the chart —"
+        options={targets.map((t) => ({ value: t.id, label: t.name, hint: t.code }))} />
       <p className="mt-2 text-xs text-slate-400">
         Only where they SIT changes. An account keeps its id, so its ledger, its postings and
         anything pointing at it are untouched.

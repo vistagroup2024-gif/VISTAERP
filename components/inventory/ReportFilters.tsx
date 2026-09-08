@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { todaySA, yearSA, monthStartSA } from "@/lib/saudiTime";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 export type ItemNode = {
   id: string; parent_id: string | null; name: string; is_group: boolean;
@@ -109,11 +110,7 @@ export default function ReportFilters({ needs, value, onChange, onRun, busy }: {
         )}
         {needs.includes("warehouse") && (
           <div><label className="label">Warehouse</label>
-            <select className="input w-44" value={value.warehouse ?? ""}
-              onChange={(e) => set({ warehouse: e.target.value || null })}>
-              <option value="">All warehouses</option>
-              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select></div>
+            <SearchSelect value={value.warehouse ?? ""} onChange={(v) => set({ warehouse: v || null })} className="w-44" placeholder="All warehouses" options={warehouses.map((w) => ({ value: w.id, label: w.name }))} /></div>
         )}
         {needs.includes("limit") && (
           <div><label className="label">Show top</label>

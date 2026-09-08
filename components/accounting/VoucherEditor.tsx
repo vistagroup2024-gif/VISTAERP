@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { DocRight } from "@/lib/docRights";
 import { COMPANY_ID } from "@/lib/format";
 import AccountPicker, { type PickAccount } from "./AccountPicker";
+import SearchSelect from "@/components/ui/SearchSelect";
 import { todaySA } from "@/lib/saudiTime";
 
 export type VoucherKind = "journal" | "receipt" | "payment" | "contra";
@@ -478,15 +479,13 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
           )}
           {!isContra && (
             <div><label className="label">Cost Center</label>
-              <select className="input" value={costCenter} disabled={readOnly} onChange={(e) => setCostCenter(e.target.value)}>
-                <option value="">—</option>{costCenters.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select></div>
+              <SearchSelect value={costCenter} onChange={setCostCenter} disabled={readOnly} placeholder="—"
+                options={costCenters.map((c) => ({ value: c.name, label: c.name }))} /></div>
           )}
           {!isContra && (
             <div><label className="label">Tag Area</label>
-              <select className="input" value={tagArea} disabled={readOnly} onChange={(e) => setTagArea(e.target.value)}>
-                <option value="">—</option>{tagAreas.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-              </select></div>
+              <SearchSelect value={tagArea} onChange={setTagArea} disabled={readOnly} placeholder="—"
+                options={tagAreas.map((t) => ({ value: t.name, label: t.name }))} /></div>
           )}
           {isJournal && !entryId && (
             <>

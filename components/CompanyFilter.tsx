@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 export default function CompanyFilter({
   companies, value,
@@ -18,10 +19,7 @@ export default function CompanyFilter({
   return (
     <div className="mb-4 flex items-center gap-2">
       <label className="text-sm font-medium text-slate-600">Company:</label>
-      <select className="input w-auto" value={value} onChange={(e) => go(e.target.value)}>
-        <option value="">All companies</option>
-        {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
+      <SearchSelect value={value} onChange={go} className="w-auto" placeholder="All companies" options={companies.map((c) => ({ value: c.id, label: c.name }))} />
     </div>
   );
 }

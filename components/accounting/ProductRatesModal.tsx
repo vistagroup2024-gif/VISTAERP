@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 type Named = { id: string; name: string };
 type CustRate = { id: string; party_id: string; sell_rate: number };
@@ -124,9 +125,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
                 )}
               </div>
               <div className="flex gap-2">
-                <select className="input" value={newCust} onChange={(e) => setNewCust(e.target.value)}>
-                  <option value="">Add customer…</option>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <SearchSelect value={newCust} onChange={setNewCust} placeholder="Add customer…" options={customers.map((c) => ({ value: c.id, label: c.name }))} />
                 <input className="input w-28 text-right tabular-nums" inputMode="decimal" placeholder="rate" value={newCustRate} onChange={(e) => setNewCustRate(e.target.value)} />
                 <button onClick={addCust} disabled={busy} className="btn-outline text-sm">+ Add</button>
               </div>
@@ -166,9 +165,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
                 )}
               </div>
               <div className="flex gap-2">
-                <select className="input" value={newSup} onChange={(e) => setNewSup(e.target.value)}>
-                  <option value="">Add supplier…</option>{suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <SearchSelect value={newSup} onChange={setNewSup} placeholder="Add supplier…" options={suppliers.map((s) => ({ value: s.id, label: s.name }))} />
                 <input className="input w-28 text-right tabular-nums" inputMode="decimal" placeholder="rate" value={newSupRate} onChange={(e) => setNewSupRate(e.target.value)} />
                 <button onClick={addSup} disabled={busy} className="btn-outline text-sm">+ Add</button>
               </div>

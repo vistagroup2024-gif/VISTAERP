@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { money, qtyf } from "./reportFormat";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 type Node = { id: string; parent_id: string | null; name: string; is_group: boolean; uom: string | null; qty: number };
 type Result = {
@@ -45,10 +46,7 @@ export default function StockQuery() {
       <div className="card flex flex-wrap items-end gap-3">
         <div className="min-w-64 flex-1">
           <label className="label">Stock item</label>
-          <select className="input" value={id} onChange={(e) => setId(e.target.value)}>
-            <option value="">— select an item —</option>
-            {items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
+          <SearchSelect value={id} onChange={setId} placeholder="— select an item —" options={items.map((i) => ({ value: i.id, label: i.name }))} />
         </div>
         {items.length === 0 && <p className="text-xs text-amber-600">No stock items yet — mark products as stock items in Masters → Product Tree.</p>}
       </div>

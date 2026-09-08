@@ -7,6 +7,7 @@ import ProductPicker, { productOptions } from "./ProductPicker";
 import LoadFromPicker from "./LoadFromPicker";
 import { TRADE_DOCS, isCarCostCenter, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
 import type { DocRight } from "@/lib/docRights";
+import SearchSelect from "@/components/ui/SearchSelect";
 import { todaySA } from "@/lib/saudiTime";
 
 type Row = {
@@ -498,10 +499,8 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     if (f.kind === "account") {
       return (
         <div key={f.key}><label className="label">{f.label}</label>
-          <select className="input" value={val} onChange={(e) => setExtra(f, e.target.value)}>
-            <option value="">— default —</option>
-            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select></div>
+          <SearchSelect value={val} onChange={(v) => setExtra(f, v)} placeholder="— default —"
+            options={accounts.map((a) => ({ value: a.id, label: a.name }))} /></div>
       );
     }
     if (f.kind === "date") {
@@ -603,26 +602,22 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           {headerExtras.filter((f) => f.kind === "account").map(headerField)}
           {cfg.party && (
             <div><label className="label">{cfg.party === "supplier" ? "Vendor" : "Customer"}</label>
-              <select className="input" value={party} onChange={(e) => setParty(e.target.value)}>
-                <option value="">— select —</option>{parties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select></div>
+              <SearchSelect value={party} onChange={setParty}
+                options={parties.map((p) => ({ value: p.id, label: p.name }))} /></div>
           )}
           <div><label className="label">Cost Center</label>
-            <select className="input" value={costCenter} onChange={(e) => setCostCenter(e.target.value)}>
-              <option value="">—</option>{costCenters.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-            </select></div>
+            <SearchSelect value={costCenter} onChange={setCostCenter} placeholder="—"
+              options={costCenters.map((c) => ({ value: c.name, label: c.name }))} /></div>
           {cfg.showTagArea !== false && (
             <div><label className="label">Tag Area</label>
-              <select className="input" value={tagArea} onChange={(e) => setTagArea(e.target.value)}>
-                <option value="">—</option>{tagAreas.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-              </select></div>
+              <SearchSelect value={tagArea} onChange={setTagArea} placeholder="—"
+                options={tagAreas.map((t) => ({ value: t.name, label: t.name }))} /></div>
           )}
           <div><label className="label">Reference</label><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} /></div>
           {canPost && cfg.showWarehouse && (
             <div><label className="label">Warehouse</label>
-              <select className="input" value={warehouse} onChange={(e) => setWarehouse(e.target.value)}>
-                <option value="">— none (no stock) —</option>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select></div>
+              <SearchSelect value={warehouse} onChange={setWarehouse} placeholder="— none (no stock) —"
+                options={warehouses.map((w) => ({ value: w.id, label: w.name }))} /></div>
           )}
           {cfg.showMode && (
             <div><label className="label">Mode of Payment</label>
@@ -671,9 +666,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                   <td className="px-2 py-1 text-slate-400">{i + 1}</td>
                   {cfg.tagAreaInLine && (
                     <td className="px-2 py-1">
-                      <select className="input w-32" value={r.extras.tag_area ?? ""} onChange={(e) => setRowExtra(i, "tag_area", e.target.value)}>
-                        <option value="">—</option>{tagAreas.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                      </select>
+                      <SearchSelect value={r.extras.tag_area ?? ""} onChange={(v) => setRowExtra(i, "tag_area", v)} className="w-32" placeholder="—" options={tagAreas.map((t) => ({ value: t.name, label: t.name }))} />
                     </td>
                   )}
                   <td className="px-2 py-1 min-w-[220px]">

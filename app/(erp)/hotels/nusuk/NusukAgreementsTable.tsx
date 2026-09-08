@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Row {
   booking_id: string; booking_no: string; guest_name: string; hotel: string | null; city: string | null;
@@ -136,10 +137,7 @@ export default function NusukAgreementsTable({ rows, companies }: { rows: Row[];
               <div><label className="label">Beds Purchased *</label><input type="number" min={1} className="input" value={form.beds} onChange={(e) => setForm({ ...form, beds: e.target.value })} /></div>
               <div><label className="label">City</label><input className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
               <div className="col-span-2"><label className="label">Company *</label>
-                <select className="input" value={form.group_company_id} onChange={(e) => setForm({ ...form, group_company_id: e.target.value })}>
-                  <option value="">— select company —</option>
-                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <SearchSelect value={form.group_company_id} onChange={(v) => setForm({ ...form, group_company_id: v })} placeholder="— select company —" options={companies.map((c) => ({ value: c.id, label: c.name }))} />
               </div>
             </div>
             <p className="mt-2 text-xs text-slate-500">Completing this adds a BRN ({form.beds || "—"} beds) to inventory for visa groups.</p>

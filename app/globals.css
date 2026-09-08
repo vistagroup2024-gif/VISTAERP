@@ -101,6 +101,13 @@ tbody tr:hover > .td { @apply bg-slate-50/60; }
   main { padding: 0 !important; }
   body { background: #fff !important; }
   .print-doc { box-shadow: none !important; padding: 8mm !important; }
+  /* A ledger of forty accounts is a stack of statements, and each one is
+     usually wanted on its own sheet — the option that asks for it sets this. */
+  .page-break { break-before: page; page-break-before: always; }
+  /* A block that must not be split across a page boundary mid-account. */
+  .keep-together { break-inside: avoid; page-break-inside: avoid; }
+  table { font-size: 11px; }
+  thead { display: table-header-group; }
 }
 
 /* ── Mobile safety net ───────────────────────────────────────────────────── */

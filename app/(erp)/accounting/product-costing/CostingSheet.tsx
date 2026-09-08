@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import SearchSelect from "@/components/ui/SearchSelect";
 import { todaySA } from "@/lib/saudiTime";
 import { dateStr } from "@/lib/format";
 import type { DocRight } from "@/lib/docRights";
@@ -177,10 +178,8 @@ export default function CostingSheet({ products, sheets, rights }: {
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div className="sm:col-span-2"><label className="label">Item</label>
-            <select className="input" value={h.product_id} onChange={(e) => pickProduct(e.target.value)}>
-              <option value="">— not from the Product Tree —</option>
-              {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <SearchSelect value={h.product_id} onChange={pickProduct} placeholder="— not from the Product Tree —"
+              options={products.map((p) => ({ value: p.id, label: p.name, hint: p.uom ?? undefined }))} />
             {!h.product_id && (
               <input className="input mt-2" placeholder="Name it instead"
                 value={h.item_name} onChange={(e) => setH({ ...h, item_name: e.target.value })} />

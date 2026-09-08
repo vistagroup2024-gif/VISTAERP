@@ -10,6 +10,7 @@ import AttachmentsPanel from "@/components/AttachmentsPanel";
 import { useUnsavedChanges, confirmDiscardIfDirty } from "@/lib/useUnsavedChanges";
 import FormSection, { Field } from "@/components/ui/FormSection";
 import { todaySA } from "@/lib/saudiTime";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 export interface GroupInitial {
   id?: string;
@@ -325,17 +326,11 @@ export default function GroupForm({
             </Field>
             {!isAgent && (
               <Field label="Agent">
-                <select className="input" value={f.agent_id} onChange={(e) => set("agent_id", e.target.value)}>
-                  <option value="">—</option>
-                  {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                <SearchSelect value={f.agent_id} onChange={(v) => set("agent_id", v)} placeholder="—" options={agents.map((a) => ({ value: a.id, label: a.name }))} />
               </Field>
             )}
             <Field label="Company">
-              <select className="input" value={f.group_company_id} onChange={(e) => set("group_company_id", e.target.value)} disabled={disNonHotel}>
-                <option value="">—</option>
-                {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <SearchSelect value={f.group_company_id} onChange={(v) => set("group_company_id", v)} disabled={disNonHotel} placeholder="—" options={companies.map((c) => ({ value: c.id, label: c.name }))} />
             </Field>
             {showReservation && (
               <Field label="Reserved Groups" required hint="Required for Non Masar Visa. Create one via Company Inquiry.">

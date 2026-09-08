@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { qtyf } from "./reportFormat";
 import { useDocRights } from "@/components/AccessProvider";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 type Low = { item_id: string; item: string; uom: string | null; qty: number; reorder_level: number; on_order: number; suggested: number };
 type Indent = {
@@ -69,10 +70,7 @@ export default function StockIndents() {
 
       <div className="card flex flex-wrap items-end gap-3">
         <div><label className="label">Warehouse</label>
-          <select className="input w-44" value={wh} onChange={(e) => setWh(e.target.value)}>
-            <option value="">All warehouses</option>
-            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select></div>
+          <SearchSelect value={wh} onChange={setWh} className="w-44" placeholder="All warehouses" options={warehouses.map((w) => ({ value: w.id, label: w.name }))} /></div>
         <div className="min-w-56 flex-1"><label className="label">Narration</label>
           <input className="input" value={narration} onChange={(e) => setNarration(e.target.value)} placeholder="Optional note on the indent" /></div>
         <button className="btn h-[38px] disabled:opacity-40" onClick={raise} disabled={busy || low.length === 0 || !rights.canCreate} title={rights.denied("create")}>

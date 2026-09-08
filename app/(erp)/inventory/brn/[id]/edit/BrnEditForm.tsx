@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useUnsavedChanges, confirmDiscardIfDirty } from "@/lib/useUnsavedChanges";
 import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 export default function BrnEditForm({
   brn, suppliers, companies, consumedCount,
@@ -77,10 +78,7 @@ export default function BrnEditForm({
         {error && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
         <FormSection title="Agreement">
           <Field label="Company" full>
-            <select className="input" value={form.group_company_id} onChange={(e) => setForm({ ...form, group_company_id: e.target.value })} required>
-              <option value="">Select company…</option>
-              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <SearchSelect value={form.group_company_id} onChange={(v) => setForm({ ...form, group_company_id: v })} placeholder="Select company…" options={companies.map((c) => ({ value: c.id, label: c.name }))} />
           </Field>
           <Field label="Hotel name" full>
             <input className="input" value={form.hotel_name} onChange={(e) => setForm({ ...form, hotel_name: e.target.value })} required />
@@ -106,10 +104,7 @@ export default function BrnEditForm({
 
         <FormSection title="Supplier & Cost">
           <Field label="Supplier">
-            <select className="input" value={form.supplier_id} onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}>
-              <option value="">— None —</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <SearchSelect value={form.supplier_id} onChange={(v) => setForm({ ...form, supplier_id: v })} placeholder="— None —" options={suppliers.map((s) => ({ value: s.id, label: s.name }))} />
           </Field>
           <Field label="Rate per bed">
             <div className="flex gap-2">

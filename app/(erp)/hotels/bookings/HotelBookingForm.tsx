@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { money } from "@/lib/format";
 import { nightsBetween, ROOM_TYPES, roomNightly } from "../lib";
 import FormSection, { Field } from "@/components/ui/FormSection";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Opt { id: string; name: string }
 interface HotelOpt { id: string; name: string; city: string | null }
@@ -168,10 +169,7 @@ export default function HotelBookingForm({
       <section className="card">
         <FormSection title="Booking Information" cols={3}>
           <Field label="Agent / Customer">
-            <select className="input" value={h.agent_id} onChange={(e) => setHeader("agent_id", e.target.value)}>
-              <option value="">— Direct / none —</option>
-              {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+            <SearchSelect value={h.agent_id} onChange={(v) => setHeader("agent_id", v)} placeholder="— Direct / none —" options={agents.map((a) => ({ value: a.id, label: a.name }))} />
           </Field>
           <Combo label="Managed By / Salesperson" value={h.managed_by} onChange={(v) => setHeader("managed_by", v)} options={salespeople} listId="dl-salespeople" placeholder="Select or type" />
           <Combo label="Booking Source" value={h.source} onChange={(v) => setHeader("source", v)} options={SOURCES} listId="dl-source" placeholder="Select or type" />
@@ -258,10 +256,7 @@ export default function HotelBookingForm({
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <label className="label">Vendor / Supplier</label>
-                  <select className="input" value={s.supplier_id} onChange={(e) => setStay(i, "supplier_id", e.target.value)}>
-                    <option value="">— Select —</option>
-                    {suppliers.map((sup) => <option key={sup.id} value={sup.id}>{sup.name}</option>)}
-                  </select>
+                  <SearchSelect value={s.supplier_id} onChange={(v) => setStay(i, "supplier_id", v)} placeholder="— Select —" options={suppliers.map((sup) => ({ value: sup.id, label: sup.name }))} />
                 </div>
                 <div><label className="label">Vendor Option Date <span className="text-slate-400">(if known)</span></label><input type="date" className="input" value={s.vendor_option_date} onChange={(e) => setStay(i, "vendor_option_date", e.target.value)} /></div>
                 <div><label className="label">Supplier Reference</label><input className="input" value={s.supplier_ref} onChange={(e) => setStay(i, "supplier_ref", e.target.value)} /></div>

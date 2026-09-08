@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import SearchSelect from "@/components/ui/SearchSelect";
 import { sar } from "../lib";
 import FormSection, { Field } from "@/components/ui/FormSection";
 import LoadFromPicker from "@/components/accounting/LoadFromPicker";
@@ -291,29 +292,21 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
               <input type="date" className="input" value={h.contract_date} onChange={(e) => setH({ ...h, contract_date: e.target.value })} />
             </Field>
             <Field label="Customer" required>
-              <select required className="input" value={h.customer_id} onChange={(e) => setH({ ...h, customer_id: e.target.value })}>
-                <option value="">— select —</option>
-                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <SearchSelect required value={h.customer_id} onChange={(v) => setH({ ...h, customer_id: v })}
+                options={customers.map((c) => ({ value: c.id, label: c.name }))} />
             </Field>
             <Field label="Cost Center">
-              <select className="input" value={h.cost_center} onChange={(e) => setH({ ...h, cost_center: e.target.value })}>
-                <option value="">—</option>
-                {costCenters.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
+              <SearchSelect value={h.cost_center} onChange={(v) => setH({ ...h, cost_center: v })} placeholder="—"
+                options={costCenters.map((c) => ({ value: c.name, label: c.name }))} />
             </Field>
             <Field label="Tag Area">
-              <select className="input" value={h.tag_area} onChange={(e) => setH({ ...h, tag_area: e.target.value })}>
-                <option value="">—</option>
-                {tagAreas.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-              </select>
+              <SearchSelect value={h.tag_area} onChange={(v) => setH({ ...h, tag_area: v })} placeholder="—"
+                options={tagAreas.map((t) => ({ value: t.name, label: t.name }))} />
             </Field>
             <Field label="Vehicle (item)" required
               hint={itemName ? `Sale Order item: ${itemName}` : undefined}>
-              <select required className="input" value={h.vehicle_id} onChange={(e) => setH({ ...h, vehicle_id: e.target.value })}>
-                <option value="">— select —</option>
-                {vehicles.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-              </select>
+              <SearchSelect required value={h.vehicle_id} onChange={(v) => setH({ ...h, vehicle_id: v })}
+                options={vehicles.map((v) => ({ value: v.id, label: v.label }))} />
             </Field>
             <Field label="Reference / Introducer"><input className="input" value={h.reference_name} onChange={(e) => setH({ ...h, reference_name: e.target.value })} /></Field>
             <Field label="Salesperson"><input className="input" value={h.salesperson} onChange={(e) => setH({ ...h, salesperson: e.target.value })} /></Field>

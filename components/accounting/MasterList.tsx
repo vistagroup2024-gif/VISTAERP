@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { useDocRights } from "@/components/AccessProvider";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 // Several masters share this list; the Access tab names them separately, so the
 // screen whose rights apply is the one whose table is being edited.
@@ -49,10 +50,8 @@ export default function MasterList({
 
   const Input = ({ f, value, onChange }: { f: MasterField; value: string; onChange: (v: string) => void }) =>
     f.type === "select" ? (
-      <select className="input" value={value ?? ""} onChange={(e) => onChange(e.target.value)}>
-        <option value="">— none —</option>
-        {(f.options ?? []).map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
-      </select>
+      <SearchSelect value={value ?? ""} onChange={onChange} placeholder="— none —"
+        options={(f.options ?? []).map((o) => ({ value: o.v, label: o.l }))} />
     ) : (
       <input className="input" type={f.type === "number" ? "number" : "text"}
         step={f.type === "number" ? "any" : undefined}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID, money } from "@/lib/format";
 import { todaySA } from "@/lib/saudiTime";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 export default function InvoiceActions({
   invoiceId,
@@ -91,9 +92,7 @@ export default function InvoiceActions({
           </div>
           <div className="col-span-3">
             <label className="label">Deposit to</label>
-            <select className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+            <SearchSelect value={accountId} onChange={setAccountId} options={accounts.map((a) => ({ value: a.id, label: a.name }))} />
           </div>
           <div className="col-span-3">
             <label className="label">Date</label>

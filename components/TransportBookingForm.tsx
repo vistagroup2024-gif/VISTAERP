@@ -7,6 +7,7 @@ import CountrySelect from "@/components/CountrySelect";
 import AttachmentsPanel from "@/components/AttachmentsPanel";
 import FormSection, { Field } from "@/components/ui/FormSection";
 import { todaySA } from "@/lib/saudiTime";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Route { id: string; name: string; is_airport?: boolean; from_location?: string | null; to_location?: string | null }
 interface Vehicle { id: string; name: string; seating_capacity?: number | null }
@@ -494,16 +495,14 @@ export default function TransportBookingForm({
         <FormSection title="Booking Information" cols={3}>
           <Field label="Booking date"><input className="input" type="date" value={h.booking_date} onChange={(e) => setH({ ...h, booking_date: e.target.value })} /></Field>
           {!isAgent && <Field label="Agent">
-            <select className="input" value={h.agent_id} onChange={(e) => {
-              const id = e.target.value;
+            <SearchSelect value={h.agent_id} onChange={(v) => {
+              const id = v;
               // Default the payment method: any agency bills on credit (No Cash); the
               // walk-in "CASH CUSTOMER" party or a direct booking pays Cash. Changeable.
               const sel = agents.find((a) => a.id === id);
               const isCash = !sel || sel.agency_name.trim().toUpperCase() === "CASH CUSTOMER";
               setH({ ...h, agent_id: id, payment_method: isCash ? "cash" : "no_cash" });
-            }}>
-              <option value="">— direct —</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.agency_name}</option>)}
-            </select></Field>}
+            }} placeholder="— direct —" options={agents.map((a) => ({ value: a.id, label: a.agency_name }))} /></Field>}
           <Field label="Payment method">
             <select className="input" value={h.payment_method} onChange={(e) => setH({ ...h, payment_method: e.target.value })}>
               <option value="no_cash">No Cash</option><option value="cash">Cash</option>
@@ -547,9 +546,7 @@ export default function TransportBookingForm({
               </select></div>
             {packageId && (
               <div><label className="label">Vehicle *</label>
-                <select className="input" value={pkgVehicleId} onChange={(e) => pickPkgVehicle(e.target.value)}>
-                  <option value="">— choose vehicle —</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
+                <SearchSelect value={pkgVehicleId} onChange={pickPkgVehicle} placeholder="— choose vehicle —" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} />
                 {packageId && pkgVehicleId && !pkgPriceMap.has(`${packageId}|${pkgVehicleId}`) &&
                   <p className="mt-1 text-xs text-amber-600">No price set for this package + vehicle. Set it under Packages.</p>}
               </div>
@@ -575,16 +572,12 @@ export default function TransportBookingForm({
                     {isPkgLeg(t) ? (
                       <input className="input bg-slate-50" value={t.route_label} readOnly />
                     ) : (
-                      <select className="input" value={t.route_id} onChange={(e) => setTrip(i, { route_id: e.target.value })}>
-                        <option value="">— select —</option>{routes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                      </select>
+                      <SearchSelect value={t.route_id} onChange={(v) => setTrip(i, { route_id: v })} placeholder="— select —" options={routes.map((r) => ({ value: r.id, label: r.name }))} />
                     )}
                   </div>
                   {!isPkgLeg(t) && (
                     <div className="sm:col-span-2"><label className="label">Vehicle</label>
-                      <select className="input" value={t.vehicle_id} onChange={(e) => setTrip(i, { vehicle_id: e.target.value })}>
-                        <option value="">—</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                      </select></div>
+                      <SearchSelect value={t.vehicle_id} onChange={(v) => setTrip(i, { vehicle_id: v })} placeholder="—" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} /></div>
                   )}
                   {t.is_extra && (
                     <div className="sm:col-span-2"><label className="label">Pax <span className="text-slate-400">(this trip)</span></label>

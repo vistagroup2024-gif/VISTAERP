@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import SearchSelect from "@/components/ui/SearchSelect";
 import { sar } from "../lib";
 import { dateStr } from "@/lib/format";
 import FormSection, { Field } from "@/components/ui/FormSection";
@@ -109,14 +110,9 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
         <FormSection title="Expense" cols={3}>
           <Field label="Vehicle" required full
             hint="Cars in the yard, and cars still on a purchase order — customs and transport are billed long before the car turns up.">
-            <select required className="input" value={f.pick} onChange={(e) => setF({ ...f, pick: e.target.value })}>
-              <option value="">— select —</option>
-              {groups.map(([g, list]) => (
-                <optgroup key={g} label={g.replace(/^\d\s/, "")}>
-                  {list.map((v) => <option key={keyOf(v)} value={keyOf(v)}>{v.label}</option>)}
-                </optgroup>
-              ))}
-            </select>
+            <SearchSelect required value={f.pick} onChange={(v) => setF({ ...f, pick: v })}
+              options={groups.flatMap(([g, list]) =>
+                list.map((v) => ({ value: keyOf(v), label: v.label, group: g.replace(/^\d\s/, "") })))} />
             {vehicle && (
               <p className="mt-1 text-xs text-slate-500">
                 {vehicle.status === "on_order" ? (
@@ -130,10 +126,8 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
             )}
           </Field>
           <Field label="Expense Head" required>
-            <select required className="input" value={f.expense_id} onChange={(e) => pickHead(e.target.value)}>
-              <option value="">— select —</option>
-              {heads.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
-            </select>
+            <SearchSelect required value={f.expense_id} onChange={pickHead}
+              options={heads.map((h) => ({ value: h.id, label: h.name }))} />
             {heads.length === 0 && <p className="mt-1 text-xs text-amber-600">No heads yet — add them in Masters → Car Purchase Expense.</p>}
           </Field>
           <Field label="Date">
@@ -152,10 +146,9 @@ export default function CarExpenseForm({ vehicles, heads, accounts, rows }: {
             hint={headVendor
               ? "Filled in from the expense head in Masters — change it for a bill that came from somewhere else."
               : "Who is owed, or the cash/bank that settled it. Left empty it sits on Vehicle Supplier Payable."}>
-            <select className="input" value={f.credit_account} onChange={(e) => setF({ ...f, credit_account: e.target.value })}>
-              <option value="">— Vehicle Supplier Payable —</option>
-              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+            <SearchSelect value={f.credit_account} onChange={(v) => setF({ ...f, credit_account: v })}
+              placeholder="— Vehicle Supplier Payable —"
+              options={accounts.map((a) => ({ value: a.id, label: a.name, hint: a.subtype ?? undefined }))} />
           </Field>
           <Field label="Narration" full>
             <input className="input" value={f.narration} onChange={(e) => setF({ ...f, narration: e.target.value })} />

@@ -7,6 +7,7 @@ import { COMPANY_ID, money } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import FormSection, { Field } from "@/components/ui/FormSection";
 import { todaySA } from "@/lib/saudiTime";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 type Line = { description: string; qty: number; unit_price: number };
 const blank: Line = { description: "", qty: 1, unit_price: 0 };
@@ -84,10 +85,7 @@ export default function NewBillPage() {
         <div className="card">
           <FormSection title="Bill Information">
             <Field label="Supplier" full>
-              <select className="input" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} required>
-                <option value="">Select…</option>
-                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <SearchSelect value={supplierId} onChange={setSupplierId} placeholder="Select…" options={suppliers.map((s) => ({ value: s.id, label: s.name }))} />
             </Field>
             <Field label="Bill date">
               <input className="input" type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} required />

@@ -8,6 +8,7 @@ import AccountPicker, { type PickAccount } from "@/components/accounting/Account
 import FormSection, { Field } from "@/components/ui/FormSection";
 import { useDocRights } from "@/components/AccessProvider";
 import { todaySA } from "@/lib/saudiTime";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 type Party = { id: string; name: string; party_type: string; phone: string | null };
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -124,15 +125,11 @@ export default function InvoiceEditor({ parties, accounts, costCenters = [], sal
           <Field label="Reference"><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} /></Field>
           <Field label="Narration"><input className="input" value={narration} onChange={(e) => setNarration(e.target.value)} /></Field>
           <Field label="Cost Center">
-            <select className="input" value={costCenter} onChange={(e) => setCostCenter(e.target.value)}>
-              <option value="">—</option>{costCenters.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-            </select>
+            <SearchSelect value={costCenter} onChange={setCostCenter} placeholder="—" options={costCenters.map((c) => ({ value: c.name, label: c.name }))} />
           </Field>
           {kind === "customer" && (
             <Field label="Salesperson" hint="Commission auto-posts if a rule exists for this salesperson + cost center.">
-              <select className="input" value={salesperson} onChange={(e) => setSalesperson(e.target.value)}>
-                <option value="">— none —</option>{salespersons.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <SearchSelect value={salesperson} onChange={setSalesperson} placeholder="— none —" options={salespersons.map((s) => ({ value: s.id, label: s.name }))} />
             </Field>
           )}
           {kind === "customer" && (

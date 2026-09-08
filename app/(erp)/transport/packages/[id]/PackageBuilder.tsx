@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Route { id: string; name: string }
 interface Vehicle { id: string; name: string }
@@ -62,15 +63,11 @@ export default function PackageBuilder({ packageId, initial, routes, vehicles }:
     <div className="space-y-4">
       <form onSubmit={addLeg} className="card grid grid-cols-1 gap-3 sm:grid-cols-4">
         <div className="sm:col-span-1"><label className="label">Route</label>
-          <select className="input" value={routeId} onChange={(e) => setRouteId(e.target.value)}>
-            <option value="">— custom —</option>{routes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select></div>
+          <SearchSelect value={routeId} onChange={setRouteId} placeholder="— custom —" options={routes.map((r) => ({ value: r.id, label: r.name }))} /></div>
         <div className="sm:col-span-1"><label className="label">Or custom label</label>
           <input className="input" placeholder="Makkah Ziyarat" value={label} onChange={(e) => setLabel(e.target.value)} /></div>
         <div className="sm:col-span-1"><label className="label">Vehicle (optional)</label>
-          <select className="input" value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
-            <option value="">— package default —</option>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-          </select></div>
+          <SearchSelect value={vehicleId} onChange={setVehicleId} placeholder="— package default —" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} /></div>
         <div className="flex items-end sm:col-span-1"><button className="btn w-full" disabled={busy}>{busy ? "…" : "+ Add trip"}</button></div>
         {err && <p className="text-sm text-red-600 sm:col-span-4">{err}</p>}
       </form>
