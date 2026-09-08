@@ -12,6 +12,9 @@ export interface LineExtra {
   label: string;
   kind?: "money" | "text";   // money (default) right-aligns and totals; text does not
   cost?: boolean;            // counts toward the landed-cost figure under the grid
+  /** Sits to the LEFT of Rate instead of after Amount. A ceiling is read while
+   *  the rate is being typed, so it has to be beside it, not past the total. */
+  beforeRate?: boolean;
 }
 
 /** Extra header field, stored in the document meta. */
@@ -50,6 +53,9 @@ export interface TradeDocCfg {
   tagAreaInLine?: boolean;    // Tag Area as the grid's first column instead
   showWarehouse?: boolean;    // warehouse picker on GL-posting vouchers
   hideRateAmount?: boolean;   // delivery note records what left, not what it cost
+  /** A whole-document Discount box under the grid. Net Total = Subtotal - Discount
+   *  + Round Off, and that net is what the document posts. */
+  showDiscount?: boolean;
   /**
    * Hide the item grid on a car cost centre. A car sale is one vehicle at one
    * price, and both are already in the costing block — the grid underneath was
@@ -98,8 +104,13 @@ const CAR_COSTING: HeaderExtra[] = [
 ];
 
 // Purchase Voucher cost columns shared by every cost centre.
+//
+// Discount is NOT here any more. It was a per-line column, which meant a bill
+// with one discount on the bottom had to be spread across the lines by hand,
+// and the document total ignored it either way. It is a single box under the
+// grid now (`showDiscount`), and the Net Total — the figure that posts — is
+// Subtotal minus it.
 const PV_COMMON_EXTRAS: LineExtra[] = [
-  { key: "discount", label: "Discount" },
   { key: "freight", label: "Freight", cost: true },
   { key: "others", label: "Others", cost: true },
   { key: "commission", label: "Commission", cost: true },
@@ -120,7 +131,6 @@ const PV_COMMON_EXTRAS: LineExtra[] = [
 //
 // Discount stays, because that one IS on the supplier's bill.
 const PV_CAR_EXTRAS: LineExtra[] = [
-  { key: "discount", label: "Discount" },
   { key: "remarks", label: "Remarks", kind: "text" },
 ];
 
@@ -129,12 +139,21 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     type: "purchase_order", prefix: "PO-", title: "Purchase Order", party: "supplier",
     loadsFrom: { type: "sale_order", title: "Sale Order" },
     showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
-    lineExtras: [{ key: "so_purchase_rate", label: "SO Purchase Rate" }, { key: "remarks", label: "Remarks", kind: "text" }],
+    lineExtras: [
+      // Before Rate: it is the ceiling the rate is checked against, so it reads
+      // left-to-right as "allowed, then actual". The value comes from the item's
+      // Product Tree purchase rate — what the thing costs to buy — not from the
+      // Sale Order's Total Cost, which also carries the expenses that land on it
+      // afterwards.
+      { key: "so_purchase_rate", label: "Purchase Rate", beforeRate: true },
+      { key: "remarks", label: "Remarks", kind: "text" },
+    ],
   },
   purchase_voucher: {
     type: "purchase_voucher", prefix: "PV-", title: "Purchase Voucher", party: "supplier",
     loadsFrom: { type: "mrn", title: "Material Receipt Note" },
     showDue: true, showMode: true, showTagArea: false, tagAreaInLine: true, showWarehouse: false,
+    showDiscount: true,
     headerExtras: [{ key: "purchase_account", label: "Purchase Account", kind: "account" }],
     lineExtras: PV_COMMON_EXTRAS, carLineExtras: PV_CAR_EXTRAS,
   },
@@ -150,7 +169,9 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   mrn: {
     type: "mrn", prefix: "MRN-", title: "Material Receipt Note", party: "supplier",
     loadsFrom: { type: "purchase_order", title: "Purchase Order" },
-    showDelivery: true, showTagArea: true,
+    // No Tag Area: an MRN records that goods arrived. The tagging that matters
+    // is done on the Purchase Voucher, which is the one that posts.
+    showDelivery: true, showTagArea: false,
   },
   sales_quotation: {
     type: "sales_quotation", prefix: "SQ-", title: "Sales Quotation", party: "customer",
@@ -174,6 +195,10 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   sales_return: {
     type: "sales_return", prefix: "SRN-", title: "Sales Return", party: "customer",
     showTagArea: true, showWarehouse: false,
+    // A Sales Return has no step in the document chain — goods coming back are
+    // typed. A CAR coming back is not: it is returned against the Car Invoice
+    // that sold it, which is where the vehicle, the customer and the cost are.
+    alsoLoadsFrom: { title: "Car Invoice" },
     headerExtras: [
       { key: "sale_account", label: "Sale Account", kind: "account" },
       { key: "update_stock", label: "Update Stocks", kind: "check", defaultOn: true },

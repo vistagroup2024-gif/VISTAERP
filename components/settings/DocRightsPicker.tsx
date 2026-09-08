@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DOC_TREE, RIGHT_LABEL, type DocRight, type DocRightsMap } from "@/lib/docRights";
+import { DOC_TREE, RIGHT_LABEL, STRICT_DOC_RIGHTS, type DocRight, type DocRightsMap } from "@/lib/docRights";
 
 // The "Access" tab: pick a voucher or report on the left, tick what the user may
 // do with it on the right. Screens the ERP doesn't have are not in the tree —
@@ -25,7 +25,9 @@ export default function DocRightsPicker({
 
   function setAll(on: boolean) {
     const next: DocRightsMap = { ...value };
-    if (on) next[sel] = Object.fromEntries(node.rights.map((r) => [r, true]));
+    // "Select all" is a convenience, not a way to hand over the ledger — a
+    // strict right is only ever ticked on purpose, one box at a time.
+    if (on) next[sel] = Object.fromEntries(node.rights.filter((r) => !STRICT_DOC_RIGHTS.includes(r)).map((r) => [r, true]));
     else delete next[sel];
     onChange(next);
   }
@@ -36,19 +38,25 @@ export default function DocRightsPicker({
   function grantAll() {
     const next: DocRightsMap = {};
     for (const m of DOC_TREE) for (const g of m.groups) for (const d of g.docs) {
-      next[d.key] = Object.fromEntries(d.rights.map((r) => [r, true]));
+      next[d.key] = Object.fromEntries(d.rights.filter((r) => !STRICT_DOC_RIGHTS.includes(r)).map((r) => [r, true]));
     }
     onChange(next);
   }
 
   function count(key: string) { return Object.keys(value[key] ?? {}).length; }
 
+  // "full" means everything Select all hands over. A strict right withheld is
+  // the normal state, not a gap, so it must not read as a partial grant.
+  function fullAt(d: { key: string; rights: DocRight[] }) {
+    return count(d.key) >= d.rights.filter((r) => !STRICT_DOC_RIGHTS.includes(r)).length;
+  }
+
   return (
     <div className="space-y-3">
       <div className={`rounded px-3 py-2 text-xs ${configured ? "bg-amber-50 text-amber-700" : "bg-slate-50 text-slate-500"}`}>
         {configured
           ? "This user is restricted: only the screens and rights ticked below are allowed."
-          : "Nothing ticked — this user has every screen and every right. Tick anything to switch them to restricted access."}
+          : "Nothing ticked — this user has every screen and every right except the ones marked below, which are never granted by default. Tick anything to switch them to restricted access."}
         {configured && (
           <button type="button" onClick={grantEverything} className="ml-2 font-medium text-brand hover:underline">
             Remove all restrictions
@@ -78,8 +86,8 @@ export default function DocRightsPicker({
                         <span className="min-w-0 flex-1 truncate">{d.label}</span>
                         {configured && (
                           <span className={`shrink-0 rounded-full px-1.5 text-[10px] ${
-                            n === 0 ? "bg-red-50 text-red-500" : n === d.rights.length ? "bg-green-50 text-green-600" : "bg-slate-100 text-slate-500"}`}>
-                            {n === 0 ? "none" : n === d.rights.length ? "full" : `${n}/${d.rights.length}`}
+                            n === 0 ? "bg-red-50 text-red-500" : fullAt(d) ? "bg-green-50 text-green-600" : "bg-slate-100 text-slate-500"}`}>
+                            {n === 0 ? "none" : fullAt(d) ? "full" : `${n}/${d.rights.length}`}
                           </span>
                         )}
                       </button>
@@ -99,7 +107,14 @@ export default function DocRightsPicker({
             {node.rights.map((r) => (
               <label key={r} className="flex cursor-pointer items-start gap-2 text-sm text-slate-600">
                 <input type="checkbox" className="mt-0.5 h-3.5 w-3.5" checked={!!rights[r]} onChange={(e) => setRight(r, e.target.checked)} />
-                <span>{RIGHT_LABEL[r]}</span>
+                <span>
+                  {RIGHT_LABEL[r]}
+                  {STRICT_DOC_RIGHTS.includes(r) && (
+                    <span className="ml-1.5 rounded bg-amber-50 px-1 text-[10px] font-medium text-amber-700">
+                      granted only here
+                    </span>
+                  )}
+                </span>
               </label>
             ))}
           </div>

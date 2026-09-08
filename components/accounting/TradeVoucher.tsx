@@ -30,7 +30,20 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // Rights come resolved from the server page. Absent = unrestricted, which is
   // what an admin or a user with no Access rights configured gets.
   const may = (r: DocRight) => (rights ? !!rights[r] : true);
-  const mayWrite = () => (id ? may("edit") : may("create"));
+  // A posted voucher is not frozen, it is RESTRICTED. Changing or deleting one
+  // makes the database unwind the ledger entry, the stock and any vehicles the
+  // purchase created, so it takes the Edit/Delete Posted right on top of the
+  // ordinary Edit or Delete. Admins have it; everybody else is ticked for it by
+  // name. hasDocRight reads this one strictly, so a blank profile does NOT
+  // arrive holding it.
+  // What the Load button offers. A voucher may sit in the document chain
+  // (loadsFrom), take a document from outside it (alsoLoadsFrom), or — like the
+  // Sales Return, which exists to take a car back — only the second.
+  const loadTitle = [cfg.loadsFrom?.title, cfg.alsoLoadsFrom?.title].filter(Boolean).join(" / ");
+  const loadSourceTitle = [cfg.loadsFrom?.title, cfg.alsoLoadsFrom?.title].filter(Boolean).join(" or ");
+  const mayUnpost = () => may("edit_posted");
+  const postedLock = () => posted && !mayUnpost();
+  const mayWrite = () => (id ? may("edit") && (!posted || mayUnpost()) : may("create"));
   const router = useRouter();
   const supabase = createClient();
 
@@ -47,6 +60,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [terms, setTerms] = useState("");
   const [narration, setNarration] = useState("");
   const [roundOff, setRoundOff] = useState("");
+  const [discount, setDiscount] = useState("");
   const [rows, setRows] = useState<Row[]>([blankRow()]);
   // Header extras (incl. the car costing block) live in the document meta.
   const [extras, setExtras] = useState<Record<string, string>>({});
@@ -57,7 +71,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [busy, setBusy] = useState(false);
 
   const [parties, setParties] = useState<{ id: string; name: string }[]>([]);
-  const [products, setProducts] = useState<{ id: string; name: string; group?: string | null }[]>([]);
+  const [products, setProducts] = useState<{ id: string; name: string; group?: string | null; purchase_rate?: number | null }[]>([]);
   const [costCenters, setCostCenters] = useState<{ id: string; name: string }[]>([]);
   const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
@@ -68,6 +82,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [sourceCar, setSourceCar] = useState<string | null>(null);
   const [sourceNo, setSourceNo] = useState<string | null>(null);
+  // A car coming back. Set when a Car Invoice was loaded into this Sales
+  // Return; it carries what the car sold for, so the return value can be typed
+  // with that figure in front of the operator rather than looked up.
+  const [carReturn, setCarReturn] = useState<{ vehicle_no?: string; sold_for?: number } | null>(null);
   const [loadOpen, setLoadOpen] = useState(false);
   // These trade documents post to the GL (+ stock); the rest are paperwork only.
   const canPost = ["purchase_voucher", "purchase_return", "sales_return", "sales_invoice"].includes(cfg.type);
@@ -85,14 +103,20 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const lineExtras: LineExtra[] = useMemo(
     () => (isCar && cfg.carLineExtras ? cfg.carLineExtras : cfg.lineExtras ?? []),
     [cfg, isCar]);
+  // Columns that sit left of Rate, and the rest that follow Amount.
+  const preRateExtras = useMemo(() => lineExtras.filter((x) => x.beforeRate), [lineExtras]);
+  const postExtras = useMemo(() => lineExtras.filter((x) => !x.beforeRate), [lineExtras]);
   const showRateAmount = !cfg.hideRateAmount;
+  // A vehicle is one car, not a quantity of something — Units means nothing on a
+  // car cost centre, so the column is not shown and nothing is stored in it.
+  const showUnits = !isCar;
 
   useEffect(() => {
     (async () => {
       const types = cfg.party === "supplier" ? ["supplier"] : cfg.party === "customer" ? ["customer", "b2b_agent"] : ["customer", "supplier", "b2b_agent"];
       const [{ data: pa }, { data: pr }, { data: cc }, { data: ta }, { data: wh }, { data: ac }] = await Promise.all([
         supabase.from("parties").select("id, name").in("party_type", types).eq("is_active", true).order("name"),
-        supabase.from("acct_products").select("id, name, parent_id, is_group").eq("is_active", true).order("name"),
+        supabase.from("acct_products").select("id, name, parent_id, is_group, purchase_rate").eq("is_active", true).order("name"),
         supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("warehouses").select("id, name").eq("is_active", true).order("name"),
@@ -122,12 +146,12 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     });
   }, [extraDefaults]);
 
-  function resetNew() {
-    setId(null); setDocNo(""); setDone(null); setErr(null);
+  function resetNew(keepMessage?: string) {
+    setId(null); setDocNo(""); setDone(keepMessage ?? null); setErr(null);
     setDate(todaySA()); setParty(""); setCostCenter(""); setTagArea("");
-    setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff("");
+    setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setDiscount("");
     setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({});
-    setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false);
+    setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false); setCarReturn(null);
   }
   function setRow(i: number, patch: Partial<Row>) {
     setRows((rs) => {
@@ -145,7 +169,14 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // The picker hands back an item id; the name is stored alongside it only so a
   // saved document still reads correctly if the item is later renamed.
   function pickItem(i: number, id: string | null) {
-    setRow(i, { product_id: id, item_name: id ? (products.find((p) => p.id === id)?.name ?? "") : "" });
+    const p = id ? products.find((x) => x.id === id) : null;
+    setRow(i, { product_id: id, item_name: p?.name ?? "" });
+    // On a Purchase Order the ceiling comes from the Product Tree, so choosing
+    // the item fills it whether the order was loaded or typed from scratch.
+    if (cfg.type === "purchase_order") {
+      const rate = Number(p?.purchase_rate ?? 0);
+      setRowExtra(i, "so_purchase_rate", rate > 0 ? String(rate) : "");
+    }
   }
   function removeRow(i: number) { setRows((rs) => (rs.length <= 1 ? rs : rs.filter((_, j) => j !== i))); }
 
@@ -170,7 +201,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     () => (hideLines ? num(extraValues.selling_price ?? "") : rows.reduce((s, r) => s + num(r.amount), 0)),
     [rows, hideLines, extraValues],
   );
-  const total = subtotal + num(roundOff);
+  // The discount comes off before the round-off, so Net Total is what the
+  // supplier is actually owed — and it is this figure that posts.
+  const discountAmt = cfg.showDiscount ? num(discount) : 0;
+  const total = subtotal - discountAmt + num(roundOff);
   // Landed cost = the line amounts plus every expense column flagged as a cost.
   const costColumns = useMemo(() => lineExtras.filter((x) => x.cost), [lineExtras]);
   /** Lines whose rate is above the SO Purchase Rate they were raised against. */
@@ -192,9 +226,13 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setDate(v.doc_date ?? ""); setParty(v.party_id ?? ""); setCostCenter(v.cost_center ?? ""); setTagArea(v.tag_area ?? "");
     setReference(v.reference ?? ""); setMode(v.mode_of_payment ?? ""); setDueDate(v.due_date ?? ""); setDeliveryDate(v.delivery_date ?? "");
     setTerms(v.terms ?? ""); setNarration(v.narration ?? ""); setRoundOff(v.round_off ? String(v.round_off) : "");
+    setDiscount(v.meta?.discount ? String(v.meta.discount) : "");
     setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry); setAwaiting(v.status === "awaiting_approval");
     setSourceId(v.source_doc_id ?? null); setSourceCar(v.source_car_contract ?? null); setSourceNo(v.source_doc_no ?? null);
     const meta = (v.meta ?? {}) as Record<string, any>;
+    setCarReturn(meta.car_return
+      ? { vehicle_no: meta.vehicle_no ?? undefined, sold_for: Number(meta.sold_for ?? 0) || undefined }
+      : null);
     const saved: Record<string, string> = { ...extraDefaults() };
     for (const [k, val] of Object.entries(meta)) saved[k] = val == null ? "" : String(val);
     setExtras(saved);
@@ -242,14 +280,25 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setTagArea(cfg.showTagArea === false ? "" : v.tag_area ?? "");
     setReference(v.doc_no ?? ""); setTerms(v.terms ?? ""); setNarration(v.narration ?? "");
     setMode(v.mode_of_payment ?? ""); setDeliveryDate(v.delivery_date ?? "");
-    setDueDate(""); setRoundOff(""); setWarehouse("");
+    setDueDate(""); setRoundOff(""); setDiscount(""); setWarehouse("");
+
+    // Which fields this voucher shows depends on the cost centre we have just
+    // been handed, NOT the one that was on screen a moment ago. headerExtras is
+    // a memo over the costCenter STATE, and setCostCenter above has not taken
+    // effect yet in this pass — reading it here kept the old (usually empty)
+    // cost centre, so loading a car Sales Quotation into a fresh Sale Order
+    // matched none of the costing fields and silently dropped every one of
+    // them. Resolve the field list from the incoming document instead.
+    const srcIsCar = isCarCostCenter(v.cost_center);
+    const nextHeaderExtras = [...(cfg.headerExtras ?? []), ...(srcIsCar ? cfg.carHeaderExtras ?? [] : [])];
+    const nextLineExtras = srcIsCar && cfg.carLineExtras ? cfg.carLineExtras : cfg.lineExtras ?? [];
 
     // Only the extras this voucher actually shows: a Purchase Order has no use
     // for a quotation's car-costing boxes, and copying them would leave stale
     // values on a document that never displays them.
     const src = (v.meta ?? {}) as Record<string, any>;
     const keep: Record<string, string> = { ...extraDefaults() };
-    for (const f of headerExtras) {
+    for (const f of nextHeaderExtras) {
       const val = src[f.key];
       if (val !== undefined && val !== null && val !== "") keep[f.key] = String(val);
     }
@@ -259,7 +308,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     const ls: Row[] = (v.lines ?? []).map((l: any) => {
       const lm = (l.meta ?? {}) as Record<string, any>;
       const ex: Record<string, string> = {};
-      for (const x of lineExtras) {
+      for (const x of nextLineExtras) {
         const val = lm[x.key];
         if (val !== undefined && val !== null && val !== "") ex[x.key] = String(val);
       }
@@ -278,13 +327,29 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     // quoted on. The SO Purchase Rate column has been on this voucher all along
     // with nothing to fill it; this is what fills it.
     if (cfg.type === "purchase_order") {
-      const ceiling = num(String(src.total_cost ?? ""));
-      if (ceiling > 0) for (const r of ls) r.extras.so_purchase_rate = String(ceiling);
+      // The ceiling is what the ITEM costs to buy, read from the Product Tree.
+      // It used to be the Sale Order's Total Cost (COGS) — but that figure
+      // includes the expenses that land on the vehicle later (registration,
+      // insurance, transport), so checking a supplier's price against it
+      // allowed paying the supplier the expenses too.
+      for (const r of ls) {
+        const rate = r.product_id ? Number(products.find((p) => p.id === r.product_id)?.purchase_rate ?? 0) : 0;
+        if (rate > 0) r.extras.so_purchase_rate = String(rate);
+        else delete r.extras.so_purchase_rate;
+      }
+      // The Sale Order's rate is what we SELL for. Carrying it over as the
+      // Purchase Order's rate quietly proposed paying the supplier the selling
+      // price. What we pay is a negotiation, so the buyer types it — with the
+      // ceiling above sitting next to the box.
+      for (const r of ls) { r.rate = ""; r.amount = ""; }
     }
     setRows(ls.length ? [...ls, blankRow()] : [blankRow()]);
 
     if (v.source_kind === "car") { setSourceCar(v.id); setSourceId(null); }
     else { setSourceId(v.id); setSourceCar(null); }
+    setCarReturn(src.car_return
+      ? { vehicle_no: src.vehicle_no ?? undefined, sold_for: Number(src.sold_for ?? 0) || undefined }
+      : null);
     setSourceNo(v.doc_no ?? null);
     setDone(`loaded from ${v.doc_no}`);
   }
@@ -308,21 +373,35 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   async function del() {
     if (!may("delete")) return;
     if (!id) return;
-    if (!confirm(`Delete ${cfg.title} ${docNo}? This cannot be undone.`)) return;
+    if (posted && !mayUnpost()) return;
+    const warning = posted
+      ? `Delete ${cfg.title} ${docNo}?\n\nIt is posted, so deleting it also undoes what it did:\n`
+        + "  • its ledger entry is removed, so the party balance goes back\n"
+        + "  • the stock it moved is put back, at what it was booked at\n"
+        + "  • any vehicle this purchase created is removed\n\n"
+        + "This cannot be undone."
+      : `Delete ${cfg.title} ${docNo}? This cannot be undone.`;
+    if (!confirm(warning)) return;
     setBusy(true);
     const { error } = await supabase.rpc("trade_doc_delete", { p_id: id });
     setBusy(false);
     if (error) return setErr(error.message);
-    setDone(`deleted ${docNo}`); resetNew(); router.refresh();
+    resetNew(`deleted ${docNo}`); router.refresh();
   }
   function printDoc() { if (id) window.open(`/accounting/trade/${id}`, "_blank"); }
 
   async function save() {
     if (!mayWrite()) return;
+    if (posted && !confirm(
+      `${docNo} is posted. Saving re-does it from what is on screen now:\n\n`
+      + "  • the old ledger entry is replaced\n"
+      + "  • the stock it moved goes back and is re-applied at the new figures\n"
+      + "  • any vehicle this purchase created is re-created from the lines\n\n"
+      + "It happens in one step, so if anything refuses, nothing changes.")) return;
     setErr(null);
     if (overCeiling.size) {
       const n1 = Array.from(overCeiling).map((i) => i + 1).join(", ");
-      return setErr(`Line ${n1}: the rate is above the SO Purchase Rate this order was raised against. Lower the rate, or raise the Sale Order's Total Cost (COGS) first.`);
+      return setErr(`Line ${n1}: the rate is above the Purchase Rate on the item's Product Tree record. Lower the rate, or raise the item's purchase rate in Masters → Products first.`);
     }
     // Only persist the extras this voucher/cost-centre actually shows, so
     // switching cost centre doesn't leave stale car fields on the document.
@@ -336,7 +415,17 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       doc_date: date, party_id: party || null, cost_center: costCenter || null,
       tag_area: cfg.showTagArea === false ? null : tagArea || null,
       reference: reference || null, mode_of_payment: mode || null, due_date: dueDate || null, delivery_date: deliveryDate || null,
-      terms: terms || null, narration: narration || null, round_off: num(roundOff), meta,
+      terms: terms || null, narration: narration || null, round_off: num(roundOff),
+      meta: {
+        ...meta,
+        ...(cfg.showDiscount ? { discount: discountAmt } : {}),
+        // A car return remembers where it came from, so re-opening it shows the
+        // same figures the operator decided against.
+        ...(carReturn
+          ? { car_return: true, vehicle_no: carReturn.vehicle_no ?? null,
+              sold_for: carReturn.sold_for ?? null, update_stock: false }
+          : {}),
+      },
       source_doc_id: sourceId, source_car_contract: sourceCar,
     };
     // With the grid hidden the document still needs its line, because that line
@@ -380,16 +469,19 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     if (error) { setBusy(false); return setErr(error.message); }
     const r = data as any;
     setBusy(false);
-    setId(r.id); setDocNo(r.doc_no);
     // Saving posts the voucher, unless its type needs authorising — then it
     // goes to the approvers and posts itself when they authorise it.
-    if (r.pending) { setAwaiting(true); setDone(`${r.doc_no} sent for authorisation`); }
-    else if (r.posted) { setPosted(true); setDone(`${r.doc_no} posted (${r.entry_no ?? ""})`); }
-    else setDone(`saved ${r.doc_no}`);
+    const msg = r.pending ? `${r.doc_no} sent for authorisation`
+      : r.posted ? `${r.doc_no} posted (${r.entry_no ?? ""})`
+      : `saved ${r.doc_no}`;
+    // Then straight into the next blank voucher. Entry is done in runs — one
+    // supplier's bills, one morning's orders — so the screen a clerk wants
+    // after saving is an empty one, not the document they have just finished.
+    // The saved voucher is a keystroke away: type its number in Document No.
+    // and press Enter, or step back with ‹ Previous.
+    resetNew(`${msg} — new ${cfg.title} ready`);
     router.refresh();
   }
-
-  const gridCols = 3 + (showRateAmount ? 3 : 1) + (cfg.tagAreaInLine ? 1 : 0) + lineExtras.length;
 
   function headerField(f: HeaderExtra) {
     const val = extraValues[f.key] ?? "";
@@ -449,12 +541,12 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       </div>
 
       <div className="card flex flex-wrap items-center gap-2 py-2">
-        <button onClick={resetNew} disabled={busy} className="btn-outline text-sm">＋ New</button>
+        <button onClick={() => resetNew()} disabled={busy} className="btn-outline text-sm">＋ New</button>
         <button onClick={() => nav("prev")} disabled={busy} className="btn-outline text-sm">‹ Previous</button>
         <button onClick={() => nav("next")} disabled={busy} className="btn-outline text-sm">Next ›</button>
-        {cfg.loadsFrom && (
+        {loadTitle && (
           <button onClick={() => setLoadOpen(true)} disabled={busy || posted || awaiting} className="btn text-sm disabled:opacity-40">
-            ⤓ Load {cfg.loadsFrom.title}{cfg.alsoLoadsFrom ? ` / ${cfg.alsoLoadsFrom.title}` : ""}
+            ⤓ Load {loadTitle}
           </button>
         )}
         {sourceNo && (
@@ -466,14 +558,37 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           {posted && <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium uppercase text-green-700">posted</span>}
           {awaiting && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium uppercase text-amber-700">awaiting authorisation</span>}
           <button onClick={printDoc} disabled={!id || !may("print")} title={may("print") ? undefined : "You don't have Print rights on this voucher"} className="btn-outline text-sm disabled:opacity-40">🖨 Print</button>
-          <button onClick={del} disabled={!id || busy || posted || awaiting || !may("delete")} title={may("delete") ? undefined : "You don't have Delete rights on this voucher"} className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
+          <button onClick={del} disabled={!id || busy || postedLock() || awaiting || !may("delete")}
+            title={!may("delete") ? "You don't have Delete rights on this voucher"
+              : postedLock() ? "This voucher is posted. Deleting it needs the Edit/Delete Posted right, which an administrator grants."
+              : undefined}
+            className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
         </div>
       </div>
 
-      {loadOpen && cfg.loadsFrom && (
-        <LoadFromPicker targetType={cfg.type}
-          sourceTitle={cfg.loadsFrom.title + (cfg.alsoLoadsFrom ? ` or ${cfg.alsoLoadsFrom.title}` : "")}
+      {loadOpen && loadTitle && (
+        <LoadFromPicker targetType={cfg.type} sourceTitle={loadSourceTitle}
           onPick={loadFrom} onClose={() => setLoadOpen(false)} />
+      )}
+
+      {carReturn && (
+        <div className="rounded border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800">
+          <span className="font-medium">
+            Vehicle {carReturn.vehicle_no ?? ""} coming back{sourceNo ? ` against ${sourceNo}` : ""}.
+          </span>{" "}
+          {carReturn.sold_for ? <>It was sold for <strong>{money(carReturn.sold_for)}</strong>. </> : null}
+          Type what it is worth on the way back — that amount comes off the customer&apos;s account, and the
+          balance there decides whether they still owe or we owe them a refund. The car goes back into stock at
+          its own cost, flagged as returned.
+        </div>
+      )}
+
+      {posted && mayUnpost() && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span className="font-medium">This voucher is already in the ledger.</span>{" "}
+          Saving it again replaces its ledger entry and re-applies the stock at the new figures; deleting it
+          takes both back out. Anything raised from it has to go first.
+        </div>
       )}
 
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
@@ -518,7 +633,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           )}
           {cfg.showDue && <div><label className="label">Due Date</label><input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>}
           {cfg.showDelivery && <div><label className="label">Delivery Date</label><input type="date" className="input" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} /></div>}
-          {headerExtras.filter((f) => f.kind === "check").map(headerField)}
+          {headerExtras.filter((f) => f.kind === "check" && !(carReturn && f.key === "update_stock")).map(headerField)}
           {cfg.showTerms && <div className="md:col-span-2"><label className="label">Terms</label><input className="input" value={terms} onChange={(e) => setTerms(e.target.value)} /></div>}
           <div className="md:col-span-2"><label className="label">Narration</label><input className="input" value={narration} onChange={(e) => setNarration(e.target.value)} /></div>
         </div>
@@ -541,11 +656,12 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                 <th className="px-2 py-2 text-left">#</th>
                 {cfg.tagAreaInLine && <th className="px-2 py-2 text-left">Tag Area</th>}
                 <th className="px-2 py-2 text-left">Item</th>
-                <th className="px-2 py-2 text-left">Units</th>
+                {showUnits && <th className="px-2 py-2 text-left">Units</th>}
                 <th className="px-2 py-2 text-right">{cfg.qtyLabel ?? "Quantity"}</th>
+                {preRateExtras.map((x) => <th key={x.key} className={`px-2 py-2 ${x.kind === "text" ? "text-left" : "text-right"}`}>{x.label}</th>)}
                 {showRateAmount && <th className="px-2 py-2 text-right">Rate</th>}
                 {showRateAmount && <th className="px-2 py-2 text-right">Amount</th>}
-                {lineExtras.map((x) => <th key={x.key} className={`px-2 py-2 ${x.kind === "text" ? "text-left" : "text-right"}`}>{x.label}</th>)}
+                {postExtras.map((x) => <th key={x.key} className={`px-2 py-2 ${x.kind === "text" ? "text-left" : "text-right"}`}>{x.label}</th>)}
                 <th className="w-8" />
               </tr>
             </thead>
@@ -563,20 +679,27 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                   <td className="px-2 py-1 min-w-[220px]">
                     <ProductPicker products={products} value={r.product_id} onChange={(id) => pickItem(i, id)} placeholder="Item / product" />
                   </td>
-                  <td className="px-2 py-1"><input className="input w-20" value={r.units} onChange={(e) => setRow(i, { units: e.target.value })} /></td>
-                  <td className="px-2 py-1"><input className="input w-24 text-right tabular-nums" inputMode="decimal" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} /></td>
+                  {showUnits && <td className="px-2 py-1"><input className="input w-24" value={r.units} onChange={(e) => setRow(i, { units: e.target.value })} /></td>}
+                  <td className="px-2 py-1"><input className="input w-28 text-right tabular-nums" inputMode="decimal" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} /></td>
+                  {preRateExtras.map((x) => (
+                    <td key={x.key} className="px-2 py-1">
+                      <input className={`input ${x.kind === "text" ? "w-56" : "w-36 text-right tabular-nums"}`}
+                        inputMode={x.kind === "text" ? undefined : "decimal"}
+                        value={r.extras[x.key] ?? ""} onChange={(e) => setRowExtra(i, x.key, e.target.value)} />
+                    </td>
+                  ))}
                   {showRateAmount && (
                     <td className="px-2 py-1">
                       <input
-                        className={`input w-28 text-right tabular-nums ${overCeiling.has(i) ? "border-red-400 bg-red-50 text-red-700" : ""}`}
-                        title={overCeiling.has(i) ? `Above the SO Purchase Rate (${r.extras.so_purchase_rate})` : undefined}
+                        className={`input w-36 text-right tabular-nums ${overCeiling.has(i) ? "border-red-400 bg-red-50 text-red-700" : ""}`}
+                        title={overCeiling.has(i) ? `Above the item's Purchase Rate (${r.extras.so_purchase_rate})` : undefined}
                         inputMode="decimal" value={r.rate} onChange={(e) => setRow(i, { rate: e.target.value })} />
                     </td>
                   )}
-                  {showRateAmount && <td className="px-2 py-1"><input className="input w-32 text-right tabular-nums" inputMode="decimal" value={r.amount} onChange={(e) => setRow(i, { amount: e.target.value })} /></td>}
-                  {lineExtras.map((x) => (
+                  {showRateAmount && <td className="px-2 py-1"><input className="input w-40 text-right tabular-nums" inputMode="decimal" value={r.amount} onChange={(e) => setRow(i, { amount: e.target.value })} /></td>}
+                  {postExtras.map((x) => (
                     <td key={x.key} className="px-2 py-1">
-                      <input className={`input ${x.kind === "text" ? "w-40" : "w-28 text-right tabular-nums"}`}
+                      <input className={`input ${x.kind === "text" ? "w-56" : "w-36 text-right tabular-nums"}`}
                         inputMode={x.kind === "text" ? undefined : "decimal"}
                         value={r.extras[x.key] ?? ""} onChange={(e) => setRowExtra(i, x.key, e.target.value)} />
                     </td>
@@ -588,9 +711,14 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
             {showRateAmount && (
               <tfoot>
                 <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
-                  <td /><td className="px-2 py-2 text-slate-500" colSpan={gridCols - lineExtras.length - 2}>Subtotal</td>
+                  <td />
+                  {/* Everything from Tag Area through Rate, so Subtotal lands under Amount. */}
+                  <td className="px-2 py-2 text-slate-500"
+                      colSpan={(cfg.tagAreaInLine ? 1 : 0) + 1 + (showUnits ? 1 : 0) + 1 + preRateExtras.length + 1}>
+                    Subtotal
+                  </td>
                   <td className="px-2 py-2 text-right tabular-nums">{money(subtotal)}</td>
-                  {lineExtras.map((x) => (
+                  {postExtras.map((x) => (
                     <td key={x.key} className="px-2 py-2 text-right tabular-nums text-slate-500">
                       {x.kind === "text" ? "" : money(rows.reduce((s, r) => s + num(r.extras[x.key]), 0))}
                     </td>
@@ -613,14 +741,30 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
               <div className="text-xs text-slate-400">Recorded on the lines for costing; the document total below stays the supplier&apos;s billed amount.</div>
             </div>
           )}
+          {showRateAmount && cfg.showDiscount && (
+            <div>
+              <label className="label">Discount</label>
+              <input className="input w-32 text-right tabular-nums" inputMode="decimal" value={discount}
+                onChange={(e) => setDiscount(e.target.value)} placeholder="0.00" />
+            </div>
+          )}
           {showRateAmount && <div><label className="label">Round Off</label><input className="input w-28 text-right tabular-nums" inputMode="decimal" value={roundOff} onChange={(e) => setRoundOff(e.target.value)} placeholder="0.00" /></div>}
-          {showRateAmount && <div className="text-right"><div className="text-xs uppercase tracking-wide text-slate-400">Net Total</div><div className="text-2xl font-bold text-brand">{money(total)}</div></div>}
+          {showRateAmount && (
+            <div className="text-right">
+              <div className="text-xs uppercase tracking-wide text-slate-400">Net Total</div>
+              <div className="text-2xl font-bold text-brand">{money(total)}</div>
+              {discountAmt !== 0 && (
+                <div className="text-xs text-slate-400">{money(subtotal)} &minus; {money(discountAmt)} discount</div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={save} disabled={busy || posted || awaiting || !mayWrite()} className="btn disabled:opacity-40">
-            {busy ? "Saving…" : posted ? "Posted (locked)" : awaiting ? "Awaiting authorisation"
-              : !mayWrite() ? (id ? "No Edit rights" : "No Create rights") : id ? "Save changes" : "Save"}
+          <button onClick={save} disabled={busy || postedLock() || awaiting || !mayWrite()} className="btn disabled:opacity-40">
+            {busy ? "Saving…" : postedLock() ? "Posted (locked)" : awaiting ? "Awaiting authorisation"
+              : !mayWrite() ? (id ? "No Edit rights" : "No Create rights")
+              : posted ? "Re-post changes" : id ? "Save changes" : "Save"}
           </button>
           {!hideLines && <button onClick={() => setRows((r) => [...r, blankRow()])} className="btn-outline text-sm">+ Line</button>}
           <span className="ml-auto text-xs text-slate-400">{id ? `Editing ${docNo}` : "New document — number auto-assigned on save."}</span>

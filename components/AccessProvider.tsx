@@ -26,7 +26,9 @@ export function AccessProvider({ value, children }: { value: Access; children: R
  *   <button disabled={!canCreate}>Save</button>
  *
  * An unconfigured user (nothing ticked in the Access tab) and an admin get
- * everything, matching the convention the rest of the access model uses.
+ * everything, matching the convention the rest of the access model uses — with
+ * the one exception hasDocRight enforces, `edit_posted`, which has to be ticked
+ * by name because it reaches into vouchers already in the ledger.
  */
 export function useDocRights(doc: string) {
   const { isAdmin, docRights } = useContext(Ctx);
@@ -34,7 +36,7 @@ export function useDocRights(doc: string) {
   return {
     may,
     canAccess: may("access"), canCreate: may("create"), canEdit: may("edit"),
-    canDelete: may("delete"), canPrint: may("print"),
+    canDelete: may("delete"), canPrint: may("print"), canEditPosted: may("edit_posted"),
     // Why a button is off, ready for a title attribute.
     denied: (right: DocRight) => (may(right) ? undefined : `You don't have ${right.replace("_", " ")} rights on this screen`),
   };

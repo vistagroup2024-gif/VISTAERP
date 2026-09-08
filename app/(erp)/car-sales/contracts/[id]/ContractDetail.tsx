@@ -28,7 +28,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
   const today = todaySA();
   const paid = installments.reduce((a, i) => a + Number(i.paid_amount || 0), 0);
   const schedTotal = installments.reduce((a, i) => a + Number(i.amount || 0), 0);
-  const outstanding = Number(contract.sale_price || 0) - Number(contract.advance || 0) - paid;
+  const outstanding = Number(contract.net_payable || 0) - Number(contract.advance || 0) - paid;
   const overdue = installments.reduce((a, i) => a + (i.due_date < today ? Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)) : 0), 0);
   const dueNow = installments.filter((i) => i.due_date <= today).reduce((a, i) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
   const next = installments.filter((i) => Number(i.paid_amount || 0) < Number(i.amount || 0)).sort((a, b) => (a.due_date < b.due_date ? -1 : 1))[0];
@@ -48,7 +48,14 @@ export default function ContractDetail({ contract, installments, receipts = [], 
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
 
       <div className="card flex flex-wrap items-center gap-3">
-        <span className={`badge ${CONTRACT_STATUS_TONE[st] ?? "bg-slate-100"}`}>{CONTRACT_STATUS_LABEL[st] ?? st}</span>
+        {/* A returned invoice is cancelled, but "Cancelled" alone reads as if
+            the sale never happened. It did — and it was reversed on a date, by
+            a document. Say which. */}
+        {contract.returned_at ? (
+          <span className="badge bg-amber-100 text-amber-800">Returned {dateStr(contract.returned_at)}</span>
+        ) : (
+          <span className={`badge ${CONTRACT_STATUS_TONE[st] ?? "bg-slate-100"}`}>{CONTRACT_STATUS_LABEL[st] ?? st}</span>
+        )}
         <div className="ml-auto flex flex-wrap gap-2">
           {canManage && st === "draft" && <Link href={`/car-sales/contracts/${contract.id}/edit`} className="btn-outline text-sm">Edit</Link>}
           {canManage && st === "draft" && <button disabled={busy} className="btn text-sm" onClick={() => call("car_contract_activate", "Activate this contract? The vehicle will be marked Sold.")}>Activate</button>}
@@ -58,7 +65,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
 
       {/* Financial summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-        <Money label="Contract Value" value={sar(contract.sale_price)} />
+        <Money label="Contract Value" value={sar(contract.net_payable ?? contract.sale_price)} />
         <Money label="Advance" value={sar(contract.advance)} />
         <Money label="Total Paid" value={sar(paid)} tone="text-emerald-700" />
         <Money label="Outstanding" value={sar(outstanding)} />
@@ -98,7 +105,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
             <dt className="text-slate-400">Delivery Date</dt><dd className="font-medium">{dateStr(contract.delivery_date)}</dd>
             <dt className="text-slate-400">Expected Completion</dt><dd className="font-medium">{dateStr(contract.expected_completion_date)}</dd>
             {canCost && <><dt className="text-slate-400">Purchase Cost</dt><dd className="font-medium">{sar(contract.purchase_cost)}</dd></>}
-            {canCost && <><dt className="text-slate-400">Gross Profit</dt><dd className="font-medium text-emerald-700">{sar(Number(contract.sale_price || 0) - Number(contract.purchase_cost || 0))}</dd></>}
+            {canCost && <><dt className="text-slate-400">Gross Profit</dt><dd className="font-medium text-emerald-700">{sar(Number(contract.net_payable || 0) - Number(contract.purchase_cost || 0))}</dd></>}
           </dl>
         </section>
       </div>
@@ -137,7 +144,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
       )}
 
       {canManage && contract.status !== "cancelled" && (
-        <CommissionPanel contractId={contract.id} commission={commission} salePrice={Number(contract.sale_price || 0)} onDone={() => router.refresh()} />
+        <CommissionPanel contractId={contract.id} commission={commission} salePrice={Number(contract.net_payable || 0)} onDone={() => router.refresh()} />
       )}
 
       {canReceipts && contract.status === "active" && (

@@ -16,7 +16,7 @@ export default async function CompletionDoc({ params }: { params: { id: string }
   ]);
   if (!c) notFound();
   const paid = (insts ?? []).reduce((a: number, i: any) => a + Number(i.paid_amount || 0), 0) + Number(c.advance || 0);
-  const remaining = Number(c.sale_price || 0) - paid;
+  const remaining = Number(c.net_payable || 0) - paid;
 
   return (
     <CarDoc title="Installment Completion Statement" subtitle={`${c.contract_no}`}>
@@ -28,7 +28,7 @@ export default async function CompletionDoc({ params }: { params: { id: string }
           <Field l="Plate / VIN" v={[(c as any).vehicle?.plate_no, (c as any).vehicle?.vin].filter(Boolean).join(" · ")} />
         </div>
         <div>
-          <Field l="Contract Value" v={sar(c.sale_price)} />
+          <Field l="Contract Value" v={sar(c.net_payable ?? c.sale_price)} />
           <Field l="Total Paid" v={sar(paid)} />
           <Field l="Remaining Balance" v={sar(remaining)} />
           <Field l="Status" v={c.status === "completed" ? "Completed" : "In progress"} />

@@ -22,7 +22,7 @@ const today = () => todaySA();
 
 const blank = () => ({
   customer_id: "", vehicle_id: "", contract_date: today(),
-  cost_center: "", tag_area: "", sale_price: "", advance: "", advance_due_date: "",
+  cost_center: "", tag_area: "", sale_price: "", discount: "", advance: "", advance_due_date: "",
   reference_name: "", salesperson: "", notes: "", keep_vista: true,
 });
 
@@ -49,7 +49,8 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
     customer_id: existing.customer_id ?? "", vehicle_id: existing.vehicle_id ?? "",
     contract_date: existing.contract_date ?? today(),
     cost_center: existing.cost_center ?? "", tag_area: existing.tag_area ?? "",
-    sale_price: existing.sale_price ?? "", advance: existing.advance ?? "",
+    sale_price: existing.sale_price ?? "", discount: existing.discount ?? "",
+    advance: existing.advance ?? "",
     advance_due_date: existing.advance_due_date ?? "",
     reference_name: existing.reference_name ?? "", salesperson: existing.salesperson ?? "",
     notes: existing.notes ?? "", keep_vista: existing.keep_vista ?? true,
@@ -77,7 +78,8 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
       customer_id: row.customer_id ?? "", vehicle_id: row.vehicle_id ?? "",
       contract_date: row.contract_date ?? today(),
       cost_center: row.cost_center ?? "", tag_area: row.tag_area ?? "",
-      sale_price: row.sale_price ?? "", advance: row.advance ?? "",
+      sale_price: row.sale_price ?? "", discount: row.discount ?? "",
+      advance: row.advance ?? "",
       advance_due_date: row.advance_due_date ?? "",
       reference_name: row.reference_name ?? "", salesperson: row.salesperson ?? "",
       notes: row.notes ?? "", keep_vista: true,
@@ -89,7 +91,7 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
     setErr(null); setDone(null);
   }, [supabase]);
 
-  const SELECT = "id, contract_no, contract_date, customer_id, vehicle_id, cost_center, tag_area, sale_price, advance, advance_due_date, reference_name, salesperson, notes, status, source_doc_id";
+  const SELECT = "id, contract_no, contract_date, customer_id, vehicle_id, cost_center, tag_area, sale_price, discount, net_payable, advance, advance_due_date, reference_name, salesperson, notes, status, source_doc_id";
 
   async function nav(dir: "prev" | "next") {
     setErr(null);
@@ -114,9 +116,10 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
     openInvoice(data);
   }
 
-  function resetNew() {
+  function resetNew(keepMessage?: string) {
     setId(null); setDocNo(""); setStatus("draft"); setH(blank()); setRows([]);
-    setSourceId(null); setSourceNo(null); setItemName(null); setErr(null); setDone(null);
+    setSourceId(null); setSourceNo(null); setItemName(null); setErr(null);
+    setDone(keepMessage ?? null);
   }
 
   /**
@@ -140,6 +143,9 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
       cost_center: v.cost_center ?? cur.cost_center,
       tag_area: v.tag_area ?? cur.tag_area,
       sale_price: String(v.sale_price ?? cur.sale_price ?? ""),
+      // A Sale Order has no discount of its own, and the one on screen belonged
+      // to whatever was open before. Start clean.
+      discount: "",
       advance: String(v.advance ?? cur.advance ?? ""),
       advance_due_date: v.advance_due_date ?? cur.advance_due_date,
       reference_name: v.reference_name ?? cur.reference_name,
@@ -157,7 +163,14 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
 
   async function del() {
     if (!id) return;
-    if (!confirm(`Delete car invoice ${docNo}? This cannot be undone.`)) return;
+    if (finalised && !rights.canEditPosted) return;
+    const warning = finalised
+      ? `Delete car invoice ${docNo}?\n\nIt is in the ledger, so deleting it also undoes what it did:\n`
+        + "  • the sale and the advance come off the customer's account\n"
+        + "  • the vehicle goes back into stock\n\n"
+        + "This cannot be undone."
+      : `Delete car invoice ${docNo}? This cannot be undone.`;
+    if (!confirm(warning)) return;
     setSaving(true); setErr(null);
     const { error } = await supabase.rpc("car_contract_delete", { p_id: id });
     setSaving(false);
@@ -166,9 +179,16 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
   }
 
   const isTrading = useMemo(() => !!vehicles.find((v) => v.id === h.vehicle_id)?.is_trading, [vehicles, h.vehicle_id]);
-  const remaining = useMemo(() => (Number(h.sale_price) || 0) - (Number(h.advance) || 0), [h.sale_price, h.advance]);
+  // Net Payable is the agreed price less the discount, and it is what the
+  // customer owes — so the advance and the instalments settle IT, not the
+  // gross. The database computes the same figure as a generated column, so the
+  // two cannot drift.
+  const netPayable = useMemo(
+    () => Math.round(((Number(h.sale_price) || 0) - (Number(h.discount) || 0)) * 100) / 100,
+    [h.sale_price, h.discount]);
+  const remaining = useMemo(() => netPayable - (Number(h.advance) || 0), [netPayable, h.advance]);
   const schedTotal = useMemo(() => rows.reduce((a, r) => a + (Number(r.amount) || 0), 0), [rows]);
-  const diff = useMemo(() => Math.round(((Number(h.sale_price) || 0) - (Number(h.advance) || 0) - schedTotal) * 100) / 100, [h.sale_price, h.advance, schedTotal]);
+  const diff = useMemo(() => Math.round((netPayable - (Number(h.advance) || 0) - schedTotal) * 100) / 100, [netPayable, h.advance, schedTotal]);
 
   const setRow = (i: number, k: keyof Inst, v: any) => setRows((a) => a.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
 
@@ -185,9 +205,15 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (diff !== 0) { setErr(`Advance + installments must equal the sale price. Difference: ${sar(diff)}.`); return; }
+    if (diff !== 0) { setErr(`Advance + installments must equal the net payable (${sar(netPayable)}). Difference: ${sar(diff)}.`); return; }
+    if (finalised && !confirm(
+      `${docNo} is already in the ledger. Saving re-does it from what is on screen now:\n\n`
+      + "  • the sale and the advance are replaced at the new figures\n"
+      + "  • the customer's balance moves by the difference\n\n"
+      + "It happens in one step, so if anything refuses, nothing changes.")) return;
     setSaving(true); setErr(null);
-    const payload = { ...h, keep_vista: isTrading ? h.keep_vista : true, sale_price: String(h.sale_price || 0), advance: String(h.advance || 0) };
+    const payload = { ...h, keep_vista: isTrading ? h.keep_vista : true,
+      sale_price: String(h.sale_price || 0), discount: String(h.discount || 0), advance: String(h.advance || 0) };
     const p_inst = rows.map((r) => ({ due_date: r.due_date, amount: String(r.amount || 0), notes: r.notes }));
     const { data, error } = await supabase.rpc("car_contract_save", { p_id: id, p_header: payload, p_installments: p_inst });
     if (error) { setSaving(false); return setErr(error.message); }
@@ -197,7 +223,11 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
     }
     const { data: row } = await supabase.from("car_contracts").select(SELECT).eq("id", data).maybeSingle();
     setSaving(false);
-    if (row) { await openInvoice(row); setDone(`saved ${row.contract_no}`); }
+    // Straight into the next blank invoice, as every other voucher now does.
+    // The one just saved is a keystroke away: its number in Invoice No., or
+    // ‹ Previous.
+    resetNew(row ? `saved ${row.contract_no} — new Car Invoice ready` : "saved");
+    router.refresh();
     router.refresh();
   }
 
@@ -212,7 +242,7 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
       </div>
 
       <div className="card flex flex-wrap items-center gap-2 py-2">
-        <button type="button" onClick={resetNew} disabled={saving} className="btn-outline text-sm">＋ New</button>
+        <button type="button" onClick={() => resetNew()} disabled={saving} className="btn-outline text-sm">＋ New</button>
         <button type="button" onClick={() => nav("prev")} disabled={saving} className="btn-outline text-sm">‹ Previous</button>
         <button type="button" onClick={() => nav("next")} disabled={saving} className="btn-outline text-sm">Next ›</button>
         <button type="button" onClick={() => setLoadOpen(true)} disabled={saving || finalised} className="btn text-sm disabled:opacity-40">⤓ Load Sale Order</button>
@@ -223,7 +253,12 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
             className="btn-outline text-sm disabled:opacity-40">Open ↗</button>
           <button type="button" onClick={() => id && window.open(`/car-sales/contracts/${id}/agreement`, "_blank")}
             disabled={!id || !rights.canPrint} title={rights.denied("print")} className="btn-outline text-sm disabled:opacity-40">🖨 Print</button>
-          <button type="button" onClick={del} disabled={!id || saving || !rights.canDelete} title={rights.denied("delete")}
+          <button type="button" onClick={del}
+            disabled={!id || saving || !rights.canDelete || (finalised && !rights.canEditPosted)}
+            title={!rights.canDelete ? rights.denied("delete")
+              : finalised && !rights.canEditPosted
+                ? "This car invoice is in the ledger. Deleting it needs the Edit/Delete Posted right, which an administrator grants."
+                : undefined}
             className="btn-outline text-sm text-red-600 disabled:opacity-40">🗑 Delete</button>
         </div>
       </div>
@@ -231,6 +266,15 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
       {loadOpen && (
         <LoadFromPicker targetType="car_invoice" sourceTitle="Sale Order" rpc="car_pending_sale_orders" rpcArgs={{}}
           onPick={loadFromOrder} onClose={() => setLoadOpen(false)} />
+      )}
+
+      {finalised && rights.canEditPosted && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span className="font-medium">This invoice is already in the ledger.</span>{" "}
+          Saving it again replaces the sale and the advance at the new figures, so the customer&apos;s balance
+          moves by the difference; deleting it takes both back out and returns the vehicle to stock. A receipt
+          taken against it has to be reversed first.
+        </div>
       )}
 
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
@@ -277,6 +321,10 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
 
           <FormSection title="Financials" cols={3}>
             <Field label="Installment Sale Price (SAR)" required><input type="number" step="0.01" className="input" value={h.sale_price} onChange={(e) => setH({ ...h, sale_price: e.target.value })} /></Field>
+            <Field label="Discount (SAR)"><input type="number" step="0.01" className="input" value={h.discount} onChange={(e) => setH({ ...h, discount: e.target.value })} placeholder="0.00" /></Field>
+            <Field label="Net Payable (auto)">
+              <input className="input bg-slate-50 font-medium" value={netPayable.toFixed(2)} readOnly tabIndex={-1} />
+            </Field>
             <Field label="Advance (SAR)"><input type="number" step="0.01" className="input" value={h.advance} onChange={(e) => setH({ ...h, advance: e.target.value })} /></Field>
             <Field label="Advance Due Date"><input type="date" className="input" value={h.advance_due_date} onChange={(e) => setH({ ...h, advance_due_date: e.target.value })} /></Field>
             {isTrading && (
@@ -335,11 +383,18 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
         </section>
 
         <div className="flex gap-2 border-t border-slate-100 pt-4">
-          <button className="btn disabled:opacity-40" disabled={saving || diff !== 0 || finalised || !mayEdit}
-            title={finalised ? "This car invoice is finalised — use adjustments to change it" : rights.denied(id ? "edit" : "create")}>
-            {!mayEdit ? (id ? "No Edit rights" : "No Create rights") : saving ? "Saving…" : id ? "Save changes" : "Save car invoice"}
+          <button className="btn disabled:opacity-40"
+            disabled={saving || diff !== 0 || (finalised && !rights.canEditPosted) || !mayEdit}
+            title={finalised && !rights.canEditPosted
+              ? "This car invoice is in the ledger. Changing it needs the Edit/Delete Posted right, which an administrator grants."
+              : rights.denied(id ? "edit" : "create")}>
+            {!mayEdit ? (id ? "No Edit rights" : "No Create rights")
+              : saving ? "Saving…"
+              : finalised && !rights.canEditPosted ? "In the ledger (locked)"
+              : finalised ? "Re-post changes"
+              : id ? "Save changes" : "Save car invoice"}
           </button>
-          <button type="button" className="btn-outline" onClick={resetNew}>Clear</button>
+          <button type="button" className="btn-outline" onClick={() => resetNew()}>Clear</button>
         </div>
       </form>
     </div>

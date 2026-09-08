@@ -13,18 +13,18 @@ export default async function ProfitabilityReport() {
   if (!staffCan(access, "carsales.cost")) redirect("/car-sales/reports");
   const supabase = createClient();
   const { data } = await supabase.from("car_contracts")
-    .select("id, contract_no, purchase_cost, sale_price, advance, status, vehicle:vehicle_id(make, model, model_year, plate_no), car_installments(paid_amount, amount), car_commissions(amount)")
+    .select("id, contract_no, purchase_cost, sale_price, net_payable, advance, status, vehicle:vehicle_id(make, model, model_year, plate_no), car_installments(paid_amount, amount), car_commissions(amount)")
     .neq("status", "cancelled").order("created_at", { ascending: false });
 
   const rows = (data ?? []).map((c: any) => {
     const insts = c.car_installments ?? [];
     const collected = Number(c.advance || 0) + insts.reduce((a: number, i: any) => a + Number(i.paid_amount || 0), 0);
     const commission = (c.car_commissions ?? []).reduce((a: number, r: any) => a + Number(r.amount || 0), 0);
-    const gross = Number(c.sale_price || 0) - Number(c.purchase_cost || 0);
+    const gross = Number(c.net_payable || 0) - Number(c.purchase_cost || 0);
     return {
       id: c.id, contract_no: c.contract_no, vehicle: vehicleTitle(c.vehicle ?? {}),
-      cost: Number(c.purchase_cost || 0), sale: Number(c.sale_price || 0), gross, commission,
-      net: gross - commission, collected, outstanding: Number(c.sale_price || 0) - collected,
+      cost: Number(c.purchase_cost || 0), sale: Number(c.net_payable || 0), gross, commission,
+      net: gross - commission, collected, outstanding: Number(c.net_payable || 0) - collected,
     };
   });
   const t = rows.reduce((a, r) => ({ cost: a.cost + r.cost, sale: a.sale + r.sale, gross: a.gross + r.gross, commission: a.commission + r.commission, net: a.net + r.net, collected: a.collected + r.collected, outstanding: a.outstanding + r.outstanding }), { cost: 0, sale: 0, gross: 0, commission: 0, net: 0, collected: 0, outstanding: 0 });

@@ -126,8 +126,12 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
   const isJournal = kind === "journal";
   const isContra = kind === "contra";
 
-  function resetToNew() {
-    setEntryId(null); setEntryNo(null); setEditable(true); setDone(null); setError(null); setDocField("");
+  // `keepMessage` survives the reset. Posting already cleared down to a blank
+  // voucher, but it did so by calling this straight after setDone(...), which
+  // set the confirmation and then wiped it — so a posted receipt looked like
+  // nothing had happened. The number is what the clerk writes on the paper.
+  function resetToNew(keepMessage?: string) {
+    setEntryId(null); setEntryNo(null); setEditable(true); setDone(keepMessage ?? null); setError(null); setDocField("");
     setDate(todaySA());
     setNarration(""); setReference(""); setAmount(""); setToAcct(null); setCostCenter(""); setTagArea("");
     setLines([emptyLine(), emptyLine()]);
@@ -255,8 +259,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
     const { error } = await supabase.rpc("gl_voucher_void", { p_entry: entryId, p_reason: reason || null });
     setBusy(false);
     if (error) return setError(error.message);
-    setDone(`voided ${entryNo ?? ""}`);
-    resetToNew(); router.refresh();
+    resetToNew(`voided ${entryNo ?? ""}`); router.refresh();
   }
   function printVoucher() { if (entryId) window.open(`/accounting/vouchers/${entryId}`, "_blank"); }
 
@@ -330,9 +333,11 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
           p_entry: entryId, p_date: date, p_memo: narration || null, p_reference: reference || null, p_lines: jl,
         });
         if (error) throw new Error(error.message);
-        setDone(`updated ${(data as any)?.entry_no ?? ""}`);
-        router.refresh();
+        // Editing clears down to a blank voucher too, the same as posting one.
+        // Print first: printVoucher reads the entry that is about to be cleared.
         if (printAfter) printVoucher();
+        resetToNew(`updated ${(data as any)?.entry_no ?? ""} — new voucher ready`);
+        router.refresh();
         return;
       }
 
@@ -352,8 +357,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
             p_company: COMPANY_ID, p_date: date, p_narration: narration || null, p_reference: reference || null, p_lines: payload,
           });
           if (error) throw new Error(error.message);
-          setDone(`posted ${(data as any)?.entry_no ?? ""} (bill-wise)`);
-          resetToNew(); router.refresh();
+          resetToNew(`posted ${(data as any)?.entry_no ?? ""} (bill-wise) — new voucher ready`); router.refresh();
           if (printAfter && (data as any)?.entry_id) window.open(`/accounting/vouchers/${(data as any).entry_id}`, "_blank");
           return;
         }
@@ -389,8 +393,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
             p_date: date, p_cash_bank: cash, p_narration: narration || null, p_reference: reference || null, p_lines: payload,
           });
           if (error) throw new Error(error.message);
-          setDone(`posted ${(data as any)?.entry_no ?? ""} (bill-wise)`);
-          resetToNew(); router.refresh();
+          resetToNew(`posted ${(data as any)?.entry_no ?? ""} (bill-wise) — new voucher ready`); router.refresh();
           if (printAfter && (data as any)?.entry_id) window.open(`/accounting/vouchers/${(data as any).entry_id}`, "_blank");
           return;
         }
@@ -403,8 +406,9 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
       const { data, error } = await supabase.rpc(rpc, args);
       if (error) throw new Error(error.message);
       const res = data as any;
-      setDone(res?.pending ? `submitted for approval (${money(Number(res.amount))})` : `posted ${res?.entry_no ?? ""}`);
-      resetToNew();
+      resetToNew(res?.pending
+        ? `submitted for approval (${money(Number(res.amount))}) — new voucher ready`
+        : `posted ${res?.entry_no ?? ""} — new voucher ready`);
       router.refresh();
       if (printAfter && res?.entry_id) window.open(`/accounting/vouchers/${res.entry_id}`, "_blank");
     } catch (e: any) {
@@ -435,7 +439,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
 
       {/* Record toolbar */}
       <div className="panel flex flex-wrap items-center gap-2 px-3 py-2">
-        <button type="button" onClick={resetToNew} disabled={busy} className="btn-outline btn-sm">New</button>
+        <button type="button" onClick={() => resetToNew()} disabled={busy} className="btn-outline btn-sm">New</button>
         <button type="button" onClick={() => nav("prev")} disabled={busy} className="btn-outline btn-sm">‹ Previous</button>
         <button type="button" onClick={() => nav("next")} disabled={busy} className="btn-outline btn-sm">Next ›</button>
         <div className="ml-auto flex items-center gap-2">
