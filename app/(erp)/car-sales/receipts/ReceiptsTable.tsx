@@ -8,7 +8,8 @@ import { sar } from "../lib";
 
 export interface ReceiptRow {
   id: string; receipt_no: string; receipt_date: string | null; amount: number; method: string;
-  reference: string | null; contract_id: string | null; contract_no: string | null; customer: string | null;
+  reference: string | null; contract_id: string | null; contract_no: string | null;
+  source_doc_id: string | null; source_doc_no: string | null; customer: string | null;
 }
 
 const METHODS = ["cash", "bank", "card", "transfer"];
@@ -19,7 +20,7 @@ export default function ReceiptsTable({ rows }: { rows: ReceiptRow[] }) {
 
   const filtered = useMemo(() => rows.filter((r) => {
     if (method.length && !method.includes(r.method)) return false;
-    if (q && ![r.receipt_no, r.contract_no, r.customer, r.reference].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase())) return false;
+    if (q && ![r.receipt_no, r.contract_no, r.source_doc_no, r.customer, r.reference].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase())) return false;
     return true;
   }), [rows, q, method]);
 
@@ -28,7 +29,7 @@ export default function ReceiptsTable({ rows }: { rows: ReceiptRow[] }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <input className="input max-w-xs" placeholder="Search receipt / contract / customer…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input max-w-xs" placeholder="Search receipt / invoice / order / customer…" value={q} onChange={(e) => setQ(e.target.value)} />
         <MultiSelectFilter label="Method" options={METHODS.map((m) => ({ value: m, label: m[0].toUpperCase() + m.slice(1) }))} selected={method} onChange={setMethod} />
         <span className="ml-auto text-sm text-slate-500">{filtered.length} / {rows.length} · {sar(total)}</span>
       </div>
@@ -36,7 +37,7 @@ export default function ReceiptsTable({ rows }: { rows: ReceiptRow[] }) {
         <table className="w-full min-w-[720px]">
           <thead className="bg-slate-50"><tr>
             <th className="th">Receipt</th><th className="th">Date</th><th className="th">Customer</th>
-            <th className="th">Contract</th><th className="th">Method</th><th className="th">Reference</th><th className="th text-right">Amount</th>
+            <th className="th">Against</th><th className="th">Method</th><th className="th">Reference</th><th className="th text-right">Amount</th>
           </tr></thead>
           <tbody>
             {filtered.map((r) => (
@@ -44,7 +45,15 @@ export default function ReceiptsTable({ rows }: { rows: ReceiptRow[] }) {
                 <td className="td font-medium"><Link href={`/car-sales/receipts/${r.id}`} className="text-brand hover:underline">{r.receipt_no}</Link></td>
                 <td className="td">{dateStr(r.receipt_date)}</td>
                 <td className="td">{r.customer ?? "—"}</td>
-                <td className="td">{r.contract_id ? <Link href={`/car-sales/contracts/${r.contract_id}`} className="text-brand hover:underline">{r.contract_no}</Link> : "—"}</td>
+                {/* A receipt is against the Car Invoice, or — when the advance
+                    came in first — against the Sale Order it was paid on. */}
+                <td className="td">
+                  {r.contract_id
+                    ? <Link href={`/car-sales/contracts/${r.contract_id}`} className="text-brand hover:underline">{r.contract_no}</Link>
+                    : r.source_doc_id
+                      ? <span>{r.source_doc_no} <span className="badge bg-amber-100 text-amber-800">Advance</span></span>
+                      : "—"}
+                </td>
                 <td className="td capitalize">{r.method}</td>
                 <td className="td">{r.reference ?? "—"}</td>
                 <td className="td text-right tabular-nums">{sar(r.amount)}</td>

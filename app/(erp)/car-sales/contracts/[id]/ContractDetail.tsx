@@ -8,11 +8,12 @@ import { dateStr } from "@/lib/format";
 import { CONTRACT_STATUS_LABEL, CONTRACT_STATUS_TONE, INST_STATUS_LABEL, INST_STATUS_TONE, instStatus, sar, vehicleTitle } from "../../lib";
 import { todaySA } from "@/lib/saudiTime";
 
-function Money({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Money({ label, value, tone, note }: { label: string; value: string; tone?: string; note?: string }) {
   return (
     <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
       <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
       <div className={`text-lg font-bold tabular-nums ${tone ?? "text-slate-800"}`}>{value}</div>
+      {note && <div className="text-xs text-slate-500">{note}</div>}
     </div>
   );
 }
@@ -26,11 +27,30 @@ export default function ContractDetail({ contract, installments, receipts = [], 
   const [err, setErr] = useState<string | null>(null);
 
   const today = todaySA();
-  const paid = installments.reduce((a, i) => a + Number(i.paid_amount || 0), 0);
+  const monthStart = `${today.slice(0, 7)}-01`;
+
+  /* The advance is money like any other: it is owed until a receipt is
+     allocated to it. It used to be treated as received the moment the invoice
+     was raised, which is why Outstanding read short by the whole advance. */
+  const advTotal = Number(contract.advance || 0);
+  const advPaid = receipts.reduce((a, r) => a + ((r.car_receipt_allocations ?? []) as any[])
+    .filter((x) => x.target_type === "advance").reduce((b, x) => b + Number(x.amount || 0), 0), 0);
+  const advDue = Math.max(0, advTotal - advPaid);
+  const advDate = (contract.advance_due_date || contract.contract_date) as string;
+
+  const instPaid = installments.reduce((a, i) => a + Number(i.paid_amount || 0), 0);
+  const paid = instPaid + advPaid;
   const schedTotal = installments.reduce((a, i) => a + Number(i.amount || 0), 0);
-  const outstanding = Number(contract.net_payable || 0) - Number(contract.advance || 0) - paid;
-  const overdue = installments.reduce((a, i) => a + (i.due_date < today ? Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)) : 0), 0);
-  const dueNow = installments.filter((i) => i.due_date <= today).reduce((a, i) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
+  const outstanding = Number(contract.net_payable || 0) - paid;
+
+  /* Same boundary as the dashboard: something is OVERDUE once the month it was
+     due in has ended, and DUE from its own date until then. Nothing is in both,
+     and nothing is asked for before its date. */
+  const overdue = installments.reduce((a, i) => a + (i.due_date < monthStart ? Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)) : 0), 0)
+    + (advDate && advDate < monthStart ? advDue : 0);
+  const dueNow = installments.filter((i) => i.due_date >= monthStart && i.due_date <= today)
+    .reduce((a, i) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0)
+    + (advDate && advDate >= monthStart && advDate <= today ? advDue : 0);
   const next = installments.filter((i) => Number(i.paid_amount || 0) < Number(i.amount || 0)).sort((a, b) => (a.due_date < b.due_date ? -1 : 1))[0];
   const st = contract.status as string;
 
@@ -66,7 +86,8 @@ export default function ContractDetail({ contract, installments, receipts = [], 
       {/* Financial summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         <Money label="Contract Value" value={sar(contract.net_payable ?? contract.sale_price)} />
-        <Money label="Advance" value={sar(contract.advance)} />
+        <Money label="Advance" value={sar(advTotal)}
+          note={advTotal > 0 ? (advDue > 0 ? `${sar(advPaid)} received · ${sar(advDue)} due` : "received in full") : undefined} />
         <Money label="Total Paid" value={sar(paid)} tone="text-emerald-700" />
         <Money label="Outstanding" value={sar(outstanding)} />
         <Money label="Due Now" value={sar(dueNow)} tone="text-amber-700" />
@@ -148,7 +169,7 @@ export default function ContractDetail({ contract, installments, receipts = [], 
       )}
 
       {canReceipts && contract.status === "active" && (
-        <PaymentPanel contractId={contract.id} installments={installments} onDone={() => router.refresh()} />
+        <PaymentPanel contractId={contract.id} installments={installments} advanceDue={advDue} advanceDate={advDate} onDone={() => router.refresh()} />
       )}
 
       {/* Receipt history */}
@@ -320,7 +341,7 @@ function CommissionPanel({ contractId, commission, salePrice, onDone }: { contra
   );
 }
 
-function PaymentPanel({ contractId, installments, onDone }: { contractId: string; installments: any[]; onDone: () => void }) {
+function PaymentPanel({ contractId, installments, advanceDue, advanceDate, onDone }: { contractId: string; installments: any[]; advanceDue: number; advanceDate: string | null; onDone: () => void }) {
   const supabase = createClient();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -330,13 +351,19 @@ function PaymentPanel({ contractId, installments, onDone }: { contractId: string
   const [reference, setReference] = useState("");
   const unpaid = installments.filter((i) => Number(i.paid_amount || 0) < Number(i.amount || 0));
   const [alloc, setAlloc] = useState<Record<string, string>>({});
-  const total = Object.values(alloc).reduce((a, v) => a + (Number(v) || 0), 0);
+  /* The advance has its own line. It is not in the instalment schedule, so
+     until it had one there was no way to record it as paid at all — and it sat
+     on the dashboard as due for ever. */
+  const [advance, setAdvance] = useState("");
+  const advanceAmt = Number(advance) || 0;
+  const total = Object.values(alloc).reduce((a, v) => a + (Number(v) || 0), 0) + advanceAmt;
 
   async function save() {
-    const allocs = Object.entries(alloc)
+    const allocs: any[] = Object.entries(alloc)
       .filter(([, v]) => Number(v) > 0)
       .map(([installment_id, v]) => ({ target_type: "installment", installment_id, amount: String(v) }));
-    if (allocs.length === 0) { setErr("Allocate the payment to at least one installment."); return; }
+    if (advanceAmt > 0) allocs.unshift({ target_type: "advance", amount: String(advanceAmt) });
+    if (allocs.length === 0) { setErr("Allocate the payment to the advance or to at least one installment."); return; }
     setBusy(true); setErr(null);
     const { error } = await supabase.rpc("car_receipt_save", {
       p_id: null,
@@ -345,7 +372,7 @@ function PaymentPanel({ contractId, installments, onDone }: { contractId: string
     });
     setBusy(false);
     if (error) return setErr(error.message);
-    setAlloc({}); setReference(""); setOpen(false); onDone();
+    setAlloc({}); setAdvance(""); setReference(""); setOpen(false); onDone();
   }
 
   return (
@@ -373,6 +400,20 @@ function PaymentPanel({ contractId, installments, onDone }: { contractId: string
                 <th className="th">No.</th><th className="th">Due</th><th className="th text-right">Amount</th><th className="th text-right">Remaining</th><th className="th text-right">Pay Now</th>
               </tr></thead>
               <tbody>
+                {advanceDue > 0 && (
+                  <tr className="border-b border-slate-50 bg-amber-50/40">
+                    <td className="td">—</td>
+                    <td className="td">{advanceDate ? dateStr(advanceDate) : "—"} <span className="badge bg-amber-100 text-amber-800">Advance</span></td>
+                    <td className="td text-right tabular-nums">{sar(advanceDue)}</td>
+                    <td className="td text-right tabular-nums">{sar(advanceDue)}</td>
+                    <td className="td text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <input type="number" step="0.01" className="input w-28 text-right" value={advance} onChange={(e) => setAdvance(e.target.value)} />
+                        <button type="button" className="text-xs text-brand hover:underline" onClick={() => setAdvance(String(advanceDue))}>full</button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {unpaid.map((i) => {
                   const rem = Number(i.amount) - Number(i.paid_amount);
                   return (
@@ -390,7 +431,7 @@ function PaymentPanel({ contractId, installments, onDone }: { contractId: string
                     </tr>
                   );
                 })}
-                {unpaid.length === 0 && <tr><td className="td text-slate-400" colSpan={5}>All installments are paid.</td></tr>}
+                {unpaid.length === 0 && advanceDue <= 0 && <tr><td className="td text-slate-400" colSpan={5}>Nothing is outstanding on this invoice.</td></tr>}
               </tbody>
             </table>
           </div>
