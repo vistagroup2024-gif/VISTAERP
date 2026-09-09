@@ -24,7 +24,7 @@ function matchLen(path: string, href: string, exact?: boolean) {
 function NavLink({ href, label, icon, activeHref, onClick }: Item & { activeHref: string | null; onClick?: () => void }) {
   const active = activeHref === href;
   return (
-    <Link href={href} onClick={onClick}
+    <Link href={href} onClick={onClick} prefetch={false}
       className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
         active ? "bg-brand-50 font-semibold text-brand-700 shadow-[inset_3px_0_0_#e63c13]" : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
       }`}>

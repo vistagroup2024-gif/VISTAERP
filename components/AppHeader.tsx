@@ -113,7 +113,7 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
                   {sub && (
                     <div className="w-60 shrink-0 border-l border-slate-200 pl-1">
                       {(m.groups.find((g) => g.label === sub)?.items ?? []).map((it) => (
-                        <Link key={it.href} href={it.href} onClick={() => { setQuick(null); setSub(null); }}
+                        <Link key={it.href} href={it.href} prefetch={false} onClick={() => { setQuick(null); setSub(null); }}
                           className="block rounded-sm px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-brand">
                           {it.label}
                         </Link>
@@ -136,7 +136,7 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
               {quick === m.label && (
                 <div className="absolute left-0 top-full mt-1.5 w-72 rounded-md border border-slate-200 bg-white py-1 shadow-pop">
                   {m.items.map((it) => (
-                    <Link key={it.href} href={it.href} onClick={() => setQuick(null)}
+                    <Link key={it.href} href={it.href} prefetch={false} onClick={() => setQuick(null)}
                       className="block px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-brand">
                       {it.label}
                     </Link>
@@ -145,7 +145,7 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
               )}
             </div>
           ) : (
-            <Link key={m.label} href={m.item.href} onClick={() => { setQuick(null); setSub(null); }}
+            <Link key={m.label} href={m.item.href} prefetch={false} onClick={() => { setQuick(null); setSub(null); }}
               className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100">
               <Icon name={m.icon} size={16} className="text-slate-400" />
               {m.label}
@@ -203,7 +203,7 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
                 <p className="truncate text-sm font-semibold text-slate-800">{name}</p>
                 <p className="text-xs text-slate-400">Signed in</p>
               </div>
-              <Link href="/settings/notifications" onClick={() => setMenu(false)}
+              <Link href="/settings/notifications" prefetch={false} onClick={() => setMenu(false)}
                 className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
                 <Icon name="bell" size={16} className="text-slate-400" /> Notifications
               </Link>
