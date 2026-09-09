@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-export type PickProduct = { id: string; name: string; group?: string | null; uom?: string | null };
+/* The rate fields are part of this shape, not extras a caller may bolt on. They
+   were not, and productOptions() below rebuilt every row without them — so the
+   Purchase Order's Purchase Rate ceiling and the car quotation's Total Cost both
+   read `undefined` off a picked item and quietly filled in nothing. TypeScript
+   could not catch it because a narrower object is assignable where the fields
+   are optional; naming them here is what makes the drop a compile error. */
+export type PickProduct = {
+  id: string; name: string; group?: string | null; uom?: string | null;
+  purchase_rate?: number | null;   // what the item costs to buy — the PO ceiling
+  total_cost?: number | null;      // purchase rate + expenses — the quotation's COGS
+};
 
 /**
  * Type-ahead picker over the Product Tree. Items are master data — this picker
@@ -93,9 +103,20 @@ export default function ProductPicker({
  * self-referencing join, which is the one embed shape this codebase has never
  * relied on and which would silently return nothing if it did not resolve.
  */
-export function productOptions(rows: { id: string; name: string; parent_id: string | null; is_group?: boolean }[]): PickProduct[] {
+export function productOptions(rows: {
+  id: string; name: string; parent_id: string | null; is_group?: boolean;
+  purchase_rate?: number | null; total_cost?: number | null;
+}[]): PickProduct[] {
   const nameById = new Map(rows.map((r) => [r.id, r.name] as const));
   return rows
     .filter((r) => !r.is_group)
-    .map((r) => ({ id: r.id, name: r.name, group: r.parent_id ? nameById.get(r.parent_id) ?? null : null }));
+    // Carry the rates through. A screen that picks an item and then asks what it
+    // costs is asking this array, so dropping them here empties the answer
+    // everywhere at once, with nothing failing loudly enough to notice.
+    .map((r) => ({
+      id: r.id, name: r.name,
+      group: r.parent_id ? nameById.get(r.parent_id) ?? null : null,
+      purchase_rate: r.purchase_rate ?? null,
+      total_cost: r.total_cost ?? null,
+    }));
 }
