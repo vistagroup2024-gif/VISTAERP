@@ -154,14 +154,18 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     loadsFrom: { type: "mrn", title: "Material Receipt Note" },
     showDue: true, showMode: true, showTagArea: false, tagAreaInLine: true, showWarehouse: false,
     showDiscount: true,
-    headerExtras: [{ key: "purchase_account", label: "Purchase Account", kind: "account" }],
+    // No Purchase Account. It only ever reached the NON-STOCK part of a bill —
+    // a stock line debits Inventory and a car debits Vehicle Inventory whatever
+    // is chosen — so it was a header control that silently did nothing on most
+    // vouchers, and it was one account for a whole document either way. The
+    // non-stock part goes to Purchases; splitting a bill across expense
+    // accounts is a Journal, which can say a different account per line.
     lineExtras: PV_COMMON_EXTRAS, carLineExtras: PV_CAR_EXTRAS,
   },
   purchase_return: {
     type: "purchase_return", prefix: "PRN-", title: "Purchase Return", party: "supplier",
     showTagArea: true, showWarehouse: false,
     headerExtras: [
-      { key: "purchase_account", label: "Purchase Account", kind: "account" },
       { key: "update_stock", label: "Update Stocks", kind: "check", defaultOn: true },
       { key: "raise_receipt", label: "Raise Receipt", kind: "check" },
     ],
