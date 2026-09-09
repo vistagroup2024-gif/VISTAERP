@@ -209,7 +209,6 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     // that sold it, which is where the vehicle, the customer and the cost are.
     alsoLoadsFrom: { title: "Car Invoice" },
     headerExtras: [
-      { key: "sale_account", label: "Sale Account", kind: "account" },
       { key: "update_stock", label: "Update Stocks", kind: "check", defaultOn: true },
     ],
   },
@@ -219,7 +218,15 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
     // No "Update Stocks" choice: a Sales Invoice is what takes the goods off
     // the shelf, so it always does. See trade_doc_post.
-    headerExtras: [{ key: "sale_account", label: "Sale Account", kind: "account" }],
+    //
+    // And no Sale Account. Unlike Purchase Account it DID work — it chose the
+    // revenue account the whole invoice was credited to — but one account for a
+    // whole document is the wrong grain for that question: an invoice carrying
+    // two kinds of revenue could not be split by it, and every invoice raised so
+    // far left it on "— default —" anyway. Revenue now credits Sales, and a sale
+    // that has to reach different revenue accounts is a Journal, which can name
+    // one per line. The COGS side never listened to it regardless: goods leaving
+    // book against Inventory on rules the posting owns.
     lineExtras: [{ key: "remarks", label: "Remarks", kind: "text" }],
   },
   delivery_note: {
