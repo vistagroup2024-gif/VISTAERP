@@ -98,6 +98,14 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // so the grid is not shown. The LINE is still written on save — it is what
   // carries the vehicle to the Car Invoice — it is just not typed by hand.
   const hideLines = isCar && !!cfg.hideLinesForCar;
+  /* A car document that keeps its grid AND carries the costing block above it —
+     the Sale Order. Its single line is the car being sold, so the line writes
+     itself from the header rather than being typed twice. */
+  const carGrid = isCar && !hideLines && (cfg.carHeaderExtras?.length ?? 0) > 0;
+  // Set once the amount on that line has been typed by hand: from then on the
+  // header's Selling Price stops overwriting it, because the line is what the
+  // Car Invoice reads and a price agreed at ordering has to survive.
+  const [carAmountTouched, setCarAmountTouched] = useState(false);
   const headerExtras: HeaderExtra[] = useMemo(
     () => [...(cfg.headerExtras ?? []), ...(isCar ? cfg.carHeaderExtras ?? [] : [])],
     [cfg, isCar]);
@@ -151,7 +159,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setId(null); setDocNo(""); setDone(keepMessage ?? null); setErr(null);
     setDate(todaySA()); setParty(""); setCostCenter(""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setDiscount("");
-    setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({});
+    setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({}); setCarAmountTouched(false);
     setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false); setCarReturn(null);
   }
   function setRow(i: number, patch: Partial<Row>) {
@@ -160,7 +168,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       const r = next[i];
       // amount auto = qty*rate unless the user typed an amount directly
       if (patch.quantity !== undefined || patch.rate !== undefined) r.amount = String(+(num(r.quantity) * num(r.rate)).toFixed(2) || "");
-      if (i === next.length - 1 && (patch.item_name || patch.product_id || patch.amount || patch.quantity)) next.push(blankRow());
+      if (!carGrid && i === next.length - 1 && (patch.item_name || patch.product_id || patch.amount || patch.quantity)) next.push(blankRow());
       return next;
     });
   }
@@ -210,10 +218,48 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // vehicle fills it again, because that is a different car.
   function pickHeaderProduct(f: HeaderExtra, id: string | null) {
     setExtra(f, id ?? "");
+    // A different vehicle is a different price, so a hand-typed line amount is
+    // no longer the agreed one — let it fill from the new car's costing.
+    setCarAmountTouched(false);
     if (!headerExtras.some((x) => x.key === "total_cost")) return;
     const cost = Number(products.find((p) => p.id === id)?.total_cost ?? 0);
     setExtras((e) => ({ ...e, total_cost: cost > 0 ? String(cost) : "" }));
   }
+
+  /* The line is the car: the Item / Vehicle from the header, one of it, at the
+     Selling Price the costing block worked out. It is a real grid line, so the
+     amount can be adjusted — and because trade_doc_save writes it and the Car
+     Invoice reads it, that adjusted figure is the one that gets invoiced. */
+  useEffect(() => {
+    if (!carGrid) return;
+    const pid = (extraValues.item_id ?? "").trim() || null;
+    const price = num(extraValues.selling_price ?? "");
+    const priceStr = price > 0 ? String(price) : "";
+    setRows((rs) => {
+      const r0 = rs[0] ?? blankRow();
+      const next: Row = {
+        ...r0,
+        product_id: pid ?? r0.product_id,
+        item_name: pid ? (products.find((p) => p.id === pid)?.name ?? r0.item_name) : r0.item_name,
+        quantity: r0.quantity || "1",
+        ...(carAmountTouched ? {} : { rate: priceStr, amount: priceStr }),
+      };
+      const same = next.product_id === r0.product_id && next.item_name === r0.item_name
+        && next.quantity === r0.quantity && next.rate === r0.rate && next.amount === r0.amount;
+      return same ? rs : [next, ...rs.slice(1)];
+    });
+  }, [carGrid, extraValues.item_id, extraValues.selling_price, products, carAmountTouched]);
+
+  /* What a Sale Order takes from the Sales Quotation it was loaded from is the
+     quotation's answer, not a second place to change it — change the costing and
+     the quotation the customer holds no longer says what the order says. Those
+     boxes are shown, and locked. Everything the quotation does NOT carry (the
+     Advance Due Date, the Mega Installment, and the line amount) stays open. */
+  const lockedHeaderKeys = useMemo(() => {
+    if (!sourceId || !cfg.loadsFrom?.type) return new Set<string>();
+    const src = TRADE_DOCS[cfg.loadsFrom.type];
+    return new Set((src?.carHeaderExtras ?? []).map((x) => x.key));
+  }, [sourceId, cfg.loadsFrom?.type]);
 
   const subtotal = useMemo(
     () => (hideLines ? num(extraValues.selling_price ?? "") : rows.reduce((s, r) => s + num(r.amount), 0)),
@@ -247,6 +293,8 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setDiscount(v.meta?.discount ? String(v.meta.discount) : "");
     setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry); setAwaiting(v.status === "awaiting_approval");
     setSourceId(v.source_doc_id ?? null); setSourceCar(v.source_car_contract ?? null); setSourceNo(v.source_doc_no ?? null);
+    // A saved order keeps the amount it was saved with, whatever the header says.
+    setCarAmountTouched(true);
     const meta = (v.meta ?? {}) as Record<string, any>;
     setCarReturn(meta.car_return
       ? { vehicle_no: meta.vehicle_no ?? undefined, sold_for: Number(meta.sold_for ?? 0) || undefined }
@@ -365,6 +413,9 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
 
     if (v.source_kind === "car") { setSourceCar(v.id); setSourceId(null); }
     else { setSourceId(v.id); setSourceCar(null); }
+    // Loading a quotation re-prices the line from its costing; nothing has been
+    // agreed on this order yet.
+    setCarAmountTouched(false);
     setCarReturn(src.car_return
       ? { vehicle_no: src.vehicle_no ?? undefined, sold_for: Number(src.sold_for ?? 0) || undefined }
       : null);
@@ -477,6 +528,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       if (!lines[0].product_id) return setErr("Choose the Item / Vehicle.");
       if (!(lines[0].amount > 0)) return setErr("Enter the costing — the Selling Price is zero.");
     } else if (lines.length === 0) return setErr("Enter at least one item line.");
+    if (carGrid) {
+      if (!lines[0]?.product_id) return setErr("Choose the Item / Vehicle.");
+      if (!(Number(lines[0]?.amount) > 0)) return setErr("The line amount is zero — enter the price this car is being sold at.");
+    }
     setBusy(true);
     const { data, error } = await supabase.rpc("trade_doc_save", {
       p_type: cfg.type, p_prefix: cfg.prefix, p_id: id,
@@ -501,6 +556,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     router.refresh();
   }
 
+  const lockNote = (
+    <span className="ml-1 font-normal normal-case text-slate-400" title="Set on the Sales Quotation this order was loaded from">· from quotation</span>
+  );
+
   function headerField(f: HeaderExtra) {
     const val = extraValues[f.key] ?? "";
     if (f.kind === "check") {
@@ -521,17 +580,22 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       );
     }
     if (f.kind === "date") {
-      return <div key={f.key}><label className="label">{f.label}</label>
-        <input type="date" className="input" value={val} onChange={(e) => setExtra(f, e.target.value)} /></div>;
+      return <div key={f.key}><label className="label">{f.label}{lockedHeaderKeys.has(f.key) && lockNote}</label>
+        <input type="date" className={`input ${lockedHeaderKeys.has(f.key) ? "bg-slate-50 text-slate-600" : ""}`}
+          value={val} readOnly={lockedHeaderKeys.has(f.key)} onChange={(e) => setExtra(f, e.target.value)} /></div>;
     }
     if (f.kind === "text") {
-      return <div key={f.key}><label className="label">{f.label}</label>
-        <input className="input" value={val} onChange={(e) => setExtra(f, e.target.value)} /></div>;
+      return <div key={f.key}><label className="label">{f.label}{lockedHeaderKeys.has(f.key) && lockNote}</label>
+        <input className={`input ${lockedHeaderKeys.has(f.key) ? "bg-slate-50 text-slate-600" : ""}`}
+          value={val} readOnly={lockedHeaderKeys.has(f.key)} onChange={(e) => setExtra(f, e.target.value)} /></div>;
     }
+    const locked = lockedHeaderKeys.has(f.key);
     if (f.kind === "product") {
-      return <div key={f.key}><label className="label">{f.label}</label>
-        <ProductPicker products={products} value={val || null}
-          onChange={(id) => pickHeaderProduct(f, id)} placeholder="Item / product" /></div>;
+      return <div key={f.key}><label className="label">{f.label}{locked && lockNote}</label>
+        {locked
+          ? <div className="input flex items-center bg-slate-50 text-slate-600">{products.find((p) => p.id === val)?.name ?? "—"}</div>
+          : <ProductPicker products={products} value={val || null}
+              onChange={(id) => pickHeaderProduct(f, id)} placeholder="Item / product" />}</div>;
     }
     const derived = !!f.derived && !overridden[f.key];
     return (
@@ -539,10 +603,11 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         <label className="label">
           {f.label}
           {f.hint && <span className="ml-1 font-normal normal-case text-slate-400">({f.hint})</span>}
-          {derived && <span className="ml-1 font-normal normal-case text-slate-400">· auto</span>}
+          {derived && !locked && <span className="ml-1 font-normal normal-case text-slate-400">· auto</span>}
+          {locked && lockNote}
         </label>
-        <input className={`input text-right tabular-nums ${derived ? "bg-slate-50 text-slate-600" : ""}`} inputMode="decimal"
-          value={val} onChange={(e) => setExtra(f, e.target.value)}
+        <input className={`input text-right tabular-nums ${derived || locked ? "bg-slate-50 text-slate-600" : ""}`} inputMode="decimal"
+          value={val} readOnly={locked} onChange={(e) => setExtra(f, e.target.value)}
           placeholder={f.kind === "percent" ? "0.00" : f.kind === "int" ? "0" : "0.00"} />
       </div>
     );
@@ -706,7 +771,8 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                         inputMode="decimal" value={r.rate} onChange={(e) => setRow(i, { rate: e.target.value })} />
                     </td>
                   )}
-                  {showRateAmount && <td className="px-2 py-1"><input className="input w-40 text-right tabular-nums" inputMode="decimal" value={r.amount} onChange={(e) => setRow(i, { amount: e.target.value })} /></td>}
+                  {showRateAmount && <td className="px-2 py-1"><input className="input w-40 text-right tabular-nums" inputMode="decimal" value={r.amount}
+                    onChange={(e) => { if (carGrid) setCarAmountTouched(true); setRow(i, { amount: e.target.value }); }} /></td>}
                   {postExtras.map((x) => (
                     <td key={x.key} className="px-2 py-1">
                       <input className={`input ${x.kind === "text" ? "w-56" : "w-36 text-right tabular-nums"}`}
@@ -776,7 +842,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
               : !mayWrite() ? (id ? "No Edit rights" : "No Create rights")
               : posted ? "Re-post changes" : id ? "Save changes" : "Save"}
           </button>
-          {!hideLines && <button onClick={() => setRows((r) => [...r, blankRow()])} className="btn-outline text-sm">+ Line</button>}
+          {!hideLines && !carGrid && <button onClick={() => setRows((r) => [...r, blankRow()])} className="btn-outline text-sm">+ Line</button>}
           <span className="ml-auto text-xs text-slate-400">{id ? `Editing ${docNo}` : "New document — number auto-assigned on save."}</span>
         </div>
       </div>

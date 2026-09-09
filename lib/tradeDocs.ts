@@ -184,7 +184,12 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   sale_order: {
     type: "sale_order", prefix: "SO-", title: "Sale Order", party: "customer",
     loadsFrom: { type: "sales_quotation", title: "Sales Quotation" },
-    showDelivery: true, showTerms: true, showMode: true, showTagArea: false, hideLinesForCar: true,
+    // The grid stays on a car Sale Order, unlike the Quotation. A quotation is a
+    // price being proposed and the costing block IS the document; an order is
+    // the car being sold at a price, and that line is what the Car Invoice
+    // reads. Keeping it visible is what lets the price be adjusted at the point
+    // of ordering without going back and re-quoting.
+    showDelivery: true, showTerms: true, showMode: true, showTagArea: false,
     carHeaderExtras: [
       { key: "item_id", label: "Item / Vehicle", kind: "product" },
       ...CAR_COSTING,

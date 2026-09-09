@@ -1,0 +1,34 @@
+-- Undo 340: the Car Invoice goes back to reading the costing block's Selling
+-- Price rather than the Sale Order's line. Only matters for an order whose line
+-- amount was adjusted away from the costing — that adjustment stops being what
+-- gets invoiced.
+
+create or replace function public.car_invoice_from_sale_order(p_doc uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path to 'public'
+as $fn$
+  select case when d.id is null then null else jsonb_build_object(
+    'id', d.id, 'doc_no', d.doc_no, 'doc_date', d.doc_date,
+    'customer_id', d.party_id,
+    'cost_center', d.cost_center, 'tag_area', d.tag_area,
+    'reference_name', d.reference, 'notes', d.narration,
+    'sale_price', coalesce(nullif(d.meta->>'selling_price','')::numeric, d.total),
+    'advance', coalesce(nullif(d.meta->>'advance','')::numeric, 0),
+    'advance_due_date', nullif(d.meta->>'advance_due_date',''),
+    'installment_months', coalesce(nullif(d.meta->>'installment_months','')::int, 0),
+    'vehicle_id', (
+      select v.id from car_vehicles v
+      join trade_document_lines l on l.doc_id = d.id and l.product_id = v.product_id
+      where v.company_id = d.company_id and v.status in ('in_stock','reserved')
+        and not exists (select 1 from car_contracts c
+                         where c.vehicle_id = v.id and c.status in ('draft','active'))
+      order by v.created_at limit 1),
+    'item_name', (select l.item_name from trade_document_lines l
+                   where l.doc_id = d.id order by l.sort limit 1)
+  ) end
+  from trade_documents d
+  where d.id = p_doc and d.company_id = auth_company_id() and d.doc_type = 'sale_order';
+$fn$;
