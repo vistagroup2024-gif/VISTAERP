@@ -72,7 +72,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [busy, setBusy] = useState(false);
 
   const [parties, setParties] = useState<{ id: string; name: string }[]>([]);
-  const [products, setProducts] = useState<{ id: string; name: string; group?: string | null; purchase_rate?: number | null }[]>([]);
+  const [products, setProducts] = useState<{ id: string; name: string; group?: string | null; purchase_rate?: number | null; total_cost?: number | null }[]>([]);
   const [costCenters, setCostCenters] = useState<{ id: string; name: string }[]>([]);
   const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
@@ -117,7 +117,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       const types = cfg.party === "supplier" ? ["supplier"] : cfg.party === "customer" ? ["customer", "b2b_agent"] : ["customer", "supplier", "b2b_agent"];
       const [{ data: pa }, { data: pr }, { data: cc }, { data: ta }, { data: wh }, { data: ac }] = await Promise.all([
         supabase.from("parties").select("id, name").in("party_type", types).eq("is_active", true).order("name"),
-        supabase.from("acct_products").select("id, name, parent_id, is_group, purchase_rate").eq("is_active", true).order("name"),
+        supabase.from("acct_products").select("id, name, parent_id, is_group, purchase_rate, total_cost").eq("is_active", true).order("name"),
         supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("warehouses").select("id, name").eq("is_active", true).order("name"),
@@ -196,6 +196,23 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   function setExtra(f: HeaderExtra, value: string) {
     setExtras((e) => ({ ...e, [f.key]: value }));
     if (f.derived) setOverridden((o) => ({ ...o, [f.key]: value.trim() !== "" }));
+  }
+
+  // Choosing the Item / Vehicle fills Total Cost (COGS) from the Product Tree.
+  //
+  // That figure is the base of the whole costing block — Investment, Margin and
+  // Selling Price are all worked out from it — and it used to be typed from
+  // memory on every quotation. It is knowable: the item's Purchase Rate plus its
+  // Expenses, which is exactly what acct_products.total_cost adds up.
+  //
+  // It stays an ordinary editable box. Typing over it wins, because a particular
+  // car can cost something the catalogue does not know; picking a different
+  // vehicle fills it again, because that is a different car.
+  function pickHeaderProduct(f: HeaderExtra, id: string | null) {
+    setExtra(f, id ?? "");
+    if (!headerExtras.some((x) => x.key === "total_cost")) return;
+    const cost = Number(products.find((p) => p.id === id)?.total_cost ?? 0);
+    setExtras((e) => ({ ...e, total_cost: cost > 0 ? String(cost) : "" }));
   }
 
   const subtotal = useMemo(
@@ -514,7 +531,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     if (f.kind === "product") {
       return <div key={f.key}><label className="label">{f.label}</label>
         <ProductPicker products={products} value={val || null}
-          onChange={(id) => setExtra(f, id ?? "")} placeholder="Item / product" /></div>;
+          onChange={(id) => pickHeaderProduct(f, id)} placeholder="Item / product" /></div>;
     }
     const derived = !!f.derived && !overridden[f.key];
     return (

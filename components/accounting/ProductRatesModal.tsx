@@ -22,7 +22,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const [dSell, setDSell] = useState(""); const [dPur, setDPur] = useState("");
+  const [dSell, setDSell] = useState(""); const [dPur, setDPur] = useState(""); const [dExp, setDExp] = useState("");
   const [isStock, setIsStock] = useState(false); const [uom, setUom] = useState(""); const [reorder, setReorder] = useState(""); const [reorderQty, setReorderQty] = useState("");
   const [customers, setCustomers] = useState<Named[]>([]);
   const [suppliers, setSuppliers] = useState<Named[]>([]);
@@ -36,7 +36,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
 
   async function reload() {
     const [{ data: p }, { data: cs }, { data: ss }, { data: cr }, { data: sr }] = await Promise.all([
-      supabase.from("acct_products").select("sell_rate, purchase_rate, is_stock, uom, reorder_level, reorder_qty").eq("id", productId).single(),
+      supabase.from("acct_products").select("sell_rate, purchase_rate, expense_rate, is_stock, uom, reorder_level, reorder_qty").eq("id", productId).single(),
       supabase.from("parties").select("id, name").in("party_type", ["customer", "b2b_agent"]).eq("is_active", true).order("name"),
       supabase.from("accounts").select("id, name").eq("is_postable", true).eq("is_group", false).like("code", "2-01-%").order("code"),
       supabase.from("product_customer_rates").select("id, party_id, sell_rate").eq("product_id", productId),
@@ -44,6 +44,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
     ]);
     if (p) {
       setDSell(String(Number(p.sell_rate))); setDPur(String(Number(p.purchase_rate)));
+      setDExp(String(Number(p.expense_rate ?? 0)));
       setIsStock(!!p.is_stock); setUom(p.uom ?? ""); setReorder(String(Number(p.reorder_level ?? 0))); setReorderQty(String(Number(p.reorder_qty ?? 0)));
     }
     setCustomers((cs as any[]) ?? []); setSuppliers((ss as any[]) ?? []);
@@ -54,7 +55,8 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
   async function saveDefaults() {
     setBusy(true); setErr(null);
     const { error } = await supabase.from("acct_products")
-      .update({ sell_rate: Number(dSell) || 0, purchase_rate: Number(dPur) || 0 }).eq("id", productId);
+      .update({ sell_rate: Number(dSell) || 0, purchase_rate: Number(dPur) || 0, expense_rate: Number(dExp) || 0 })
+      .eq("id", productId);
     setBusy(false); if (error) return setErr(error.message); router.refresh();
   }
   async function addCust() {
@@ -105,6 +107,22 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
                 <input className="input text-right tabular-nums" inputMode="decimal" value={dSell} onChange={(e) => setDSell(e.target.value)} /></div>
               <div><label className="label">Purchase Rate (all suppliers)</label>
                 <input className="input text-right tabular-nums" inputMode="decimal" value={dPur} onChange={(e) => setDPur(e.target.value)} /></div>
+              {/* What the item costs to buy, and what it then costs to make
+                  sellable — registration, insurance, transport on a vehicle.
+                  Total is added up here rather than typed: a total anyone can
+                  type is a total that can disagree with its own two halves. */}
+              <div><label className="label">Expenses</label>
+                <input className="input text-right tabular-nums" inputMode="decimal" value={dExp} onChange={(e) => setDExp(e.target.value)} placeholder="0.00" /></div>
+              <div>
+                <label className="label">Total Cost <span className="ml-1 font-normal normal-case text-slate-400">· purchase + expenses</span></label>
+                <div className="input flex items-center justify-end bg-slate-50 tabular-nums text-slate-600">
+                  {money((Number(dPur) || 0) + (Number(dExp) || 0))}
+                </div>
+              </div>
+              <p className="col-span-2 -mt-1 text-xs text-slate-400">
+                The Purchase Order checks a supplier&rsquo;s price against the <b>Purchase Rate</b> — the expenses are not the
+                supplier&rsquo;s to charge. A car Sales Quotation quotes its margin on the <b>Total Cost</b>.
+              </p>
               <div className="col-span-2"><button onClick={saveDefaults} disabled={busy} className="btn">{busy ? "…" : "Save"}</button></div>
             </div>
           )}
