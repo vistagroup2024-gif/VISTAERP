@@ -97,7 +97,12 @@ export const STAFF_PERMISSION_CATALOG: StaffPermGroup[] = [
   { module: "System Settings", perms: [
     { key: "system.companies", label: "Companies" },
     { key: "system.masters", label: "Masters" },
-    { key: "system.notifications", label: "Notifications" },
+    // "system.notifications" was here and read as the key that opens Phone
+    // Notifications. It was never checked anywhere, so ticking it granted
+    // nothing while the menu asked for dashboard.view instead — the reason a
+    // user could hold "Notifications" and still not see the screen. The screen
+    // needs no permission now, so the tickbox is gone rather than left to
+    // promise something it does not do.
     { key: "system.config", label: "Configuration" },
     { key: "system.audit", label: "Audit Logs" },
   ] },

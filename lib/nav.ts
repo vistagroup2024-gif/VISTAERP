@@ -224,7 +224,15 @@ export const GROUPS: NavGroup[] = [
   { label: "Company", icon: "settings", section: "Settings", perm: ["system.companies", "system.config", "system.masters"], items: [
     { href: "/settings/companies", label: "Companies" },
   ] },
-  { label: "Notifications", icon: "bell", section: "Settings", perm: ["dashboard.view"], items: [
+  // No `perm`, on purpose. This is a PERSONAL setting — which of your own
+  // devices get alerted, and which tone plays while you have the ERP open —
+  // in the same category as your own password, not a module like Hotels or
+  // Transport. It was gated on `dashboard.view`, which is the whole company's
+  // money on one screen and something most staff will never be given, so four
+  // of five users could not reach their own notification settings. The header's
+  // avatar menu has always linked here with no check at all; this makes the
+  // sidebar agree with it rather than the other way round.
+  { label: "Notifications", icon: "bell", section: "Settings", items: [
     { href: "/settings/notifications", label: "Phone Notifications" },
   ] },
 ];
