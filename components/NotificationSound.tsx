@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   TONES, CUSTOM_TONE, MAX_CUSTOM_BYTES,
-  chimeTone, setChimeTone, chimeMuted, setChimeMuted,
+  chimeTone, setChimeTone, chimeMuted, setChimeMuted, chimeVolume, setChimeVolume,
   customSound, customSoundName, saveCustomSound, clearCustomSound, playTone,
 } from "@/lib/notificationChime";
 
@@ -23,6 +23,7 @@ import {
 export default function NotificationSound() {
   const [tone, setTone] = useState<string>("chime");
   const [muted, setMuted] = useState(false);
+  const [vol, setVol] = useState(80);
   const [custom, setCustom] = useState<string | null>(null);
   const [customName, setCustomName] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export default function NotificationSound() {
   useEffect(() => {
     setTone(chimeTone());
     setMuted(chimeMuted());
+    setVol(chimeVolume());
     setCustom(customSound());
     setCustomName(customSoundName());
   }, []);
@@ -99,6 +101,18 @@ export default function NotificationSound() {
         When the ERP is closed, your phone uses the sound set for browser notifications in its own
         settings — no website can change that one. This choice is saved on this device.
       </p>
+
+      {/* Volume. A browser cannot play louder than the tab itself is set to, so
+          this trims down from full rather than pushing past it — the Loud,
+          Urgent and Siren tones are what carry across a noisy room. */}
+      <div className={`mt-3 flex items-center gap-3 ${muted ? "opacity-60" : ""}`}>
+        <span className="w-16 shrink-0 text-xs text-slate-500">Volume</span>
+        <input type="range" min={0} max={100} step={5} value={vol}
+          onChange={(e) => { const v = Number(e.target.value); setVol(v); setChimeVolume(v); }}
+          onMouseUp={() => playTone(chimeTone())} onTouchEnd={() => playTone(chimeTone())}
+          className="h-1.5 w-full max-w-xs accent-brand" aria-label="Notification volume" />
+        <span className="w-10 shrink-0 text-right text-xs tabular-nums text-slate-400">{vol}%</span>
+      </div>
 
       {msg && <div className="mt-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
       {err && <div className="mt-3 rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}

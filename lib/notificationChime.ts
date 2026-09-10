@@ -22,6 +22,7 @@
 // WhatsApp, where the tone is a property of the phone rather than the account.
 
 const MUTE_KEY   = "vista:notify:mute";
+const VOL_KEY    = "vista:notify:volume";
 const TONE_KEY   = "vista:notify:tone";
 const CUSTOM_KEY = "vista:notify:tone:custom";
 const CUSTOM_NAME_KEY = "vista:notify:tone:customName";
@@ -32,6 +33,21 @@ const CUSTOM_NAME_KEY = "vista:notify:tone:customName";
 export const MAX_CUSTOM_BYTES = 300 * 1024;
 
 type Note = { f: number; t: number; d?: number; type?: OscillatorType; gain?: number };
+
+/** 0-100, how loud the tone is played. The quiet tones were the complaint: a
+ *  chime at 0.18 gain is easy to miss across a room, and the browser gives no
+ *  way to exceed the tab's own volume, so the loud tones below carry more of
+ *  their level in the waveform (square and sawtooth are far more present than a
+ *  sine at the same gain) rather than in a number that cannot go higher. */
+export function chimeVolume(): number {
+  try {
+    const v = Number(localStorage.getItem(VOL_KEY));
+    return Number.isFinite(v) && v >= 0 && v <= 100 ? v : 80;
+  } catch { return 80; }
+}
+export function setChimeVolume(v: number) {
+  try { localStorage.setItem(VOL_KEY, String(Math.max(0, Math.min(100, Math.round(v))))); } catch { /* private window */ }
+}
 
 /** The built-in tones. `notes` is what the oscillator plays; nothing else. */
 export const TONES: { id: string; label: string; hint: string; notes: Note[] }[] = [
@@ -48,6 +64,26 @@ export const TONES: { id: string; label: string; hint: string; notes: Note[] }[]
   { id: "alert",  label: "Alert",  hint: "Two urgent beeps — hard to miss",
     notes: [{ f: 1318.5, t: 0, d: 0.12, type: "square", gain: 0.1 },
             { f: 1318.5, t: 0.18, d: 0.12, type: "square", gain: 0.1 }] },
+
+  // The loud end. A browser cannot play above the tab's own volume, so these
+  // get their presence from the waveform and from repeating, not from a gain
+  // number that has nowhere left to go: square and sawtooth carry far more
+  // energy in the harmonics than a sine at the same level, which is exactly
+  // what cuts through a room.
+  { id: "loud",   label: "Loud",   hint: "Louder, brighter — for a busy office",
+    notes: [{ f: 987.8, t: 0, d: 0.22, type: "square", gain: 0.34 },
+            { f: 1318.5, t: 0.16, d: 0.28, type: "square", gain: 0.34 }] },
+  { id: "urgent", label: "Urgent", hint: "Four hard beeps, impossible to miss",
+    notes: [0, 0.16, 0.32, 0.48].map((t) => ({ f: 1567.98, t, d: 0.11, type: "square" as OscillatorType, gain: 0.38 })) },
+  { id: "siren",  label: "Siren",  hint: "Rising and falling, keeps going for a second",
+    notes: [
+      { f: 740, t: 0,    d: 0.16, type: "sawtooth", gain: 0.3 },
+      { f: 988, t: 0.15, d: 0.16, type: "sawtooth", gain: 0.32 },
+      { f: 740, t: 0.30, d: 0.16, type: "sawtooth", gain: 0.3 },
+      { f: 988, t: 0.45, d: 0.16, type: "sawtooth", gain: 0.32 },
+      { f: 740, t: 0.60, d: 0.16, type: "sawtooth", gain: 0.3 },
+      { f: 988, t: 0.75, d: 0.30, type: "sawtooth", gain: 0.34 },
+    ] },
 ];
 
 export const DEFAULT_TONE = "chime";
@@ -124,13 +160,14 @@ function playNotes(notes: Note[]) {
   if (ctx.state === "suspended") void ctx.resume();
 
   const now = ctx.currentTime;
+  const vol = chimeVolume() / 100;
   for (const n of notes) {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = n.type ?? "sine";
     osc.frequency.value = n.f;
     const dur = n.d ?? 0.32;
-    const peak = n.gain ?? 0.18;
+    const peak = Math.max(0.0002, (n.gain ?? 0.18) * vol);
     // Ramp in and out, or the note clicks at both ends.
     gain.gain.setValueAtTime(0.0001, now + n.t);
     gain.gain.exponentialRampToValueAtTime(peak, now + n.t + 0.02);
@@ -143,7 +180,7 @@ function playNotes(notes: Note[]) {
 
 function playDataUri(uri: string) {
   const a = new Audio(uri);
-  a.volume = 0.7;
+  a.volume = Math.max(0, Math.min(1, chimeVolume() / 100));
   // A browser that has had no gesture yet rejects play(); that is a silent
   // notification, not an error worth surfacing.
   void a.play().catch(() => { /* ignore */ });

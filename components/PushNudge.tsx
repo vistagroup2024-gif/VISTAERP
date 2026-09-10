@@ -14,8 +14,13 @@ import { pushSupported, permissionState, currentEndpoint, enablePush, isIos, isS
  * got nothing on their phone while the ERP was closed, which read as a broken
  * feature rather than an unvisited screen.
  *
- * This is the missing ask. It shows only to somebody who has not set this
- * browser up, it turns push on in place, and a dismissal is remembered for a
+ * This is the missing ask, and it is a DIALOG rather than a banner because a
+ * banner is a thing people learn to look past. Notifications cannot be turned
+ * on for somebody: every browser requires the person to click Allow on a prompt
+ * the browser itself draws, in response to a real click. No website can grant
+ * itself that, which is the whole point of the permission. So the most that can
+ * be done is to make the ask unmissable and one press long — which is what this
+ * is. Answering it either way puts it away; "Not now" is remembered for a
  * fortnight so it is a reminder rather than a nag.
  *
  * It deliberately does NOT call the server to decide whether to appear: browser
@@ -81,39 +86,69 @@ export default function PushNudge() {
   if (!show) return null;
 
   return (
-    <div className="no-print mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm">
-      <span className="text-base" aria-hidden>🔔</span>
+    <div className="no-print fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4"
+         role="dialog" aria-modal="true" aria-labelledby="push-nudge-title">
+      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-pop">
+        <div className="mb-3 grid h-11 w-11 place-items-center rounded-full bg-brand-50 text-xl" aria-hidden>🔔</div>
 
-      {state === "done" ? (
-        <span className="font-medium text-green-700">This device will now get notifications. ✓</span>
-      ) : state === "ios" ? (
-        <span className="min-w-0 text-slate-700">
-          To get notifications on your iPhone, add Vista ERP to your Home Screen: tap <b>Share</b> →
-          <b> Add to Home Screen</b>, then open it from the new icon.
-        </span>
-      ) : state === "denied" ? (
-        <span className="min-w-0 text-slate-700">
-          Notifications are <b>blocked</b> for this site. Tap the lock icon next to the address bar →
-          <b> Permissions</b> → <b>Notifications</b> → Allow, then reload.
-        </span>
-      ) : (
-        <span className="min-w-0 text-slate-700">
-          Get notified on this device even when the ERP is closed.
-        </span>
-      )}
-
-      <span className="ml-auto flex shrink-0 items-center gap-2">
-        {state === "ask" && (
-          <button onClick={turnOn} disabled={busy} className="btn text-xs">
-            {busy ? "Setting up…" : "Turn on"}
-          </button>
+        {state === "done" ? (
+          <>
+            <h2 id="push-nudge-title" className="text-base font-semibold text-green-700">You are all set ✓</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              This device will now be alerted even when the ERP is closed.
+            </p>
+          </>
+        ) : state === "ios" ? (
+          <>
+            <h2 id="push-nudge-title" className="text-base font-semibold text-slate-800">One step on iPhone</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              iPhone only allows notifications once the app is on your Home Screen. Tap <b>Share</b> →
+              <b> Add to Home Screen</b>, then open Vista ERP from the new icon and turn them on there.
+            </p>
+          </>
+        ) : state === "denied" ? (
+          <>
+            <h2 id="push-nudge-title" className="text-base font-semibold text-slate-800">Notifications are blocked</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              This site is blocked from sending notifications. Tap the lock icon next to the address bar →
+              <b> Permissions</b> → <b>Notifications</b> → <b>Allow</b>, then reload the page.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 id="push-nudge-title" className="text-base font-semibold text-slate-800">Turn on notifications?</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Be alerted on this device even when the ERP is closed — approvals, arrivals, payments and
+              the work in your own modules. Your browser will ask you to allow it once.
+            </p>
+            <p className="mt-2 text-xs text-slate-400">
+              You can turn this off again at any time in Settings → Phone Notifications.
+            </p>
+          </>
         )}
+
+        <div className="mt-5 flex items-center gap-2">
+          {state === "ask" && (
+            <button onClick={turnOn} disabled={busy} className="btn flex-1 text-sm">
+              {busy ? "Setting up…" : "Turn on notifications"}
+            </button>
+          )}
+          {state === "done" ? (
+            <button onClick={() => setShow(false)} className="btn flex-1 text-sm">Done</button>
+          ) : (
+            <button onClick={close} className="btn-outline text-sm">
+              {state === "ask" ? "Not now" : "Close"}
+            </button>
+          )}
+        </div>
+
         {state !== "done" && (
-          <Link href="/settings/notifications" className="text-xs text-brand hover:underline">Settings</Link>
+          <Link href="/settings/notifications" onClick={close}
+            className="mt-3 block text-center text-xs text-brand hover:underline">
+            Open notification settings
+          </Link>
         )}
-        <button onClick={close} aria-label="Dismiss" title="Not now"
-          className="rounded px-1.5 text-slate-400 hover:bg-white hover:text-slate-600">✕</button>
-      </span>
+      </div>
     </div>
   );
 }
