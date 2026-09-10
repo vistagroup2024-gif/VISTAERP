@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import NotificationSound from "@/components/NotificationSound";
 import { pushSupported, permissionState, enablePush, disablePush, listDevices, removeDevice, sendTest, currentEndpoint, isIos, isStandalone } from "@/lib/push";
 
 type Device = { id: string; endpoint: string; ua: string | null; enabled: boolean; last_notified: string | null; created_at: string };
@@ -72,7 +73,14 @@ export default function NotificationSettings({ endpoint = "/api/push" }: { endpo
   const thisRegistered = !!thisEndpoint && devices.some((d) => d.endpoint === thisEndpoint);
 
   if (!supported) {
-    return <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">This browser doesn’t support push notifications. Try Chrome on Android, or install the app to your home screen.</div>;
+    // The in-app sound still works in a browser that cannot do push, so it is
+    // shown either way rather than hidden behind the unsupported notice.
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">This browser doesn’t support push notifications. Try Chrome on Android, or install the app to your home screen.</div>
+        <NotificationSound />
+      </div>
+    );
   }
 
   return (
@@ -130,6 +138,8 @@ export default function NotificationSettings({ endpoint = "/api/push" }: { endpo
           {devices.length === 0 && <li className="px-4 py-6 text-center text-sm text-slate-400">No devices registered yet.</li>}
         </ul>
       </div>
+
+      <NotificationSound />
     </div>
   );
 }

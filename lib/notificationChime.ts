@@ -1,57 +1,171 @@
-// The notification tone.
+// The notification tone, and the user's choice of it.
 //
-// Synthesised rather than shipped as a file: a two-note chime through the Web
-// Audio API is a few lines, needs no asset to download or cache, and cannot be
-// the wrong codec on somebody's browser. Nothing is created until the first
-// sound is asked for, because a browser will not let a page open an AudioContext
-// before the user has interacted with it anyway.
+// Synthesised rather than shipped as files: each built-in tone is a handful of
+// notes through the Web Audio API, so there is no asset to download or cache and
+// none of them can be the wrong codec on somebody's browser. Nothing is created
+// until the first sound is asked for, because a browser will not let a page open
+// an AudioContext before the user has interacted with it anyway.
 //
-// It is NOT played by the service worker — a worker has no audio. This is the
-// tab's chime, for someone with the ERP open; a phone with the app closed gets
-// the operating system's own notification sound instead.
+// A user may also upload their own sound. That one IS a file, held as a data URI
+// in this browser's localStorage and played through an <audio> element.
+//
+// WHAT THIS IS NOT. None of it is the sound a phone makes when the ERP is
+// CLOSED. That notification is drawn by the operating system from the service
+// worker, a worker has no audio, and web push cannot name a sound — the
+// Notification API's `sound` property was dropped and no browser implements it.
+// The closed-app sound is the one the user sets for Chrome / Safari
+// notifications in their own device settings. Everything here is the tab's
+// chime, for somebody with the ERP open. Say so on any screen that offers it,
+// or it reads as a promise the browser will not keep.
+//
+// The choice is per browser, like the mute flag beside it — the same shape as
+// WhatsApp, where the tone is a property of the phone rather than the account.
 
-const MUTE_KEY = "vista:notify:mute";
+const MUTE_KEY   = "vista:notify:mute";
+const TONE_KEY   = "vista:notify:tone";
+const CUSTOM_KEY = "vista:notify:tone:custom";
+const CUSTOM_NAME_KEY = "vista:notify:tone:customName";
+
+/** Biggest upload we will keep. A 2-3 second notification sound is 15-50 KB; the
+ *  cap is generous for that and still well inside the ~5 MB localStorage gives an
+ *  origin, remembering base64 inflates a file by a third. */
+export const MAX_CUSTOM_BYTES = 300 * 1024;
+
+type Note = { f: number; t: number; d?: number; type?: OscillatorType; gain?: number };
+
+/** The built-in tones. `notes` is what the oscillator plays; nothing else. */
+export const TONES: { id: string; label: string; hint: string; notes: Note[] }[] = [
+  { id: "chime",  label: "Chime",  hint: "Two notes, a fourth apart — the original",
+    notes: [{ f: 880, t: 0 }, { f: 1174.7, t: 0.13 }] },
+  { id: "ping",   label: "Ping",   hint: "One short high note",
+    notes: [{ f: 1568, t: 0, d: 0.18 }] },
+  { id: "bell",   label: "Bell",   hint: "A struck bell, slow to fade",
+    notes: [{ f: 1046.5, t: 0, d: 0.9, gain: 0.16 }, { f: 1568, t: 0.005, d: 0.7, gain: 0.07 }] },
+  { id: "soft",   label: "Soft",   hint: "Low and gentle, for a quiet office",
+    notes: [{ f: 523.3, t: 0, d: 0.4, type: "triangle", gain: 0.14 }, { f: 659.3, t: 0.1, d: 0.4, type: "triangle", gain: 0.12 }] },
+  { id: "rise",   label: "Rise",   hint: "Three notes going up",
+    notes: [{ f: 587.3, t: 0, d: 0.2 }, { f: 784, t: 0.1, d: 0.2 }, { f: 1046.5, t: 0.2, d: 0.3 }] },
+  { id: "alert",  label: "Alert",  hint: "Two urgent beeps — hard to miss",
+    notes: [{ f: 1318.5, t: 0, d: 0.12, type: "square", gain: 0.1 },
+            { f: 1318.5, t: 0.18, d: 0.12, type: "square", gain: 0.1 }] },
+];
+
+export const DEFAULT_TONE = "chime";
+/** The id stored when the user has uploaded their own sound. */
+export const CUSTOM_TONE = "custom";
+
+/* ── the stored preference ─────────────────────────────────────────────────
+ * Every read is wrapped: a private window, or a browser set to block site
+ * data, throws on access rather than returning null. A tone preference is
+ * never worth an exception, so each falls back to the default.
+ */
 
 /** Muted for this browser? Off by default — a notification nobody hears is the
  *  thing being complained about. */
 export function chimeMuted(): boolean {
   try { return localStorage.getItem(MUTE_KEY) === "1"; } catch { return false; }
 }
-
 export function setChimeMuted(muted: boolean) {
   try { localStorage.setItem(MUTE_KEY, muted ? "1" : "0"); } catch { /* private window */ }
 }
 
+/** The chosen tone id. Falls back to the default if the stored one is a tone we
+ *  no longer ship, or is "custom" with nothing uploaded behind it. */
+export function chimeTone(): string {
+  try {
+    const t = localStorage.getItem(TONE_KEY);
+    if (!t) return DEFAULT_TONE;
+    if (t === CUSTOM_TONE) return customSound() ? CUSTOM_TONE : DEFAULT_TONE;
+    return TONES.some((x) => x.id === t) ? t : DEFAULT_TONE;
+  } catch { return DEFAULT_TONE; }
+}
+export function setChimeTone(id: string) {
+  try { localStorage.setItem(TONE_KEY, id); } catch { /* private window */ }
+}
+
+/** The uploaded sound as a data URI, or null. */
+export function customSound(): string | null {
+  try { return localStorage.getItem(CUSTOM_KEY); } catch { return null; }
+}
+export function customSoundName(): string | null {
+  try { return localStorage.getItem(CUSTOM_NAME_KEY); } catch { return null; }
+}
+
+/** Keep an uploaded sound. Throws with a sentence fit to show the user — the
+ *  caller has a message area and the failures here are all things they can act
+ *  on (wrong kind of file, too big, no room left). */
+export function saveCustomSound(dataUri: string, name: string) {
+  if (!/^data:audio\//i.test(dataUri)) throw new Error("That file is not an audio file.");
+  try {
+    localStorage.setItem(CUSTOM_KEY, dataUri);
+    localStorage.setItem(CUSTOM_NAME_KEY, name);
+  } catch {
+    throw new Error("There is no room left in this browser to store the sound. Try a shorter clip.");
+  }
+}
+export function clearCustomSound() {
+  try {
+    localStorage.removeItem(CUSTOM_KEY);
+    localStorage.removeItem(CUSTOM_NAME_KEY);
+    if (localStorage.getItem(TONE_KEY) === CUSTOM_TONE) localStorage.setItem(TONE_KEY, DEFAULT_TONE);
+  } catch { /* private window */ }
+}
+
+/* ── playing ─────────────────────────────────────────────────────────────── */
+
 let ctx: AudioContext | null = null;
 
-/** A short two-note chime. Safe to call from anywhere: every failure path —
- *  no Web Audio, a context the browser refuses to start, a muted preference —
- *  ends in silence rather than an error. */
+function playNotes(notes: Note[]) {
+  const AC = window.AudioContext ?? (window as any).webkitAudioContext;
+  if (!AC) return;
+  ctx = ctx ?? new AC();
+  // Autoplay policy suspends the context until a gesture; resume is a no-op
+  // when it is already running.
+  if (ctx.state === "suspended") void ctx.resume();
+
+  const now = ctx.currentTime;
+  for (const n of notes) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = n.type ?? "sine";
+    osc.frequency.value = n.f;
+    const dur = n.d ?? 0.32;
+    const peak = n.gain ?? 0.18;
+    // Ramp in and out, or the note clicks at both ends.
+    gain.gain.setValueAtTime(0.0001, now + n.t);
+    gain.gain.exponentialRampToValueAtTime(peak, now + n.t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + n.t + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now + n.t);
+    osc.stop(now + n.t + dur + 0.02);
+  }
+}
+
+function playDataUri(uri: string) {
+  const a = new Audio(uri);
+  a.volume = 0.7;
+  // A browser that has had no gesture yet rejects play(); that is a silent
+  // notification, not an error worth surfacing.
+  void a.play().catch(() => { /* ignore */ });
+}
+
+/** Play a specific tone, whatever the saved preference is — what the Play
+ *  button beside each tone in Settings calls. Ignores mute on purpose: pressing
+ *  Play is a request to hear it. */
+export function playTone(id: string) {
+  try {
+    if (id === CUSTOM_TONE) {
+      const uri = customSound();
+      if (uri) playDataUri(uri);
+      return;
+    }
+    playNotes((TONES.find((t) => t.id === id) ?? TONES[0]).notes);
+  } catch { /* a tone is never worth an exception */ }
+}
+
+/** The notification sound: the user's chosen tone, unless they muted it.
+ *  Safe to call from anywhere — every failure path ends in silence. */
 export function playChime() {
   if (chimeMuted()) return;
-  try {
-    const AC = window.AudioContext ?? (window as any).webkitAudioContext;
-    if (!AC) return;
-    ctx = ctx ?? new AC();
-    // Autoplay policy suspends the context until a gesture; resume is a no-op
-    // when it is already running.
-    if (ctx.state === "suspended") void ctx.resume();
-
-    const now = ctx.currentTime;
-    // Two notes a fourth apart, the second a beat after the first: short enough
-    // not to nag, distinct enough to be heard across a room.
-    [{ f: 880, t: 0 }, { f: 1174.7, t: 0.13 }].forEach(({ f, t }) => {
-      const osc = ctx!.createOscillator();
-      const gain = ctx!.createGain();
-      osc.type = "sine";
-      osc.frequency.value = f;
-      // Ramp in and out, or the note clicks at both ends.
-      gain.gain.setValueAtTime(0.0001, now + t);
-      gain.gain.exponentialRampToValueAtTime(0.18, now + t + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.32);
-      osc.connect(gain).connect(ctx!.destination);
-      osc.start(now + t);
-      osc.stop(now + t + 0.34);
-    });
-  } catch { /* a tone is never worth an exception */ }
+  playTone(chimeTone());
 }

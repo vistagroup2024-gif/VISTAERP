@@ -3,6 +3,7 @@ import Sidebar from "@/components/Sidebar";
 import { AccessProvider } from "@/components/AccessProvider";
 import AppHeader from "@/components/AppHeader";
 import NavButtons from "@/components/NavButtons";
+import PushNudge from "@/components/PushNudge";
 import { getSessionUser, getStaffAccess } from "@/lib/staffSession";
 
 export default async function ErpLayout({
@@ -37,6 +38,9 @@ export default async function ErpLayout({
                 covers all of them, and no page can show a second pair because no
                 page renders it. */}
             <div className="no-print mb-3"><NavButtons /></div>
+            {/* Asked here rather than only on the settings screen, because
+                nobody was finding the settings screen. */}
+            <PushNudge />
             {children}
           </AccessProvider>
         </main>
