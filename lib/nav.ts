@@ -177,6 +177,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/close", label: "Year-End Close" },
     { href: "/accounting/product-costing", label: "Product Costing" },
     { href: "/accounting/rules", label: "Voucher Authorisation" },
+    { href: "/accounting/automation", label: "Invoice Automation" },
     { href: "/accounting/audit", label: "Audit Trail" },
   ] },
   // Inventory (goods). Mirrors the order of the desktop Inventory menu; the BRN
