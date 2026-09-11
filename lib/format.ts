@@ -9,9 +9,10 @@ export function money(amount: number | null | undefined, currency = "PKR") {
   }).format(n);
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-// Standard display format across the app: DD-MMM-YY, e.g. 04-Aug-26.
+// Standard display format across the app: DD-MM-YY, e.g. 04-08-26. Day first,
+// month second — the order the business reads and writes dates in. It was
+// DD-MMM-YY (04-Aug-26); the month name read well but is not what anyone types,
+// and it made columns of dates uneven.
 //
 // Two kinds of value arrive here and they are not the same thing. A `date`
 // column (or a naive timestamp) is a wall-clock date and is read literally —
@@ -34,12 +35,12 @@ export function dateStr(d: string | null | undefined) {
     ymd = saYmd.format(dt);                 // en-CA formats as YYYY-MM-DD
   }
   const day = ymd.slice(8, 10);
-  const mon = MONTHS[Number(ymd.slice(5, 7)) - 1];
-  if (!mon) return "—";
+  const mon = ymd.slice(5, 7);
+  if (!(Number(mon) >= 1 && Number(mon) <= 12)) return "—";
   return `${day}-${mon}-${ymd.slice(2, 4)}`;
 }
 
-// An instant with its clock time, both in Saudi time: "07-Sep-26 10:30pm".
+// An instant with its clock time, both in Saudi time: "07-09-26 10:30pm".
 // Use this rather than `new Date(x).toLocaleString()`, which renders in
 // whatever zone the viewer's machine is set to.
 export function dateTimeStr(d: string | null | undefined) {

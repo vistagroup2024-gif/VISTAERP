@@ -313,7 +313,7 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
           </FormSection>
 
           <FormSection title="Financials" cols={3}>
-            <Field label="Installment Sale Price (SAR)" required><input type="number" step="0.01" className="input" value={h.sale_price} onChange={(e) => setH({ ...h, sale_price: e.target.value })} /></Field>
+            <Field label="Sale Price (SAR)" required><input type="number" step="0.01" className="input" value={h.sale_price} onChange={(e) => setH({ ...h, sale_price: e.target.value })} /></Field>
             <Field label="Discount (SAR)"><input type="number" step="0.01" className="input" value={h.discount} onChange={(e) => setH({ ...h, discount: e.target.value })} placeholder="0.00" /></Field>
             <Field label="Net Payable (auto)">
               <input className="input bg-slate-50 font-medium" value={netPayable.toFixed(2)} readOnly tabIndex={-1} />

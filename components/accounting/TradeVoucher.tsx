@@ -61,6 +61,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [terms, setTerms] = useState("");
   const [narration, setNarration] = useState("");
   const [roundOff, setRoundOff] = useState("");
+  // Round Off is a tick, not a number to work out by hand. Ticking it rounds the
+  // document to the nearest whole riyal; the amount it took to get there is what
+  // gets stored in round_off, exactly as if it had been typed.
+  const [roundOffOn, setRoundOffOn] = useState(false);
   const [discount, setDiscount] = useState("");
   const [rows, setRows] = useState<Row[]>([blankRow()]);
   // Header extras (incl. the car costing block) live in the document meta.
@@ -138,9 +142,12 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   }, [supabase, cfg.party]);
 
 
-  /** Ticked-by-default check boxes, as a starting set of extra values. */
+  /** What a new voucher's extra fields start at: ticked check boxes, and any
+   *  field carrying a defaultValue (Percentage, which is 3). */
   const extraDefaults = useCallback(() => Object.fromEntries(
-    headerExtras.filter((f) => f.kind === "check" && f.defaultOn).map((f) => [f.key, "true"])
+    headerExtras
+      .filter((f) => (f.kind === "check" && f.defaultOn) || f.defaultValue != null)
+      .map((f) => [f.key, f.kind === "check" ? "true" : f.defaultValue!])
   ) as Record<string, string>, [headerExtras]);
   // Seed the ticked-by-default boxes on mount, and again if the cost centre
   // brings new fields in. A key already present is left alone, so a document
@@ -158,7 +165,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   function resetNew(keepMessage?: string) {
     setId(null); setDocNo(""); setDone(keepMessage ?? null); setErr(null);
     setDate(todaySA()); setParty(""); setCostCenter(""); setTagArea("");
-    setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setDiscount("");
+    setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setRoundOffOn(false); setDiscount("");
     setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({}); setCarAmountTouched(false);
     setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false); setCarReturn(null);
   }
@@ -198,8 +205,18 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       if (!f.derived || overridden[f.key]) continue;
       v[f.key] = r2(f.derived(v));
     }
+    // On a car document the Selling Price IS the document total — there is no
+    // grid under it — so rounding has to reach the Selling Price itself, not sit
+    // beside it as a separate adjustment. Rounding here means the price the
+    // customer is quoted, the line the Car Invoice reads and the Net Total are
+    // all the one rounded figure, instead of the first two disagreeing with the
+    // third. Recomputed rather than written back, so changing the cost still
+    // re-derives the price and re-rounds it.
+    if (roundOffOn && hideLines && v.selling_price != null && v.selling_price !== "") {
+      v.selling_price = r2(Math.round(Number(v.selling_price) || 0));
+    }
     return v;
-  }, [extras, headerExtras, overridden]);
+  }, [extras, headerExtras, overridden, roundOffOn, hideLines]);
 
   function setExtra(f: HeaderExtra, value: string) {
     setExtras((e) => ({ ...e, [f.key]: value }));
@@ -268,7 +285,14 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // The discount comes off before the round-off, so Net Total is what the
   // supplier is actually owed — and it is this figure that posts.
   const discountAmt = cfg.showDiscount ? num(discount) : 0;
-  const total = subtotal - discountAmt + num(roundOff);
+  const baseTotal = subtotal - discountAmt;
+  // With the tick on, the round-off is whatever it takes to reach a whole riyal.
+  // On a car document the Selling Price above has already been rounded, so that
+  // difference is zero and nothing is added twice.
+  const roundOffAmt = roundOffOn
+    ? +(Math.round(baseTotal) - baseTotal).toFixed(2)
+    : num(roundOff);
+  const total = baseTotal + roundOffAmt;
   // Landed cost = the line amounts plus every expense column flagged as a cost.
   const costColumns = useMemo(() => lineExtras.filter((x) => x.cost), [lineExtras]);
   /** Lines whose rate is above the SO Purchase Rate they were raised against. */
@@ -290,6 +314,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setDate(v.doc_date ?? ""); setParty(v.party_id ?? ""); setCostCenter(v.cost_center ?? ""); setTagArea(v.tag_area ?? "");
     setReference(v.reference ?? ""); setMode(v.mode_of_payment ?? ""); setDueDate(v.due_date ?? ""); setDeliveryDate(v.delivery_date ?? "");
     setTerms(v.terms ?? ""); setNarration(v.narration ?? ""); setRoundOff(v.round_off ? String(v.round_off) : "");
+    setRoundOffOn(!!v.meta?.round_off_auto);
     setDiscount(v.meta?.discount ? String(v.meta.discount) : "");
     setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry); setAwaiting(v.status === "awaiting_approval");
     setSourceId(v.source_doc_id ?? null); setSourceCar(v.source_car_contract ?? null); setSourceNo(v.source_doc_no ?? null);
@@ -484,10 +509,12 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       doc_date: date, party_id: party || null, cost_center: costCenter || null,
       tag_area: cfg.showTagArea === false ? null : tagArea || null,
       reference: reference || null, mode_of_payment: mode || null, due_date: dueDate || null, delivery_date: deliveryDate || null,
-      terms: terms || null, narration: narration || null, round_off: num(roundOff),
+      terms: terms || null, narration: narration || null, round_off: roundOffAmt,
       meta: {
         ...meta,
         ...(cfg.showDiscount ? { discount: discountAmt } : {}),
+        // so re-opening the document shows the tick, not a number nobody typed
+        round_off_auto: roundOffOn,
         // A car return remembers where it came from, so re-opening it shows the
         // same figures the operator decided against.
         ...(carReturn
@@ -726,6 +753,17 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         )}
 
         {!hideLines && (
+        <div className="space-y-2">
+        {!carGrid && (
+          <div className="flex justify-end">
+            {/* Beside the grid, not down beside Save. Adding a line is something
+                you do while reading the lines; having to scroll past the totals
+                to a button next to Save — and risk pressing Save — was the wrong
+                place for it. */}
+            <button onClick={() => setRows((r) => [...r, blankRow()])}
+                    className="btn-outline text-sm">+ Line</button>
+          </div>
+        )}
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -805,6 +843,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
             )}
           </table>
         </div>
+        </div>
         )}
 
         <div className="flex flex-wrap items-end justify-end gap-6">
@@ -824,13 +863,24 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                 onChange={(e) => setDiscount(e.target.value)} placeholder="0.00" />
             </div>
           )}
-          {showRateAmount && <div><label className="label">Round Off</label><input className="input w-28 text-right tabular-nums" inputMode="decimal" value={roundOff} onChange={(e) => setRoundOff(e.target.value)} placeholder="0.00" /></div>}
+          {showRateAmount && !cfg.hideRoundOff && (
+            <div>
+              <label className="label">Round Off</label>
+              <label className="flex h-[38px] cursor-pointer items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={roundOffOn} onChange={(e) => setRoundOffOn(e.target.checked)} />
+                <span>Round to the nearest riyal</span>
+              </label>
+            </div>
+          )}
           {showRateAmount && (
             <div className="text-right">
               <div className="text-xs uppercase tracking-wide text-slate-400">Net Total</div>
               <div className="text-2xl font-bold text-brand">{money(total)}</div>
               {discountAmt !== 0 && (
                 <div className="text-xs text-slate-400">{money(subtotal)} &minus; {money(discountAmt)} discount</div>
+              )}
+              {roundOffOn && roundOffAmt !== 0 && (
+                <div className="text-xs text-slate-400">includes {money(roundOffAmt)} round off</div>
               )}
             </div>
           )}
@@ -842,7 +892,6 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
               : !mayWrite() ? (id ? "No Edit rights" : "No Create rights")
               : posted ? "Re-post changes" : id ? "Save changes" : "Save"}
           </button>
-          {!hideLines && !carGrid && <button onClick={() => setRows((r) => [...r, blankRow()])} className="btn-outline text-sm">+ Line</button>}
           <span className="ml-auto text-xs text-slate-400">{id ? `Editing ${docNo}` : "New document — number auto-assigned on save."}</span>
         </div>
       </div>

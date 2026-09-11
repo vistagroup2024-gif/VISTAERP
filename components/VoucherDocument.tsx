@@ -35,13 +35,15 @@ export interface VoucherBooking {
 
 const exact = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" } as any;
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-// Format an ISO date ("2026-08-03") as "03-Aug-2026" without timezone drift.
+// Format an ISO date ("2026-08-03") as "03-08-2026" without timezone drift.
+// Day-month-year, matching dateStr everywhere else. The printed voucher keeps
+// the four-digit year: it goes to a customer, who should not have to work out
+// which century a two-digit year belongs to.
 function fmtDate(d?: string | null): string {
   if (!d) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
   if (!m) return d;
-  return `${m[3]}-${MONTHS[Number(m[2]) - 1] ?? m[2]}-${m[1]}`;
+  return `${m[3]}-${m[2]}-${m[1]}`;
 }
 function fmtTime(t?: string | null): string { return fmtTime12(t) || "—"; }
 function fmtMoney(n: number, currency: string): string {

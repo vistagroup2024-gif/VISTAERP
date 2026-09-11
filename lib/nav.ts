@@ -160,9 +160,8 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/recurring", label: "Recurring Vouchers" },
     { href: "/accounting/bank", label: "Bank Reconciliation" },
     { href: "/accounting/invoices", label: "Bill Record" },
-    { href: "/accounting/visa-invoices", label: "Visa Invoices" },
-    { href: "/accounting/transport-invoices", label: "Transport Invoices" },
-    { href: "/accounting/hotel-invoices", label: "Hotel Invoices" },
+    // Visa / Transport / Hotel Invoices are tabs of Sales Invoice now — see
+    // EXTRA_ITEMS, which keeps their routes named and searchable.
     { href: "/accounting/pdc", label: "PDC Register" },
     { href: "/accounting/approvals", label: "Approval Inbox" },
     { href: "/accounting/aging", label: "Aging (AR/AP)" },
@@ -275,6 +274,17 @@ const EXTRA_ITEMS: { item: NavItem; group: string; icon: IconName }[] = [
   // purchase side rather than with the two invoice screens.
   { item: { href: "/car-sales/expenses", label: "Car Expense", perm: ["carsales.installments", "carsales.sales"] },
     group: "Car Sales", icon: "car" },
+  // The three module invoice lists. They are tabs of Sales Invoice now and have
+  // no menu row of their own, but the routes still exist and still answer to
+  // their old URLs, so they are declared here: that is what keeps them named,
+  // permission-checked and findable in the global search rather than reachable
+  // only by someone who remembers the address.
+  { item: { href: "/accounting/visa-invoices", label: "Visa Invoices", perm: ["accounting.view"] },
+    group: "Accounting", icon: "accounting" },
+  { item: { href: "/accounting/transport-invoices", label: "Transport Invoices", perm: ["accounting.view"] },
+    group: "Accounting", icon: "accounting" },
+  { item: { href: "/accounting/hotel-invoices", label: "Hotel Invoices", perm: ["accounting.view"] },
+    group: "Accounting", icon: "accounting" },
 ];
 
 /** The sidebar's own entry for a route — label and permission included, so the
@@ -309,11 +319,12 @@ export const TRANSACTIONS: QuickGroupDef[] = [
     "/accounting/sales/orders",
     "/accounting/sales/quotations",
     "/accounting/sales/delivery-notes",
-    "/accounting/transport-invoices",
+    // Transport / Hotel / Visa Invoices are not listed here any more: they are
+    // tabs inside Sales Invoice, which is already in this menu. Four separate
+    // rows all called "invoice" left the operator to remember which screen
+    // answered which question.
     "/car-sales/contracts",
     "/car-sales/service-charges",
-    "/accounting/hotel-invoices",
-    "/accounting/visa-invoices",
     // Focus's "Sales Targets".
     "/accounting/targets",
     // Focus lists Route Fares here too. A transport rate is a master, not a

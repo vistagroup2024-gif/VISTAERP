@@ -27,6 +27,11 @@ export interface HeaderExtra {
   /** A `check` field that starts ticked. Without this a new voucher saves it
    *  as false, which for "Update Stocks" means the goods never move. */
   defaultOn?: boolean;
+  /** What a NEW voucher starts this field at. The user can type over it — it is
+   *  a starting point, not a lock. Percentage is 3 because that is the rate the
+   *  business actually quotes; leaving it blank meant it was retyped every time
+   *  and occasionally forgotten. */
+  defaultValue?: string;
   hint?: string;
 }
 
@@ -53,6 +58,10 @@ export interface TradeDocCfg {
   tagAreaInLine?: boolean;    // Tag Area as the grid's first column instead
   showWarehouse?: boolean;    // warehouse picker on GL-posting vouchers
   hideRateAmount?: boolean;   // delivery note records what left, not what it cost
+  /** No Round Off box. A purchase document is the supplier's bill and is worth
+   *  what the bill says — rounding it is how the ledger and the bill stop
+   *  agreeing. Sales documents keep it. */
+  hideRoundOff?: boolean;
   /** A whole-document Discount box under the grid. Net Total = Subtotal - Discount
    *  + Round Off, and that net is what the document posts. */
   showDiscount?: boolean;
@@ -97,7 +106,7 @@ const CAR_COSTING: HeaderExtra[] = [
   { key: "advance", label: "Advance", kind: "money" },
   { key: "investment", label: "Investment", kind: "money", derived: (v) => n(v, "total_cost") - n(v, "advance") },
   { key: "installment_months", label: "Installment Months", kind: "int" },
-  { key: "percentage", label: "Percentage", kind: "percent", hint: "% per month" },
+  { key: "percentage", label: "Percentage", kind: "percent", hint: "% per month", defaultValue: "3" },
   { key: "margin_amount", label: "Margin Amount", kind: "money",
     derived: (v) => n(v, "investment") * (n(v, "percentage") / 100) * n(v, "installment_months") },
   { key: "selling_price", label: "Selling Price", kind: "money", derived: (v) => n(v, "total_cost") + n(v, "margin_amount") },
@@ -139,6 +148,11 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     type: "purchase_order", prefix: "PO-", title: "Purchase Order", party: "supplier",
     loadsFrom: { type: "sale_order", title: "Sale Order" },
     showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
+    hideRoundOff: true,
+    // A header Remarks, beside the per-line one. What is being asked of the
+    // supplier for the order as a whole ("deliver to the yard, not the office")
+    // belongs to the document, and had nowhere to go but a line.
+    headerExtras: [{ key: "remarks", label: "Remarks", kind: "text" }],
     lineExtras: [
       // Before Rate: it is the ceiling the rate is checked against, so it reads
       // left-to-right as "allowed, then actual". The value comes from the item's
@@ -153,7 +167,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     type: "purchase_voucher", prefix: "PV-", title: "Purchase Voucher", party: "supplier",
     loadsFrom: { type: "mrn", title: "Material Receipt Note" },
     showDue: true, showMode: true, showTagArea: false, tagAreaInLine: true, showWarehouse: false,
-    showDiscount: true,
+    showDiscount: true, hideRoundOff: true,
     // No Purchase Account. It only ever reached the NON-STOCK part of a bill —
     // a stock line debits Inventory and a car debits Vehicle Inventory whatever
     // is chosen — so it was a header control that silently did nothing on most
@@ -188,12 +202,15 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   sale_order: {
     type: "sale_order", prefix: "SO-", title: "Sale Order", party: "customer",
     loadsFrom: { type: "sales_quotation", title: "Sales Quotation" },
-    // The grid stays on a car Sale Order, unlike the Quotation. A quotation is a
-    // price being proposed and the costing block IS the document; an order is
-    // the car being sold at a price, and that line is what the Car Invoice
-    // reads. Keeping it visible is what lets the price be adjusted at the point
-    // of ordering without going back and re-quoting.
+    // The grid is hidden on a car Sale Order, as it is on the Quotation. It was
+    // kept for a while so the price could be adjusted at the point of ordering,
+    // but the same two numbers appearing twice — once in the costing block and
+    // once in a one-row grid underneath — is what it actually amounted to, with
+    // nothing checking that they agreed. The document still gets its line: it is
+    // built on save from the header's Item / Vehicle and Selling Price, which is
+    // what the Car Invoice reads.
     showDelivery: true, showTerms: true, showMode: true, showTagArea: false,
+    hideLinesForCar: true,
     carHeaderExtras: [
       { key: "item_id", label: "Item / Vehicle", kind: "product" },
       ...CAR_COSTING,
