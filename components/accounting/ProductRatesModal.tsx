@@ -18,7 +18,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const [tab, setTab] = useState<"default" | "customers" | "suppliers" | "stock">("default");
+  const [tab, setTab] = useState<"default" | "costing" | "customers" | "suppliers" | "stock">("default");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -30,18 +30,33 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
   const [supRates, setSupRates] = useState<SupRate[]>([]);
   const [newCust, setNewCust] = useState(""); const [newCustRate, setNewCustRate] = useState("");
   const [newSup, setNewSup] = useState(""); const [newSupRate, setNewSupRate] = useState("");
+  // Costing: the expense heads, and what this item costs under each. The heads
+  // are the Car Purchase Expense master — the same list the Car Expense voucher
+  // offers — so what a car is expected to cost is described in the vocabulary
+  // its actual costs arrive in.
+  const [heads, setHeads] = useState<Named[]>([]);
+  const [costs, setCosts] = useState<Record<string, string>>({});
 
+  // Purchase rate plus every head. Derived, never typed — a total anyone can
+  // type is a total that can disagree with the parts above it.
+  const costingTotal = useMemo(
+    () => (Number(dPur) || 0) + heads.reduce((s2, h) => s2 + (Number(costs[h.id]) || 0), 0),
+    [dPur, heads, costs]);
   const custName = useMemo(() => new Map(customers.map((c) => [c.id, c.name])), [customers]);
   const supName = useMemo(() => new Map(suppliers.map((s) => [s.id, s.name])), [suppliers]);
 
   async function reload() {
-    const [{ data: p }, { data: cs }, { data: ss }, { data: cr }, { data: sr }] = await Promise.all([
+    const [{ data: p }, { data: cs }, { data: ss }, { data: cr }, { data: sr }, { data: hd }, { data: pc }] = await Promise.all([
       supabase.from("acct_products").select("sell_rate, purchase_rate, expense_rate, is_stock, uom, reorder_level, reorder_qty").eq("id", productId).single(),
       supabase.from("parties").select("id, name").in("party_type", ["customer", "b2b_agent"]).eq("is_active", true).order("name"),
       supabase.from("accounts").select("id, name").eq("is_postable", true).eq("is_group", false).like("code", "2-01-%").order("code"),
       supabase.from("product_customer_rates").select("id, party_id, sell_rate").eq("product_id", productId),
       supabase.from("product_supplier_rates").select("id, account_id, purchase_rate").eq("product_id", productId),
+      supabase.from("acct_car_purchase_expenses").select("id, name").eq("is_active", true).order("name"),
+      supabase.from("acct_product_costing").select("expense_id, amount").eq("product_id", productId),
     ]);
+    setHeads((hd as any[]) ?? []);
+    setCosts(Object.fromEntries(((pc as any[]) ?? []).map((r) => [r.expense_id, String(Number(r.amount))])));
     if (p) {
       setDSell(String(Number(p.sell_rate))); setDPur(String(Number(p.purchase_rate)));
       setDExp(String(Number(p.expense_rate ?? 0)));
@@ -55,9 +70,23 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
   async function saveDefaults() {
     setBusy(true); setErr(null);
     const { error } = await supabase.from("acct_products")
-      .update({ sell_rate: Number(dSell) || 0, purchase_rate: Number(dPur) || 0, expense_rate: Number(dExp) || 0 })
+      .update({ sell_rate: Number(dSell) || 0, purchase_rate: Number(dPur) || 0 })
       .eq("id", productId);
-    setBusy(false); if (error) return setErr(error.message); router.refresh();
+    setBusy(false); if (error) return setErr(error.message);
+    router.refresh(); onClose();
+  }
+
+  // Purchase rate and every head go together, through the one routine, so a
+  // half-saved cost cannot become the figure the next quotation prices from.
+  async function saveCosting() {
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc("product_costing_save", {
+      p_product: productId,
+      p_purchase_rate: Number(dPur) || 0,
+      p_lines: heads.map((h) => ({ expense_id: h.id, amount: Number(costs[h.id]) || 0 })),
+    });
+    setBusy(false); if (error) return setErr(error.message);
+    router.refresh(); onClose();
   }
   async function addCust() {
     if (!newCust) return setErr("Pick a customer"); setBusy(true); setErr(null);
@@ -81,7 +110,8 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
     setBusy(true); setErr(null);
     const { error } = await supabase.from("acct_products")
       .update({ is_stock: isStock, uom: uom || null, reorder_level: Number(reorder) || 0, reorder_qty: Number(reorderQty) || 0 }).eq("id", productId);
-    setBusy(false); if (error) return setErr(error.message); router.refresh();
+    setBusy(false); if (error) return setErr(error.message);
+    router.refresh(); onClose();
   }
 
   const TabBtn = ({ id, label }: { id: typeof tab; label: string }) => (
@@ -107,12 +137,13 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
                 <input className="input text-right tabular-nums" inputMode="decimal" value={dSell} onChange={(e) => setDSell(e.target.value)} /></div>
               <div><label className="label">Purchase Rate (all suppliers)</label>
                 <input className="input text-right tabular-nums" inputMode="decimal" value={dPur} onChange={(e) => setDPur(e.target.value)} /></div>
-              {/* What the item costs to buy, and what it then costs to make
-                  sellable — registration, insurance, transport on a vehicle.
-                  Total is added up here rather than typed: a total anyone can
-                  type is a total that can disagree with its own two halves. */}
-              <div><label className="label">Expenses</label>
-                <input className="input text-right tabular-nums" inputMode="decimal" value={dExp} onChange={(e) => setDExp(e.target.value)} placeholder="0.00" /></div>
+              {/* Expenses is READ-ONLY here. It is the sum of the Costing tab's
+                  heads, kept by the database, so typing a different number here
+                  would be a second door to one figure — and the losing one, as
+                  the next costing save overwrites it. Total is added up rather
+                  than typed for the same reason. */}
+              <div><label className="label">Expenses <span className="ml-1 font-normal normal-case text-slate-400">· from Costing</span></label>
+                <div className="input flex items-center justify-end bg-slate-50 tabular-nums text-slate-600">{money(Number(dExp) || 0)}</div></div>
               <div>
                 <label className="label">Total Cost <span className="ml-1 font-normal normal-case text-slate-400">· purchase + expenses</span></label>
                 <div className="input flex items-center justify-end bg-slate-50 tabular-nums text-slate-600">
@@ -122,8 +153,62 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
               <p className="col-span-2 -mt-1 text-xs text-slate-400">
                 The Purchase Order checks a supplier&rsquo;s price against the <b>Purchase Rate</b> — the expenses are not the
                 supplier&rsquo;s to charge. A car Sales Quotation quotes its margin on the <b>Total Cost</b>.
+                Break the expenses down on the <b>Costing</b> tab.
               </p>
               <div className="col-span-2"><button onClick={saveDefaults} disabled={busy} className="btn">{busy ? "…" : "Save"}</button></div>
+            </div>
+          )}
+
+          {tab === "costing" && (
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500">
+                What this item costs, head by head. The heads are the{" "}
+                <b>Car Purchase Expense</b> master — the same list a Car Expense voucher offers — so what a
+                vehicle is expected to cost and what it actually costs are written in one vocabulary.
+                Add or rename a head in Masters &rarr; Car Purchase Expenses and it appears here.
+              </p>
+              <div className="rounded-lg border border-slate-200">
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr className="border-b border-slate-100 bg-slate-50">
+                      <td className="px-3 py-2 font-medium text-slate-700">Purchase Rate</td>
+                      <td className="px-3 py-2 text-right">
+                        <input className="input w-40 text-right tabular-nums" inputMode="decimal"
+                          value={dPur} onChange={(e) => setDPur(e.target.value)} placeholder="0.00" />
+                      </td>
+                    </tr>
+                    {heads.map((h) => (
+                      <tr key={h.id} className="border-b border-slate-100">
+                        <td className="px-3 py-2 text-slate-600">{h.name}</td>
+                        <td className="px-3 py-2 text-right">
+                          <input className="input w-40 text-right tabular-nums" inputMode="decimal"
+                            value={costs[h.id] ?? ""} placeholder="0.00"
+                            onChange={(e) => setCosts((c) => ({ ...c, [h.id]: e.target.value }))} />
+                        </td>
+                      </tr>
+                    ))}
+                    {heads.length === 0 && (
+                      <tr><td colSpan={2} className="px-3 py-6 text-center text-slate-400">
+                        No expense heads yet — add them in Masters &rarr; Car Purchase Expenses.
+                      </td></tr>
+                    )}
+                    <tr className="bg-slate-50">
+                      <td className="px-3 py-2 font-semibold text-slate-700">Total</td>
+                      <td className="px-3 py-2 text-right text-base font-bold tabular-nums text-brand">
+                        {money(costingTotal)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-slate-400">
+                This Total is the item&rsquo;s <b>Total Cost</b>, and it is what a car Sales Quotation
+                fills <b>Total Cost (COGS)</b> from — the figure the margin, the selling price and the
+                whole instalment calculation are worked out from.
+              </p>
+              <button onClick={saveCosting} disabled={busy} className="btn disabled:opacity-40">
+                {busy ? "Saving…" : "Save costing"}
+              </button>
             </div>
           )}
 
