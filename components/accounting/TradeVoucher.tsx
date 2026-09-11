@@ -91,6 +91,11 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // Return; it carries what the car sold for, so the return value can be typed
   // with that figure in front of the operator rather than looked up.
   const [carReturn, setCarReturn] = useState<{ vehicle_no?: string; sold_for?: number } | null>(null);
+  // A Delivery Note says the goods LEFT. This is what says they ARRIVED — a
+  // separate event, days apart on a car, and the one the Monthly Service Charge
+  // is billed from.
+  const [delivered, setDelivered] = useState(false);
+  const [deliveredDate, setDeliveredDate] = useState("");
   const [loadOpen, setLoadOpen] = useState(false);
   // These trade documents post to the GL (+ stock); the rest are paperwork only.
   const canPost = ["purchase_voucher", "purchase_return", "sales_return", "sales_invoice"].includes(cfg.type);
@@ -168,7 +173,24 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setRoundOffOn(false); setDiscount("");
     setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({}); setCarAmountTouched(false);
     setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false); setCarReturn(null);
+    setDelivered(false); setDeliveredDate("");
   }
+  // Confirming a delivery is a change to the SAVED note, not part of the form,
+  // so it goes straight to the database rather than waiting for Save. A note
+  // that has not been saved yet has no delivery to confirm.
+  async function markDelivered(on: boolean) {
+    if (!id) return;
+    setBusy(true); setErr(null);
+    const { data, error } = await supabase.rpc("trade_doc_mark_delivered", {
+      p_id: id, p_delivered: on, p_date: on ? (deliveredDate || todaySA()) : null,
+    });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setDelivered(on);
+    setDeliveredDate(on ? ((data as any)?.delivered_date ?? deliveredDate ?? todaySA()) : "");
+    setDone(on ? "Marked delivered." : "Delivery confirmation removed.");
+  }
+
   function setRow(i: number, patch: Partial<Row>) {
     setRows((rs) => {
       const next = rs.map((r, j) => (j === i ? { ...r, ...patch } : r));
@@ -321,6 +343,8 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     // A saved order keeps the amount it was saved with, whatever the header says.
     setCarAmountTouched(true);
     const meta = (v.meta ?? {}) as Record<string, any>;
+    setDelivered(!!v.delivered);
+    setDeliveredDate(v.delivered_date ?? "");
     setCarReturn(meta.car_return
       ? { vehicle_no: meta.vehicle_no ?? undefined, sold_for: Number(meta.sold_for ?? 0) || undefined }
       : null);
@@ -741,6 +765,39 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           {cfg.showTerms && <div className="md:col-span-2"><label className="label">Terms</label><input className="input" value={terms} onChange={(e) => setTerms(e.target.value)} /></div>}
           <div className="md:col-span-2"><label className="label">Narration</label><input className="input" value={narration} onChange={(e) => setNarration(e.target.value)} /></div>
         </div>
+
+        {/* DELIVERED. The note above says the goods were sent; this says the
+            customer got them, and it is what the Monthly Service Charge is
+            billed from — so it is on the note rather than buried in a report.
+            Only on a saved note: there is nothing to confirm before that. */}
+        {cfg.showDelivered && id && (
+          <div className={`rounded-lg border p-4 ${delivered ? "border-emerald-300 bg-emerald-50/60" : "border-slate-200 bg-slate-50"}`}>
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Delivery</div>
+                <div className={`mt-1 text-sm font-medium ${delivered ? "text-emerald-700" : "text-slate-600"}`}>
+                  {delivered ? "Delivered to the customer" : "Dispatched — not yet confirmed as delivered"}
+                </div>
+              </div>
+              <div>
+                <label className="label">Delivered On</label>
+                <input type="date" className="input" value={deliveredDate || todaySA()}
+                  disabled={!mayWrite()}
+                  onChange={(e) => setDeliveredDate(e.target.value)} />
+              </div>
+              <button
+                onClick={() => markDelivered(!delivered)}
+                disabled={busy || !mayWrite()}
+                className={`${delivered ? "btn-outline" : "btn"} text-sm disabled:opacity-40`}>
+                {delivered ? "Undo delivered" : "Mark delivered"}
+              </button>
+              <p className="w-full text-xs text-slate-400">
+                The date is the day the customer actually received the goods, not the day this was
+                ticked — the first Monthly Service Charge is worked out from it.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Car-sales costing block — only for CAR SALES INSTALLMENT / CAR TRADING. */}
         {isCar && (cfg.carHeaderExtras?.length ?? 0) > 0 && (

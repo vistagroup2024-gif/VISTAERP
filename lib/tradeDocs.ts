@@ -62,6 +62,10 @@ export interface TradeDocCfg {
    *  what the bill says — rounding it is how the ledger and the bill stop
    *  agreeing. Sales documents keep it. */
   hideRoundOff?: boolean;
+  /** Shows the Delivered tick once the document is saved. A Delivery Note says
+   *  the goods LEFT; this is what says they ARRIVED, and it is what the Monthly
+   *  Service Charge is billed from. */
+  showDelivered?: boolean;
   /** A whole-document Discount box under the grid. Net Total = Subtotal - Discount
    *  + Round Off, and that net is what the document posts. */
   showDiscount?: boolean;
@@ -253,5 +257,6 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     // rather than in the trade-document chain.
     alsoLoadsFrom: { title: "Car Invoice" },
     showDelivery: true, showTagArea: true, hideRateAmount: true,
+    showDelivered: true,
   },
 };
