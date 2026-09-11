@@ -80,6 +80,10 @@ export const STAFF_PERMISSION_CATALOG: StaffPermGroup[] = [
     { key: "carsales.accounting", label: "Post to Accounting" },
     { key: "carsales.reports", label: "Reports & Dashboard" },
     { key: "carsales.manage", label: "Approvals & Price/Schedule Changes" },
+    // Read with staff_perm_strict, so an empty profile does NOT hold it — unlike
+    // every other setting here, where empty means unrestricted. An override that
+    // everybody silently had would be no rule at all.
+    { key: "carsales.advance_override", label: "Save a Car Invoice whose advance is not fully received" },
   ] },
   // These six are the one place the "empty means unrestricted" rule does NOT
   // apply: handing out access must be granted explicitly, so the database reads

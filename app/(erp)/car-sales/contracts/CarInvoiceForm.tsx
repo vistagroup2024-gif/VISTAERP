@@ -180,6 +180,45 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
   }
 
   const isTrading = useMemo(() => !!vehicles.find((v) => v.id === h.vehicle_id)?.is_trading, [vehicles, h.vehicle_id]);
+
+  // How much of the advance is actually IN. Not typed — a typed figure would be
+  // a second place for the same fact to live, and the one that could lie. It is
+  // the sum of the Car Receipt allocations marked 'advance', read from the same
+  // routine the save gate uses so the screen and the gate cannot disagree.
+  //
+  // It asks against the Sale Order as well as the invoice, because the advance
+  // is usually taken WEEKS before the invoice exists — the customer pays to hold
+  // the car — so those receipts are still anchored to the order at this point.
+  const [advReceived, setAdvReceived] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!id && !sourceId) { setAdvReceived(0); return; }
+      const { data } = await supabase.rpc("car_advance_received", { p_contract: id, p_source_doc: sourceId });
+      if (alive) setAdvReceived(Number(data) || 0);
+    })();
+    return () => { alive = false; };
+  }, [id, sourceId, supabase]);
+
+  // May this user save an invoice whose advance is short? The button says so
+  // before the save does, rather than letting them fill the form and be refused.
+  const [mayOverride, setMayOverride] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.rpc("car_may_save_unpaid_advance");
+      if (alive) setMayOverride(!!data);
+    })();
+    return () => { alive = false; };
+  }, [supabase]);
+
+  const advanceAsked = Number(h.advance) || 0;
+  const advBalance = Math.round((advanceAsked - advReceived) * 100) / 100;
+  // Paid / Partial Paid is DERIVED. The user does not choose it, because the
+  // receipts already say which it is.
+  const advStatus: "none" | "partial" | "paid" =
+    advanceAsked <= 0 ? "paid" : advReceived <= 0 ? "none" : advBalance <= 0 ? "paid" : "partial";
+  const advBlocks = advanceAsked > 0 && advBalance > 0 && !mayOverride;
   // Net Payable is the agreed price less the discount, and it is what the
   // customer owes — so the advance and the instalments settle IT, not the
   // gross. The database computes the same figure as a generated column, so the
@@ -214,7 +253,11 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
       + "It happens in one step, so if anything refuses, nothing changes.")) return;
     setSaving(true); setErr(null);
     const payload = { ...h, keep_vista: isTrading ? h.keep_vista : true,
-      sale_price: String(h.sale_price || 0), discount: String(h.discount || 0), advance: String(h.advance || 0) };
+      sale_price: String(h.sale_price || 0), discount: String(h.discount || 0), advance: String(h.advance || 0),
+      // The advance gate runs BEFORE the invoice exists, so it has to be told
+      // which Sale Order to look for the receipts against — car_contract_link_source
+      // only adopts them afterwards, which is too late to decide whether to save.
+      source_doc_id: sourceId ?? "" };
     const p_inst = rows.map((r) => ({ due_date: r.due_date, amount: String(r.amount || 0), notes: r.notes }));
     const { data, error } = await supabase.rpc("car_contract_save", { p_id: id, p_header: payload, p_installments: p_inst });
     if (error) { setSaving(false); return setErr(error.message); }
@@ -319,7 +362,41 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
               <input className="input bg-slate-50 font-medium" value={netPayable.toFixed(2)} readOnly tabIndex={-1} />
             </Field>
             <Field label="Advance (SAR)"><input type="number" step="0.01" className="input" value={h.advance} onChange={(e) => setH({ ...h, advance: e.target.value })} /></Field>
-            <Field label="Advance Due Date"><input type="date" className="input" value={h.advance_due_date} onChange={(e) => setH({ ...h, advance_due_date: e.target.value })} /></Field>
+            {/* PAID / PARTIAL PAID is derived from the Car Receipts, not chosen.
+                The receipts already say which it is, and a label anyone could
+                set would be the half that lies. */}
+            <Field label="Advance Status">
+              <div className={`input flex items-center font-medium ${
+                advStatus === "paid" ? "bg-emerald-50 text-emerald-700"
+                : advStatus === "partial" ? "bg-amber-50 text-amber-700"
+                : "bg-red-50 text-red-700"}`}>
+                {advanceAsked <= 0 ? "No advance" : advStatus === "paid" ? "Paid" : advStatus === "partial" ? "Partial Paid" : "Unpaid"}
+              </div>
+            </Field>
+            {/* The due date is when the advance is EXPECTED. Once it is fully
+                paid there is nothing left to expect, so the field goes. */}
+            {advStatus !== "paid" && (
+              <Field label="Advance Due Date"><input type="date" className="input" value={h.advance_due_date} onChange={(e) => setH({ ...h, advance_due_date: e.target.value })} /></Field>
+            )}
+            {advanceAsked > 0 && advStatus !== "paid" && (
+              <>
+                <Field label="Received (SAR)">
+                  <input className="input bg-slate-50 font-medium" value={advReceived.toFixed(2)} readOnly tabIndex={-1} />
+                </Field>
+                <Field label="Balance (SAR)">
+                  <input className="input bg-slate-50 font-medium text-red-700" value={advBalance.toFixed(2)} readOnly tabIndex={-1} />
+                </Field>
+                <div className="sm:col-span-full">
+                  <p className="text-xs text-slate-500">
+                    Received is the sum of the Car Receipts allocated to the advance — on this invoice, or on the
+                    Sale Order it is being raised from. Record the balance on <b>Accounting &rarr; Receipt &rarr; Advance</b>{" "}
+                    and it will show here.
+                    {advBlocks && <> This invoice <b>cannot be saved</b> until the advance is fully received;
+                      an admin or a user with the advance override can save it anyway.</>}
+                  </p>
+                </div>
+              </>
+            )}
             {isTrading && (
               <Field label="Registration" full>
                 <label className="flex items-center gap-2 text-sm text-slate-700">
