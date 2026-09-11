@@ -126,7 +126,7 @@ export default function ProductRatesModal({ productId, productName, onClose }: {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700">✕</button>
         </div>
         <div className="flex gap-1 border-b border-slate-200 bg-slate-50 px-4 pt-2">
-          <TabBtn id="default" label="Default" /><TabBtn id="customers" label="Specific Customer" /><TabBtn id="suppliers" label="Specific Supplier" /><TabBtn id="stock" label="Stock" />
+          <TabBtn id="default" label="Default" /><TabBtn id="costing" label="Costing" /><TabBtn id="customers" label="Specific Customer" /><TabBtn id="suppliers" label="Specific Supplier" /><TabBtn id="stock" label="Stock" />
         </div>
         <div className="max-h-[60vh] overflow-y-auto p-4">
           {err && <p className="mb-2 text-sm text-red-600">{err}</p>}
