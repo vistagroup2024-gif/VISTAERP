@@ -47,6 +47,13 @@ export interface TradeDocCfg {
    *  trade-document chain. trade_doc_pending / trade_doc_load already return it;
    *  this is what lets the SCREEN say so. */
   alsoLoadsFrom?: { title: string };
+  /** What this voucher is loaded from ON A CAR COST CENTRE, when that differs.
+   *  A car has no warehouse to be received into, so its Purchase Voucher comes
+   *  straight from the Purchase Order. The database decides this in
+   *  trade_doc_source_type_for(); this is only so the button says the right
+   *  word — a Load button offering "Material Receipt Note" on a car voucher
+   *  would be naming a document the picker is not going to show. */
+  carLoadsFrom?: { type: string; title: string };
   prefix: string;      // document-number prefix
   title: string;
   party: TradeParty;   // whose picker to show (b2b agents count as customers)
@@ -197,6 +204,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   purchase_voucher: {
     type: "purchase_voucher", prefix: "PV-", title: "Purchase Voucher", party: "supplier",
     loadsFrom: { type: "mrn", title: "Material Receipt Note" },
+    carLoadsFrom: { type: "purchase_order", title: "Purchase Order" },
     showDue: true, showMode: true, showTagArea: false, tagAreaInLine: true, showWarehouse: false,
     showDiscount: true, hideRoundOff: true,
     // No Purchase Account. It only ever reached the NON-STOCK part of a bill —

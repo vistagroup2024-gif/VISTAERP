@@ -40,8 +40,6 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // What the Load button offers. A voucher may sit in the document chain
   // (loadsFrom), take a document from outside it (alsoLoadsFrom), or — like the
   // Sales Return, which exists to take a car back — only the second.
-  const loadTitle = [cfg.loadsFrom?.title, cfg.alsoLoadsFrom?.title].filter(Boolean).join(" / ");
-  const loadSourceTitle = [cfg.loadsFrom?.title, cfg.alsoLoadsFrom?.title].filter(Boolean).join(" or ");
   const mayUnpost = () => may("edit_posted");
   const postedLock = () => posted && !mayUnpost();
   const mayWrite = () => (id ? may("edit") && (!posted || mayUnpost()) : may("create"));
@@ -103,6 +101,15 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // Car-sales cost centres (CAR SALES INSTALLMENT / CAR TRADING) reveal the
   // costing block and the vehicle expense columns.
   const isCar = isCarCostCenter(costCenter);
+  // What the Load button is called. On a car cost centre a Purchase Voucher is
+  // raised from the Purchase Order rather than an MRN — a car has no warehouse
+  // to be received into — so the button has to say so. The DATABASE decides
+  // which document is actually accepted (trade_doc_source_type_for); this is
+  // only the wording, and getting it wrong would name a document the picker is
+  // not going to show.
+  const loadsFrom = (isCar && cfg.carLoadsFrom) || cfg.loadsFrom;
+  const loadTitle = [loadsFrom?.title, cfg.alsoLoadsFrom?.title].filter(Boolean).join(" / ");
+  const loadSourceTitle = [loadsFrom?.title, cfg.alsoLoadsFrom?.title].filter(Boolean).join(" or ");
   // A car sale is one vehicle at one price, both already in the costing block,
   // so the grid is not shown. The LINE is still written on save — it is what
   // carries the vehicle to the Car Invoice — it is just not typed by hand.
@@ -307,8 +314,8 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
      boxes are shown, and locked. Everything the quotation does NOT carry (the
      Advance Due Date, the Mega Installment, and the line amount) stays open. */
   const lockedHeaderKeys = useMemo(() => {
-    if (!sourceId || !cfg.loadsFrom?.type) return new Set<string>();
-    const src = TRADE_DOCS[cfg.loadsFrom.type];
+    if (!sourceId || !loadsFrom?.type) return new Set<string>();
+    const src = TRADE_DOCS[loadsFrom.type];
     const keys = new Set((src?.carHeaderExtras ?? []).map((x) => x.key));
     // The mega instalment boxes are generated, so they are not in the source's
     // declared list — but they came across from the quotation with everything
@@ -317,7 +324,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     // is holding, which is the whole point of locking these.
     if (keys.has("mega_qty")) for (let i = 1; i <= megaCount(extras); i++) keys.add(`mega_${i}`);
     return keys;
-  }, [sourceId, cfg.loadsFrom?.type, extras]);
+  }, [sourceId, loadsFrom?.type, extras]);
 
   const subtotal = useMemo(
     () => (hideLines ? num(extraValues.selling_price ?? "") : rows.reduce((s, r) => s + num(r.amount), 0)),
