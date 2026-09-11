@@ -114,7 +114,34 @@ const CAR_COSTING: HeaderExtra[] = [
   { key: "margin_amount", label: "Margin Amount", kind: "money",
     derived: (v) => n(v, "investment") * (n(v, "percentage") / 100) * n(v, "installment_months") },
   { key: "selling_price", label: "Selling Price", kind: "money", derived: (v) => n(v, "total_cost") + n(v, "margin_amount") },
+  // MEGA INSTALLMENTS. A car deal often carries one or two large lump payments
+  // partway through, on top of the monthly figure. Say how many and that many
+  // amount boxes appear — TradeVoucher expands this key into mega_1..mega_N,
+  // because the number of them is not knowable when this list is written.
+  { key: "mega_qty", label: "Mega Installment Quantity", kind: "int" },
+  { key: "monthly_installment", label: "Monthly Installment", kind: "money",
+    derived: (v) => n(v, "selling_price") - n(v, "advance") - megaTotal(v) },
 ];
+
+/** Sum of the mega instalment boxes that are actually SHOWING.
+ *
+ *  Only up to the quantity: turning 3 down to 1 hides two boxes, and a hidden
+ *  box must stop counting immediately. Summing every mega_* key still in the
+ *  document would leave Monthly Installment reading two amounts nobody can see
+ *  — and they are not saved either, so the figure on screen would not survive a
+ *  reload. */
+export function megaTotal(v: Record<string, string>): number {
+  let t = 0;
+  for (let i = 1; i <= megaCount(v); i++) t += Number(v[`mega_${i}`]) || 0;
+  return t;
+}
+
+/** How many mega instalment boxes a document is asking for. Capped: the boxes
+ *  are rendered, and a quantity typed with an extra zero would otherwise build
+ *  a thousand inputs and stop the browser. */
+export const MAX_MEGA = 24;
+export const megaCount = (v: Record<string, string>) =>
+  Math.max(0, Math.min(MAX_MEGA, parseInt(v.mega_qty ?? "") || 0));
 
 // Purchase Voucher cost columns shared by every cost centre.
 //
@@ -219,7 +246,6 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
       { key: "item_id", label: "Item / Vehicle", kind: "product" },
       ...CAR_COSTING,
       { key: "advance_due_date", label: "Advance Due Date", kind: "date" },
-      { key: "mega_installment", label: "Mega Installment", kind: "text" },
     ],
   },
   sales_return: {

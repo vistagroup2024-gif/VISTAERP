@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProductPicker, { productOptions } from "./ProductPicker";
 import LoadFromPicker from "./LoadFromPicker";
-import { TRADE_DOCS, isCarCostCenter, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
+import { TRADE_DOCS, isCarCostCenter, megaCount, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
 import type { DocRight } from "@/lib/docRights";
 import SearchSelect from "@/components/ui/SearchSelect";
 import { todaySA } from "@/lib/saudiTime";
@@ -115,9 +115,21 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // header's Selling Price stops overwriting it, because the line is what the
   // Car Invoice reads and a price agreed at ordering has to survive.
   const [carAmountTouched, setCarAmountTouched] = useState(false);
-  const headerExtras: HeaderExtra[] = useMemo(
-    () => [...(cfg.headerExtras ?? []), ...(isCar ? cfg.carHeaderExtras ?? [] : [])],
-    [cfg, isCar]);
+  // The list is not fixed: Mega Installment Quantity decides how many amount
+  // boxes follow it, so the boxes are generated from what has been typed rather
+  // than declared up front. Everything downstream — what gets saved, what the
+  // derived Monthly Installment reads — works off this list, so generating them
+  // here is enough; nothing else has to know they are dynamic.
+  const headerExtras: HeaderExtra[] = useMemo(() => {
+    const base = [...(cfg.headerExtras ?? []), ...(isCar ? cfg.carHeaderExtras ?? [] : [])];
+    const at = base.findIndex((f) => f.key === "mega_qty");
+    if (at < 0) return base;
+    const many = megaCount(extras);
+    const boxes: HeaderExtra[] = Array.from({ length: many }, (_, i) => ({
+      key: `mega_${i + 1}`, label: `Mega Installment ${i + 1} Amount`, kind: "money" as const,
+    }));
+    return [...base.slice(0, at + 1), ...boxes, ...base.slice(at + 1)];
+  }, [cfg, isCar, extras]);
   const lineExtras: LineExtra[] = useMemo(
     () => (isCar && cfg.carLineExtras ? cfg.carLineExtras : cfg.lineExtras ?? []),
     [cfg, isCar]);
@@ -297,8 +309,15 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const lockedHeaderKeys = useMemo(() => {
     if (!sourceId || !cfg.loadsFrom?.type) return new Set<string>();
     const src = TRADE_DOCS[cfg.loadsFrom.type];
-    return new Set((src?.carHeaderExtras ?? []).map((x) => x.key));
-  }, [sourceId, cfg.loadsFrom?.type]);
+    const keys = new Set((src?.carHeaderExtras ?? []).map((x) => x.key));
+    // The mega instalment boxes are generated, so they are not in the source's
+    // declared list — but they came across from the quotation with everything
+    // else and must lock with it. Locking the quantity while leaving the amounts
+    // open would let the order quietly disagree with the quotation the customer
+    // is holding, which is the whole point of locking these.
+    if (keys.has("mega_qty")) for (let i = 1; i <= megaCount(extras); i++) keys.add(`mega_${i}`);
+    return keys;
+  }, [sourceId, cfg.loadsFrom?.type, extras]);
 
   const subtotal = useMemo(
     () => (hideLines ? num(extraValues.selling_price ?? "") : rows.reduce((s, r) => s + num(r.amount), 0)),
