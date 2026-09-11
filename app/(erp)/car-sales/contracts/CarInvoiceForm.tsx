@@ -153,10 +153,20 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
       notes: v.notes ?? cur.notes,
     }));
     if (Number(v.installment_months) > 0) setGen((g) => ({ ...g, months: String(v.installment_months) }));
-    setRows([]);
+    // The schedule agreed ON THE ORDER comes across whole. It used to start
+    // empty, so the operator pressed Generate and the invoice billed round
+    // numbers on dates the customer had never agreed to — the order's own
+    // schedule, sitting right there, was thrown away at the one moment it
+    // mattered. Generate is still there for an order that carries none.
+    const fromOrder = Array.isArray(v.installments) ? (v.installments as any[]) : [];
+    setRows(fromOrder.map((r) => ({
+      due_date: r.due_date ?? "", amount: String(r.amount ?? ""), notes: r.notes ?? "",
+    })));
     setItemName(v.item_name ?? null);
     setSourceId(v.id); setSourceNo(v.doc_no ?? null);
-    setDone(`loaded from ${v.doc_no}`);
+    setDone(fromOrder.length
+      ? `loaded from ${v.doc_no} — ${fromOrder.length} installment${fromOrder.length === 1 ? "" : "s"} came with it`
+      : `loaded from ${v.doc_no}`);
     if (!v.vehicle_id && v.item_name) {
       setErr(`No car is free in stock for "${v.item_name}" — choose the vehicle by hand.`);
     }

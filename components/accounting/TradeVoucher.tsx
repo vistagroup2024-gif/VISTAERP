@@ -22,6 +22,12 @@ const blankRow = (): Row => ({ product_id: null, item_name: "", units: "", quant
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 const num = (s: string) => (s?.trim?.() === "" || s == null ? 0 : Number(s) || 0);
 const r2 = (n: number) => String(+n.toFixed(2));
+// Wall-clock month arithmetic, UTC-anchored so the viewer's zone cannot move a
+// due date across a day boundary. It never asks what time it is.
+function addMonthsISO(iso: string, n: number) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1 + n, d)).toISOString().slice(0, 10);
+}
 
 // Takes the doc-type key rather than the config object: the config carries the
 // derived-value functions for the car costing block, and functions cannot cross
@@ -94,6 +100,11 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // is billed from.
   const [delivered, setDelivered] = useState(false);
   const [deliveredDate, setDeliveredDate] = useState("");
+  // The instalment schedule agreed at the ORDER. The Car Invoice raised from it
+  // starts with the dates and amounts the customer signed up to, rather than a
+  // schedule regenerated from round numbers weeks later.
+  const [sched, setSched] = useState<{ due_date: string; amount: string; notes: string }[]>([]);
+  const [schedStart, setSchedStart] = useState(() => todaySA());
   const [loadOpen, setLoadOpen] = useState(false);
   // These trade documents post to the GL (+ stock); the rest are paperwork only.
   const canPost = ["purchase_voucher", "purchase_return", "sales_return", "sales_invoice"].includes(cfg.type);
@@ -192,7 +203,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setRoundOffOn(false); setDiscount("");
     setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({}); setCarAmountTouched(false);
     setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false); setCarReturn(null);
-    setDelivered(false); setDeliveredDate("");
+    setDelivered(false); setDeliveredDate(""); setSched([]); setSchedStart(todaySA());
   }
   // Confirming a delivery is a change to the SAVED note, not part of the form,
   // so it goes straight to the database rather than waiting for Save. A note
@@ -263,6 +274,42 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setExtras((e) => ({ ...e, [f.key]: value }));
     if (f.derived) setOverridden((o) => ({ ...o, [f.key]: value.trim() !== "" }));
   }
+
+  const showSchedule = isCar && !!cfg.carSchedule;
+  const schedTotal = useMemo(() => sched.reduce((t, r) => t + num(r.amount), 0), [sched]);
+  // What the schedule is SUPPOSED to add up to. The Car Invoice enforces
+  // advance + instalments = net payable, so an order whose schedule does not
+  // reach it is an order that cannot be invoiced without being retyped. Shown
+  // here rather than refused: an order is still being negotiated.
+  const schedTarget = useMemo(
+    () => num(extraValues.selling_price ?? "") - num(extraValues.advance ?? ""),
+    [extraValues]);
+  const schedDiff = useMemo(() => +(schedTarget - schedTotal).toFixed(2), [schedTarget, schedTotal]);
+
+  /** Build the schedule from the costing block: the mega instalments first, on
+   *  their own months, then the monthly figure for the rest. */
+  function generateSchedule() {
+    const months = Math.max(0, parseInt(extraValues.installment_months ?? "") || 0);
+    if (months <= 0) { setErr("Set the Installment Months first."); return; }
+    const monthly = num(extraValues.monthly_installment ?? "");
+    const megas = megaCount(extraValues);
+    const rows2: { due_date: string; amount: string; notes: string }[] = [];
+    for (let i = 0; i < months; i++) {
+      rows2.push({ due_date: addMonthsISO(schedStart, i), amount: r2(monthly), notes: "" });
+    }
+    // A mega instalment is an EXTRA payment in its month, not a replacement for
+    // that month's instalment, so it is its own row.
+    for (let i = 1; i <= megas; i++) {
+      const amt = num(extraValues[`mega_${i}`] ?? "");
+      if (amt <= 0) continue;
+      rows2.push({ due_date: addMonthsISO(schedStart, Math.min(i * 6, Math.max(months - 1, 0))),
+                   amount: r2(amt), notes: `Mega instalment ${i}` });
+    }
+    rows2.sort((a, b) => a.due_date.localeCompare(b.due_date));
+    setErr(null);
+    setSched(rows2);
+  }
+
 
   // Choosing the Item / Vehicle fills Total Cost (COGS) from the Product Tree.
   //
@@ -371,6 +418,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     const meta = (v.meta ?? {}) as Record<string, any>;
     setDelivered(!!v.delivered);
     setDeliveredDate(v.delivered_date ?? "");
+    setSched(Array.isArray(v.meta?.installments)
+      ? (v.meta.installments as any[]).map((r) => ({
+          due_date: r.due_date ?? "", amount: String(r.amount ?? ""), notes: r.notes ?? "" }))
+      : []);
     setCarReturn(meta.car_return
       ? { vehicle_no: meta.vehicle_no ?? undefined, sold_for: Number(meta.sold_for ?? 0) || undefined }
       : null);
@@ -565,6 +616,13 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         ...(cfg.showDiscount ? { discount: discountAmt } : {}),
         // so re-opening the document shows the tick, not a number nobody typed
         round_off_auto: roundOffOn,
+        // Only rows with both a date and an amount: a half-typed row would
+        // become an instalment of zero on the Car Invoice.
+        ...(showSchedule
+          ? { installments: sched
+              .filter((r) => r.due_date && num(r.amount) > 0)
+              .map((r) => ({ due_date: r.due_date, amount: num(r.amount), notes: r.notes || null })) }
+          : {}),
         // A car return remembers where it came from, so re-opening it shows the
         // same figures the operator decided against.
         ...(carReturn
@@ -791,6 +849,89 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           {cfg.showTerms && <div className="md:col-span-2"><label className="label">Terms</label><input className="input" value={terms} onChange={(e) => setTerms(e.target.value)} /></div>}
           <div className="md:col-span-2"><label className="label">Narration</label><input className="input" value={narration} onChange={(e) => setNarration(e.target.value)} /></div>
         </div>
+
+        {/* THE INSTALMENT SCHEDULE, agreed here rather than at the invoice. */}
+        {showSchedule && (
+          <div className="rounded-lg border border-brand/20 bg-brand/[0.03] p-4">
+            <div className="mb-3 flex flex-wrap items-end gap-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-brand">Installment Schedule</div>
+              <div className="ml-auto flex items-end gap-2">
+                <div>
+                  <label className="label">First Due</label>
+                  <input type="date" className="input" value={schedStart}
+                    onChange={(e) => setSchedStart(e.target.value)} disabled={!mayWrite()} />
+                </div>
+                <button onClick={generateSchedule} disabled={!mayWrite()}
+                  className="btn-outline text-sm disabled:opacity-40">Generate</button>
+                <button onClick={() => setSched((r) => [...r, { due_date: "", amount: "", notes: "" }])}
+                  disabled={!mayWrite()} className="btn-outline text-sm disabled:opacity-40">+ Row</button>
+              </div>
+            </div>
+
+            {sched.length > 0 && (
+              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    <tr>
+                      <th className="px-2 py-2 text-left">#</th>
+                      <th className="px-2 py-2 text-left">Due Date</th>
+                      <th className="px-2 py-2 text-right">Amount</th>
+                      <th className="px-2 py-2 text-left">Notes</th>
+                      <th className="px-2 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sched.map((r, i) => (
+                      <tr key={i} className="border-t border-slate-100">
+                        <td className="px-2 py-1 text-slate-400">{i + 1}</td>
+                        <td className="px-2 py-1">
+                          <input type="date" className="input" value={r.due_date} disabled={!mayWrite()}
+                            onChange={(e) => setSched((a) => a.map((x, j) => j === i ? { ...x, due_date: e.target.value } : x))} />
+                        </td>
+                        <td className="px-2 py-1">
+                          <input className="input w-36 text-right tabular-nums" inputMode="decimal" value={r.amount} disabled={!mayWrite()}
+                            onChange={(e) => setSched((a) => a.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} />
+                        </td>
+                        <td className="px-2 py-1">
+                          <input className="input" value={r.notes} disabled={!mayWrite()}
+                            onChange={(e) => setSched((a) => a.map((x, j) => j === i ? { ...x, notes: e.target.value } : x))} />
+                        </td>
+                        <td className="px-2 py-1 text-right">
+                          <button onClick={() => setSched((a) => a.filter((_, j) => j !== i))}
+                            disabled={!mayWrite()} className="text-slate-300 hover:text-red-500 disabled:opacity-40">✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+                    <tr>
+                      <td className="px-2 py-2 text-slate-500" colSpan={2}>Scheduled</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{money(schedTotal)}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+
+            {/* The Car Invoice REFUSES a schedule that does not add up to the
+                net payable, so an order that does not reach it is an order that
+                has to be retyped at the invoice. Said here, where it can still
+                be fixed — but not refused: an order is still being negotiated. */}
+            {sched.length > 0 && schedDiff !== 0 && (
+              <p className="mt-2 text-xs text-amber-700">
+                The schedule comes to {money(schedTotal)}, but Selling Price less Advance is {money(schedTarget)} —
+                a difference of <b>{money(Math.abs(schedDiff))}</b>. The Car Invoice will not accept it until they agree.
+              </p>
+            )}
+            {sched.length === 0 && (
+              <p className="text-xs text-slate-400">
+                Set the Installment Months and Percentage above, then Generate — or add rows by hand.
+                The Car Invoice raised from this order starts with whatever is here.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* DELIVERED. The note above says the goods were sent; this says the
             customer got them, and it is what the Monthly Service Charge is

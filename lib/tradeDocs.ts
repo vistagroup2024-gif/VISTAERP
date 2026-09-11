@@ -69,6 +69,11 @@ export interface TradeDocCfg {
    *  what the bill says — rounding it is how the ledger and the bill stop
    *  agreeing. Sales documents keep it. */
   hideRoundOff?: boolean;
+  /** An instalment schedule on a car document: when each payment falls due and
+   *  for how much. Agreed at the ORDER, so the Car Invoice raised from it starts
+   *  with the schedule the customer actually signed up to rather than one
+   *  regenerated from round numbers weeks later. Stored in the document meta. */
+  carSchedule?: boolean;
   /** Shows the Delivered tick once the document is saved. A Delivery Note says
    *  the goods LEFT; this is what says they ARRIVED, and it is what the Monthly
    *  Service Charge is billed from. */
@@ -126,8 +131,19 @@ const CAR_COSTING: HeaderExtra[] = [
   // amount boxes appear — TradeVoucher expands this key into mega_1..mega_N,
   // because the number of them is not knowable when this list is written.
   { key: "mega_qty", label: "Mega Installment Quantity", kind: "int" },
+  // What the customer pays EACH MONTH: what is left after the advance and the
+  // mega instalments, spread over the instalment months.
+  //
+  // Divided by zero months it would be an infinity, and an infinity written into
+  // a quotation is worse than a blank — so with no months set it stays empty
+  // until one is. The box is editable like every other derived field, so an
+  // agreed round figure can still be typed over the arithmetic.
   { key: "monthly_installment", label: "Monthly Installment", kind: "money",
-    derived: (v) => n(v, "selling_price") - n(v, "advance") - megaTotal(v) },
+    derived: (v) => {
+      const months = n(v, "installment_months");
+      if (months <= 0) return 0;
+      return (n(v, "selling_price") - n(v, "advance") - megaTotal(v)) / months;
+    } },
 ];
 
 /** Sum of the mega instalment boxes that are actually SHOWING.
@@ -249,7 +265,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     // built on save from the header's Item / Vehicle and Selling Price, which is
     // what the Car Invoice reads.
     showDelivery: true, showTerms: true, showMode: true, showTagArea: false,
-    hideLinesForCar: true,
+    hideLinesForCar: true, carSchedule: true,
     carHeaderExtras: [
       { key: "item_id", label: "Item / Vehicle", kind: "product" },
       ...CAR_COSTING,
