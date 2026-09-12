@@ -265,9 +265,12 @@ const EXTRA_ITEMS: { item: NavItem; group: string; icon: IconName }[] = [
   { item: { href: "/stock/documents/movement", label: "Stock Receipt / Issue / Adjustment", perm: ["accounting.view"] },
     group: "Inventory", icon: "store" },
   // Car Sales is hidden (see HIDDEN_ITEMS); these two are still sold and still
-  // invoiced, so they stay in Transactions -> Sales.
+  // invoiced. Car Invoices stays a row in Transactions -> Sales; Monthly
+  // Charges became a tab of Sales Invoice and is declared here for its name,
+  // its permission and the global search.
   { item: { href: "/car-sales/contracts", label: "Car Invoices", perm: ["carsales.installments", "carsales.sales"] },
     group: "Car Sales", icon: "car" },
+  // A tab of Sales Invoice now, like the three module invoice lists below.
   { item: { href: "/car-sales/service-charges", label: "Monthly Charges", perm: ["carsales.charges"] },
     group: "Car Sales", icon: "car" },
   // The costs that land on a vehicle after it is bought. It replaces the nine
@@ -325,7 +328,9 @@ export const TRANSACTIONS: QuickGroupDef[] = [
     // rows all called "invoice" left the operator to remember which screen
     // answered which question.
     "/car-sales/contracts",
-    "/car-sales/service-charges",
+    // Monthly Charges is not listed here any more either: it is the sixth tab
+    // inside Sales Invoice. Its route still works and is still declared in
+    // EXTRA_ITEMS, so it stays named, permission-checked and searchable.
     // Focus's "Sales Targets".
     "/accounting/targets",
     // Focus lists Route Fares here too. A transport rate is a master, not a

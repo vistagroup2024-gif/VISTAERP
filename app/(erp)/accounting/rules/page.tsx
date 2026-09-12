@@ -37,6 +37,7 @@ const DOC_TYPES: DocType[] = [
   { key: "purchase_return",  label: "Purchase Return",   group: "Purchases",     gated: true },
   { key: "sales_invoice",    label: "Sales Invoice",     group: "Sales",         gated: true },
   { key: "sales_return",     label: "Sales Return",      group: "Sales",         gated: true },
+  { key: "air_ticket_invoice", label: "Air Ticket Invoice", group: "Sales",        gated: true },
   // Post through an engine rather than through a gate.
   { key: "pdc",              label: "PDC Register",      group: "Cash and Bank", gated: false },
   { key: "invoice_bill",     label: "Bill Record",       group: "Journals",      gated: false },

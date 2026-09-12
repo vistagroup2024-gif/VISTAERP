@@ -26,6 +26,13 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
     .filter((x) => lines.some((l) => (l.meta ?? {})[x.key] != null && String((l.meta ?? {})[x.key]) !== ""));
   const tagInLine = !!cfg?.tagAreaInLine && lines.some((l) => (l.meta ?? {}).tag_area);
   const carFields = isCar ? (cfg?.carHeaderExtras ?? []).filter((f) => meta[f.key] != null && String(meta[f.key]) !== "") : [];
+  // The voucher's own header fields — Supplier, Haji Name, Booking Via on an
+  // air ticket, a header Remarks on a Purchase Order. Only the ones that were
+  // filled in, and the account/tick kinds are left out because the block above
+  // already prints them under their own words.
+  const headFields = (cfg?.headerExtras ?? []).filter(
+    (f) => f.kind !== "account" && f.kind !== "check"
+      && meta[f.key] != null && String(meta[f.key]) !== "");
 
   // Resolve the chosen Purchase / Sale Account to its name for the printout.
   const acctId = meta.purchase_account || meta.sale_account || null;
@@ -40,6 +47,14 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
     ? await sb.from("acct_products").select("id, name").in("id", productIds)
     : { data: [] as any[] };
   const prodName = new Map(((prodRows as any[]) ?? []).map((p) => [p.id, p.name]));
+
+  // Same for a "party" header field. A supplier printed as a UUID is a document
+  // that does not say who the tickets were bought from.
+  const partyIds = headFields.filter((f) => f.kind === "party").map((f) => String(meta[f.key]));
+  const { data: partyRows } = partyIds.length
+    ? await sb.from("parties").select("id, name").in("id", partyIds)
+    : { data: [] as any[] };
+  const partyName = new Map(((partyRows as any[]) ?? []).map((p) => [p.id, p.name]));
 
   const costCols = lineExtras.filter((x) => x.cost);
   const landed = lines.reduce((s, l) => s + num(l.amount) + costCols.reduce((c, x) => c + num((l.meta ?? {})[x.key]), 0), 0);
@@ -75,6 +90,19 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
           {d.delivery_date && <div><span className="text-slate-400">Delivery: </span>{dateStr(d.delivery_date)}</div>}
           {meta.update_stock === true && <div><span className="text-slate-400">Stocks: </span>updated</div>}
           {meta.raise_receipt === true && <div><span className="text-slate-400">Receipt: </span>to be raised</div>}
+          {headFields.map((f) => (
+            <div key={f.key}>
+              <span className="text-slate-400">{f.label}: </span>
+              {f.kind === "party" ? (partyName.get(String(meta[f.key])) ?? String(meta[f.key]))
+                : f.kind === "money" ? money(num(meta[f.key]))
+                : f.kind === "date" ? dateStr(meta[f.key])
+                : String(meta[f.key])}
+            </div>
+          ))}
+          {cfg?.showCurrency && d.currency && d.currency !== "SAR" && (
+            <div><span className="text-slate-400">Currency: </span>
+              {d.currency}{meta.fx_rate ? ` @ ${meta.fx_rate}` : ""}</div>
+          )}
         </div>
 
         {carFields.length > 0 && (
@@ -106,8 +134,8 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
               <th className="py-2">Item</th><th className="py-2">Units</th>
               <th className="py-2 text-right">Qty</th>
               {showRateAmount && <th className="py-2 text-right">Rate</th>}
-              {showRateAmount && <th className="py-2 text-right">Amount</th>}
-              {lineExtras.map((x) => <th key={x.key} className={`py-2 ${x.kind === "text" ? "" : "text-right"}`}>{x.label}</th>)}
+              {showRateAmount && <th className="py-2 text-right">{cfg?.amountLabel ?? "Amount"}</th>}
+              {lineExtras.map((x) => <th key={x.key} className={`py-2 ${x.kind === "text" || x.kind === "date" ? "" : "text-right"}`}>{x.label}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -121,9 +149,11 @@ export default async function TradeDocPage({ params }: { params: { id: string } 
                 {showRateAmount && <td className="py-2 text-right tabular-nums">{num(l.rate) ? money(num(l.rate)) : ""}</td>}
                 {showRateAmount && <td className="py-2 text-right tabular-nums">{money(num(l.amount))}</td>}
                 {lineExtras.map((x) => (
-                  <td key={x.key} className={`py-2 ${x.kind === "text" ? "text-slate-500" : "text-right tabular-nums"}`}>
+                  <td key={x.key} className={`py-2 ${x.kind === "text" || x.kind === "date" ? "text-slate-500" : "text-right tabular-nums"}`}>
                     {(l.meta ?? {})[x.key] == null || (l.meta ?? {})[x.key] === "" ? ""
-                      : x.kind === "text" ? String((l.meta ?? {})[x.key]) : money(num((l.meta ?? {})[x.key]))}
+                      : x.kind === "text" ? String((l.meta ?? {})[x.key])
+                      : x.kind === "date" ? dateStr(String((l.meta ?? {})[x.key]))
+                      : money(num((l.meta ?? {})[x.key]))}
                   </td>
                 ))}
               </tr>

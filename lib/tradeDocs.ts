@@ -10,18 +10,28 @@ export type TradeParty = "supplier" | "customer" | null;
 export interface LineExtra {
   key: string;
   label: string;
-  kind?: "money" | "text";   // money (default) right-aligns and totals; text does not
+  kind?: "money" | "text" | "date";  // money (default) right-aligns and totals; text and date do not
   cost?: boolean;            // counts toward the landed-cost figure under the grid
   /** Sits to the LEFT of Rate instead of after Amount. A ceiling is read while
    *  the rate is being typed, so it has to be beside it, not past the total. */
   beforeRate?: boolean;
+  /** Worked out from the row rather than typed — Supplier Amount is Quantity x
+   *  Supplier Rate, and a column the operator has to multiply by hand is a
+   *  column that will eventually disagree with the two numbers beside it. Shown
+   *  read-only and stored as the computed figure. */
+  derived?: (ctx: { qty: number; rate: number; amount: number; extras: Record<string, string> }) => number;
 }
 
 /** Extra header field, stored in the document meta. */
 export interface HeaderExtra {
   key: string;
   label: string;
-  kind: "money" | "text" | "date" | "int" | "percent" | "account" | "check" | "product";
+  kind: "money" | "text" | "date" | "int" | "percent" | "account" | "check" | "product" | "party";
+  /** For kind "party": which side of the master to offer. A document with BOTH
+   *  a customer and a supplier — an air ticket bought from a consolidator and
+   *  sold on — cannot express its second party through the one party_id column,
+   *  so it rides in the meta and picks from here. */
+  partyType?: "supplier" | "customer";
   /** Derived from the other values — shown read-only unless the user overrides it. */
   derived?: (v: Record<string, string>) => number;
   /** A `check` field that starts ticked. Without this a new voucher saves it
@@ -91,6 +101,14 @@ export interface TradeDocCfg {
    */
   hideLinesForCar?: boolean;
   qtyLabel?: string;
+  /** What the Amount column is called. An air ticket invoice calls it Gross,
+   *  because the figure the passenger is billed is gross of what it cost. */
+  amountLabel?: string;
+  /** Currency name and conversion rate in the header. The grid is typed in the
+   *  document's own currency; the LEDGER is posted in the company's, at the rate
+   *  on the document. Left at 1 (or blank) nothing is converted, which is what
+   *  every SAR document wants. */
+  showCurrency?: boolean;
   headerExtras?: HeaderExtra[];     // always shown
   carHeaderExtras?: HeaderExtra[];  // shown only for a car-sales cost centre
   lineExtras?: LineExtra[];         // always shown
@@ -299,6 +317,51 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     // one per line. The COGS side never listened to it regardless: goods leaving
     // book against Inventory on rules the posting owns.
     lineExtras: [{ key: "remarks", label: "Remarks", kind: "text" }],
+  },
+  // ── AIR TICKET INVOICE ──────────────────────────────────────────────────
+  // A back-to-back document: the ticket is bought from a consolidator and sold
+  // to the passenger, and BOTH sides belong on the one voucher because they are
+  // one transaction with one margin. That is why it carries a supplier as well
+  // as a customer — the only trade document that does — and why it posts four
+  // legs rather than two:
+  //
+  //     Dr the customer      gross          Cr Air Ticket Sales   gross
+  //     Dr Air Ticket Cost   supplier       Cr the supplier       supplier
+  //
+  // So the customer stands as a receivable and the consolidator as a payable,
+  // and the margin falls out of the two revenue/cost accounts without anybody
+  // typing it.
+  //
+  // It moves NO STOCK. A ticket is not a thing on a shelf: the line's item is
+  // there to say what was sold and to reach the Product Tree, not to be issued
+  // from a warehouse. trade_doc_post_now's air-ticket branch never enters the
+  // stock loop.
+  //
+  // Ticket No. and PNR are not in the field list that was asked for, and they
+  // are here because an air ticket without them cannot be found again: a void,
+  // a refund, a reissue and every supplier query start from one or the other.
+  // They are ordinary line columns, so leaving them blank costs nothing.
+  air_ticket_invoice: {
+    type: "air_ticket_invoice", prefix: "ATI-", title: "Air Ticket Invoice", party: "customer",
+    showDue: true, showMode: true, showTagArea: true, showCurrency: true,
+    amountLabel: "Gross",
+    headerExtras: [
+      { key: "supplier_id", label: "Supplier", kind: "party", partyType: "supplier" },
+      { key: "haji_name", label: "Haji Name", kind: "text" },
+      { key: "booking_via", label: "Booking Via", kind: "text" },
+    ],
+    lineExtras: [
+      { key: "supplier_rate", label: "Supplier Rate" },
+      // Quantity x Supplier Rate. Read-only, because the moment it is typed by
+      // hand it is a third number that can disagree with the first two.
+      { key: "supplier_amount", label: "Supplier Amount",
+        derived: ({ qty, extras }) => qty * (Number(extras.supplier_rate) || 0) },
+      { key: "airline", label: "Airline", kind: "text" },
+      { key: "sector", label: "Sector", kind: "text" },
+      { key: "travel_date", label: "Travel Date", kind: "date" },
+      { key: "ticket_no", label: "Ticket No.", kind: "text" },
+      { key: "pnr", label: "PNR", kind: "text" },
+    ],
   },
   delivery_note: {
     type: "delivery_note", prefix: "DN-", title: "Delivery Note", party: "customer",

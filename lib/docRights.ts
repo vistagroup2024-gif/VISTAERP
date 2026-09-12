@@ -67,6 +67,10 @@ export const DOC_TREE: DocModule[] = [
       { key: "sales_quotation", label: "Sales Quotation", rights: V, href: "/accounting/sales/quotations" },
       { key: "sale_order",      label: "Sale Order",      rights: V, href: "/accounting/sales/orders" },
       { key: "sales_invoice",   label: "Sales Invoice",   rights: V, href: "/accounting/sales/invoices" },
+      // A tab of Sales Invoice rather than a route of its own, so it has no
+      // href — the middleware gates the screen through sales_invoice and this
+      // key is what gates entering, changing and deleting one.
+      { key: "air_ticket_invoice", label: "Air Ticket Invoice", rights: V },
       { key: "delivery_note",   label: "Delivery Note",   rights: V, href: "/accounting/sales/delivery-notes" },
       { key: "sales_return",    label: "Sales Return",    rights: V, href: "/accounting/sales/returns" },
       { key: "car_invoice",     label: "Car Invoice",     rights: V, href: "/car-sales/contracts" },

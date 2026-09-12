@@ -80,6 +80,13 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [busy, setBusy] = useState(false);
 
   const [parties, setParties] = useState<{ id: string; name: string }[]>([]);
+  // A second party list, for the one document that has two sides. Fetched only
+  // when a `party` header field asks for it, so no other voucher pays for it.
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
+  // The document's own currency and what it converts to base at. Blank / 1 for
+  // everything priced in SAR, which is nearly everything.
+  const [currency, setCurrency] = useState("");
+  const [fxRate, setFxRate] = useState("");
   const [products, setProducts] = useState<{ id: string; name: string; group?: string | null; purchase_rate?: number | null; total_cost?: number | null }[]>([]);
   const [costCenters, setCostCenters] = useState<{ id: string; name: string }[]>([]);
   const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
@@ -155,6 +162,15 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const preRateExtras = useMemo(() => lineExtras.filter((x) => x.beforeRate), [lineExtras]);
   const postExtras = useMemo(() => lineExtras.filter((x) => !x.beforeRate), [lineExtras]);
   const showRateAmount = !cfg.hideRateAmount;
+
+  /** What an extra column shows for a row. A derived column (Supplier Amount)
+   *  is worked out from the row; everything else is what was typed. One
+   *  function, so the cell, the column total and the save cannot disagree. */
+  const extraCell = useCallback((x: LineExtra, r: Row): string => {
+    if (!x.derived) return r.extras[x.key] ?? "";
+    const v = x.derived({ qty: num(r.quantity), rate: num(r.rate), amount: num(r.amount), extras: r.extras });
+    return Number.isFinite(v) && v !== 0 ? String(Math.round(v * 100) / 100) : v === 0 ? "0" : "";
+  }, []);
   // A vehicle is one car, not a quantity of something — Units means nothing on a
   // car cost centre, so the column is not shown and nothing is stored in it.
   const showUnits = !isCar;
@@ -171,10 +187,17 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         supabase.from("accounts").select("id, code, name").eq("is_postable", true).eq("is_group", false).order("code"),
       ]);
       setParties((pa as any[]) ?? []); setProducts(productOptions((pr as any[]) ?? []));
+      // Only when the voucher declares a second party. Asking for it on every
+      // voucher would be a query nobody reads.
+      if ((cfg.headerExtras ?? []).some((f) => f.kind === "party")) {
+        const { data: sp } = await supabase.from("parties")
+          .select("id, name").eq("party_type", "supplier").eq("is_active", true).order("name");
+        setSuppliers((sp as any[]) ?? []);
+      }
       setCostCenters((cc as any[]) ?? []); setTagAreas((ta as any[]) ?? []);
       setWarehouses((wh as any[]) ?? []); setAccounts((ac as any[]) ?? []);
     })();
-  }, [supabase, cfg.party]);
+  }, [supabase, cfg.party, cfg.headerExtras]);
 
 
   /** What a new voucher's extra fields start at: ticked check boxes, and any
@@ -201,6 +224,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setId(null); setDocNo(""); setDone(keepMessage ?? null); setErr(null);
     setDate(todaySA()); setParty(""); setCostCenter(""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setRoundOffOn(false); setDiscount("");
+    setCurrency(""); setFxRate("");
     setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({}); setCarAmountTouched(false);
     setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false); setCarReturn(null);
     setDelivered(false); setDeliveredDate(""); setSched([]); setSchedStart(todaySA());
@@ -409,6 +433,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setDate(v.doc_date ?? ""); setParty(v.party_id ?? ""); setCostCenter(v.cost_center ?? ""); setTagArea(v.tag_area ?? "");
     setReference(v.reference ?? ""); setMode(v.mode_of_payment ?? ""); setDueDate(v.due_date ?? ""); setDeliveryDate(v.delivery_date ?? "");
     setTerms(v.terms ?? ""); setNarration(v.narration ?? ""); setRoundOff(v.round_off ? String(v.round_off) : "");
+    // "SAR" is what trade_doc_save defaults to, so showing it back is showing a
+    // value nobody typed; the box says SAR as its placeholder already.
+    setCurrency(v.currency && v.currency !== "SAR" ? v.currency : "");
+    setFxRate(v.meta?.fx_rate ? String(v.meta.fx_rate) : "");
     setRoundOffOn(!!v.meta?.round_off_auto);
     setDiscount(v.meta?.discount ? String(v.meta.discount) : "");
     setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry); setAwaiting(v.status === "awaiting_approval");
@@ -611,8 +639,13 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       tag_area: cfg.showTagArea === false ? null : tagArea || null,
       reference: reference || null, mode_of_payment: mode || null, due_date: dueDate || null, delivery_date: deliveryDate || null,
       terms: terms || null, narration: narration || null, round_off: roundOffAmt,
+      ...(cfg.showCurrency ? { currency: currency.trim() || "SAR" } : {}),
       meta: {
         ...meta,
+        // The rate the ledger converts at. Stored only when the voucher asks
+        // for a currency, and only when it is a real rate — an absent one means
+        // 1, which is what the posting reads it as.
+        ...(cfg.showCurrency && num(fxRate) > 0 ? { fx_rate: num(fxRate) } : {}),
         ...(cfg.showDiscount ? { discount: discountAmt } : {}),
         // so re-opening the document shows the tick, not a number nobody typed
         round_off_auto: roundOffOn,
@@ -651,8 +684,8 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         const lm: Record<string, any> = {};
         if (cfg.tagAreaInLine && r.extras.tag_area) lm.tag_area = r.extras.tag_area;
         for (const x of lineExtras) {
-          const val = (r.extras[x.key] ?? "").trim();
-          if (val !== "") lm[x.key] = x.kind === "text" ? val : num(val);
+          const val = extraCell(x, r).trim();
+          if (val !== "") lm[x.key] = x.kind === "text" || x.kind === "date" ? val : num(val);
         }
         return {
           product_id: r.product_id, item_name: r.item_name.trim() || null, units: r.units || null,
@@ -705,6 +738,14 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
             {f.label}
           </label>
         </div>
+      );
+    }
+    if (f.kind === "party") {
+      const list = f.partyType === "customer" ? parties : suppliers;
+      return (
+        <div key={f.key}><label className="label">{f.label}</label>
+          <SearchSelect value={val} onChange={(v) => setExtra(f, v)} placeholder="—"
+            options={list.map((p) => ({ value: p.id, label: p.name }))} /></div>
       );
     }
     if (f.kind === "account") {
@@ -845,6 +886,25 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           )}
           {cfg.showDue && <div><label className="label">Due Date</label><input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>}
           {cfg.showDelivery && <div><label className="label">Delivery Date</label><input type="date" className="input" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} /></div>}
+          {/* Everything else the voucher declares. Account sits after Date and
+              the tick boxes sit here by kind; ordinary fields — Supplier, Haji
+              Name, Booking Via, a header Remarks — had NO slot at all, so they
+              were configured and then never rendered. This is that slot. Car
+              fields are excluded: they have their own block below. */}
+          {(cfg.headerExtras ?? [])
+            .filter((f) => f.kind !== "account" && f.kind !== "check")
+            .map(headerField)}
+          {cfg.showCurrency && (
+            <>
+              <div><label className="label">Currency Name</label>
+                <input className="input" value={currency} placeholder="SAR"
+                  onChange={(e) => setCurrency(e.target.value)} /></div>
+              <div><label className="label">Currency Conv.
+                  <span className="ml-1 font-normal normal-case text-slate-400">(to SAR)</span></label>
+                <input className="input text-right tabular-nums" inputMode="decimal" value={fxRate}
+                  placeholder="1.00" onChange={(e) => setFxRate(e.target.value)} /></div>
+            </>
+          )}
           {headerExtras.filter((f) => f.kind === "check" && !(carReturn && f.key === "update_stock")).map(headerField)}
           {cfg.showTerms && <div className="md:col-span-2"><label className="label">Terms</label><input className="input" value={terms} onChange={(e) => setTerms(e.target.value)} /></div>}
           <div className="md:col-span-2"><label className="label">Narration</label><input className="input" value={narration} onChange={(e) => setNarration(e.target.value)} /></div>
@@ -997,10 +1057,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                 <th className="px-2 py-2 text-left">Item</th>
                 {showUnits && <th className="px-2 py-2 text-left">Units</th>}
                 <th className="px-2 py-2 text-right">{cfg.qtyLabel ?? "Quantity"}</th>
-                {preRateExtras.map((x) => <th key={x.key} className={`px-2 py-2 ${x.kind === "text" ? "text-left" : "text-right"}`}>{x.label}</th>)}
+                {preRateExtras.map((x) => <th key={x.key} className={`px-2 py-2 ${x.kind === "text" || x.kind === "date" ? "text-left" : "text-right"}`}>{x.label}</th>)}
                 {showRateAmount && <th className="px-2 py-2 text-right">Rate</th>}
-                {showRateAmount && <th className="px-2 py-2 text-right">Amount</th>}
-                {postExtras.map((x) => <th key={x.key} className={`px-2 py-2 ${x.kind === "text" ? "text-left" : "text-right"}`}>{x.label}</th>)}
+                {showRateAmount && <th className="px-2 py-2 text-right">{cfg.amountLabel ?? "Amount"}</th>}
+                {postExtras.map((x) => <th key={x.key} className={`px-2 py-2 ${x.kind === "text" || x.kind === "date" ? "text-left" : "text-right"}`}>{x.label}</th>)}
                 <th className="w-8" />
               </tr>
             </thead>
@@ -1020,9 +1080,13 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                   <td className="px-2 py-1"><input className="input w-28 text-right tabular-nums" inputMode="decimal" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} /></td>
                   {preRateExtras.map((x) => (
                     <td key={x.key} className="px-2 py-1">
-                      <input className={`input ${x.kind === "text" ? "w-56" : "w-36 text-right tabular-nums"}`}
-                        inputMode={x.kind === "text" ? undefined : "decimal"}
-                        value={r.extras[x.key] ?? ""} onChange={(e) => setRowExtra(i, x.key, e.target.value)} />
+                      <input
+                        type={x.kind === "date" ? "date" : undefined}
+                        className={`input ${x.kind === "text" ? "w-56" : x.kind === "date" ? "w-40" : "w-36 text-right tabular-nums"} ${x.derived ? "bg-slate-50 text-slate-600" : ""}`}
+                        inputMode={x.kind === "text" || x.kind === "date" ? undefined : "decimal"}
+                        readOnly={!!x.derived}
+                        title={x.derived ? "Worked out from Quantity and Supplier Rate" : undefined}
+                        value={extraCell(x, r)} onChange={(e) => setRowExtra(i, x.key, e.target.value)} />
                     </td>
                   ))}
                   {showRateAmount && (
@@ -1037,9 +1101,13 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                     onChange={(e) => { if (carGrid) setCarAmountTouched(true); setRow(i, { amount: e.target.value }); }} /></td>}
                   {postExtras.map((x) => (
                     <td key={x.key} className="px-2 py-1">
-                      <input className={`input ${x.kind === "text" ? "w-56" : "w-36 text-right tabular-nums"}`}
-                        inputMode={x.kind === "text" ? undefined : "decimal"}
-                        value={r.extras[x.key] ?? ""} onChange={(e) => setRowExtra(i, x.key, e.target.value)} />
+                      <input
+                        type={x.kind === "date" ? "date" : undefined}
+                        className={`input ${x.kind === "text" ? "w-56" : x.kind === "date" ? "w-40" : "w-36 text-right tabular-nums"} ${x.derived ? "bg-slate-50 text-slate-600" : ""}`}
+                        inputMode={x.kind === "text" || x.kind === "date" ? undefined : "decimal"}
+                        readOnly={!!x.derived}
+                        title={x.derived ? "Worked out from Quantity and Supplier Rate" : undefined}
+                        value={extraCell(x, r)} onChange={(e) => setRowExtra(i, x.key, e.target.value)} />
                     </td>
                   ))}
                   <td className="px-1 text-center"><button onClick={() => removeRow(i)} className="text-slate-300 hover:text-red-500" title="Remove">×</button></td>
@@ -1058,7 +1126,8 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                   <td className="px-2 py-2 text-right tabular-nums">{money(subtotal)}</td>
                   {postExtras.map((x) => (
                     <td key={x.key} className="px-2 py-2 text-right tabular-nums text-slate-500">
-                      {x.kind === "text" ? "" : money(rows.reduce((s, r) => s + num(r.extras[x.key]), 0))}
+                      {x.kind === "text" || x.kind === "date" ? ""
+                        : money(rows.reduce((s, r) => s + num(extraCell(x, r)), 0))}
                     </td>
                   ))}
                   <td />
