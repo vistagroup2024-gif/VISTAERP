@@ -33,11 +33,17 @@ async function run() {
   // time. They count back from that moment, not from midnight on the day.
   const { data: hotelHcn, error: hErr } = await supabase.rpc("generate_hotel_hcn_reminders", { p_secret: secret });
   if (hErr) return NextResponse.json({ ok: false, error: hErr.message }, { status: 500 });
+  // Reminders an admin ADDED on Settings -> Notification Rules. One executor for
+  // all of them: it walks each added rule, runs the situation that rule watches
+  // and applies that rule's own hours, wording and audience. So adding a
+  // reminder needs no deployment — this call is already here.
+  const { data: custom, error: cErr } = await supabase.rpc("generate_custom_reminders", { p_secret: secret });
+  if (cErr) return NextResponse.json({ ok: false, error: cErr.message }, { status: 500 });
   // Refresh cached BRN readiness (Ready to Allocate / Waiting BRN) for in-flight
   // groups, so labels stay current as shared inventory is consumed. The function
   // carries its own high statement_timeout, so it completes off the request path.
   const { error: aErr } = await supabase.rpc("refresh_brn_availability", { p_secret: secret });
-  return NextResponse.json({ ok: true, created: data ?? 0, tafweej: tafweej ?? 0, hotelHcn: hotelHcn ?? 0, availability: aErr ? aErr.message : "refreshed" });
+  return NextResponse.json({ ok: true, created: data ?? 0, tafweej: tafweej ?? 0, hotelHcn: hotelHcn ?? 0, custom: custom ?? 0, availability: aErr ? aErr.message : "refreshed" });
 }
 
 export async function GET(req: Request) {

@@ -12,7 +12,7 @@ export default async function NotificationRulesPage() {
   const access = await guardStaffPage("accounting.view");
   const canEdit = access.isAdmin || !!access.permissions?.["notifications.manage"];
   return (
-    <div className="max-w-4xl space-y-4">
+    <div className="max-w-5xl space-y-4">
       <PageHeader title="Notification Rules" />
       <NotificationRules canEdit={canEdit} />
     </div>
