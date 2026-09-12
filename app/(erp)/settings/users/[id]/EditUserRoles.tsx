@@ -7,6 +7,7 @@ import StaffPermissionPicker from "@/components/StaffPermissionPicker";
 import ScopeTree, { type ScopeRow } from "@/components/settings/ScopeTree";
 import DocRightsPicker from "@/components/settings/DocRightsPicker";
 import DashboardCardsPicker from "@/components/settings/DashboardCardsPicker";
+import NotificationPicker from "@/components/NotificationPicker";
 import type { DocRightsMap } from "@/lib/docRights";
 
 type ScopeKind = "account" | "product" | "cost_center" | "tag_area";
@@ -33,7 +34,7 @@ interface Props {
   canManageAccess: boolean;
 }
 
-const ALL_TABS = ["Account", "Restrict", "Access", "Dashboard", "Modules"] as const;
+const ALL_TABS = ["Account", "Restrict", "Access", "Dashboard", "Notifications", "Modules"] as const;
 type Tab = (typeof ALL_TABS)[number];
 
 // Times come back from Postgres as HH:MM:SS; <input type="time"> wants HH:MM.
@@ -245,6 +246,20 @@ export default function EditUserRoles({
             </p>
           </div>
           <DashboardCardsPicker value={cards} onChange={setCards} />
+        </div>
+      )}
+
+      {tab === "Notifications" && (
+        <div className="card space-y-3">
+          <div>
+            <h2 className="font-semibold text-slate-700">Notifications</h2>
+            <p className="text-xs text-slate-400">
+              What this user WANTS to be told, which is not the same question as what they MAY see.
+              Modules and rights set the ceiling; this only narrows it, so nothing here can tell them
+              about a module they have no rights to. The user can change it themselves too.
+            </p>
+          </div>
+          <NotificationPicker userId={userId} />
         </div>
       )}
 
