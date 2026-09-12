@@ -20,8 +20,15 @@ export async function POST(req: Request) {
   const subs = (d.subs ?? []) as any[];
   if (subs.length === 0) return NextResponse.json({ ok: true, sent: 0 });
 
-  const { ok, dead } = await sendPush(subs, { title: d.title, body: d.body, link: d.link, tag: id });
+  const { ok, dead, failed } = await sendPush(subs, { title: d.title, body: d.body, link: d.link, tag: id });
   if (ok.length) await sb.rpc("push_mark_notified", { p_secret: secret, p_endpoints: ok });
   if (dead.length) await sb.rpc("push_prune", { p_secret: secret, p_endpoints: dead });
-  return NextResponse.json({ ok: true, sent: ok.length, pruned: dead.length });
+  // A send that is neither delivered nor dead is the one worth reading about in
+  // the runtime logs — a VAPID mismatch (401/403) or a payload too large (413)
+  // looks, from the outside, exactly like "the notification never came".
+  if (failed.length) {
+    console.error("push dispatch: %d of %d sends failed for notification %s", failed.length, subs.length, id,
+      failed.map((f) => `${f.status ?? "?"} ${f.message.slice(0, 160)}`));
+  }
+  return NextResponse.json({ ok: true, sent: ok.length, pruned: dead.length, failed: failed.length });
 }

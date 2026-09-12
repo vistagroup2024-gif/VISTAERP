@@ -33,8 +33,13 @@ export async function POST(req: Request) {
     const { data } = await sb.rpc("push_my_subscriptions");
     const subs = (data ?? []) as any[];
     if (subs.length === 0) return NextResponse.json({ error: "No devices registered on this account." }, { status: 400 });
-    const { ok } = await sendPush(subs, { title: "Vista ERP test 🔔", body: "Push notifications are working on this device.", link: "/settings/notifications", tag: "test" });
-    return NextResponse.json({ ok: true, sent: ok.length });
+    const { ok, failed } = await sendPush(subs, { title: "Vista ERP test 🔔", body: "Push notifications are working on this device.", link: "/settings/notifications", tag: "test" });
+    if (failed.length && ok.length === 0) {
+      // Say what actually went wrong rather than "sent: 0" — this is the one
+      // place a person is standing there waiting to see it.
+      return NextResponse.json({ error: `Push service refused: ${failed[0].status ?? ""} ${failed[0].message.slice(0, 200)}` }, { status: 502 });
+    }
+    return NextResponse.json({ ok: true, sent: ok.length, failed: failed.length });
   }
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
