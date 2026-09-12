@@ -27,22 +27,41 @@ import { pushSupported, permissionState, currentEndpoint, enablePush, isIos, isS
  * permission plus an existing PushManager subscription is enough to know this
  * device is set up, and asking the server would put a request on every page load
  * for every user forever.
+ *
+ * THE AGENT PORTAL HAD THE SAME HOLE, ONE SIZE LARGER. Its Notifications screen
+ * exists, its routes exist, its routines exist and were proven to match — and
+ * across 178 agent notifications in thirty days NOT ONE agent device had ever
+ * been registered. Every "Drivers assigned" went to nobody. So the same dialog
+ * is mounted in the portal too, pointed at the agent routes, with its own
+ * snooze key so a person who is both staff and agent on one browser is asked
+ * for each separately.
  */
 
-const DISMISS_KEY = "vista:push:nudge:dismissed";
 const SNOOZE_DAYS = 14;
 
-function snoozed(): boolean {
+function snoozed(key: string): boolean {
   try {
-    const t = Number(localStorage.getItem(DISMISS_KEY) || 0);
+    const t = Number(localStorage.getItem(key) || 0);
     return Number.isFinite(t) && Date.now() - t < SNOOZE_DAYS * 86400_000;
   } catch { return false; }
 }
-function snooze() {
-  try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch { /* private window */ }
+function snooze(key: string) {
+  try { localStorage.setItem(key, String(Date.now())); } catch { /* private window */ }
 }
 
-export default function PushNudge() {
+export default function PushNudge({
+  endpoint = "/api/push",
+  settingsHref = "/settings/notifications",
+  appName = "the ERP",
+  dismissKey = "vista:push:nudge:dismissed",
+}: {
+  /** /api/push for staff, /api/agent/push for the agent portal. */
+  endpoint?: string;
+  settingsHref?: string;
+  /** How the app is referred to in the copy: "the ERP" or "the portal". */
+  appName?: string;
+  dismissKey?: string;
+} = {}) {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<"ask" | "ios" | "denied" | "done">("ask");
@@ -53,10 +72,10 @@ export default function PushNudge() {
       if (!pushSupported()) {
         // iPhone before Add to Home Screen: push genuinely cannot work yet, and
         // the fix is a thing the user does, so it is worth saying once.
-        if (isIos() && !isStandalone() && !snoozed()) { setState("ios"); setShow(true); }
+        if (isIos() && !isStandalone() && !snoozed(dismissKey)) { setState("ios"); setShow(true); }
         return;
       }
-      if (snoozed()) return;
+      if (snoozed(dismissKey)) return;
       const perm = permissionState();
       if (perm === "denied") { setState("denied"); setShow(true); return; }
       const ep = await currentEndpoint();
@@ -66,12 +85,12 @@ export default function PushNudge() {
       setState("ask"); setShow(true);
     })();
     return () => { alive = false; };
-  }, []);
+  }, [dismissKey]);
 
   async function turnOn() {
     setBusy(true);
     try {
-      await enablePush("/api/push");
+      await enablePush(endpoint);
       setState("done");
       setTimeout(() => setShow(false), 2500);
     } catch (e: any) {
@@ -81,7 +100,7 @@ export default function PushNudge() {
     } finally { setBusy(false); }
   }
 
-  function close() { snooze(); setShow(false); }
+  function close() { snooze(dismissKey); setShow(false); }
 
   if (!show) return null;
 
@@ -95,7 +114,7 @@ export default function PushNudge() {
           <>
             <h2 id="push-nudge-title" className="text-base font-semibold text-green-700">You are all set ✓</h2>
             <p className="mt-1 text-sm text-slate-600">
-              This device will now be alerted even when the ERP is closed.
+              This device will now be alerted even when {appName} is closed.
             </p>
           </>
         ) : state === "ios" ? (
@@ -118,11 +137,11 @@ export default function PushNudge() {
           <>
             <h2 id="push-nudge-title" className="text-base font-semibold text-slate-800">Turn on notifications?</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Be alerted on this device even when the ERP is closed — approvals, arrivals, payments and
+              Be alerted on this device even when {appName} is closed — approvals, arrivals, payments and
               the work in your own modules. Your browser will ask you to allow it once.
             </p>
             <p className="mt-2 text-xs text-slate-400">
-              You can turn this off again at any time in Settings → Phone Notifications.
+              You can turn this off again at any time under Notifications.
             </p>
           </>
         )}
@@ -143,7 +162,7 @@ export default function PushNudge() {
         </div>
 
         {state !== "done" && (
-          <Link href="/settings/notifications" onClick={close}
+          <Link href={settingsHref} onClick={close}
             className="mt-3 block text-center text-xs text-brand hover:underline">
             Open notification settings
           </Link>

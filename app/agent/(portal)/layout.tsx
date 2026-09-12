@@ -3,6 +3,7 @@ import { getAgent } from "@/lib/agentSession";
 import { PERMISSION_CATALOG } from "@/lib/permissions";
 import AgentSidebar, { AgentNavItem } from "@/components/AgentSidebar";
 import NotificationBell from "@/components/NotificationBell";
+import PushNudge from "@/components/PushNudge";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,11 @@ export default async function PortalLayout({ children }: { children: React.React
         </header>
         <main className="flex-1 overflow-x-hidden p-4 pt-18 lg:p-8 lg:pt-6">{children}</main>
       </div>
+      {/* The one-time "turn on notifications?" ask. The Notifications screen and
+          the routes behind it have been here all along; what was missing was
+          anything that pointed an agent at them — see PushNudge. */}
+      <PushNudge endpoint="/api/agent/push" settingsHref="/agent/settings/notifications"
+                 appName="the portal" dismissKey="vista:push:nudge:agent:dismissed" />
     </div>
   );
 }
