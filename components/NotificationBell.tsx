@@ -242,14 +242,23 @@ export default function NotificationBell({
                 <div className="flex items-start gap-2">
                   <span>{CAT_ICON[n.category] ?? "🔔"}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="break-words font-medium text-slate-800">{n.title}</p>
-                    {n.body && <p className="break-words text-xs text-slate-500">{n.body}</p>}
-                    <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
-                      {dateTimeStr(n.created_at)}
-                      {n.module ? ` · ${n.module}` : ""}
-                    </p>
+                    {/* The whole notification opens it. Clicking the thing you
+                        were told about is the gesture people actually make; the
+                        Open button below stays for the keyboard and for anyone
+                        who has learned it. */}
+                    <div role="button" tabIndex={0}
+                      onClick={() => openRecord(n)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openRecord(n); } }}
+                      className="cursor-pointer">
+                      <p className="break-words font-medium text-slate-800 hover:text-brand">{n.title}</p>
+                      {n.body && <p className="break-words text-xs text-slate-500">{n.body}</p>}
+                      <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                        {dateTimeStr(n.created_at)}
+                        {n.module ? ` · ${n.module}` : ""}
+                      </p>
+                    </div>
                     <div className="mt-1 flex gap-3 text-xs">
-                      {(n.link || n.group_id) && <button onClick={() => openRecord(n)} className="text-brand hover:underline">Open</button>}
+                      <button onClick={() => openRecord(n)} className="text-brand hover:underline">Open</button>
                       {!n.read && <button onClick={() => mark(n.id, "read")} className="text-slate-500 hover:underline">Mark read</button>}
                       <button onClick={() => mark(n.id, "dismiss")} className="text-red-500 hover:underline">Dismiss</button>
                     </div>
