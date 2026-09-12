@@ -61,6 +61,10 @@ export const STAFF_PERMISSION_CATALOG: StaffPermGroup[] = [
     { key: "accounting.view", label: "Accounting" },
     { key: "accounting.authorize", label: "Authorise / Approve Vouchers" },
     { key: "accounting.settings", label: "Invoice Automation Settings — turn automatic posting on/off, set accounts" },
+    // Read with staff_perm_strict, like the users.* keys: changing a reminder's
+    // hours or wording changes what the whole company is told, so an empty
+    // profile must not hold it.
+    { key: "notifications.manage", label: "Notification Rules — reminder timings and wording" },
     { key: "purchase.view", label: "Supplier Bills & Payments" },
   ] },
   { module: "Reports", perms: [

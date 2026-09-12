@@ -234,6 +234,7 @@ export const GROUPS: NavGroup[] = [
   // sidebar agree with it rather than the other way round.
   { label: "Notifications", icon: "bell", section: "Settings", items: [
     { href: "/settings/notifications", label: "Phone Notifications" },
+    { href: "/settings/notification-rules", label: "Notification Rules" },
   ] },
 ];
 
