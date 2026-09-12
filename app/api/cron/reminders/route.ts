@@ -29,7 +29,8 @@ async function run() {
   // Tafweej reminders (~6h before Jeddah-airport Umrah arrivals).
   const { data: tafweej, error: tErr } = await supabase.rpc("generate_tafweej_reminders", { p_secret: secret });
   if (tErr) return NextResponse.json({ ok: false, error: tErr.message }, { status: 500 });
-  // Hotel HCN reminders (48h / 24h / check-in-day when the HCN is still not received).
+  // Hotel HCN reminders: 24h / 12h / 4h before check-in, which is 14:00 Saudi
+  // time. They count back from that moment, not from midnight on the day.
   const { data: hotelHcn, error: hErr } = await supabase.rpc("generate_hotel_hcn_reminders", { p_secret: secret });
   if (hErr) return NextResponse.json({ ok: false, error: hErr.message }, { status: 500 });
   // Refresh cached BRN readiness (Ready to Allocate / Waiting BRN) for in-flight
