@@ -466,8 +466,44 @@ in the browser bundle, so anon means anybody. They are closed, and nothing was
 granted to `authenticated` to compensate — the property still holds.
 
 **A new staff-only routine needs no grant at all** beyond `grant execute ... to
-authenticated`, and an internal engine needs none: leaving it ungranted is what
-makes it internal.
+authenticated`. **An internal engine, however, needs an explicit REVOKE — and
+naming `public, anon` is not enough.** "Leaving it ungranted is what makes it
+internal" was wrong, and migration 372's own post-condition is what caught it:
+a brand-new function came out callable by `authenticated`.
+
+The reason is `ALTER DEFAULT PRIVILEGES`. This project carries four entries in
+`pg_default_acl` for functions, from `postgres` and from `supabase_admin`, each
+granting EXECUTE to **anon, authenticated and service_role**. So a new function
+is born already granted to anon AND authenticated — explicitly, by name, not
+through PUBLIC. `revoke ... from public, anon` closes anon and leaves every
+logged-in user holding EXECUTE.
+
+So an internal engine needs:
+
+    revoke all on function ... from public, anon, authenticated;
+
+and the only way to know it worked is to measure it:
+
+    select p.proname,
+           has_function_privilege('authenticated', p.oid, 'execute') as auth,
+           has_function_privilege('anon', p.oid, 'execute')          as anon
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = '...';
+
+The engines that matter are closed and were verified in September 2026:
+`trade_doc_post_now`, `payroll_post_now`, `stock_apply`, `acct_hold_document`,
+`car_post_contract`, `car_post_vehicle` and `car_post_receipt` are all shut to
+anon and to authenticated, so the post-on-save gate cannot be walked around.
+
+**Three are still open to any logged-in user**, and they are worth a decision
+rather than a silent change: `gl_post` (both overloads), `car_post_entry` and
+`party_invoice`. This file calls `gl_post` and `party_invoice` engines that are
+"never gated" because the Visa, Hotel and Car modules call them on a user's
+behalf — but those callers are `security definer` routines, which execute as
+the owner and therefore do **not** need the caller's grant. The grant is
+unnecessary, and while it stands, a logged-in user can post a journal entry
+directly and step around the `acct_approval_rules` gate that `gl_submit`
+enforces.
 
 **That count drifts, so re-measure rather than trust it.** It was 100 at the
 September 2026 sweep, not 78 — twenty-two routines had picked up the PUBLIC
