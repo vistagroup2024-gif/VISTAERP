@@ -32,6 +32,27 @@ const PARTY_LABEL: Record<string, string> = {
   customer: "Customer", supplier: "Supplier", b2b_agent: "B2B Agent",
 };
 
+/** A Receivable or Payable account that a voucher CANNOT pick.
+ *
+ *  There are two party concepts in this ERP and about thirty screens read the
+ *  wrong one to notice: `parties` is what every picker offers — the trade
+ *  voucher's party, Bill Record, the visa group agent, the hotel supplier, the
+ *  rate master's agent list — while `accounts` is only the ledger. An account
+ *  with no parties row behind it can be posted to by a Journal and is invisible
+ *  to all of them.
+ *
+ *  Nothing said so. A sweep of the live chart found 25 Payable accounts in this
+ *  state — a whole block of transport suppliers and drivers that nobody could
+ *  select on a Purchase Voucher, and no error anywhere, because the name simply
+ *  was not in the list. So the tree says it now, where Make a Party already is.
+ *
+ *  Receivable and Payable only: those are the two subtypes ensure_party_account
+ *  puts a party under, and the two the pickers read. A Bank or an Expense
+ *  account is not meant to be a party and must not be nagged about. */
+const needsParty = (n: AcctNode) =>
+  !n.is_group && n.is_postable && !n.party_type
+  && (n.subtype === "Receivable" || n.subtype === "Payable");
+
 const NATURE_BADGE: Record<string, string> = {
   asset: "bg-blue-100 text-blue-700",
   liability: "bg-amber-100 text-amber-700",
@@ -370,6 +391,12 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
                   <span className="hidden shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700 sm:inline-flex"
                         title="This account is also a party — it can be picked on bookings, groups, rate charts and vouchers">
                     {PARTY_LABEL[n.party_type]}
+                  </span>
+                )}
+                {needsParty(n) && (
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800"
+                        title={`${n.name} is in the ledger but is not a party, so no voucher, bill or booking can pick it — only a Journal can post to it. Select it and press "Make a Party" to fix that.`}>
+                    not a party
                   </span>
                 )}
                 {!n.is_group && <span className={`badge ${NATURE_BADGE[n.nature]} hidden shrink-0 sm:inline-flex`}>{n.subtype ?? n.nature}</span>}

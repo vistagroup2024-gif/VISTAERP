@@ -28,6 +28,60 @@ const ROUTE_PERMS: [string, string[]][] = [
 ];
 
 
+/** Gives a promise a deadline, and says which one ran out.
+ *
+ *  THE MIDDLEWARE MAKES TWO NETWORK CALLS ON EVERY REQUEST — the Supabase auth
+ *  server for the user, then staff_access() for the permissions — and neither
+ *  had a bound on it. Production has recorded 12 requests killed by Vercel at
+ *  its 25-second ceiling on /middleware, and a killed middleware is not a slow
+ *  page: the visitor gets a platform error page instead of the ERP.
+ *
+ *  It is not a slow query. staff_access() is 5ms against this database,
+ *  measured. It is a stalled round-trip — a cold auth server, a lost packet —
+ *  and the only thing that makes it a 25-second outage rather than a blip is
+ *  the absence of a deadline.
+ *
+ *  FAILS CLOSED, AND THAT IS NOT A STYLE CHOICE. 70 of the 180 ERP pages have
+ *  no server-side guard of their own; for them this middleware is the whole
+ *  gate. Letting a request through because the permission read timed out would
+ *  serve the Users screen, the Ledger and the Approval Inbox to whoever asked.
+ *  So a timeout answers 503 — it never continues and never redirects, because a
+ *  redirect to any ERP page comes straight back here and loops. */
+const TIMEOUT_MS = 8000;
+
+class Stalled extends Error {}
+
+async function withDeadline<T>(work: Promise<T>, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Stalled(what)), TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/** What a visitor gets instead of a hang. Plain HTML: this runs on the edge and
+ *  cannot render a React page, and no-store because the next request may well
+ *  succeed. */
+function unavailable(what: string) {
+  return new NextResponse(
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
+    + `<title>VISTAERP — one moment</title>`
+    + `<div style="font:16px/1.5 system-ui,sans-serif;max-width:30rem;margin:15vh auto;padding:0 1.5rem;color:#334155">`
+    + `<h1 style="font-size:1.25rem;margin:0 0 .5rem">Signing you in is taking too long</h1>`
+    + `<p style="margin:0 0 1rem">The ERP could not confirm your access just now (${what}). `
+    + `Nothing has been changed. Please try again.</p>`
+    + `<p><a href="" onclick="location.reload();return false" style="color:#0f766e;font-weight:600">Try again</a></p>`
+    + `</div>`,
+    { status: 503, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } },
+  );
+}
+
 function requiredPerms(path: string): string[] | null {
   let best: string[] | null = null; let bestLen = -1;
   for (const [prefix, perms] of ROUTE_PERMS) {
@@ -84,9 +138,14 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: { id: string } | null = null;
+  try {
+    const { data } = await withDeadline(supabase.auth.getUser(), "the sign-in check");
+    user = (data?.user ?? null) as { id: string } | null;
+  } catch (e) {
+    if (e instanceof Stalled) return unavailable(e.message);
+    throw e;
+  }
 
   const path = request.nextUrl.pathname;
 
@@ -154,7 +213,16 @@ export async function updateSession(request: NextRequest) {
   const isAsset = path.slice(path.lastIndexOf("/")).includes(".");
   if (user && !isAgentPortal && !isVendorPortal && !isAuthRoute && !path.startsWith("/api")
       && !isAsset && path !== "/no-access" && path !== "/locked") {
-    const { data } = await supabase.rpc("staff_access");
+    let data: any;
+    try {
+      // Wrapped in Promise.resolve: a PostgrestFilterBuilder is thenable but not
+      // a Promise, and Promise.race only accepts the latter.
+      const r = await withDeadline(Promise.resolve(supabase.rpc("staff_access")), "the permission check");
+      data = r.data;
+    } catch (e) {
+      if (e instanceof Stalled) return unavailable(e.message);
+      throw e;
+    }
     const isAdmin = !!(data as any)?.is_admin;
     const perms = ((data as any)?.permissions ?? {}) as Record<string, boolean>;
     const docRights = ((data as any)?.doc_rights ?? {}) as DocRightsMap;
