@@ -19,6 +19,16 @@ type Row = {
 const PAYMENT_MODES = ["Cash", "Credit", "Bank Transfer", "Cheque", "Card"];
 
 const blankRow = (): Row => ({ product_id: null, item_name: "", units: "", quantity: "", rate: "", amount: "", link1: "", extras: {} });
+/** The steps the Round Off tick offers. 1 is the whole riyal — what "round off"
+ *  has always meant here — and the rest are for rounding a quoted price to a
+ *  figure a customer is given. Nearest, not up or down: 125,200 to the nearest
+ *  1,000 is 125,000 and 125,600 is 126,000. */
+export const ROUND_STEPS = [1, 5, 10, 50, 100, 500, 1000];
+const roundToStep = (v: number, step: number) => {
+  const s = step > 0 ? step : 1;
+  return Math.round(v / s) * s;
+};
+
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 const num = (s: string) => (s?.trim?.() === "" || s == null ? 0 : Number(s) || 0);
 const r2 = (n: number) => String(+n.toFixed(2));
@@ -69,6 +79,12 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // document to the nearest whole riyal; the amount it took to get there is what
   // gets stored in round_off, exactly as if it had been typed.
   const [roundOffOn, setRoundOffOn] = useState(false);
+  // WHAT the tick rounds TO. 1 is the whole riyal, which is what "round off"
+  // meant in the old software and is what every document saved before this
+  // carries. The larger steps are for a quoted price: 125,200 to the nearest
+  // 1,000 is 125,000, and to the nearest riyal it is 125,200 — which looked
+  // like the tick doing nothing.
+  const [roundTo, setRoundTo] = useState(1);
   const [discount, setDiscount] = useState("");
   const [rows, setRows] = useState<Row[]>([blankRow()]);
   // Header extras (incl. the car costing block) live in the document meta.
@@ -224,7 +240,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setId(null); setDocNo(""); setDone(keepMessage ?? null); setErr(null);
     setDate(todaySA()); setParty(""); setCostCenter(""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setRoundOffOn(false); setDiscount("");
-    setCurrency(""); setFxRate("");
+    setCurrency(""); setFxRate(""); setRoundTo(1);
     setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({}); setCarAmountTouched(false);
     setSourceId(null); setSourceNo(null); setSourceCar(null); setAwaiting(false); setCarReturn(null);
     setDelivered(false); setDeliveredDate(""); setSched([]); setSchedStart(todaySA());
@@ -289,10 +305,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     // third. Recomputed rather than written back, so changing the cost still
     // re-derives the price and re-rounds it.
     if (roundOffOn && hideLines && v.selling_price != null && v.selling_price !== "") {
-      v.selling_price = r2(Math.round(Number(v.selling_price) || 0));
+      v.selling_price = r2(roundToStep(Number(v.selling_price) || 0, roundTo));
     }
     return v;
-  }, [extras, headerExtras, overridden, roundOffOn, hideLines]);
+  }, [extras, headerExtras, overridden, roundOffOn, roundTo, hideLines]);
 
   function setExtra(f: HeaderExtra, value: string) {
     setExtras((e) => ({ ...e, [f.key]: value }));
@@ -405,11 +421,11 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // supplier is actually owed — and it is this figure that posts.
   const discountAmt = cfg.showDiscount ? num(discount) : 0;
   const baseTotal = subtotal - discountAmt;
-  // With the tick on, the round-off is whatever it takes to reach a whole riyal.
-  // On a car document the Selling Price above has already been rounded, so that
-  // difference is zero and nothing is added twice.
+  // With the tick on, the round-off is whatever it takes to reach the nearest
+  // multiple of the step. On a car document the Selling Price above has already
+  // been rounded, so that difference is zero and nothing is added twice.
   const roundOffAmt = roundOffOn
-    ? +(Math.round(baseTotal) - baseTotal).toFixed(2)
+    ? +(roundToStep(baseTotal, roundTo) - baseTotal).toFixed(2)
     : num(roundOff);
   const total = baseTotal + roundOffAmt;
   // Landed cost = the line amounts plus every expense column flagged as a cost.
@@ -438,6 +454,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setCurrency(v.currency && v.currency !== "SAR" ? v.currency : "");
     setFxRate(v.meta?.fx_rate ? String(v.meta.fx_rate) : "");
     setRoundOffOn(!!v.meta?.round_off_auto);
+    setRoundTo(ROUND_STEPS.includes(Number(v.meta?.round_off_to)) ? Number(v.meta.round_off_to) : 1);
     setDiscount(v.meta?.discount ? String(v.meta.discount) : "");
     setWarehouse(v.warehouse_id ?? ""); setPosted(!!v.gl_entry); setAwaiting(v.status === "awaiting_approval");
     setSourceId(v.source_doc_id ?? null); setSourceCar(v.source_car_contract ?? null); setSourceNo(v.source_doc_no ?? null);
@@ -649,6 +666,9 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         ...(cfg.showDiscount ? { discount: discountAmt } : {}),
         // so re-opening the document shows the tick, not a number nobody typed
         round_off_auto: roundOffOn,
+        // Stored so re-opening the document shows the step it was rounded by,
+        // rather than snapping back to the riyal and changing the total.
+        ...(roundOffOn && roundTo !== 1 ? { round_off_to: roundTo } : {}),
         // Only rows with both a date and an amount: a half-typed row would
         // become an instalment of zero on the Car Invoice.
         ...(showSchedule
@@ -1159,10 +1179,18 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           {showRateAmount && !cfg.hideRoundOff && (
             <div>
               <label className="label">Round Off</label>
-              <label className="flex h-[38px] cursor-pointer items-center gap-2 text-sm text-slate-600">
-                <input type="checkbox" checked={roundOffOn} onChange={(e) => setRoundOffOn(e.target.checked)} />
-                <span>Round to the nearest riyal</span>
-              </label>
+              <div className="flex h-[38px] items-center gap-2 text-sm text-slate-600">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input type="checkbox" checked={roundOffOn} onChange={(e) => setRoundOffOn(e.target.checked)} />
+                  <span>Round to nearest</span>
+                </label>
+                <select className="input w-24 py-1" value={roundTo} disabled={!roundOffOn}
+                  onChange={(e) => setRoundTo(Number(e.target.value))}>
+                  {ROUND_STEPS.map((x) => (
+                    <option key={x} value={x}>{x === 1 ? "1 (riyal)" : x.toLocaleString("en-US")}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
           {showRateAmount && (
@@ -1173,7 +1201,18 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                 <div className="text-xs text-slate-400">{money(subtotal)} &minus; {money(discountAmt)} discount</div>
               )}
               {roundOffOn && roundOffAmt !== 0 && (
-                <div className="text-xs text-slate-400">includes {money(roundOffAmt)} round off</div>
+                <div className="text-xs text-slate-400">
+                  {money(baseTotal)} rounded to the nearest {roundTo.toLocaleString("en-US")}
+                  {" "}({roundOffAmt > 0 ? "+" : "\u2212"}{money(Math.abs(roundOffAmt))})
+                </div>
+              )}
+              {/* The figure is ALREADY a multiple of the step, so there is
+                  nothing to round. Said out loud, because a tick that changes
+                  no number reads as a tick that does not work. */}
+              {roundOffOn && roundOffAmt === 0 && baseTotal !== 0 && (
+                <div className="text-xs text-slate-400">
+                  already a whole {roundTo === 1 ? "riyal" : roundTo.toLocaleString("en-US")} — nothing to round
+                </div>
               )}
             </div>
           )}
