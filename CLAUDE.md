@@ -602,7 +602,10 @@ route's driving minutes):
 
 Each trip appears once. It is drawn in three places from that one source, and
 only for users holding `transport.operations` or `transport.driver_assign`
-(`TRIP_ALERT_PERMS`): the red pill beside the bell (`TripAlertBadge`, off
+(`TRIP_ALERT_PERMS` in `lib/tripAlerts.ts` — a plain module, because the
+dashboard page is a server component and anything a `"use client"` file
+exports reaches a server component as a client *reference*: calling `.some()`
+on one threw and took the dashboard down for everybody): the red pill beside the bell (`TripAlertBadge`, off
 `transport_trip_alert_summary()`), the banner on the dashboard and on the
 operations board (`TripAlerts`, with Picked Up / Complete buttons that call the
 same routines the board does), and an Alerts cell on the Transport card. It is

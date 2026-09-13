@@ -17,7 +17,6 @@ export default function TripAlertBadge() {
       className="flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white shadow-sm hover:bg-red-700">
       <span aria-hidden>⚠</span>
       <span className="tabular-nums">{total}</span>
-      <span className="hidden sm:inline">trip{total === 1 ? "" : "s"}</span>
     </Link>
   );
 }

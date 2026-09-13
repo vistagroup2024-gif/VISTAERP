@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import TripAlertBadge from "@/components/transport/TripAlertBadge";
-import { TRIP_ALERT_PERMS } from "@/components/transport/TripAlerts";
+import { TRIP_ALERT_PERMS } from "@/lib/tripAlerts";
 import Icon from "@/components/ui/Icon";
 import { GROUPS, SECTIONS, TRANSACTIONS, DASHBOARD, headerMenu, inHeaderMenu, navAllows, navAllowsItem, quickGroups, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
 

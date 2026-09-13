@@ -21,7 +21,8 @@ import { dateStr, fmtTime12 } from "@/lib/format";
 // who run operations see it — TRIP_ALERT_PERMS — because they are the ones
 // who can fix it.
 
-export const TRIP_ALERT_PERMS = ["transport.operations", "transport.driver_assign"];
+// Who sees it is decided in lib/tripAlerts.ts (a plain module — the dashboard
+// page is a server component and cannot read a constant from a client file).
 
 export interface TripAlert {
   trip_id: string; booking_id: string; booking_no: string | null; passenger_name: string | null; route: string | null;
