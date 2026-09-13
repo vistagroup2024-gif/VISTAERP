@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
+import TripAlertBadge from "@/components/transport/TripAlertBadge";
+import { TRIP_ALERT_PERMS } from "@/components/transport/TripAlerts";
 import Icon from "@/components/ui/Icon";
 import { GROUPS, SECTIONS, TRANSACTIONS, DASHBOARD, headerMenu, inHeaderMenu, navAllows, navAllowsItem, quickGroups, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
 
@@ -194,6 +196,8 @@ function SidebarContent({ access, onClose, onCollapse, mobile }: { access?: Staf
           <p className="text-base font-bold leading-tight text-slate-800">Vista Group</p>
         </div>
         <div className="flex items-center gap-0.5">
+          {/* Trips nobody pressed Start / Complete on — an alert, not a notification. */}
+          {navAllows(access, TRIP_ALERT_PERMS) && <TripAlertBadge />}
           <NotificationBell endpoint="/api/notifications" groupBase="/groups" realtime />
           {onCollapse && (
             <button onClick={onCollapse} title="Collapse sidebar" aria-label="Collapse sidebar"
@@ -274,6 +278,7 @@ export default function Sidebar({ access }: { name?: string; access?: StaffNavAc
           <p className="text-base font-bold text-slate-800">Vista Group</p>
         </div>
         <div className="flex items-center gap-1">
+          {navAllows(access, TRIP_ALERT_PERMS) && <TripAlertBadge />}
           <NotificationBell endpoint="/api/notifications" groupBase="/groups" realtime />
           <button onClick={() => setOpen(true)} className="rounded-md p-2 text-slate-600 transition-colors hover:bg-slate-100" aria-label="Open menu">
             <Icon name="menu" size={22} />

@@ -585,3 +585,28 @@ Date *arithmetic* on a wall-clock string stays UTC-anchored (`new Date(d +
 "T00:00:00Z")`, `setUTCDate`, `toISOString().slice(0, 10)`) — `lib/brn.ts`,
 `lib/planning.ts` and the schedule navigators do it that way on purpose. That is
 correct and is not the same bug: it never asks what time it is.
+
+## A trip in the wrong status is an alert, not a notification
+
+A trip's status only moves when somebody presses Start, Picked Up and Complete,
+so a forgotten press leaves a trip open for days and a driver "on the road" who
+is at home (migration 374 cleaned up two of those). `transport_trip_alerts()`
+(migration 375) is the one list of trips sitting in the wrong status, under two
+rules measured from the trip's own timetable (`trip_date + trip_time`, plus the
+route's driving minutes):
+
+- **Pickup not recorded** — 3 hours past the scheduled pickup and the status is
+  still pending, assigned, outsourced or driver-en-route.
+- **Not completed** — a started trip still open 1 hour after pickup + driving
+  time.
+
+Each trip appears once. It is drawn in three places from that one source, and
+only for users holding `transport.operations` or `transport.driver_assign`
+(`TRIP_ALERT_PERMS`): the red pill beside the bell (`TripAlertBadge`, off
+`transport_trip_alert_summary()`), the banner on the dashboard and on the
+operations board (`TripAlerts`, with Picked Up / Complete buttons that call the
+same routines the board does), and an Alerts cell on the Transport card. It is
+**not** a notification: nothing is sent, nothing is stored, it is on the screen
+while the trip is wrong and gone the moment the right button is pressed. Both
+routines are `security invoker`, so a restricted user is alerted only about
+trips they may see.

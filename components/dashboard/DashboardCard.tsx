@@ -199,6 +199,8 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "Pending", value: qty(d.pending), tone: N(d.pending) > 0 ? "warn" : undefined },
       { label: "Running", value: qty(d.in_progress), tone: "info" },
       { label: "No driver", value: qty(d.unassigned), tone: N(d.unassigned) > 0 ? "neg" : undefined },
+      // Trips nobody pressed Start / Picked Up / Complete on (migration 375).
+      { label: "Alerts", value: qty(d.alerts), tone: N(d.alerts) > 0 ? "neg" : undefined },
     ];
     case "visa_groups": return [
       { label: "Groups", value: qty(d.total), strong: true },

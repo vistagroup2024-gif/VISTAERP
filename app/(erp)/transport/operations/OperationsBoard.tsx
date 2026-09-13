@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
+import TripAlerts from "@/components/transport/TripAlerts";
 import { fmtTime12, COMPANY_ID } from "@/lib/format";
 import { waHref } from "@/lib/waLink";
 
@@ -574,6 +575,11 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
           disabled={busy} className="btn-outline text-sm text-red-600">↺ Reset Assignments</button>}
       </div>
       {err && <div className="rounded-md border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
+
+      {/* Trips nobody pressed Start / Picked Up / Complete on — every day's, not
+          just the one on screen, because the forgotten one is by definition on
+          a day nobody is looking at any more. */}
+      <TripAlerts canAct={canAssign} />
 
       {/* Long-reposition approvals raised by auto-assign (>100km empty move) */}
       {canAssign && repositions.length > 0 && (

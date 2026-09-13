@@ -3,6 +3,7 @@ import { dateStr } from "@/lib/format";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import Icon from "@/components/ui/Icon";
 import DashboardCard from "@/components/dashboard/DashboardCard";
+import TripAlerts, { TRIP_ALERT_PERMS } from "@/components/transport/TripAlerts";
 import { visibleCards, type CardAccess } from "@/lib/dashboardCards";
 import { getStaffAccess, staffCan, staffLanding, getSessionUser } from "@/lib/staffSession";
 import { redirect } from "next/navigation";
@@ -28,6 +29,9 @@ export default async function Dashboard() {
   }
 
   const cards = visibleCards(access.dashboardCards as CardAccess);
+  // The trip alerts go to whoever runs operations, whatever cards they hold —
+  // an alert nobody who can act on it sees is not an alert.
+  const tripAlerts = TRIP_ALERT_PERMS.some((k) => staffCan(access, k));
 
   // Two calls cover every card — the money and trade figures, and the ones the
   // module dashboards used to carry — so they go out together rather than one
@@ -55,6 +59,8 @@ export default async function Dashboard() {
           {cards.length} card{cards.length === 1 ? "" : "s"} · figures are live, month and year to date where shown
         </p>
       </div>
+
+      {tripAlerts && <TripAlerts canAct />}
 
       {noCompany && (
         <div className="flex items-start gap-2 rounded-md border border-warning-soft bg-warning-soft/50 px-4 py-3 text-sm text-warning-fg">

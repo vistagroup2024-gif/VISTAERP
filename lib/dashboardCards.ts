@@ -85,7 +85,7 @@ export const DASHBOARD_CARDS: CardDef[] = [
   { key: "brn_agreements", label: "BRN Agreements",
     hint: "Active agreements, those expiring within a week, and supplier outstanding", href: "/inventory/brn" },
   { key: "transport", label: "Transport",
-    hint: "Bookings pending, trips running, trips with no driver, and revenue", href: "/transport/operations" },
+    hint: "Bookings pending, trips running, trips with no driver, revenue, and alerts — trips sitting in the wrong status because nobody pressed Picked Up or Complete", href: "/transport/operations" },
   { key: "visa_groups", label: "Visa Groups",
     hint: "Groups in process, issued, and waiting on BRN", href: "/groups" },
 ];
