@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -48,6 +48,12 @@ export function overdueText(min: number): string {
 export function useTripAlertRpc<T>(rpc: string, pollMs = 60000): { data: T | null; reload: () => Promise<void> } {
   const [data, setData] = useState<T | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The browser's Supabase client is a singleton and channel(topic) hands back
+  // an EXISTING channel of that name — so two mounts sharing a topic (the pill
+  // is in the sidebar and the phone bar at once) made the second subscribe an
+  // already-subscribed channel, which throws and took the whole page down.
+  // One topic per mount, exactly as RealtimeRefresh does.
+  const uid = useId();
 
   const reload = useCallback(async () => {
     const sb = createClient();
@@ -63,9 +69,14 @@ export function useTripAlertRpc<T>(rpc: string, pollMs = 60000): { data: T | nul
     };
     reload();
     const sb = createClient();
-    const ch = sb.channel(`rt-trip-alerts-${rpc}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "transport_trips" }, () => soon(500))
-      .subscribe();
+    // Realtime is a convenience on top of the poll; if it fails for any reason
+    // the alert must still draw, so nothing here is allowed to throw.
+    let ch: ReturnType<typeof sb.channel> | null = null;
+    try {
+      ch = sb.channel(`rt-trip-alerts-${uid}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "transport_trips" }, () => soon(500))
+        .subscribe();
+    } catch { ch = null; }
     const iv = setInterval(() => { if (!hidden()) reload(); }, pollMs);
     const onVis = () => { if (!hidden()) reload(); };
     document.addEventListener("visibilitychange", onVis);
@@ -73,9 +84,9 @@ export function useTripAlertRpc<T>(rpc: string, pollMs = 60000): { data: T | nul
       if (timer.current) clearTimeout(timer.current);
       clearInterval(iv);
       document.removeEventListener("visibilitychange", onVis);
-      sb.removeChannel(ch);
+      if (ch) { try { sb.removeChannel(ch); } catch { /* already gone */ } }
     };
-  }, [rpc, pollMs, reload]);
+  }, [rpc, pollMs, reload, uid]);
 
   return { data, reload };
 }
