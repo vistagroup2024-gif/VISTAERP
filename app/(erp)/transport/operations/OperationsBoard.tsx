@@ -123,7 +123,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
   const [assignFor, setAssignFor] = useState<string | null>(null);
   const [vendorFor, setVendorFor] = useState<string | null>(null);
   // Driver-details modal shown when outsourcing to a supplier vendor.
-  const [vendorModal, setVendorModal] = useState<{ tripId: string; vendorId: string; vendorName: string; isDriver: boolean; fare: number | null; driverName: string; driverMobile: string; vendorCost: string } | null>(null);
+  const [vendorModal, setVendorModal] = useState<{ tripId: string; vendorId: string; vendorName: string; isDriver: boolean; fare: number | null; driverName: string; driverMobile: string; driverReg: string; vendorCost: string } | null>(null);
   const [tripView, setTripView] = useState<Trip | null>(null);
   // WhatsApp "Send" modal: shows the message and the destinations (a phone number
   // opens a pre-filled chat; a GROUP can only be opened — the message is copied so
@@ -358,7 +358,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     setVendorModal({
       tripId: t.id, vendorId, vendorName: ven?.name ?? "vendor",
       isDriver: ven?.vendor_type === "vendor_driver",
-      fare: t.sell_rate, driverName: "", driverMobile: "", vendorCost: t.vendor_cost != null ? String(t.vendor_cost) : "",
+      fare: t.sell_rate, driverName: "", driverMobile: "", driverReg: "", vendorCost: t.vendor_cost != null ? String(t.vendor_cost) : "",
     });
   }
   async function submitVendor() {
@@ -367,6 +367,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       p_trip: vendorModal.tripId, p_vendor: vendorModal.vendorId,
       p_driver_name: vendorModal.driverName.trim() || null, p_driver_mobile: vendorModal.driverMobile.trim() || null,
       p_vendor_cost: vendorModal.vendorCost.trim() === "" ? null : Number(vendorModal.vendorCost),
+      p_driver_reg: vendorModal.driverReg.trim() || null,
     });
     if (ok) setVendorModal(null);
   }
@@ -387,6 +388,17 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
       `Car Reg No : ${t.driver_reg ?? "—"}`,
       ...(t.vendor_name ? [`Vendor : ${t.vendor_name}`] : []),
     ].join("\n");
+  }
+  // The Driver Tafweej Details block comes from the database — the same text
+  // the agent sees on their Tafweej page — so it is never assembled here.
+  async function copyTafweej(t: Trip) {
+    const { data, error } = await supabase.rpc("transport_trip_tafweej", { p_trip: t.id });
+    if (error) { setErr(error.message); return; }
+    const d = data as any;
+    if (!d?.ready || !d?.text) { setErr("Driver details are not ready for the tafweej yet."); return; }
+    navigator.clipboard?.writeText(d.text).then(
+      () => setErr(d.reg_missing ? "Tafweej details copied — but this driver has no registration number on file." : "Tafweej details copied to clipboard."),
+      () => setErr("Could not copy — clipboard blocked."));
   }
   function copyDriver(t: Trip) {
     navigator.clipboard?.writeText(driverText(t)).then(() => setErr("Driver details copied to clipboard."),
@@ -493,6 +505,7 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
     if (canEdit) items.push({ label: "Edit Booking", onClick: () => router.push(`/transport/bookings/${t.booking_id}`) });
     items.push({ label: "Copy Trip Details", onClick: () => copyTrip(t) });
     if (t.driver_id || t.outsource_driver_name) items.push({ label: "Copy Driver Details", onClick: () => copyDriver(t) });
+    if (t.driver_id || t.outsource_driver_name) items.push({ label: "Copy Tafweej Details", onClick: () => copyTafweej(t) });
     items.push({ label: "📲 Send Trip Details", onClick: () => sendTripDetails(t) });
     if (t.driver_id || t.outsource_driver_name) items.push({ label: "📲 Send Driver Details", onClick: () => sendDriverDetails(t) });
     if (canAssign && open) items.push({ label: t.driver_id ? "Reassign Driver" : "Assign Driver", onClick: () => { setVendorFor(null); setAssignFor(t.id); } });
@@ -858,6 +871,11 @@ export default function OperationsBoard({ date, today, trips, drivers, vehicles,
                 <input className="input" value={vendorModal.driverMobile} onChange={(e) => setVendorModal({ ...vendorModal, driverMobile: e.target.value })} placeholder="+966 5x xxx xxxx" />
               </>
             )}
+            {/* A vendor's driver is not in the drivers master, so the plate for
+                the Driver Tafweej Details has nowhere else to come from. Digits
+                then the Arabic letters, as the tafweej writes it. */}
+            <label className="label mt-3">Reg No. for Tafweej</label>
+            <input className="input" dir="auto" value={vendorModal.driverReg} onChange={(e) => setVendorModal({ ...vendorModal, driverReg: e.target.value })} placeholder="7022 - أ ص س" />
             <label className="label mt-3">Vendor cost (what we pay the vendor)</label>
             <input className="input" type="number" min="0" step="0.01" value={vendorModal.vendorCost} onChange={(e) => setVendorModal({ ...vendorModal, vendorCost: e.target.value })} placeholder="e.g. 230.00" />
             <div className="mt-4 flex justify-end gap-2">

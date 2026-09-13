@@ -8,14 +8,14 @@ import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Vehicle { id: string; name: string }
 interface Driver {
-  id: string; name: string; iqama: string | null; license_no: string | null; mobile: string | null;
+  id: string; name: string; iqama: string | null; license_no: string | null; tafweej_reg?: string | null; mobile: string | null;
   vehicle_id: string | null; languages: string[]; status: string; emergency_contact: string | null;
   iqama_expiry: string | null; license_expiry: string | null; nusuk_registered?: boolean; base_city?: string | null;
   username?: string | null; portal_enabled?: boolean;
 }
 
 const BLANK = {
-  name: "", iqama: "", license_no: "", mobile: "", vehicle_id: "", languages: "", status: "active",
+  name: "", iqama: "", license_no: "", tafweej_reg: "", mobile: "", vehicle_id: "", languages: "", status: "active",
   emergency_contact: "", iqama_expiry: "", license_expiry: "", nusuk_registered: false, base_city: "",
   username: "", portal_enabled: false, password: "",
 };
@@ -42,6 +42,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
   function payload(f: any) {
     return {
       name: f.name.trim(), iqama: f.iqama.trim() || null, license_no: f.license_no.trim() || null,
+      tafweej_reg: (f.tafweej_reg ?? "").trim() || null,
       mobile: f.mobile.trim() || null, vehicle_id: f.vehicle_id || null,
       languages: f.languages ? String(f.languages).split(",").map((s: string) => s.trim()).filter(Boolean) : [],
       status: f.status, emergency_contact: f.emergency_contact.trim() || null,
@@ -69,7 +70,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
   function startEdit(d: Driver) {
     setEditId(d.id);
     setEdit({
-      name: d.name, iqama: d.iqama ?? "", license_no: d.license_no ?? "", mobile: d.mobile ?? "", base_city: d.base_city ?? "",
+      name: d.name, iqama: d.iqama ?? "", license_no: d.license_no ?? "", tafweej_reg: d.tafweej_reg ?? "", mobile: d.mobile ?? "", base_city: d.base_city ?? "",
       vehicle_id: d.vehicle_id ?? "", languages: (d.languages ?? []).join(", "), status: d.status,
       emergency_contact: d.emergency_contact ?? "", iqama_expiry: d.iqama_expiry ?? "", license_expiry: d.license_expiry ?? "",
       nusuk_registered: !!d.nusuk_registered, username: d.username ?? "", portal_enabled: !!d.portal_enabled, password: "",
@@ -105,6 +106,10 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       <div><label className="label">Name *</label><input className="input" value={f.name} onChange={(e) => set({ ...f, name: e.target.value })} required /></div>
       <div><label className="label">Iqama</label><input className="input" value={f.iqama} onChange={(e) => set({ ...f, iqama: e.target.value })} /></div>
       <div><label className="label">Registration No.</label><input className="input" placeholder="ABC-9334" value={f.license_no} onChange={(e) => set({ ...f, license_no: e.target.value })} /></div>
+      {/* The plate as the tafweej writes it — digits, then the Arabic letters.
+          Used on the Driver Tafweej Details the agent copies; falls back to the
+          Registration No. above until filled in. */}
+      <div><label className="label">Reg No. for Tafweej</label><input className="input" dir="auto" placeholder="7022 - أ ص س" value={f.tafweej_reg ?? ""} onChange={(e) => set({ ...f, tafweej_reg: e.target.value })} /></div>
       <div><label className="label">Mobile</label><input className="input" value={f.mobile} onChange={(e) => set({ ...f, mobile: e.target.value })} /></div>
       <div><label className="label">Vehicle</label>
         <SearchSelect value={f.vehicle_id} onChange={(v) => set({ ...f, vehicle_id: v })} placeholder="— none —" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} /></div>

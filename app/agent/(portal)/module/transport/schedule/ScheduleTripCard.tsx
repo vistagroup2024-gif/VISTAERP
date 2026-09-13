@@ -83,6 +83,10 @@ export default function ScheduleTripCard({ t }: { t: Trip }) {
 
       <div className="mt-3 flex flex-wrap gap-2">
         {hasDriver && <CopyBtn label="Copy driver details" text={driverText} />}
+        {hasDriver && t.is_arrival && (
+          <Link href={`/agent/module/transport/${t.booking_id}/tafweej`} target="_blank" rel="noreferrer"
+            className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50">Tafweej details ↗</Link>
+        )}
         <Link href={`/agent/module/transport/${t.booking_id}`} className="rounded border border-brand/30 bg-brand/5 px-2 py-1 text-xs font-medium text-brand hover:bg-brand/10">View booking →</Link>
       </div>
     </div>

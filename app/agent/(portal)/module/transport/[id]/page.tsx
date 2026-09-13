@@ -55,6 +55,9 @@ export default async function AgentTransportDetail({ params }: { params: { id: s
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">Booking {b.booking_no}</h1>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Opens in its own tab: the agent keeps this open beside the tafweej
+              form where the visa was issued and copies from it. */}
+          <Link href={`/agent/module/transport/${b.id}/tafweej`} target="_blank" rel="noreferrer" className="btn text-sm">Driver Tafweej Details ↗</Link>
           <Link href={`/agent/module/transport/${b.id}/voucher?brand=vista`} className="btn-outline text-sm">Vista Voucher</Link>
           <Link href={`/agent/module/transport/${b.id}/voucher?brand=agent`} className="btn-outline text-sm">Agent Voucher</Link>
           {canCancel && <AgentCancelRequest token={agent.token} id={b.id} requested={!!b.cancel_requested} />}
