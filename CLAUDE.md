@@ -698,3 +698,28 @@ into the routine — the Car Invoice (`CI-`) and the Car Receipt (`RCP-`). 381
 replaced that one line in each with `next_doc_number()` and seeded the row from
 the highest number issued. The vehicle (`CAR-`), hotel (`HTL-`) and transport
 (`TRP-`) booking numbers still come from sequences: they are not vouchers.
+
+## Every invoice is a bill the receipt can adjust against
+
+The Receipt, Payment and Journal vouchers carry a bill-wise adjustment
+(`VoucherEditor`, `party_outstanding`, `apply_billwise_allocations`): put an
+amount on a party line and the popup lists that party's open bills. It reads
+`open_items`, and until migration 385 only the Bill Record (`party_invoice`)
+ever wrote one — the trade vouchers, the Car Invoice and the Monthly Charges
+posted the party's line and wrote no bill, so the popup had nothing to offer
+and never appeared.
+
+**Every posting that debits a customer or credits a supplier raises the bill**
+through `open_item_raise`: `trade_doc_post_now` for the Sales Invoice, the four
+service invoices (customer side, and the supplier's cost leg), the Purchase
+Voucher and the two returns (as credit notes); `car_post_entry` for a car sale
+and for each customer's line of a Monthly Charges voucher. A new posting path
+that touches a party account must do the same, or its receipts cannot be
+adjusted.
+
+**And the bill goes with its voucher.** `trg_journal_entry_release_open_items`
+on `journal_entries` (before delete) removes an entry's bills when the entry is
+unposted, refuses if a receipt has been adjusted against them, and gives back
+what a deleted receipt had settled — one rule for every unpost path
+(`trade_doc_unpost`, `car_contract_unpost`, `car_charges_month_save`, a voided
+voucher) rather than one per routine.
