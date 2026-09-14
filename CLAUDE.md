@@ -620,8 +620,10 @@ Visa, Transport and Hotel invoices are **trade documents** (`visa_invoice`,
 `transport_invoice`, `hotel_invoice`; migration 377), shaped exactly like the
 Air Ticket Invoice: a customer, a supplier, the gross on the line and the
 supplier's cost beside it, four legs and no stock. The module **raises** one —
-a visa group created, a trip completed, a hotel booking vendor-confirmed,
-through the automation rules, which are ON — and from then on it is a voucher
+a visa group created, a trip completed, a hotel booking vendor-confirmed —
+when the matching rule on Accounting → Automation is switched on. **Whether it
+is on is the business's decision, not a migration's**: 377 turned the three
+rules on without being asked and 378 turned them off again. From then on it is a voucher
 like any other on Sales Invoice: opened by number, edited and re-posted,
 printed, deleted, or typed from scratch for something the module did not raise.
 
