@@ -9,6 +9,7 @@ import AccountPicker, { type PickAccount } from "./AccountPicker";
 import AdvanceReceiptForm from "./AdvanceReceiptForm";
 import SearchSelect from "@/components/ui/SearchSelect";
 import { todaySA } from "@/lib/saudiTime";
+import { enterMovesOn } from "@/lib/focusNext";
 
 export type VoucherKind = "journal" | "receipt" | "payment" | "contra";
 
@@ -71,7 +72,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
   const [cash, setCash] = useState<string | null>(null);
   const [toAcct, setToAcct] = useState<string | null>(null); // contra: destination
   const [amount, setAmount] = useState(""); // contra amount
-  const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()]);
+  const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -94,7 +95,9 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
   const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
   const [costCenter, setCostCenter] = useState("");
   const [tagArea, setTagArea] = useState("");
-  // Multi-currency (Journal only): foreign amounts × rate → base (SAR) for the GL.
+  // Multi-currency, on every voucher: amounts are typed in the chosen currency
+  // and posted in base (SAR) at the rate, which comes from the currency master
+  // and can be overtyped. The entry records the currency and rate.
   const [currencies, setCurrencies] = useState<{ code: string; rate_to_base: number }[]>([]);
   const [currency, setCurrency] = useState("SAR");
   const [fxRate, setFxRate] = useState("");
@@ -114,12 +117,21 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
     setFxRate(code === "SAR" ? "" : (c ? String(Number(c.rate_to_base)) : ""));
   }
   const dims = () => ({ cost_center: costCenter || null, tag_area: tagArea || null });
+  const fx = currency !== "SAR" ? (calc(fxRate) || 0) : 1;
+  const toBase = (n: number) => +(n * fx).toFixed(2);
+  // The entry is posted in base; the currency and rate go on it afterwards, so
+  // the ledger reads "(USD @ 3.75)" and the voucher can be read back.
+  async function stampFx(entryId?: string | null) {
+    if (!entryId || currency === "SAR" || !(fx > 0)) return;
+    const { error } = await supabase.rpc("gl_voucher_stamp_fx", { p_entry: entryId, p_currency: currency, p_rate: fx });
+    if (error) setError(error.message);
+  }
 
   // Bill-wise adjustment is available on Receipt, Payment and Journal (party lines).
   const canBillwise = !variant && (kind === "receipt" || kind === "payment" || kind === "journal");
   // The allocatable amount of a line: the amount cell (receipt/payment) or the
   // debit/credit (journal).
-  const lineAmt = (l: Line) => (kind === "journal" ? (calc(l.debit) || calc(l.credit) || 0) : (calc(l.amount) || 0));
+  const lineAmt = (l: Line) => toBase(kind === "journal" ? (calc(l.debit) || calc(l.credit) || 0) : (calc(l.amount) || 0));
 
   // Header memory: remember cash/bank per user per kind.
   useEffect(() => {
@@ -143,7 +155,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
     setEntryId(null); setEntryNo(null); setEditable(true); setDone(keepMessage ?? null); setError(null); setDocField("");
     setDate(todaySA());
     setNarration(""); setReference(""); setAmount(""); setToAcct(null); setCostCenter(""); setTagArea("");
-    setLines([emptyLine(), emptyLine()]);
+    setLines([emptyLine()]);
     try { const m = JSON.parse(localStorage.getItem(memKey) || "{}"); setCash(m.cash ?? null); } catch { setCash(null); }
   }
 
@@ -156,7 +168,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
     setCostCenter(raw.find((l) => l.cost_center)?.cost_center ?? ""); setTagArea(raw.find((l) => l.tag_area)?.tag_area ?? "");
     if (kind === "journal") {
       const ls: Line[] = raw.map((l) => ({ account: l.account_id, debit: Number(l.debit) ? String(Number(l.debit)) : "", credit: Number(l.credit) ? String(Number(l.credit)) : "", amount: "", remarks: l.description ?? "" }));
-      setLines(ls.length ? [...ls, emptyLine()] : [emptyLine(), emptyLine()]);
+      setLines(ls.length ? [...ls, emptyLine()] : [emptyLine()]);
       setCash(null); setToAcct(null); setAmount("");
     } else if (kind === "contra") {
       const from = raw.find((l) => Number(l.debit) > 0); const to = raw.find((l) => Number(l.credit) > 0);
@@ -171,7 +183,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
       setCash(bank?.account_id ?? null);
       const ls: Line[] = raw.filter((l) => l !== bank && Number(l[lineSide]) > 0)
         .map((l) => ({ account: l.account_id, debit: "", credit: "", amount: String(Number(l[lineSide])), remarks: l.description ?? "" }));
-      setLines(ls.length ? [...ls, emptyLine()] : [emptyLine(), emptyLine()]);
+      setLines(ls.length ? [...ls, emptyLine()] : [emptyLine()]);
       setToAcct(null); setAmount("");
     }
   }, [kind]);
@@ -358,6 +370,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
 
       // ---- CREATE a new voucher ----
       let rpc: string; let args: any;
+      if (currency !== "SAR" && !(fx > 0)) throw new Error("Enter the exchange rate for " + currency);
       if (isJournal) {
         if (Math.abs(totals.diff) > 0.005) throw new Error(`Out of balance by ${money(Math.abs(totals.diff))}`);
         const rows = lines.filter((l) => l.account && (calc(l.debit) || calc(l.credit)));
@@ -365,13 +378,14 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
         const hasAlloc = rows.some((l) => (l.alloc?.length ?? 0) > 0);
         if (hasAlloc) {
           const payload = rows.map((l) => ({
-            account: l.account, debit: calc(l.debit) || 0, credit: calc(l.credit) || 0, remarks: l.remarks || null, ...dims(),
+            account: l.account, debit: toBase(calc(l.debit) || 0), credit: toBase(calc(l.credit) || 0), remarks: l.remarks || null, ...dims(),
             allocations: (l.alloc ?? []).map((a) => ({ open_item_id: a.open_item_id, amount: a.amount })),
           }));
           const { data, error } = await supabase.rpc("gl_journal_billwise", {
             p_company: COMPANY_ID, p_date: date, p_narration: narration || null, p_reference: reference || null, p_lines: payload,
           });
           if (error) throw new Error(error.message);
+          await stampFx((data as any)?.entry_id);
           resetToNew(`posted ${(data as any)?.entry_no ?? ""} (bill-wise) — new voucher ready`); router.refresh();
           if (printAfter && (data as any)?.entry_id) window.open(`/accounting/vouchers/${(data as any).entry_id}`, "_blank");
           return;
@@ -392,14 +406,14 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
         if (cash === toAcct) throw new Error("From and To must differ");
         if (!amt || amt <= 0) throw new Error("Enter an amount");
         rpc = "gl_contra";
-        args = { p_company: COMPANY_ID, p_date: date, p_from: cash, p_to: toAcct, p_amount: amt, p_narration: narration || null };
+        args = { p_company: COMPANY_ID, p_date: date, p_from: cash, p_to: toAcct, p_amount: toBase(amt), p_narration: narration || null };
       } else {
         if (!cash) throw new Error(`Choose the cash / bank account`);
         const hasAlloc = lines.some((l) => (l.alloc?.length ?? 0) > 0);
         if (hasAlloc) {
           // Bill-wise: post + settle specific outstanding bills in one step.
           const payload = lines.filter((l) => l.account && calc(l.amount)).map((l) => ({
-            account: l.account, amount: calc(l.amount) || 0, remarks: l.remarks || null, ...dims(),
+            account: l.account, amount: toBase(calc(l.amount) || 0), remarks: l.remarks || null, ...dims(),
             allocations: (l.alloc ?? []).map((a) => ({ open_item_id: a.open_item_id, amount: a.amount })),
           }));
           if (payload.length < 1) throw new Error("Enter at least one line");
@@ -408,12 +422,13 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
             p_date: date, p_cash_bank: cash, p_narration: narration || null, p_reference: reference || null, p_lines: payload,
           });
           if (error) throw new Error(error.message);
+          await stampFx((data as any)?.entry_id);
           resetToNew(`posted ${(data as any)?.entry_no ?? ""} (bill-wise) — new voucher ready`); router.refresh();
           if (printAfter && (data as any)?.entry_id) window.open(`/accounting/vouchers/${(data as any).entry_id}`, "_blank");
           return;
         }
         const payload = lines.filter((l) => l.account && calc(l.amount))
-          .map((l) => ({ account: l.account, amount: calc(l.amount) || 0, remarks: l.remarks || null, ...dims() }));
+          .map((l) => ({ account: l.account, amount: toBase(calc(l.amount) || 0), remarks: l.remarks || null, ...dims() }));
         if (payload.length < 1) throw new Error("Enter at least one line");
         rpc = variant ? variant.postRpc : (kind === "receipt" ? "gl_receipt" : "gl_payment");
         args = { p_company: COMPANY_ID, p_date: date, p_cash_bank: cash, p_narration: narration || null, p_reference: reference || null, p_lines: payload };
@@ -421,6 +436,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
       const { data, error } = await supabase.rpc(rpc, args);
       if (error) throw new Error(error.message);
       const res = data as any;
+      await stampFx(res?.entry_id);
       resetToNew(res?.pending
         ? `submitted for approval (${money(Number(res.amount))}) — new voucher ready`
         : `posted ${res?.entry_no ?? ""} — new voucher ready`);
@@ -445,7 +461,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
   const readOnly = !!entryId && !editable;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onKeyDown={enterMovesOn}>
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">{title}</h1>
         {!onAdvance && readOnly && <span className="badge badge-neutral">Locked</span>}
@@ -516,7 +532,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
               <SearchSelect value={tagArea} onChange={setTagArea} disabled={readOnly} placeholder="—"
                 options={tagAreas.map((t) => ({ value: t.name, label: t.name }))} /></div>
           )}
-          {isJournal && !entryId && (
+          {!entryId && (
             <>
               <div><label className="label">Currency</label>
                 <select className="input" value={currency} onChange={(e) => pickCurrency(e.target.value)}>
@@ -524,7 +540,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
                   {currencies.filter((c) => c.code !== "SAR").map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
                 </select></div>
               {currency !== "SAR" && (
-                <div><label className="label">Rate → SAR</label>
+                <div><label className="label">Rate → SAR <span className="font-normal text-slate-400">(from the master, editable)</span></label>
                   <input className="input text-right tabular-nums" inputMode="decimal" value={fxRate} onChange={(e) => setFxRate(e.target.value)} placeholder="0.00" /></div>
               )}
             </>
@@ -535,6 +551,16 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
 
         {/* Lines (not for contra) */}
         {!isContra && (
+          <div className="space-y-2">
+          {!readOnly && (
+            <div className="flex items-center justify-end gap-3">
+              {currency !== "SAR" && <span className="text-xs text-slate-500">Amounts in {currency}; posted in SAR at {fx || "—"}</span>}
+              {/* Beside the grid, not down beside Save: adding a line is done
+                  while reading the lines. A new line also appears on its own
+                  when the last one is filled. */}
+              <button type="button" onClick={() => setLines((l) => [...l, emptyLine()])} className="btn-outline text-sm">+ Line</button>
+            </div>
+          )}
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -594,6 +620,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
               </tfoot>
             </table>
           </div>
+          </div>
         )}
 
         <div className="flex items-center gap-2">
@@ -602,7 +629,6 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
               : saving ? (entryId ? "Saving…" : "Posting…") : entryId ? "Save changes" : "Save & Post"}
             {(entryId ? may("edit") : may("create")) && <span className="ml-1 opacity-70 text-xs">Ctrl+S</span>}
           </button>
-          {!isContra && !readOnly && <button type="button" onClick={() => setLines((l) => [...l, emptyLine()])} className="btn-outline text-sm">+ Line</button>}
           <span className="ml-auto text-xs text-slate-400">{entryId ? "Editing an existing voucher — the document number is kept." : "Posts to the ledger immediately — no separate posting step."}</span>
         </div>
       </div>

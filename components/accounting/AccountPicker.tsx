@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { accountLabelMap } from "@/lib/accountLabel";
+import { nextField } from "@/lib/focusNext";
 
 // Remember the accounts this user picks so the picker can surface them first
 // (spec automation #4 — smart account suggestion by history).
@@ -53,8 +54,21 @@ export default function AccountPicker({
         className={`input ${className}`}
         onChange={(e) => {
           const id = byLabel.get(e.target.value);
-          if (id) { onChange(id); recordRecent(id); }
+          if (id) {
+            // The account is chosen: move on to the amount. The picker re-mounts
+            // on the new value, so the next field is found before that happens.
+            const nxt = nextField(e.target);
+            onChange(id); recordRecent(id);
+            if (nxt) requestAnimationFrame(() => { nxt.focus(); if (nxt instanceof HTMLInputElement && nxt.type !== "date") nxt.select(); });
+          }
           else if (e.target.value === "") onChange(null);
+        }}
+        onKeyDown={(e) => {
+          // Enter on a typed-through account moves on; with no match it stays
+          // so the datalist can pick.
+          if (e.key === "Enter" && byLabel.get((e.target as HTMLInputElement).value)) {
+            e.preventDefault(); const nxt = nextField(e.target as Element); nxt?.focus();
+          }
         }}
         onBlur={(e) => { if (!byLabel.get(e.target.value) && e.target.value !== label) e.target.value = label; }}
       />

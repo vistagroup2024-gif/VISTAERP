@@ -177,7 +177,7 @@ export default function SearchSelect({
             ...(rect.below ? { top: rect.top } : { bottom: window.innerHeight - rect.top }),
             zIndex: 60,
           }}
-          className="rounded-lg border border-slate-200 bg-white shadow-lg">
+          className="rounded-lg border border-slate-200 bg-white shadow-lg" data-searchselect="">
           <div className="border-b border-slate-100 p-2">
             <input ref={inputRef} value={q} onChange={(e) => { setQ(e.target.value); setActive(0); }}
               onKeyDown={onKey} placeholder="Type to search…"

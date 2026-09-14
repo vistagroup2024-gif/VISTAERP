@@ -18,7 +18,7 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
 
   return (
     <div className="space-y-4">
-      <PageHeader title={kind === "customer" ? "Receivables Aging" : "Payables Aging"} />
+      <PageHeader title={kind === "customer" ? "Receivables Aging" : "Payables Aging"} subtitle="Aged by due date. Not due is what has been billed but is not yet due — an instalment for next month, a bill inside its credit days." />
       <div className="flex gap-2">
         {[["customer", "Receivables"], ["supplier", "Payables"]].map(([k, l]) => (
           <Link key={k} href={`/accounting/aging?kind=${k}`}
@@ -31,6 +31,7 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
             <tr>
               <th className="px-3 py-2 text-left">{kind === "customer" ? "Customer" : "Supplier"}</th>
               <th className="px-3 py-2 text-right">Total</th>
+              <th className="px-3 py-2 text-right">Not due</th>
               <th className="px-3 py-2 text-right">0–30</th>
               <th className="px-3 py-2 text-right">31–60</th>
               <th className="px-3 py-2 text-right">61–90</th>
@@ -44,6 +45,7 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
               <tr key={r.account_id} className="border-t border-slate-100">
                 <td className="px-3 py-1.5"><Link href={`/accounting/ledger?account=${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link>{r.phone ? <span className="ml-2 text-xs text-slate-400">{r.phone}</span> : ""}</td>
                 <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{money(Number(r.total))}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-slate-400">{money(Number(r.not_due))}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b0))}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b1))}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b2))}</td>
@@ -55,12 +57,13 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={8}>Nothing outstanding.</td></tr>}
+            {rows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={9}>Nothing outstanding.</td></tr>}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
               <td className="px-3 py-2">Total</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(sum("total"))}</td>
+              <td className="px-3 py-2 text-right tabular-nums text-slate-400">{money(sum("not_due"))}</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(sum("b0"))}</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(sum("b1"))}</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(sum("b2"))}</td>

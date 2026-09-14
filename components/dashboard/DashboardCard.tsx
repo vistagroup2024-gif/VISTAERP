@@ -76,9 +76,12 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "All time", value: cash(d.total) },
     ];
     case "pnl": {
-      const mm = N(d.income_month) - N(d.expense_month), yy = N(d.income_year) - N(d.expense_year);
+      // Income less the cost of what was sold, less the expenses. The cost is
+      // its own line — it is the margin, not the overhead.
+      const mm = N(d.income_month) - N(d.cogs_month) - N(d.expense_month), yy = N(d.income_year) - N(d.cogs_year) - N(d.expense_year);
       return [
         { label: "Income (m)", value: cash(d.income_month), tone: "pos" },
+        { label: "Cost of sales (m)", value: cash(d.cogs_month) },
         { label: "Expense (m)", value: cash(d.expense_month), tone: "neg" },
         { label: mm >= 0 ? "Profit (m)" : "Loss (m)", value: cash(Math.abs(mm)), strong: true, tone: mm >= 0 ? "pos" : "neg" },
         { label: yy >= 0 ? "Profit (ytd)" : "Loss (ytd)", value: cash(Math.abs(yy)), tone: yy >= 0 ? "pos" : "neg" },
@@ -124,11 +127,14 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "Balance", value: cash(d.balance), tone: N(d.balance) > 0 ? "warn" : undefined },
     ];
     case "purchase_vs_sale": {
-      const gm = N(d.sale_month) - N(d.purchase_month);
+      // Sale is every posted sale document, the Car Invoice included. The
+      // margin is sale less the cost of what was sold — not sale less what was
+      // bought, which would set two cars bought against one car sold.
+      const gm = N(d.sale_month) - N(d.cogs_month);
       return [
         { label: "Buy (m)", value: cash(d.purchase_month) },
         { label: "Sale (m)", value: cash(d.sale_month) },
-        { label: "Margin (m)", value: cash(gm), strong: true, tone: gm >= 0 ? "pos" : "neg" },
+        { label: "Gross profit (m)", value: cash(gm), strong: true, tone: gm >= 0 ? "pos" : "neg" },
         { label: "Sale (ytd)", value: cash(d.sale_year) },
       ];
     }

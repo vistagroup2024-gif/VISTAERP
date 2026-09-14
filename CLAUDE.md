@@ -730,14 +730,63 @@ bill (386). `acct_voucher_guard` refuses to EDIT a voucher that carries
 allocations, and no longer refuses to delete one, because the release handles
 that.
 
-**Every bill has a due date**, because the popup and the ageing report show
-it: a trade voucher's own; a car sale's first instalment (the schedule, not
-`start_date` — CI-000005's schedule starts two months before its start date);
-the end of the month for a month of charges; otherwise the bill date plus the
-party's credit days, which is what `parties.credit_days` is for.
+**A car sale is billed the way it is owed** (387): the advance — whatever the
+schedule does not carry — as `CI-000005 advance`, due on the invoice's advance
+date, and one bill per instalment, `CI-000005/1` … `/12`, each due on its own
+date. `car_contract_bills_raise` is the one routine; the posting and the
+backfill both use it. One bill of 123,000 due on the first instalment's date
+was the trap: the popup offered the whole invoice, and the ageing report put
+all of it in 0–30 when 8,583 was due. A **Car Receipt** (RCP-) settles these
+bills through the allocations it already carries (`car_receipt_settle_bills`:
+the instalment or advance it names, then FIFO over that contract's bills), when
+it posts, when an invoice adopts its order's advance receipts, and when a
+contract re-posts. A contract re-posts on every edit, so the release routine
+lets a *car receipt's* allocations go silently — they are re-settled — and
+refuses only for a receipt typed by hand, which nothing can re-settle.
 
-The ageing report (`ar_ap_aging`) reads these bills, so it agrees with the
-ledger only while every party posting raises one and every receipt is adjusted.
-A receipt saved **on account** (nothing picked in the popup) reduces the ledger
-and not the bills, and the report then ages more than is owed — the
-dashboard's Receivables card reads the ledger for exactly that reason.
+**Every bill has a due date**, because the popup and the ageing report show
+it: a trade voucher's own; a month of charges on the **first of the next
+month** (September's charges are due 1 October); otherwise the bill date plus
+the party's credit days, which is what `parties.credit_days` is for.
+
+The ageing report (`ar_ap_aging`) ages by due date and has a **Not due**
+bucket for what is billed but not yet due — most of a car sale, a bill inside
+its credit days. It agrees with the ledger only while every party posting
+raises a bill and every receipt is adjusted. A receipt saved **on account**
+(nothing picked in the popup) reduces the ledger and not the bills, and the
+report then ages more than is owed — the dashboard's Receivables card reads
+the ledger for exactly that reason.
+
+A plpgsql trap 387's rehearsal caught: `car_post_entry` declared a loop
+variable `l` beside the `l` alias of its `jsonb_array_elements`, and plpgsql
+only complains ("column reference l is ambiguous") when the statement runs —
+every car posting since 385 would have failed. A rehearsal that exercises the
+routine is the only thing that catches it; a `create function` that succeeds
+proves nothing.
+
+## A cost is not an expense
+
+The subtype **`COGS`** on an expense-type account (on the account editor) is
+what says it is cost of sales. The P&L shows Income, **Cost of Sales**, a
+**Gross Profit**, then Expenses; the Expenses card and the P&L card leave COGS
+out of "expense"; `trial_balance` returns `subtype` for exactly this. 5000 and
+5100 were raised by the ERP with no subtype and are COGS now (387); anything
+else is the user's to classify. **Purchase vs Sale** counts every posted sale
+document — Sales Invoice, the four service invoices and the Car Invoice, which
+is not a trade document — and its margin is sale less cost of sales off the
+ledger, not sale less what was bought.
+
+## The voucher is typed through
+
+`lib/focusNext.ts`: picking an account moves the cursor to the amount, and
+Enter moves to the next field the way Tab does (`enterMovesOn` on the editors'
+root), except where the field handles Enter itself — a datalist input with no
+match yet, a search dropdown (`data-searchselect`), anything `data-enter-keep`.
+Line vouchers start with one line and grow as the last line is filled; **+
+Line** sits beside the grid, not beside Save.
+
+Every accounting voucher can be in a **foreign currency**: amounts are typed in
+it, the rate comes from the currency master (`currencies.rate_to_base`) and can
+be overtyped, the entry is posted in SAR, and `gl_voucher_stamp_fx` writes the
+currency and rate on it (the Journal's `gl_journal_fx` did that already). The
+bill-wise popup works in SAR, so `lineAmt` is the base amount.

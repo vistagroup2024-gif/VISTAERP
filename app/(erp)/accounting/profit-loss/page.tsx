@@ -12,10 +12,16 @@ export default async function ProfitLossPage({ searchParams }: { searchParams: {
   const { data } = await sb.rpc("trial_balance", { p_company: COMPANY_ID, p_from: from || null, p_to: to || null });
   const rows = (data ?? []) as any[];
   const income = rows.filter((r) => r.nature === "income").map((r) => ({ ...r, amt: Number(r.period_credit) - Number(r.period_debit) })).filter((r) => r.amt);
-  const expense = rows.filter((r) => r.nature === "expense").map((r) => ({ ...r, amt: Number(r.period_debit) - Number(r.period_credit) })).filter((r) => r.amt);
+  // The cost of what was sold (subtype COGS on the account) is not an
+  // expense: it comes off income first, as Cost of Sales, and what is left is
+  // the gross profit the expenses are then paid out of.
+  const costs = rows.filter((r) => r.nature === "expense" && r.subtype === "COGS").map((r) => ({ ...r, amt: Number(r.period_debit) - Number(r.period_credit) })).filter((r) => r.amt);
+  const expense = rows.filter((r) => r.nature === "expense" && r.subtype !== "COGS").map((r) => ({ ...r, amt: Number(r.period_debit) - Number(r.period_credit) })).filter((r) => r.amt);
   const totInc = income.reduce((s, r) => s + r.amt, 0);
+  const totCost = costs.reduce((s, r) => s + r.amt, 0);
   const totExp = expense.reduce((s, r) => s + r.amt, 0);
-  const net = totInc - totExp;
+  const gross = totInc - totCost;
+  const net = gross - totExp;
 
   const Section = ({ title, rows, total }: { title: string; rows: any[]; total: number }) => (
     <div className="card overflow-x-auto p-0">
@@ -41,6 +47,10 @@ export default async function ProfitLossPage({ searchParams }: { searchParams: {
         <button className="btn">Run</button>
       </form>
       <Section title="Income" rows={income} total={totInc} />
+      <Section title="Cost of Sales" rows={costs} total={totCost} />
+      <div className={`card flex items-center justify-between font-semibold ${gross >= 0 ? "text-slate-800" : "text-red-700"}`}>
+        <span>Gross {gross >= 0 ? "Profit" : "Loss"}</span><span className="tabular-nums">{money(Math.abs(gross))}</span>
+      </div>
       <Section title="Expenses" rows={expense} total={totExp} />
       <div className={`card flex items-center justify-between text-lg font-bold ${net >= 0 ? "text-green-700" : "text-red-700"}`}>
         <span>Net {net >= 0 ? "Profit" : "Loss"}</span><span className="tabular-nums">{money(Math.abs(net))}</span>

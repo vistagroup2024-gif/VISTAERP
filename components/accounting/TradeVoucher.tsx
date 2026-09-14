@@ -9,6 +9,7 @@ import { TRADE_DOCS, isCarCostCenter, megaCount, expandMega, type HeaderExtra, t
 import type { DocRight } from "@/lib/docRights";
 import SearchSelect from "@/components/ui/SearchSelect";
 import { todaySA } from "@/lib/saudiTime";
+import { enterMovesOn } from "@/lib/focusNext";
 
 type Row = {
   product_id: string | null; item_name: string; units: string; quantity: string; rate: string; amount: string;
@@ -850,7 +851,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onKeyDown={enterMovesOn}>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">{cfg.title}</h1>
         {isCar && <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-brand">car sales</span>}
