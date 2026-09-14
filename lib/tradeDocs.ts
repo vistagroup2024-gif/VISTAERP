@@ -401,6 +401,70 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
       { key: "pnr", label: "PNR", kind: "text" },
     ],
   },
+  // ── THE MODULE INVOICES: VISA, TRANSPORT, HOTEL ─────────────────────────
+  // The same shape as the Air Ticket Invoice — a customer, a supplier, the
+  // gross on the line and the supplier's cost beside it, four legs, no stock.
+  // The MODULE raises one (a visa group created, a trip completed, a hotel
+  // booking vendor-confirmed: migration 377) and from then on it is a voucher
+  // like any other: opened by number, edited and re-posted, printed, deleted —
+  // or typed from scratch here for something the module did not raise.
+  //
+  // The supplier is a party where the module keeps one (a hotel vendor) and a
+  // ledger account where it does not (a visa company's supplier account, a
+  // transport vendor's). Both boxes are offered; the posting takes whichever
+  // is filled and refuses a cost owed to nobody.
+  visa_invoice: {
+    type: "visa_invoice", prefix: "VI-", title: "Visa Invoice", party: "customer",
+    showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Pax",
+    headerExtras: [
+      { key: "supplier_id", label: "Supplier", kind: "party", partyType: "supplier" },
+      { key: "supplier_account_id", label: "Supplier Account", kind: "account", hint: "if not a party" },
+      { key: "haji_name", label: "Group / Haji Name", kind: "text" },
+      { key: "group_no", label: "Group No.", kind: "text" },
+    ],
+    lineExtras: [
+      { key: "supplier_rate", label: "Supplier Rate" },
+      { key: "supplier_amount", label: "Supplier Amount",
+        derived: ({ qty, extras }) => qty * (Number(extras.supplier_rate) || 0) },
+      { key: "visa_type", label: "Visa Type", kind: "text" },
+      { key: "nights", label: "Nights", kind: "text" },
+    ],
+  },
+  transport_invoice: {
+    type: "transport_invoice", prefix: "TI-", title: "Transport Invoice", party: "customer",
+    showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Trips",
+    headerExtras: [
+      { key: "supplier_account_id", label: "Vendor Account", kind: "account", hint: "outsourced trips" },
+      { key: "haji_name", label: "Passenger", kind: "text" },
+      { key: "booking_no", label: "Booking No.", kind: "text" },
+    ],
+    lineExtras: [
+      { key: "supplier_rate", label: "Vendor Rate" },
+      { key: "supplier_amount", label: "Vendor Amount",
+        derived: ({ qty, extras }) => qty * (Number(extras.supplier_rate) || 0) },
+      { key: "trip_date", label: "Trip Date", kind: "date" },
+      { key: "vehicle", label: "Vehicle", kind: "text" },
+      { key: "driver", label: "Driver", kind: "text" },
+    ],
+  },
+  hotel_invoice: {
+    type: "hotel_invoice", prefix: "HI-", title: "Hotel Invoice", party: "customer",
+    showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Qty",
+    headerExtras: [
+      { key: "supplier_id", label: "Supplier", kind: "party", partyType: "supplier" },
+      { key: "haji_name", label: "Guest", kind: "text" },
+      { key: "booking_no", label: "Booking No.", kind: "text" },
+    ],
+    lineExtras: [
+      { key: "supplier_rate", label: "Supplier Rate" },
+      { key: "supplier_amount", label: "Supplier Amount",
+        derived: ({ qty, extras }) => qty * (Number(extras.supplier_rate) || 0) },
+      { key: "city", label: "City", kind: "text" },
+      { key: "check_in", label: "Check-in", kind: "date" },
+      { key: "check_out", label: "Check-out", kind: "date" },
+      { key: "nights", label: "Nights", kind: "text" },
+    ],
+  },
   delivery_note: {
     type: "delivery_note", prefix: "DN-", title: "Delivery Note", party: "customer",
     loadsFrom: { type: "sales_invoice", title: "Sales Invoice" },

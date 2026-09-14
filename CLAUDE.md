@@ -613,3 +613,59 @@ same routines the board does), and an Alerts cell on the Transport card. It is
 while the trip is wrong and gone the moment the right button is pressed. Both
 routines are `security invoker`, so a restricted user is alerted only about
 trips they may see.
+
+## The module invoices are vouchers
+
+Visa, Transport and Hotel invoices are **trade documents** (`visa_invoice`,
+`transport_invoice`, `hotel_invoice`; migration 377), shaped exactly like the
+Air Ticket Invoice: a customer, a supplier, the gross on the line and the
+supplier's cost beside it, four legs and no stock. The module **raises** one —
+a visa group created, a trip completed, a hotel booking vendor-confirmed,
+through the automation rules, which are ON — and from then on it is a voucher
+like any other on Sales Invoice: opened by number, edited and re-posted,
+printed, deleted, or typed from scratch for something the module did not raise.
+
+Three things hold it together:
+
+- **`trade_doc_raise` is the modules' door**, not `trade_doc_save`. The
+  modules fire from triggers and from the driver portal, where there is no
+  staff session for `trade_doc_save` to check, and the ledger is written by
+  `gl_post_internal` for the same reason — `gl_post` refuses a caller with no
+  session, and the first attempt at 377 found that out on a trip completed
+  from the portal. Both are internal, granted to no role; the approval rules
+  still apply (`trade_doc_raise` runs the same gate as `trade_doc_post`).
+- **One document per source.** The module writes `meta.source_kind` /
+  `meta.source_id`, a unique index refuses a second document for the same
+  source, and `trade_doc_save` carries the two keys through an edit. Raising
+  again returns the existing document.
+- **The module row follows its voucher.** `trg_trade_doc_module_source_sync`
+  keeps `transport_trips.gl_entry` and `hotel_purchase_bookings.gl_posted_at`
+  in step with the document's `gl_entry` on unpost, re-post and delete.
+
+The supplier may be a **party** (`meta.supplier_id`: a hotel vendor, a
+consolidator) or an **account** (`meta.supplier_account_id`: a visa company's
+supplier ledger, a transport vendor's). The posting takes whichever is filled,
+and a cost owed to nobody is refused. `meta.cash_by_supplier` is the transport
+vendor collecting from the passenger on our behalf: Dr the vendor, Cr the agent.
+
+The old per-module posters (`visa_invoices` with its own editor, the
+`party_invoice` pair for hotels, the bare `gl_transport` entry) are history.
+`visa_invoices` and `/accounting/visa-invoices/[id]` remain only for rows raised
+before 377.
+
+## Monthly Charges is a voucher, reached from one place
+
+One journal entry a month (migration 350) is drawn as a voucher whose document
+is the **month**: `car_charges_month_load` draws it (the cars charged that
+month, the rule's figure beside each so a hand-corrected amount is visibly a
+correction, and the cars on a contract that are not on it yet),
+`car_charges_month_save` is the one door — it upserts the month's
+`car_service_charges` rows, refuses to remove a charge something has been paid
+against, and rebuilds the month's `car_scharge_month` entry from what is on the
+screen. Generate fills the month from `car_charge_for_month`.
+
+It lives on **Sales Invoice → Monthly Charges** and nowhere else. The Sales
+Invoice screen opens for `carsales.charges` as well as `accounting.view`,
+showing only the tabs the user may see, so a charges-only user is not stranded;
+`/car-sales/service-charges` forwards there. The register (every month at once)
+sits under the voucher.

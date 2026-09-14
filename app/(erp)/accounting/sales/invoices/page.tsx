@@ -1,44 +1,40 @@
 import Link from "next/link";
-import { guardStaffPage, docRightsFor, staffCan } from "@/lib/staffSession";
+import { redirect } from "next/navigation";
+import { guardStaffPage, docRightsFor, staffCan, staffDocCan, staffLanding } from "@/lib/staffSession";
 import TradeVoucher from "@/components/accounting/TradeVoucher";
-import HotelInvoices from "@/components/accounting/HotelInvoices";
-import TransportInvoices from "@/components/accounting/TransportInvoices";
-import VisaInvoicesPanel from "@/components/accounting/VisaInvoicesPanel";
+import MonthlyChargesVoucher from "@/components/carsales/MonthlyChargesVoucher";
 import ServiceChargesPanel from "../../../car-sales/service-charges/ServiceChargesPanel";
 
 export const dynamic = "force-dynamic";
 
-// Every sales invoice in the business, on one screen.
-//
-// The Sales Invoice is the trade voucher — item lines, stock, COGS. Air Ticket
-// Invoice is the second voucher here: a ticket bought from a consolidator and
-// sold to the passenger, both sides on one document. The rest are lists the
-// Hotel, Transport, Visa and Car Sales modules raise for themselves, and they
-// used to sit as separate rows in Transactions → Sales, which put five things
-// called "invoice" in one menu and left the operator to remember which screen
-// answered which question. They are tabs here instead.
+// Every sales invoice in the business, on one screen, and every one of them a
+// VOUCHER. The Sales Invoice is the trade voucher with stock and COGS; Air
+// Ticket, Hotel, Transport and Visa are the four service invoices — a customer
+// and a supplier on one document, four legs, no stock — three of which the
+// modules raise by themselves (migration 377) and all of which can be typed
+// here. Monthly Charges is the car module's one voucher a month.
 //
 // The tab is in the URL rather than in component state, so each panel stays a
-// server component that loads its own rows — no client-side refetch, and a tab
-// can be linked to directly.
+// server component and a tab can be linked to directly.
 //
-// MONTHLY CHARGES CARRIES ITS OWN PERMISSION. The others are all accounting
-// screens; that one belongs to Car Sales (`carsales.charges`), so the tab is
-// only offered to somebody who may open it. Showing a tab that bounces on click
-// is worse than not showing it.
+// MONTHLY CHARGES CARRIES ITS OWN PERMISSION, and it is the ONLY place that
+// screen is reached from. So this page opens for `carsales.charges` as well as
+// for `accounting.view`, showing only the tabs the user may see — a user who
+// holds only the charges permission lands on that tab, not on a bounce.
 const TABS = [
-  { key: "sales", label: "Sales Invoice" },
-  { key: "air", label: "Air Ticket" },
-  { key: "hotel", label: "Hotel" },
-  { key: "transport", label: "Transport" },
-  { key: "visa", label: "Visa" },
-  { key: "charges", label: "Monthly Charges", perm: "carsales.charges" },
+  { key: "sales",     label: "Sales Invoice",   perm: "accounting.view", doc: "sales_invoice" },
+  { key: "air",       label: "Air Ticket",      perm: "accounting.view", doc: "air_ticket_invoice" },
+  { key: "hotel",     label: "Hotel",           perm: "accounting.view", doc: "hotel_invoice" },
+  { key: "transport", label: "Transport",       perm: "accounting.view", doc: "transport_invoice" },
+  { key: "visa",      label: "Visa",            perm: "accounting.view", doc: "visa_invoice" },
+  { key: "charges",   label: "Monthly Charges", perm: "carsales.charges" },
 ] as const;
 
 export default async function Page({ searchParams }: { searchParams?: { tab?: string } }) {
-  const access = await guardStaffPage("accounting.view", "sales_invoice");
-  const tabs = TABS.filter((t) => !("perm" in t) || staffCan(access, t.perm));
-  const tab = tabs.some((t) => t.key === searchParams?.tab) ? searchParams!.tab! : "sales";
+  const access = await guardStaffPage(["accounting.view", "carsales.charges"]);
+  const tabs = TABS.filter((t) => staffCan(access, t.perm) && (!("doc" in t) || staffDocCan(access, t.doc, "access")));
+  if (tabs.length === 0) redirect(staffLanding(access));
+  const tab = tabs.some((t) => t.key === searchParams?.tab) ? searchParams!.tab! : tabs[0].key;
   const wide = tab !== "sales";
 
   return (
@@ -57,10 +53,20 @@ export default async function Page({ searchParams }: { searchParams?: { tab?: st
 
       {tab === "sales" && <TradeVoucher type="sales_invoice" rights={docRightsFor(access, "sales_invoice")} />}
       {tab === "air" && <TradeVoucher type="air_ticket_invoice" rights={docRightsFor(access, "air_ticket_invoice")} />}
-      {tab === "hotel" && <HotelInvoices />}
-      {tab === "transport" && <TransportInvoices />}
-      {tab === "visa" && <VisaInvoicesPanel />}
-      {tab === "charges" && <ServiceChargesPanel />}
+      {tab === "hotel" && <TradeVoucher type="hotel_invoice" rights={docRightsFor(access, "hotel_invoice")} />}
+      {tab === "transport" && <TradeVoucher type="transport_invoice" rights={docRightsFor(access, "transport_invoice")} />}
+      {tab === "visa" && <TradeVoucher type="visa_invoice" rights={docRightsFor(access, "visa_invoice")} />}
+      {tab === "charges" && (
+        <div className="space-y-6">
+          <MonthlyChargesVoucher canEdit={staffCan(access, "carsales.charges")} />
+          {/* Every month at once — what is outstanding, what was collected —
+              stays below the voucher rather than on a screen of its own. */}
+          <details className="card p-0">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-700">All months — register</summary>
+            <div className="border-t border-slate-100 p-4"><ServiceChargesPanel /></div>
+          </details>
+        </div>
+      )}
     </div>
   );
 }

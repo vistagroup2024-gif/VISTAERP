@@ -810,7 +810,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     if (f.kind === "account") {
       return (
         <div key={f.key}><label className="label">{f.label}</label>
-          <SearchSelect value={val} onChange={(v) => setExtra(f, v)} placeholder="— default —"
+          <SearchSelect value={val} onChange={(v) => setExtra(f, v)} placeholder={f.key.startsWith("supplier") ? "—" : "— default —"}
             options={accounts.map((a) => ({ value: a.id, label: a.name }))} /></div>
       );
     }

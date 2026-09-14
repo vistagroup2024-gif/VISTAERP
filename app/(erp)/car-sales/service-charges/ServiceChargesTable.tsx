@@ -2,8 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { dateStr } from "@/lib/format";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
 import { SCHARGE_STATUS_LABEL, SCHARGE_STATUS_TONE, schargeStatus, monthLabel, sar } from "../lib";
@@ -24,10 +22,6 @@ function Stat({ label, value, tone }: { label: string; value: string | number; t
 }
 
 export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
-  const router = useRouter();
-  const supabase = createClient();
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string[]>([]);
 
@@ -47,18 +41,8 @@ export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
     return true;
   }), [withStatus, status, q]);
 
-  async function generate() {
-    setBusy(true); setErr(null);
-    const { error } = await supabase.rpc("car_generate_service_charges", {});
-    setBusy(false);
-    if (error) return setErr(error.message);
-    router.refresh();
-  }
-
   return (
     <div className="space-y-4">
-      {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
-
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         <Stat label="This Month" value={sar(totals.thisMonth)} />
         <Stat label="Collected" value={sar(totals.collected)} tone="text-emerald-700" />
@@ -70,7 +54,6 @@ export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
       <div className="flex flex-wrap items-center gap-2">
         <input className="input max-w-xs" placeholder="Search vehicle / customer…" value={q} onChange={(e) => setQ(e.target.value)} />
         <MultiSelectFilter label="Status" options={Object.keys(SCHARGE_STATUS_LABEL).map((k) => ({ value: k, label: SCHARGE_STATUS_LABEL[k] }))} selected={status} onChange={setStatus} />
-        <button className="btn-outline text-sm" disabled={busy} onClick={generate}>{busy ? "Generating…" : "Generate charges"}</button>
         <span className="ml-auto text-sm text-slate-500">{filtered.length} / {rows.length}</span>
       </div>
 
@@ -97,7 +80,7 @@ export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>No charges. Use “Generate charges”.</td></tr>}
+            {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>No charges yet — open a month in the voucher above and press Generate.</td></tr>}
           </tbody>
         </table>
       </div>

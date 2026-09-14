@@ -1,17 +1,16 @@
-import { guardStaffPage } from "@/lib/staffSession";
-import PageHeader from "@/components/PageHeader";
-import HotelInvoices from "@/components/accounting/HotelInvoices";
+import { guardStaffPage, docRightsFor } from "@/lib/staffSession";
+import TradeVoucher from "@/components/accounting/TradeVoucher";
 
-// The menu reaches this list through Sales Invoice → Hotel now. The route stays so
-// existing links and bookmarks keep working.
 export const dynamic = "force-dynamic";
 
-export default async function HotelInvoicesPage() {
-  await guardStaffPage("accounting.view");
+// The menu reaches this voucher through Sales Invoice → Hotel now. The route
+// stays so existing links and bookmarks keep working, and it renders the same
+// voucher the tab does.
+export default async function HotelInvoicePage() {
+  const access = await guardStaffPage("accounting.view", "hotel_invoice");
   return (
     <div className="max-w-6xl">
-      <PageHeader title="Hotel Invoices" />
-      <HotelInvoices />
+      <TradeVoucher type="hotel_invoice" rights={docRightsFor(access, "hotel_invoice")} />
     </div>
   );
 }

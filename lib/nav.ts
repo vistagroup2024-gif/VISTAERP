@@ -268,10 +268,9 @@ const EXTRA_ITEMS: { item: NavItem; group: string; icon: IconName }[] = [
   // invoiced, so they stay in Transactions -> Sales.
   { item: { href: "/car-sales/contracts", label: "Car Invoices", perm: ["carsales.installments", "carsales.sales"] },
     group: "Car Sales", icon: "car" },
-  // Also the sixth tab of Sales Invoice, but it keeps its menu row — see the
-  // note in the Sales quick menu: its permission is not the one that opens
-  // Sales Invoice, so the tab alone would leave a charges-only user stranded.
-  { item: { href: "/car-sales/service-charges", label: "Monthly Charges", perm: ["carsales.charges"] },
+  // Monthly Charges is a tab of Sales Invoice (its old route forwards there),
+  // so it is findable under that name in the search.
+  { item: { href: "/accounting/sales/invoices?tab=charges", label: "Monthly Charges", perm: ["carsales.charges"] },
     group: "Car Sales", icon: "car" },
   // The costs that land on a vehicle after it is bought. It replaces the nine
   // expense columns the Purchase Voucher used to carry, so it belongs with the
@@ -328,15 +327,11 @@ export const TRANSACTIONS: QuickGroupDef[] = [
     // rows all called "invoice" left the operator to remember which screen
     // answered which question.
     "/car-sales/contracts",
-    // Monthly Charges stays in this menu even though it is also the sixth tab
-    // inside Sales Invoice, and it is NOT the same case as the three module
-    // invoice lists above. Those need `accounting.view`, which is exactly what
-    // opens Sales Invoice, so their tab is always reachable by anyone who could
-    // have used the menu row. This one needs `carsales.charges` — a user who
-    // holds that and nothing else cannot open Sales Invoice at all, so taking
-    // the row away left them landing on a screen with no menu on it. The row is
-    // the only door they have.
-    "/car-sales/service-charges",
+    // Monthly Charges is the sixth tab of Sales Invoice and nowhere else. The
+    // Sales Invoice screen opens for `carsales.charges` as well as for
+    // `accounting.view` (showing only the tabs the user may see), so a
+    // charges-only user is not stranded without the second menu row that used
+    // to duplicate it.
     // Focus's "Sales Targets".
     "/accounting/targets",
     // Focus lists Route Fares here too. A transport rate is a master, not a
