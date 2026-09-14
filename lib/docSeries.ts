@@ -70,6 +70,12 @@ export const DOC_SERIES: SeriesDef[] = [
   { key: "gl_trade_transport_invoice",  label: "Transport Invoice — entry",  kind: "ledger", defaultPrefix: "JTI-", defaultPadding: 5 },
   { key: "gl_trade_hotel_invoice",      label: "Hotel Invoice — entry",      kind: "ledger", defaultPrefix: "JHI-", defaultPadding: 5 },
   { key: "gl_commission_accrual",       label: "Commission accrual",         kind: "ledger", defaultPrefix: "Com:", defaultPadding: 5 },
+  // ── legacy: the per-module posters replaced by migration 377 ─────────────
+  { key: "gl_transport",  label: "Transport trip entry (old)", kind: "ledger",   defaultPrefix: "Trp:", defaultPadding: 5 },
+  { key: "gl_visa_cost",  label: "Visa cost entry (old)",      kind: "ledger",   defaultPrefix: "Vsa:", defaultPadding: 5 },
+  { key: "visa_invoice",  label: "Visa Invoice (old table)",   kind: "document", defaultPrefix: "VI-",  defaultPadding: 5 },
+  { key: "billpay",       label: "Bill payment (old)",         kind: "document", defaultPrefix: "BIL-", defaultPadding: 5 },
+  { key: "umrah_group",   label: "Umrah group (old)",          kind: "document", defaultPrefix: "VG-",  defaultPadding: 5 },
 ];
 
 /** How a number reads with this prefix and padding. */

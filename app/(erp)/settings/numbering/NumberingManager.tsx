@@ -62,8 +62,16 @@ export default function NumberingManager({ rows, ledgerUsesDocNo }: { rows: Row[
     router.refresh();
   }
 
-  const Section = ({ title, kind, note }: { title: string; kind: SeriesDef["kind"]; note: string }) => {
-    const list = [...DOC_SERIES.filter((d) => d.kind === kind), ...others.filter((d) => d.kind === kind)];
+  // ONE list. With the setting on, a trade voucher's entry carries the
+  // document's number, so its "— entry" series issues nothing and is not
+  // shown. Series nothing raises any more (the old per-module posters) sit
+  // under a fold rather than beside the live ones.
+  const LEGACY = new Set(["gl_transport", "gl_visa_cost", "visa_invoice", "billpay", "umrah_group", "gl_commission_accrual"]);
+  const isTradeEntry = (d: SeriesDef) => d.kind === "ledger" && d.key.startsWith("gl_trade_");
+  const live = [...DOC_SERIES, ...others].filter((d) => !LEGACY.has(d.key) && !(useDocNo && isTradeEntry(d)));
+  const legacy = [...DOC_SERIES, ...others].filter((d) => LEGACY.has(d.key) && byKey.has(d.key));
+
+  const Section = ({ title, list, note }: { title: string; list: SeriesDef[]; note: string }) => {
     return (
       <div className="card p-0">
         <div className="border-b border-slate-200 bg-slate-50 px-4 py-2">
@@ -142,8 +150,16 @@ export default function NumberingManager({ rows, ledgerUsesDocNo }: { rows: Row[
         </label>
       </div>
 
-      <Section title="Documents" kind="document" note="The number the voucher itself carries — typed to find it again, printed on it." />
-      <Section title="Ledger entries" kind="ledger" note="The number the journal entry behind a posting gets — what the ledger and the Voucher Register show." />
+      <Section title="Vouchers" list={live}
+        note={useDocNo
+          ? "One number per voucher: the number it carries is the number its ledger entry carries."
+          : "A trade voucher's ledger entry is numbered from the \"— entry\" series shown beside it."} />
+      {legacy.length > 0 && (
+        <details className="card p-0">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-500">Series nothing issues from any more ({legacy.length})</summary>
+          <div className="border-t border-slate-100"><Section title="Legacy" list={legacy} note="Kept so old numbers still read; nothing new is numbered from these." /></div>
+        </details>
+      )}
     </div>
   );
 }
