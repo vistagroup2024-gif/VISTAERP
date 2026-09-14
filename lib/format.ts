@@ -9,10 +9,11 @@ export function money(amount: number | null | undefined, currency = "PKR") {
   }).format(n);
 }
 
-// Standard display format across the app: DD-MM-YY, e.g. 04-08-26. Day first,
-// month second — the order the business reads and writes dates in. It was
-// DD-MMM-YY (04-Aug-26); the month name read well but is not what anyone types,
-// and it made columns of dates uneven.
+// Standard display format across the app: DD-MM-YYYY, e.g. 04-08-2026. Day
+// first, month second, four-digit year — the order the business reads and
+// writes dates in. It was DD-MMM-YY (04-Aug-26), then DD-MM-YY (04-08-26); the
+// two-digit year read ambiguous next to a four-digit contract or invoice
+// number, so the year was widened back to four digits.
 //
 // Two kinds of value arrive here and they are not the same thing. A `date`
 // column (or a naive timestamp) is a wall-clock date and is read literally —
@@ -37,10 +38,10 @@ export function dateStr(d: string | null | undefined) {
   const day = ymd.slice(8, 10);
   const mon = ymd.slice(5, 7);
   if (!(Number(mon) >= 1 && Number(mon) <= 12)) return "—";
-  return `${day}-${mon}-${ymd.slice(2, 4)}`;
+  return `${day}-${mon}-${ymd.slice(0, 4)}`;
 }
 
-// An instant with its clock time, both in Saudi time: "07-09-26 10:30pm".
+// An instant with its clock time, both in Saudi time: "07-09-2026 10:30pm".
 // Use this rather than `new Date(x).toLocaleString()`, which renders in
 // whatever zone the viewer's machine is set to.
 export function dateTimeStr(d: string | null | undefined) {
