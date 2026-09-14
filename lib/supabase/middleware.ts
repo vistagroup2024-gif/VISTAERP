@@ -25,6 +25,7 @@ const ROUTE_PERMS: [string, string[]][] = [
   ["/settings/roles", ["users.view", "users.manage_roles"]],
   ["/settings/agents", ["users.view"]],
   ["/settings/companies", ["system.companies", "system.config", "system.masters"]],
+  ["/settings/numbering", ["system.config"]],
 ];
 
 

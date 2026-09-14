@@ -223,6 +223,7 @@ export const GROUPS: NavGroup[] = [
   ] },
   { label: "Company", icon: "settings", section: "Settings", perm: ["system.companies", "system.config", "system.masters"], items: [
     { href: "/settings/companies", label: "Companies" },
+    { href: "/settings/numbering", label: "Voucher Numbering", perm: ["system.config"] },
   ] },
   // No `perm`, on purpose. This is a PERSONAL setting — which of your own
   // devices get alerted, and which tone plays while you have the ERP open —

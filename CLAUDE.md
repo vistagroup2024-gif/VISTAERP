@@ -671,3 +671,26 @@ Invoice screen opens for `carsales.charges` as well as `accounting.view`,
 showing only the tabs the user may see, so a charges-only user is not stranded;
 `/car-sales/service-charges` forwards there. The register (every month at once)
 sits under the voucher.
+
+## Voucher numbering is the user's
+
+Every number the ERP issues comes from `doc_sequences` (prefix, digits, next
+number) through `next_doc_number()`, and **Settings → Company → Voucher
+Numbering** is where the business sets them (migration 381):
+`doc_sequences_list()` draws the screen, `doc_sequence_save()` is the one door,
+and the next number moves **forward only** — a number already issued is never
+issued again. The screen's names come from `lib/docSeries.ts`; a series the
+database has that the catalogue does not name still shows, under its key.
+
+A trade voucher has two numbers — the document's (PV-00003) and its ledger
+entry's (JPV-00004) — for no accounting reason, only because the ledger numbers
+every entry from a series of its own. The setting `ledger_uses_doc_no`
+(`erp_settings`, on the same screen) makes the entry carry the document's own
+number; `gl_post_internal` reads it. The accounting vouchers (Receipt, Payment,
+Journal, Contra, Petty Cash) ARE the entry and have only the one number.
+
+Two numbers used to come from raw Postgres sequences with the prefix written
+into the routine — the Car Invoice (`CI-`) and the Car Receipt (`RCP-`). 381
+replaced that one line in each with `next_doc_number()` and seeded the row from
+the highest number issued. The vehicle (`CAR-`), hotel (`HTL-`) and transport
+(`TRP-`) booking numbers still come from sequences: they are not vouchers.
