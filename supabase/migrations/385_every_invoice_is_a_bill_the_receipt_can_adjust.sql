@@ -401,8 +401,10 @@ begin
 end $function$;
 
 -- ── the bills already on the ledger ────────────────────────────────────────
--- CI-000005 and MSC-00001 for the customer, PV-00003 for the supplier, off
--- the entries' own party lines.
+-- CI-000005 and MSC-00001 for the customer, PV-00003 and PV-00004 for the
+-- supplier, off the entries' own party lines. The post-check counts those
+-- lines rather than naming a number: a voucher posted between writing this
+-- and running it is a bill too.
 do $$
 declare e record;
 begin
@@ -417,25 +419,37 @@ begin
     end if;
   end loop;
 end $$;
--- RCT-00001 pays CI-000005, the customer's only bill on that day.
+-- RCT-00001 pays CI-000005. Not FIFO: the customer's earlier bill is the
+-- 500 monthly charge, and the receipt was a car instalment — the money is
+-- adjusted against the bill it was paid for, and the reader sees why.
 do $$
-declare r record; v_taken numeric;
+declare r record; v_item uuid;
 begin
   select je.id, je.company_id, jl.account_id, jl.credit into r
     from journal_entries je join journal_lines jl on jl.entry_id = je.id join accounts a on a.id = jl.account_id
    where je.entry_no = 'RCT-00001' and a.subtype = 'Receivable' and jl.credit > 0;
   if r.id is not null and not exists (select 1 from allocations where settle_entry_id = r.id) then
-    v_taken := allocate_fifo(r.company_id, r.account_id, r.id, r.credit, 'Adjusted against the open bill (migration 385)');
-    if v_taken <> r.credit then raise exception '385: RCT-00001 adjusted % of %', v_taken, r.credit; end if;
+    select id into v_item from open_items
+     where company_id = r.company_id and account_id = r.account_id and doc_no = 'CI-000005' and status = 'open';
+    if v_item is null then raise exception '385: CI-000005 is not an open bill on the receipt''s account'; end if;
+    insert into allocations(company_id, open_item_id, settle_entry_id, amount_base, note)
+    values (r.company_id, v_item, r.id, r.credit, 'Adjusted against CI-000005 (migration 385)');
+    update open_items set outstanding_base = outstanding_base - r.credit,
+           status = case when outstanding_base - r.credit <= 0.005 then 'settled' else 'open' end
+     where id = v_item;
   end if;
 end $$;
 
 -- ── post-conditions ────────────────────────────────────────────────────────
 do $chk$
-declare v_n int; v_out numeric; v_id uuid; v_msg text;
+declare v_n int; v_want int; v_out numeric; v_id uuid; v_msg text;
 begin
+  select count(*) into v_want
+    from journal_entries je join journal_lines jl on jl.entry_id = je.id join accounts a on a.id = jl.account_id
+   where je.source in ('car_sale', 'car_scharge_month', 'purchase_voucher') and a.subtype in ('Receivable', 'Payable')
+     and (jl.debit > 0 or jl.credit > 0);
   select count(*) into v_n from open_items;
-  if v_n <> 3 then raise exception '385: expected 3 bills, found %', v_n; end if;
+  if v_n <> v_want then raise exception '385: expected % bills, found %', v_want, v_n; end if;
   select outstanding_base into v_out from open_items where doc_no = 'CI-000005';
   if v_out <> 113000 then raise exception '385: CI-000005 outstanding is %, not 113,000', v_out; end if;
   if (select count(*) from allocations) <> 1 then raise exception '385: expected one allocation'; end if;
