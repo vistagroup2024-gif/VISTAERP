@@ -686,8 +686,12 @@ A trade voucher has two numbers — the document's (PV-00003) and its ledger
 entry's (JPV-00004) — for no accounting reason, only because the ledger numbers
 every entry from a series of its own. The setting `ledger_uses_doc_no`
 (`erp_settings`, on the same screen) makes the entry carry the document's own
-number; `gl_post_internal` reads it. The accounting vouchers (Receipt, Payment,
-Journal, Contra, Petty Cash) ARE the entry and have only the one number.
+number; `gl_post_internal` reads it for the trade documents and
+`car_post_entry` for the car postings (a reference shaped like a document
+number — CI-, RCP-, CAR- — becomes the entry number; migration 384). It is ON.
+The month voucher has its own series, `car_scharge_month` (MSC-). The
+accounting vouchers (Receipt, Payment, Journal, Contra, Petty Cash) ARE the
+entry and have only the one number.
 
 Two numbers used to come from raw Postgres sequences with the prefix written
 into the routine — the Car Invoice (`CI-`) and the Car Receipt (`RCP-`). 381
