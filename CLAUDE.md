@@ -718,8 +718,26 @@ that touches a party account must do the same, or its receipts cannot be
 adjusted.
 
 **And the bill goes with its voucher.** `trg_journal_entry_release_open_items`
-on `journal_entries` (before delete) removes an entry's bills when the entry is
-unposted, refuses if a receipt has been adjusted against them, and gives back
-what a deleted receipt had settled — one rule for every unpost path
-(`trade_doc_unpost`, `car_contract_unpost`, `car_charges_month_save`, a voided
-voucher) rather than one per routine.
+on `journal_entries` (before delete, and before an update of `status` to
+`void`) removes an entry's bills when the entry is unposted, refuses if a
+receipt has been adjusted against them, and gives back what a deleted receipt
+had settled — one rule for every unpost path (`trade_doc_unpost`,
+`car_contract_unpost`, `car_charges_month_save`, a voided voucher) rather than
+one per routine. The void half matters: **deleting an accounting voucher does
+not delete its row** — `gl_voucher_void` marks it `void` and keeps it — and
+385's delete-only trigger left a voided receipt's allocation standing on the
+bill (386). `acct_voucher_guard` refuses to EDIT a voucher that carries
+allocations, and no longer refuses to delete one, because the release handles
+that.
+
+**Every bill has a due date**, because the popup and the ageing report show
+it: a trade voucher's own; a car sale's first instalment (the schedule, not
+`start_date` — CI-000005's schedule starts two months before its start date);
+the end of the month for a month of charges; otherwise the bill date plus the
+party's credit days, which is what `parties.credit_days` is for.
+
+The ageing report (`ar_ap_aging`) reads these bills, so it agrees with the
+ledger only while every party posting raises one and every receipt is adjusted.
+A receipt saved **on account** (nothing picked in the popup) reduces the ledger
+and not the bills, and the report then ages more than is owed — the
+dashboard's Receivables card reads the ledger for exactly that reason.

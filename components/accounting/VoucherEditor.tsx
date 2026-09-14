@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { DocRight } from "@/lib/docRights";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, dateStr } from "@/lib/format";
 import AccountPicker, { type PickAccount } from "./AccountPicker";
 import AdvanceReceiptForm from "./AdvanceReceiptForm";
 import SearchSelect from "@/components/ui/SearchSelect";
@@ -249,6 +249,12 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
       if (take > 0) { next[b.id] = String(+take.toFixed(2)); remaining -= take; }
     }
     setAllocInput(next);
+  }
+  // Pick: this bill takes what is still unadjusted, up to its outstanding.
+  function pickBill(b: Bill) {
+    const others = bills.reduce((s, x) => (x.id === b.id ? s : s + (Number(allocInput[x.id]) || 0)), 0);
+    const take = Math.max(0, Math.min(Number(b.outstanding) || 0, adjTarget - others));
+    setAllocInput((m) => ({ ...m, [b.id]: take > 0 ? String(+take.toFixed(2)) : "" }));
   }
   function saveAdjust() {
     if (adjustFor == null) return;
@@ -622,13 +628,17 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
                   <tbody>
                     {bills.map((b) => (
                       <tr key={b.id} className="border-t border-slate-100">
-                        <td className="px-2 py-1">{b.doc_no ?? "—"}{b.doc_date ? <span className="text-slate-400"> · {b.doc_date}</span> : ""}</td>
-                        <td className="px-2 py-1 text-center">{b.due_date ?? "—"}</td>
+                        <td className="px-2 py-1">{b.doc_no ?? "—"}{b.doc_date ? <span className="text-slate-400"> · {dateStr(b.doc_date)}</span> : ""}</td>
+                        <td className="px-2 py-1 text-center">{b.due_date ? dateStr(b.due_date) : "—"}</td>
                         <td className="px-2 py-1 text-right tabular-nums">{money(Number(b.amount))}</td>
                         <td className="px-2 py-1 text-right tabular-nums">{money(Number(b.outstanding))}</td>
                         <td className="px-2 py-1">
-                          <input className="input text-right tabular-nums" inputMode="decimal" value={allocInput[b.id] ?? ""}
-                            onChange={(e) => setAllocInput((m) => ({ ...m, [b.id]: e.target.value }))} placeholder="0.00" />
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => pickBill(b)} title="Adjust this bill: takes what is still unadjusted, up to its outstanding"
+                              className="btn-outline px-2 py-1 text-xs whitespace-nowrap">Pick</button>
+                            <input className="input text-right tabular-nums" inputMode="decimal" value={allocInput[b.id] ?? ""}
+                              onChange={(e) => setAllocInput((m) => ({ ...m, [b.id]: e.target.value }))} placeholder="0.00" />
+                          </div>
                         </td>
                       </tr>
                     ))}
