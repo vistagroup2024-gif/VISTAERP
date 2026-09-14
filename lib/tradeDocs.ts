@@ -15,6 +15,10 @@ export interface LineExtra {
   /** Sits to the LEFT of Rate instead of after Amount. A ceiling is read while
    *  the rate is being typed, so it has to be beside it, not past the total. */
   beforeRate?: boolean;
+  /** Shown but not typed: the Purchase Order's Purchase Rate is the ceiling
+   *  read off the item's Product Tree record, and a ceiling the buyer can edit
+   *  on the voucher is not a ceiling. */
+  readOnly?: boolean;
   /** Worked out from the row rather than typed — Supplier Amount is Quantity x
    *  Supplier Rate, and a column the operator has to multiply by hand is a
    *  column that will eventually disagree with the two numbers beside it. Shown
@@ -68,6 +72,10 @@ export interface TradeDocCfg {
   title: string;
   party: TradeParty;   // whose picker to show (b2b agents count as customers)
   showDue?: boolean;
+  /** What the Due Date box is called. On a purchase document it is the day
+   *  the SUPPLIER is to be paid, and calling it "Due Date" beside a Delivery
+   *  Date left it read as the day the goods were due. */
+  dueLabel?: string;
   showDelivery?: boolean;
   showTerms?: boolean;
   showMode?: boolean;
@@ -84,6 +92,11 @@ export interface TradeDocCfg {
    *  with the schedule the customer actually signed up to rather than one
    *  regenerated from round numbers weeks later. Stored in the document meta. */
   carSchedule?: boolean;
+  /** Each Mega Installment gets a Due Date box beside its amount. Agreed at
+   *  the ORDER (the quotation only prices them), and read by Generate so the
+   *  schedule lands the lump sums on the dates the customer signed up to
+   *  rather than on a guessed month. */
+  megaDueDates?: boolean;
   /** Shows the Delivered tick once the document is saved. A Delivery Note says
    *  the goods LEFT; this is what says they ARRIVED, and it is what the Monthly
    *  Service Charge is billed from. */
@@ -184,6 +197,24 @@ export const MAX_MEGA = 24;
 export const megaCount = (v: Record<string, string>) =>
   Math.max(0, Math.min(MAX_MEGA, parseInt(v.mega_qty ?? "") || 0));
 
+/** The field list with the mega instalment boxes generated into it, straight
+ *  after Mega Installment Quantity: `mega_1`..`mega_N` amounts and, when the
+ *  document asks for them, `mega_1_due`..`mega_N_due` dates. ONE routine, used
+ *  both to draw the form and to decide which of a loaded document's values are
+ *  kept — the boxes were once generated in the first place only, so a Sale
+ *  Order loaded from a quotation matched none of them and dropped every
+ *  amount. */
+export function expandMega(base: HeaderExtra[], values: Record<string, string>, withDue: boolean): HeaderExtra[] {
+  const at = base.findIndex((f) => f.key === "mega_qty");
+  if (at < 0) return base;
+  const boxes: HeaderExtra[] = [];
+  for (let i = 1; i <= megaCount(values); i++) {
+    boxes.push({ key: `mega_${i}`, label: `Mega Installment ${i} Amount`, kind: "money" });
+    if (withDue) boxes.push({ key: `mega_${i}_due`, label: `Mega Installment ${i} Due Date`, kind: "date" });
+  }
+  return [...base.slice(0, at + 1), ...boxes, ...base.slice(at + 1)];
+}
+
 // Purchase Voucher cost columns shared by every cost centre.
 //
 // Discount is NOT here any more. It was a per-line column, which meant a bill
@@ -219,7 +250,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   purchase_order: {
     type: "purchase_order", prefix: "PO-", title: "Purchase Order", party: "supplier",
     loadsFrom: { type: "sale_order", title: "Sale Order" },
-    showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
+    showDue: true, dueLabel: "Payment Due Date", showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
     hideRoundOff: true,
     // A header Remarks, beside the per-line one. What is being asked of the
     // supplier for the order as a whole ("deliver to the yard, not the office")
@@ -231,7 +262,10 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
       // Product Tree purchase rate — what the thing costs to buy — not from the
       // Sale Order's Total Cost, which also carries the expenses that land on it
       // afterwards.
-      { key: "so_purchase_rate", label: "Purchase Rate", beforeRate: true },
+      // Read-only: it is the ceiling, and the Rate box beside it is what is
+      // typed. Picking the item fills BOTH — the rate starts at what the item
+      // costs to buy and is typed over when the deal differs.
+      { key: "so_purchase_rate", label: "Purchase Rate", beforeRate: true, readOnly: true },
       { key: "remarks", label: "Remarks", kind: "text" },
     ],
   },
@@ -283,7 +317,11 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     // built on save from the header's Item / Vehicle and Selling Price, which is
     // what the Car Invoice reads.
     showDelivery: true, showTerms: true, showMode: true, showTagArea: false,
-    hideLinesForCar: true, carSchedule: true,
+    // No Round Off: the price on a Sale Order is the price agreed, and the
+    // Car Invoice raised from it checks the schedule against that figure —
+    // a rounded order and an unrounded schedule is a difference to explain.
+    hideRoundOff: true,
+    hideLinesForCar: true, carSchedule: true, megaDueDates: true,
     carHeaderExtras: [
       { key: "item_id", label: "Item / Vehicle", kind: "product" },
       ...CAR_COSTING,
@@ -369,7 +407,10 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     // A car is delivered against its Car Invoice, which lives in Car Sales
     // rather than in the trade-document chain.
     alsoLoadsFrom: { title: "Car Invoice" },
-    showDelivery: true, showTagArea: true, hideRateAmount: true,
+    // No Delivery Date box: the note's own date is when the goods left, and
+    // Delivered On (below the note once it is saved) is when they arrived.
+    // A third date between the two answered nothing.
+    showTagArea: true, hideRateAmount: true,
     showDelivered: true,
   },
 };

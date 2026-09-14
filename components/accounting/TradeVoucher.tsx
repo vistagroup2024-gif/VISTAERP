@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProductPicker, { productOptions } from "./ProductPicker";
 import LoadFromPicker from "./LoadFromPicker";
-import { TRADE_DOCS, isCarCostCenter, megaCount, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
+import { TRADE_DOCS, isCarCostCenter, megaCount, expandMega, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
 import type { DocRight } from "@/lib/docRights";
 import SearchSelect from "@/components/ui/SearchSelect";
 import { todaySA } from "@/lib/saudiTime";
@@ -123,6 +123,11 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // is billed from.
   const [delivered, setDelivered] = useState(false);
   const [deliveredDate, setDeliveredDate] = useState("");
+  // Asked the moment a Delivery Note is saved. Save clears the screen for the
+  // next note, and the Delivered tick lives on the saved one — so without this
+  // the operator had to step back to the note they had just left to answer the
+  // one question the note exists for.
+  const [deliverAsk, setDeliverAsk] = useState<{ id: string; docNo: string; date: string } | null>(null);
   // The instalment schedule agreed at the ORDER. The Car Invoice raised from it
   // starts with the dates and amounts the customer signed up to, rather than a
   // schedule regenerated from round numbers weeks later.
@@ -161,16 +166,14 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // than declared up front. Everything downstream — what gets saved, what the
   // derived Monthly Installment reads — works off this list, so generating them
   // here is enough; nothing else has to know they are dynamic.
-  const headerExtras: HeaderExtra[] = useMemo(() => {
-    const base = [...(cfg.headerExtras ?? []), ...(isCar ? cfg.carHeaderExtras ?? [] : [])];
-    const at = base.findIndex((f) => f.key === "mega_qty");
-    if (at < 0) return base;
-    const many = megaCount(extras);
-    const boxes: HeaderExtra[] = Array.from({ length: many }, (_, i) => ({
-      key: `mega_${i + 1}`, label: `Mega Installment ${i + 1} Amount`, kind: "money" as const,
-    }));
-    return [...base.slice(0, at + 1), ...boxes, ...base.slice(at + 1)];
-  }, [cfg, isCar, extras]);
+  //
+  // The car block draws carExtras — the GENERATED list. It used to draw the
+  // declared one, so the quantity was typed and no amount box ever appeared.
+  const carExtras: HeaderExtra[] = useMemo(
+    () => expandMega(isCar ? cfg.carHeaderExtras ?? [] : [], extras, !!cfg.megaDueDates),
+    [cfg, isCar, extras]);
+  const headerExtras: HeaderExtra[] = useMemo(
+    () => [...(cfg.headerExtras ?? []), ...carExtras], [cfg, carExtras]);
   const lineExtras: LineExtra[] = useMemo(
     () => (isCar && cfg.carLineExtras ? cfg.carLineExtras : cfg.lineExtras ?? []),
     [cfg, isCar]);
@@ -284,6 +287,9 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     if (cfg.type === "purchase_order") {
       const rate = Number(p?.purchase_rate ?? 0);
       setRowExtra(i, "so_purchase_rate", rate > 0 ? String(rate) : "");
+      // And the Rate itself starts there: what the item costs to buy is the
+      // number the buyer expects to pay, typed over only when the deal differs.
+      if (rate > 0) setRow(i, { rate: String(rate) });
     }
   }
   function removeRow(i: number) { setRows((rs) => (rs.length <= 1 ? rs : rs.filter((_, j) => j !== i))); }
@@ -339,10 +345,13 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     }
     // A mega instalment is an EXTRA payment in its month, not a replacement for
     // that month's instalment, so it is its own row.
+    // Its date is the one agreed on the order; only an order that has not
+    // said falls back to a month along the schedule.
     for (let i = 1; i <= megas; i++) {
       const amt = num(extraValues[`mega_${i}`] ?? "");
       if (amt <= 0) continue;
-      rows2.push({ due_date: addMonthsISO(schedStart, Math.min(i * 6, Math.max(months - 1, 0))),
+      const agreed = (extraValues[`mega_${i}_due`] ?? "").trim();
+      rows2.push({ due_date: agreed || addMonthsISO(schedStart, Math.min(i * 6, Math.max(months - 1, 0))),
                    amount: r2(amt), notes: `Mega instalment ${i}` });
     }
     rows2.sort((a, b) => a.due_date.localeCompare(b.due_date));
@@ -424,7 +433,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // With the tick on, the round-off is whatever it takes to reach the nearest
   // multiple of the step. On a car document the Selling Price above has already
   // been rounded, so that difference is zero and nothing is added twice.
-  const roundOffAmt = roundOffOn
+  // A voucher with no Round Off box rounds nothing, whatever an older saved
+  // copy of it remembers.
+  const roundOffAmt = cfg.hideRoundOff ? 0
+    : roundOffOn
     ? +(roundToStep(baseTotal, roundTo) - baseTotal).toFixed(2)
     : num(roundOff);
   const total = baseTotal + roundOffAmt;
@@ -516,7 +528,11 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     setParty(v.party_id ?? ""); setCostCenter(v.cost_center ?? "");
     setTagArea(cfg.showTagArea === false ? "" : v.tag_area ?? "");
     setReference(v.doc_no ?? ""); setTerms(v.terms ?? ""); setNarration(v.narration ?? "");
-    setMode(v.mode_of_payment ?? ""); setDeliveryDate(v.delivery_date ?? "");
+    setMode(v.mode_of_payment ?? "");
+    // A Sale Order's delivery date is when the CUSTOMER gets the goods; a
+    // Purchase Order's is when the SUPPLIER delivers them to us. Not the same
+    // day, so it is not copied across.
+    setDeliveryDate(cfg.type === "purchase_order" ? "" : v.delivery_date ?? "");
     setDueDate(""); setRoundOff(""); setDiscount(""); setWarehouse("");
 
     // Which fields this voucher shows depends on the cost centre we have just
@@ -527,7 +543,12 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     // matched none of the costing fields and silently dropped every one of
     // them. Resolve the field list from the incoming document instead.
     const srcIsCar = isCarCostCenter(v.cost_center);
-    const nextHeaderExtras = [...(cfg.headerExtras ?? []), ...(srcIsCar ? cfg.carHeaderExtras ?? [] : [])];
+    // Expanded from the INCOMING document's quantity, so its mega instalment
+    // amounts are in the list and come across with everything else.
+    const srcValues: Record<string, string> = Object.fromEntries(
+      Object.entries((v.meta ?? {}) as Record<string, unknown>).map(([k, x]) => [k, x == null ? "" : String(x)]));
+    const nextHeaderExtras = [...(cfg.headerExtras ?? []),
+      ...expandMega(srcIsCar ? cfg.carHeaderExtras ?? [] : [], srcValues, !!cfg.megaDueDates)];
     const nextLineExtras = srcIsCar && cfg.carLineExtras ? cfg.carLineExtras : cfg.lineExtras ?? [];
 
     // Only the extras this voucher actually shows: a Purchase Order has no use
@@ -576,9 +597,14 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       }
       // The Sale Order's rate is what we SELL for. Carrying it over as the
       // Purchase Order's rate quietly proposed paying the supplier the selling
-      // price. What we pay is a negotiation, so the buyer types it — with the
-      // ceiling above sitting next to the box.
-      for (const r of ls) { r.rate = ""; r.amount = ""; }
+      // price. The rate starts at what the item costs to buy — the same figure
+      // picking the item by hand fills in — and is typed over when the deal
+      // differs.
+      for (const r of ls) {
+        const rate = num(r.extras.so_purchase_rate ?? "");
+        r.rate = rate > 0 ? String(rate) : "";
+        r.amount = rate > 0 && num(r.quantity) > 0 ? String(+(num(r.quantity) * rate).toFixed(2)) : "";
+      }
     }
     setRows(ls.length ? [...ls, blankRow()] : [blankRow()]);
 
@@ -742,6 +768,19 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     // and press Enter, or step back with ‹ Previous.
     resetNew(`${msg} — new ${cfg.title} ready`);
     router.refresh();
+    if (cfg.showDelivered && !delivered && r.id) setDeliverAsk({ id: r.id, docNo: r.doc_no, date: todaySA() });
+  }
+  async function answerDelivered() {
+    if (!deliverAsk) return;
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc("trade_doc_mark_delivered", {
+      p_id: deliverAsk.id, p_delivered: true, p_date: deliverAsk.date || todaySA(),
+    });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setDone(`${deliverAsk.docNo} marked delivered — new ${cfg.title} ready`);
+    setDeliverAsk(null);
+    router.refresh();
   }
 
   const lockNote = (
@@ -789,7 +828,8 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
     if (f.kind === "product") {
       return <div key={f.key}><label className="label">{f.label}{locked && lockNote}</label>
         {locked
-          ? <div className="input flex items-center bg-slate-50 text-slate-600">{products.find((p) => p.id === val)?.name ?? "—"}</div>
+          ? <div className="input flex h-auto min-h-[38px] items-center whitespace-normal break-words bg-slate-50 text-slate-600"
+              title={products.find((p) => p.id === val)?.name}>{products.find((p) => p.id === val)?.name ?? "—"}</div>
           : <ProductPicker products={products} value={val || null}
               onChange={(id) => pickHeaderProduct(f, id)} placeholder="Item / product" />}</div>;
     }
@@ -904,7 +944,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                 {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
               </select></div>
           )}
-          {cfg.showDue && <div><label className="label">Due Date</label><input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>}
+          {cfg.showDue && <div><label className="label">{cfg.dueLabel ?? "Due Date"}</label><input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>}
           {cfg.showDelivery && <div><label className="label">Delivery Date</label><input type="date" className="input" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} /></div>}
           {/* Everything else the voucher declares. Account sits after Date and
               the tick boxes sit here by kind; ordinary fields — Supplier, Haji
@@ -1051,7 +1091,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           <div className="rounded-lg border border-brand/20 bg-brand/[0.03] p-4">
             <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-brand">Car Sales Details</div>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              {(cfg.carHeaderExtras ?? []).map(headerField)}
+              {carExtras.map(headerField)}
             </div>
           </div>
         )}
@@ -1093,7 +1133,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                       <SearchSelect value={r.extras.tag_area ?? ""} onChange={(v) => setRowExtra(i, "tag_area", v)} className="w-32" placeholder="—" options={tagAreas.map((t) => ({ value: t.name, label: t.name }))} />
                     </td>
                   )}
-                  <td className="px-2 py-1 min-w-[220px]">
+                  <td className="px-2 py-1 min-w-[340px]">
                     <ProductPicker products={products} value={r.product_id} onChange={(id) => pickItem(i, id)} placeholder="Item / product" />
                   </td>
                   {showUnits && <td className="px-2 py-1"><input className="input w-24" value={r.units} onChange={(e) => setRow(i, { units: e.target.value })} /></td>}
@@ -1102,10 +1142,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                     <td key={x.key} className="px-2 py-1">
                       <input
                         type={x.kind === "date" ? "date" : undefined}
-                        className={`input ${x.kind === "text" ? "w-56" : x.kind === "date" ? "w-40" : "w-36 text-right tabular-nums"} ${x.derived ? "bg-slate-50 text-slate-600" : ""}`}
+                        className={`input ${x.kind === "text" ? "w-56" : x.kind === "date" ? "w-40" : "w-36 text-right tabular-nums"} ${x.derived || x.readOnly ? "bg-slate-50 text-slate-600" : ""}`}
                         inputMode={x.kind === "text" || x.kind === "date" ? undefined : "decimal"}
-                        readOnly={!!x.derived}
-                        title={x.derived ? "Worked out from Quantity and Supplier Rate" : undefined}
+                        readOnly={!!x.derived || !!x.readOnly}
+                        title={x.derived ? "Worked out from Quantity and Supplier Rate" : x.readOnly ? "From the item's Product Tree record — change it in Masters → Products" : undefined}
                         value={extraCell(x, r)} onChange={(e) => setRowExtra(i, x.key, e.target.value)} />
                     </td>
                   ))}
@@ -1123,10 +1163,10 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                     <td key={x.key} className="px-2 py-1">
                       <input
                         type={x.kind === "date" ? "date" : undefined}
-                        className={`input ${x.kind === "text" ? "w-56" : x.kind === "date" ? "w-40" : "w-36 text-right tabular-nums"} ${x.derived ? "bg-slate-50 text-slate-600" : ""}`}
+                        className={`input ${x.kind === "text" ? "w-56" : x.kind === "date" ? "w-40" : "w-36 text-right tabular-nums"} ${x.derived || x.readOnly ? "bg-slate-50 text-slate-600" : ""}`}
                         inputMode={x.kind === "text" || x.kind === "date" ? undefined : "decimal"}
-                        readOnly={!!x.derived}
-                        title={x.derived ? "Worked out from Quantity and Supplier Rate" : undefined}
+                        readOnly={!!x.derived || !!x.readOnly}
+                        title={x.derived ? "Worked out from Quantity and Supplier Rate" : x.readOnly ? "From the item's Product Tree record — change it in Masters → Products" : undefined}
                         value={extraCell(x, r)} onChange={(e) => setRowExtra(i, x.key, e.target.value)} />
                     </td>
                   ))}
@@ -1227,6 +1267,28 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
           <span className="ml-auto text-xs text-slate-400">{id ? `Editing ${docNo}` : "New document — number auto-assigned on save."}</span>
         </div>
       </div>
+
+      {deliverAsk && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-pop">
+            <h2 className="text-base font-bold text-slate-800">Delivered?</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              {deliverAsk.docNo} is saved — the goods are dispatched. Has the customer received them?
+            </p>
+            <label className="label mt-4">Delivered On</label>
+            <input type="date" className="input" value={deliverAsk.date}
+              onChange={(e) => setDeliverAsk((a) => a ? { ...a, date: e.target.value } : a)} />
+            <p className="mt-1 text-xs text-slate-400">
+              The day the customer actually received the goods — the first Monthly Service Charge is worked out from it.
+              Not yet? The tick is on the note itself: open {deliverAsk.docNo} and mark it delivered when it is.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setDeliverAsk(null)} disabled={busy} className="btn-outline text-sm">Not yet</button>
+              <button onClick={answerDelivered} disabled={busy} className="btn text-sm disabled:opacity-40">{busy ? "Saving…" : "Yes, delivered"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

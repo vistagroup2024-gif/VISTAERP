@@ -62,6 +62,7 @@ export default function ProductPicker({
       <input
         className="input"
         value={text}
+        title={text || undefined}
         placeholder={placeholder}
         onChange={(e) => { setText(e.target.value); setOpen(true); setActive(0); }}
         onFocus={() => setOpen(true)}
@@ -82,7 +83,7 @@ export default function ProductPicker({
           {matches.map((p, i) => (
             <button type="button" key={p.id} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(p)}
               className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm ${i === active ? "bg-brand-50" : "hover:bg-slate-50"}`}>
-              <span className="truncate">{p.name}</span>
+              <span className="whitespace-normal break-words">{p.name}</span>
               {p.group && <span className="shrink-0 text-xs text-slate-400">{p.group}</span>}
             </button>
           ))}
