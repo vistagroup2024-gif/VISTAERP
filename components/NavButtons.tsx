@@ -6,7 +6,7 @@ const HOME = "/dashboard";
 
 // Back and Home, as one control.
 //
-// Rendered in exactly ONE place: the ERP layout, above every page's content.
+// Rendered in exactly ONE place: the ERP layout, above every tab's content.
 // It used to live in PageHeader, which covered the 137 screens that use one and
 // missed the 46 that draw their own title bar — the voucher shells among them.
 // From the layout it reaches all of them, and no page can show a second pair
@@ -14,11 +14,24 @@ const HOME = "/dashboard";
 // link of its own should not add one beside this.
 //
 // Home hides itself on the dashboard, because a button to the page you are
-// already on is noise rather than navigation.
+// already on is noise rather than navigation. Every tab runs inside its own
+// iframe now, so Home cannot just push this tab to /dashboard — that would
+// turn, say, the Receipt tab INTO the dashboard, losing it rather than
+// leaving it open. Instead it asks the shell (the parent frame) to switch to
+// its pinned Home tab, and this one stays exactly as it was.
 export default function NavButtons({ fallbackHref = HOME }: { fallbackHref?: string }) {
   const router = useRouter();
   const path = usePathname();
   const atHome = path === HOME;
+  const embedded = typeof window !== "undefined" && window.self !== window.top;
+
+  function goHome() {
+    if (embedded) {
+      window.parent.postMessage({ type: "erp-tab", action: "home" }, window.location.origin);
+    } else {
+      router.push(HOME);
+    }
+  }
 
   const cls =
     "inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-800";
@@ -46,7 +59,7 @@ export default function NavButtons({ fallbackHref = HOME }: { fallbackHref?: str
           type="button"
           aria-label="Go to dashboard"
           title="Dashboard"
-          onClick={() => router.push(HOME)}
+          onClick={goHome}
           className={cls}
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75"

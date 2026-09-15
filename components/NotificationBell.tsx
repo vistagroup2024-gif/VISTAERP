@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { playChime, chimeMuted, setChimeMuted } from "@/lib/notificationChime";
 import { dateTimeStr } from "@/lib/format";
+import { useShellNav } from "@/lib/shell";
 
 interface Notif {
   id: string; category: string; title: string; body: string | null;
@@ -119,7 +119,9 @@ function releaseFeed(endpoint: string) {
 export default function NotificationBell({
   endpoint, groupBase, realtime = false,
 }: { endpoint: string; groupBase: string; realtime?: boolean }) {
-  const router = useRouter();
+  // Opens a tab in the staff shell; falls back to a normal client-side push
+  // in the agent portal, which has no shell.
+  const { openTab } = useShellNav();
   // The items are the feed's, not this bell's. Every bell on screen renders the
   // same list and the same count, and one of them marking something read shows
   // on all of them.
@@ -180,8 +182,8 @@ export default function NotificationBell({
     mark(n.id, "read");
     setOpen(false);
     // Prefer the exact deep-link; fall back to the group route.
-    if (n.link) router.push(n.link);
-    else if (n.group_id) router.push(`${groupBase}/${n.group_id}`);
+    if (n.link) openTab(n.link);
+    else if (n.group_id) openTab(`${groupBase}/${n.group_id}`);
   }
 
   useEffect(() => {

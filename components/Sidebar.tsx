@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import TripAlertBadge from "@/components/transport/TripAlertBadge";
 import { TRIP_ALERT_PERMS } from "@/lib/tripAlerts";
+import { useShellNav } from "@/lib/shell";
 import Icon from "@/components/ui/Icon";
 import { GROUPS, SECTIONS, TRANSACTIONS, DASHBOARD, headerMenu, inHeaderMenu, navAllows, navAllowsItem, quickGroups, type NavItem as Item, type NavGroup as Group, type StaffNavAccess } from "@/lib/nav";
 
@@ -114,7 +115,11 @@ function visibleGroups(access?: StaffNavAccess) {
 function SidebarContent({ access, onClose, onCollapse, mobile }: { access?: StaffNavAccess; onClose?: () => void; onCollapse?: () => void; mobile?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
-  const path = usePathname();
+  // The active tab's own URL, not the real browser pathname — switching a
+  // tab never re-navigates this page, so the pathname would not move with
+  // it. Every link below is a normal <Link>; clicks are caught once, in the
+  // shell that wraps this, and turned into openTab calls there.
+  const path = useShellNav().activePath;
   const modules = visibleGroups(access);
   // The header is desktop-only, so on a phone it is rendered at the top of the
   // drawer instead — each of its buttons as one entry that opens, exactly as it

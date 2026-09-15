@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import Icon from "@/components/ui/Icon";
+import { useShellNav } from "@/lib/shell";
 import { headerMenu, searchIndex, type StaffNavAccess } from "@/lib/nav";
 
 // Slim desktop utility bar. The left of the bar is the quick menu — Transactions
@@ -17,6 +18,7 @@ import { headerMenu, searchIndex, type StaffNavAccess } from "@/lib/nav";
 export default function AppHeader({ name, access }: { name: string; access?: StaffNavAccess }) {
   const router = useRouter();
   const supabase = createClient();
+  const { openTab } = useShellNav();
   const index = useMemo(() => searchIndex(access), [access]);
 
   const [q, setQ] = useState("");
@@ -58,7 +60,10 @@ export default function AppHeader({ name, access }: { name: string; access?: Sta
     return () => window.removeEventListener("mousedown", onClick);
   }, []);
 
-  function go(href: string) { setQ(""); setOpenList(false); router.push(href); }
+  // Search results open a tab, same as every other link in this bar — the
+  // chrome's own click interceptor does not apply here since this is not an
+  // <a> click, it is Enter or a result click handled straight in JS.
+  function go(href: string) { setQ(""); setOpenList(false); openTab(href); }
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (!results.length) return;
