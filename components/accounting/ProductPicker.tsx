@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 /* The rate fields are part of this shape, not extras a caller may bolt on. They
    were not, and productOptions() below rebuilt every row without them — so the
@@ -18,6 +18,13 @@ export type PickProduct = {
  * Type-ahead picker over the Product Tree. Items are master data — this picker
  * only CHOOSES one, it never invents a name, so a voucher line can only ever
  * carry an item that really exists in the tree.
+ *
+ * The match list is positioned FIXED against the input's own rect, the same
+ * way SearchSelect does it, rather than absolutely inside its wrapper — a
+ * voucher's item column sits inside a grid wrapped in `overflow-x-auto`, and
+ * an absolutely positioned list is clipped by that ancestor's implicit
+ * overflow-y, which is what left only about one row visible no matter how
+ * many items matched.
  */
 export default function ProductPicker({
   products, value, onChange, placeholder = "Item…", className = "", onEnter,
@@ -33,17 +40,43 @@ export default function ProductPicker({
   const [text, setText] = useState(selected?.name ?? "");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const [rect, setRect] = useState<{ left: number; top: number; width: number; below: boolean } | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Follow the value when it is set from outside (loading a saved document).
   useEffect(() => { setText(selected?.name ?? ""); }, [selected?.name]);
 
+  const place = useCallback(() => {
+    const b = box.current?.getBoundingClientRect();
+    if (!b) return;
+    const space = window.innerHeight - b.bottom;
+    const below = space > 260 || space > b.top;
+    setRect({
+      left: b.left, width: Math.max(b.width, 240), below,
+      top: below ? b.bottom + 4 : Math.max(8, b.top - 4),
+    });
+  }, []);
+
+  useLayoutEffect(() => { if (open) place(); }, [open, place]);
+
   useEffect(() => {
-    function away(e: MouseEvent) { if (box.current && !box.current.contains(e.target as Node)) close(); }
+    function away(e: MouseEvent) {
+      const t = e.target as Node;
+      if (!box.current?.contains(t) && !listRef.current?.contains(t)) close();
+    }
+    if (!open) return;
+    const onScroll = () => place();
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
     document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+      document.removeEventListener("mousedown", away);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected?.name]);
+  }, [open, place, selected?.name]);
 
   // Leaving the field always snaps back to the chosen item: half-typed text is
   // never kept, because it would not be an item.
@@ -78,13 +111,18 @@ export default function ProductPicker({
         <button type="button" aria-label="Clear item" onClick={() => { onChange(null); setText(""); }}
           className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">×</button>
       )}
-      {open && (
-        <div className="absolute z-30 mt-1 max-h-64 w-full min-w-56 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+      {open && rect && (
+        <div ref={listRef}
+          style={{
+            position: "fixed", left: rect.left, width: rect.width,
+            ...(rect.below ? { top: rect.top } : { bottom: window.innerHeight - rect.top }),
+            zIndex: 60,
+          }}
+          className="max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
           {matches.map((p, i) => (
             <button type="button" key={p.id} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(p)}
               className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm ${i === active ? "bg-brand-50" : "hover:bg-slate-50"}`}>
               <span className="whitespace-normal break-words">{p.name}</span>
-              {p.group && <span className="shrink-0 text-xs text-slate-400">{p.group}</span>}
             </button>
           ))}
           {matches.length === 0 && (
@@ -99,10 +137,13 @@ export default function ProductPicker({
 }
 
 /**
- * Turn a flat Product Tree read into picker options: the items only, each
- * labelled with the group it sits under. Resolved here rather than with a
- * self-referencing join, which is the one embed shape this codebase has never
- * relied on and which would silently return nothing if it did not resolve.
+ * Turn a flat Product Tree read into picker options: the items only. Resolved
+ * here rather than with a self-referencing join, which is the one embed shape
+ * this codebase has never relied on and which would silently return nothing
+ * if it did not resolve. `group` is still carried through (some callers key
+ * off it), it is just no longer shown in the picker's own dropdown — the item
+ * name alone is what a clerk is matching against, and the group added a
+ * second thing to read for no decision it changed.
  */
 export function productOptions(rows: {
   id: string; name: string; parent_id: string | null; is_group?: boolean;

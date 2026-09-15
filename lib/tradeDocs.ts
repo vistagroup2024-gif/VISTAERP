@@ -252,10 +252,9 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     loadsFrom: { type: "sale_order", title: "Sale Order" },
     showDue: true, dueLabel: "Payment Due Date", showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
     hideRoundOff: true,
-    // A header Remarks, beside the per-line one. What is being asked of the
-    // supplier for the order as a whole ("deliver to the yard, not the office")
-    // belongs to the document, and had nowhere to go but a line.
-    headerExtras: [{ key: "remarks", label: "Remarks", kind: "text" }],
+    // A header Remarks was tried alongside the per-line one and dropped: two
+    // Remarks boxes on one voucher just meant clerks never knew which to
+    // type in. One, on the line it is about, is enough.
     lineExtras: [
       // Before Rate: it is the ceiling the rate is checked against, so it reads
       // left-to-right as "allowed, then actual". The value comes from the item's
@@ -285,7 +284,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   },
   purchase_return: {
     type: "purchase_return", prefix: "PRN-", title: "Purchase Return", party: "supplier",
-    showTagArea: true, showWarehouse: false,
+    showTagArea: true, showWarehouse: false, hideRoundOff: true,
     headerExtras: [
       { key: "update_stock", label: "Update Stocks", kind: "check", defaultOn: true },
       { key: "raise_receipt", label: "Raise Receipt", kind: "check" },
@@ -296,11 +295,11 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     loadsFrom: { type: "purchase_order", title: "Purchase Order" },
     // No Tag Area: an MRN records that goods arrived. The tagging that matters
     // is done on the Purchase Voucher, which is the one that posts.
-    showDelivery: true, showTagArea: false,
+    showDelivery: true, showTagArea: false, hideRoundOff: true,
   },
   sales_quotation: {
     type: "sales_quotation", prefix: "SQ-", title: "Sales Quotation", party: "customer",
-    showTerms: true, showTagArea: false, hideLinesForCar: true,
+    showTerms: true, showTagArea: false, hideLinesForCar: true, hideRoundOff: true,
     // Item / Vehicle picks from the Product Tree rather than being typed: the
     // Car Invoice finds the car in the yard by this product, and free text
     // cannot be matched against anything.
@@ -335,6 +334,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     // typed. A CAR coming back is not: it is returned against the Car Invoice
     // that sold it, which is where the vehicle, the customer and the cost are.
     alsoLoadsFrom: { title: "Car Invoice" },
+    hideRoundOff: true,
     headerExtras: [
       { key: "update_stock", label: "Update Stocks", kind: "check", defaultOn: true },
     ],
@@ -342,7 +342,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   sales_invoice: {
     type: "sales_invoice", prefix: "SI-", title: "Sales Invoice", party: "customer",
     loadsFrom: { type: "sale_order", title: "Sale Order" },
-    showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true,
+    showDue: true, showDelivery: true, showTerms: true, showMode: true, showTagArea: true, hideRoundOff: true,
     // No "Update Stocks" choice: a Sales Invoice is what takes the goods off
     // the shelf, so it always does. See trade_doc_post.
     //
@@ -381,7 +381,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   // They are ordinary line columns, so leaving them blank costs nothing.
   air_ticket_invoice: {
     type: "air_ticket_invoice", prefix: "ATI-", title: "Air Ticket Invoice", party: "customer",
-    showDue: true, showMode: true, showTagArea: true, showCurrency: true,
+    showDue: true, showMode: true, showTagArea: true, showCurrency: true, hideRoundOff: true,
     amountLabel: "Gross",
     headerExtras: [
       { key: "supplier_id", label: "Supplier", kind: "party", partyType: "supplier" },
@@ -415,7 +415,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   // is filled and refuses a cost owed to nobody.
   visa_invoice: {
     type: "visa_invoice", prefix: "VI-", title: "Visa Invoice", party: "customer",
-    showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Pax",
+    showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Pax", hideRoundOff: true,
     headerExtras: [
       { key: "supplier_id", label: "Supplier", kind: "party", partyType: "supplier" },
       { key: "supplier_account_id", label: "Supplier Account", kind: "account", hint: "if not a party" },
@@ -432,7 +432,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   },
   transport_invoice: {
     type: "transport_invoice", prefix: "TI-", title: "Transport Invoice", party: "customer",
-    showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Trips",
+    showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Trips", hideRoundOff: true,
     headerExtras: [
       { key: "supplier_account_id", label: "Vendor Account", kind: "account", hint: "outsourced trips" },
       { key: "haji_name", label: "Passenger", kind: "text" },
@@ -449,7 +449,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   },
   hotel_invoice: {
     type: "hotel_invoice", prefix: "HI-", title: "Hotel Invoice", party: "customer",
-    showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Qty",
+    showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Qty", hideRoundOff: true,
     headerExtras: [
       { key: "supplier_id", label: "Supplier", kind: "party", partyType: "supplier" },
       { key: "haji_name", label: "Guest", kind: "text" },
@@ -474,7 +474,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     // No Delivery Date box: the note's own date is when the goods left, and
     // Delivered On (below the note once it is saved) is when they arrived.
     // A third date between the two answered nothing.
-    showTagArea: true, hideRateAmount: true,
+    showTagArea: true, hideRateAmount: true, hideRoundOff: true,
     showDelivered: true,
   },
 };
