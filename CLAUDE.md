@@ -804,6 +804,73 @@ document — Sales Invoice, the four service invoices and the Car Invoice, which
 is not a trade document — and its margin is sale less cost of sales off the
 ledger, not sale less what was bought.
 
+## Transport Costing & Pricing is a separate module, built entirely from data the ERP already has
+
+`/transport/costing` (migrations 389–390) answers "what does this trip actually
+cost, and what should we charge for it" from the same vehicles, drivers,
+routes, trips and expenses every other Transport screen uses — nothing about
+the existing Transport module changed to build it, and it creates no
+duplicate vehicle, route, driver or expense record.
+
+**What "owned" means was already in the schema, not invented for this.**
+Every completed trip — outsourced included — carries a `vehicle_id`, because
+that column names the CATEGORY of vehicle the booking needed, not who
+actually drove it. `transport_vehicle_cost_model()` — the one routine
+everything else in the module calls, so fuel, driver and overhead cost are
+never re-derived twice — only ever reads a vehicle's own operating history
+off `is_outsourced = false` completed trips. An outsourced trip's cost is
+its `vendor_cost`, full stop; it never touches that vehicle's fuel, driver,
+depreciation or overhead lines, matching how Route Profitability blends an
+owned leg's own cost/KM against an outsourced leg's real vendor cost rather
+than pretending one model fits both.
+
+**A driver cost is a personal recurring cost, not whoever is named on an
+expense row.** `transport_expenses` already had `vehicle_id` and `driver_id`,
+so this reuses it rather than adding a driver-expense table — but a row
+carrying BOTH is a vehicle cost that happens to note who incurred it (a
+driver filling the tank), not a salary or accommodation charge, and 390 is
+the trap to avoid re-introducing: summing every expense tagged to a vehicle's
+CURRENT driver, instead of only the driver-only rows (no `vehicle_id`), let a
+fuel receipt for one vehicle silently inflate a different vehicle's driver
+line because the same person happened to be tagged on both. The driver
+bucket reads only rows with no vehicle attached.
+
+**Fleet overhead has exactly one source**: `transport_expenses` rows tagged
+to neither a vehicle nor a driver, category `admin_overhead` — nothing
+outside Transport is ever swept in, which is the module's own explicit
+promise to itself. `transport_vehicle_overhead_share()` splits that pool five
+ways (equal / by KM / by revenue / by active days / manual, with "by KM" and
+"by vehicle utilization" being the same measure under two names, not two
+different numbers) and is the only place any of them are computed.
+
+**Nothing is invented where the history is not there.** Fuel, oil and tyre
+cost each prefer actual expense ÷ actual KM over an assumed rate, falling
+back to a configured lifecycle model (cost ÷ life-KM, set per vehicle on the
+module's own Vehicle Cost Profile tab — the Vehicles master screen is
+untouched) and finally to `insufficient_data`, shown as that in the
+breakdown rather than a fabricated zero-looking-like-a-real-number. A
+`confidence` score (HIGH ≥ 12 months of that vehicle's own history, MEDIUM
+3–11, LOW under 3) is measured from actual data span, bounded by the period
+asked for — not the size of the window requested — so a 12-month query
+against six weeks of real history reads LOW, honestly. `transport_expenses`
+gained new free-text categories for this (tyre, oil_service, insurance,
+registration, nusuk, driver_salary/accommodation/iqama/insurance,
+admin_overhead) alongside the original six, unchanged, on the same Expenses
+screen.
+
+**Margin and markup are never the same number.** `transport_costing_price_for`
+computes margin as `cost / (1 - m/100)` and markup as `cost * (1 + m/100)`,
+selectable per company (`erp_settings transport_costing_margin_method`).
+Empty-return cost is read from history, not assumed for every one-way trip:
+`transport_route_return_probability()` counts a route leg as a paid return
+only when the SAME booking has a completed return leg within 24 hours, and
+`transport_costing_expected_km()` uses that percentage — or a manual
+override — to add the probability-weighted return distance, never doubling a
+trip that is known to come back with a fare.
+
+A **Costing Snapshot** freezes the numbers a calculation actually used,
+because the ERP data behind it moves.
+
 ## The voucher is typed through
 
 `lib/focusNext.ts`: picking an account moves the cursor to the amount, and

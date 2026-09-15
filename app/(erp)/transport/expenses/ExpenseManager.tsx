@@ -10,7 +10,21 @@ import SearchSelect from "@/components/ui/SearchSelect";
 interface Ref { id: string; name: string }
 interface Expense { id: string; category: string; amount: number; currency: string; spent_on: string; vehicle_id: string | null; driver_id: string | null; note: string | null }
 
-const CATS = ["fuel", "toll", "parking", "maintenance", "fine", "other"];
+// The original six, unchanged, then the categories the Transport Costing
+// module reads (driver-tagged rows use driver_id with no vehicle_id;
+// admin_overhead is entered with neither, and is the ONLY input the fleet
+// overhead allocator reads — see CLAUDE.md).
+const CATS = [
+  "fuel", "toll", "parking", "maintenance", "fine", "other",
+  "tyre", "oil_service", "insurance", "registration", "nusuk",
+  "driver_salary", "driver_accommodation", "driver_iqama", "driver_insurance",
+  "admin_overhead",
+];
+const CAT_LABEL: Record<string, string> = {
+  oil_service: "Oil / Service", driver_salary: "Driver Salary", driver_accommodation: "Driver Accommodation",
+  driver_iqama: "Driver Iqama", driver_insurance: "Driver Insurance", admin_overhead: "Admin / Fleet Overhead",
+};
+const catLabel = (c: string) => CAT_LABEL[c] ?? c[0].toUpperCase() + c.slice(1);
 const today = () => todaySA();
 const BLANK = () => ({ category: "fuel", amount: "", spent_on: today(), vehicle_id: "", driver_id: "", note: "" });
 
@@ -44,7 +58,7 @@ export default function ExpenseManager({ initial, vehicles, drivers }: { initial
   return (
     <div className="space-y-4">
       <form onSubmit={add} className="card grid grid-cols-1 gap-3 sm:grid-cols-6">
-        <div><label className="label">Category</label><select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATS.map((c) => <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>)}</select></div>
+        <div><label className="label">Category</label><select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATS.map((c) => <option key={c} value={c}>{catLabel(c)}</option>)}</select></div>
         <div><label className="label">Amount (SAR) *</label><input className="input" type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required /></div>
         <div><label className="label">Date</label><input className="input" type="date" value={form.spent_on} onChange={(e) => setForm({ ...form, spent_on: e.target.value })} /></div>
         <div><label className="label">Vehicle</label><SearchSelect value={form.vehicle_id} onChange={(v) => setForm({ ...form, vehicle_id: v })} placeholder="—" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} /></div>
@@ -55,7 +69,7 @@ export default function ExpenseManager({ initial, vehicles, drivers }: { initial
       </form>
 
       <div className="flex items-center gap-2">
-        <select className="input max-w-[10rem]" value={cat} onChange={(e) => setCat(e.target.value)}><option value="">All categories</option>{CATS.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+        <select className="input max-w-[14rem]" value={cat} onChange={(e) => setCat(e.target.value)}><option value="">All categories</option>{CATS.map((c) => <option key={c} value={c}>{catLabel(c)}</option>)}</select>
         <span className="ml-auto text-sm font-semibold text-slate-700">Total: {total.toFixed(2)} SAR</span>
       </div>
 
@@ -66,7 +80,7 @@ export default function ExpenseManager({ initial, vehicles, drivers }: { initial
             {rows.map((e) => (
               <tr key={e.id} className="border-t border-slate-100">
                 <td className="td">{e.spent_on}</td>
-                <td className="td capitalize">{e.category}</td>
+                <td className="td">{catLabel(e.category)}</td>
                 <td className="td">{Number(e.amount).toFixed(2)} {e.currency}</td>
                 <td className="td">{e.vehicle_id ? vName.get(e.vehicle_id) ?? "—" : "—"}</td>
                 <td className="td">{e.driver_id ? dName.get(e.driver_id) ?? "—" : "—"}</td>

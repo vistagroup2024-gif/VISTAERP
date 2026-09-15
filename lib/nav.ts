@@ -131,6 +131,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/transport/expenses", label: "Expenses", perm: ["transport.masters", "transport.reports"] },
     { href: "/transport/messages", label: "Confirmations", perm: ["transport.operations"] },
     { href: "/transport/reports", label: "Reports", perm: ["transport.reports"] },
+    { href: "/transport/costing", label: "Costing & Pricing", perm: ["transport.reports", "transport.masters"] },
     { href: "/transport/reports/ledger", label: "Trip Ledger", perm: ["transport.trip_ledger"] },
   ] },
   { label: "Sales", icon: "sales", perm: ["sales.view", "parties.manage"], items: [
