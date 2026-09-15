@@ -126,6 +126,13 @@ export interface TradeDocCfg {
   carHeaderExtras?: HeaderExtra[];  // shown only for a car-sales cost centre
   lineExtras?: LineExtra[];         // always shown
   carLineExtras?: LineExtra[];      // shown only for a car-sales cost centre
+  /** What a NEW voucher's Cost Center starts at. The module-raised service
+   *  invoices already default this correctly when a trigger creates one
+   *  (trade_doc_raise's generators), but typed from scratch here it started
+   *  blank for all four — so a Visa or Air Ticket invoice typed by hand could
+   *  land its cost leg on no cost centre at all, and its COGS never reached
+   *  the cost-centre P&L. The user can still type over it. */
+  defaultCostCenter?: string;
 }
 
 /** Cost centres that turn on the car-sales fields (Masters → Cost Center). */
@@ -382,7 +389,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   air_ticket_invoice: {
     type: "air_ticket_invoice", prefix: "ATI-", title: "Air Ticket Invoice", party: "customer",
     showDue: true, showMode: true, showTagArea: true, showCurrency: true, hideRoundOff: true,
-    amountLabel: "Gross",
+    amountLabel: "Gross", defaultCostCenter: "AIR TICKET",
     headerExtras: [
       { key: "supplier_id", label: "Supplier", kind: "party", partyType: "supplier" },
       { key: "haji_name", label: "Haji Name", kind: "text" },
@@ -416,6 +423,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   visa_invoice: {
     type: "visa_invoice", prefix: "VI-", title: "Visa Invoice", party: "customer",
     showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Pax", hideRoundOff: true,
+    defaultCostCenter: "UMRAH VISA",
     headerExtras: [
       { key: "supplier_id", label: "Supplier", kind: "party", partyType: "supplier" },
       { key: "supplier_account_id", label: "Supplier Account", kind: "account", hint: "if not a party" },
@@ -433,6 +441,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   transport_invoice: {
     type: "transport_invoice", prefix: "TI-", title: "Transport Invoice", party: "customer",
     showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Trips", hideRoundOff: true,
+    defaultCostCenter: "VISTA TRANSPORT",
     headerExtras: [
       { key: "supplier_account_id", label: "Vendor Account", kind: "account", hint: "outsourced trips" },
       { key: "haji_name", label: "Passenger", kind: "text" },
@@ -450,6 +459,7 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   hotel_invoice: {
     type: "hotel_invoice", prefix: "HI-", title: "Hotel Invoice", party: "customer",
     showDue: true, showMode: true, showTagArea: true, amountLabel: "Gross", qtyLabel: "Qty", hideRoundOff: true,
+    defaultCostCenter: "HOTEL",
     headerExtras: [
       { key: "supplier_id", label: "Supplier", kind: "party", partyType: "supplier" },
       { key: "haji_name", label: "Guest", kind: "text" },

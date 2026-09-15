@@ -67,7 +67,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   const [docNo, setDocNo] = useState("");
   const [date, setDate] = useState(() => todaySA());
   const [party, setParty] = useState("");
-  const [costCenter, setCostCenter] = useState("");
+  const [costCenter, setCostCenter] = useState(() => cfg.defaultCostCenter ?? "");
   const [tagArea, setTagArea] = useState("");
   const [reference, setReference] = useState("");
   const [mode, setMode] = useState("");
@@ -242,7 +242,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
 
   function resetNew(keepMessage?: string) {
     setId(null); setDocNo(""); setDone(keepMessage ?? null); setErr(null);
-    setDate(todaySA()); setParty(""); setCostCenter(""); setTagArea("");
+    setDate(todaySA()); setParty(""); setCostCenter(cfg.defaultCostCenter ?? ""); setTagArea("");
     setReference(""); setMode(""); setDueDate(""); setDeliveryDate(""); setTerms(""); setNarration(""); setRoundOff(""); setRoundOffOn(false); setDiscount("");
     setCurrency(""); setFxRate(""); setRoundTo(1);
     setRows([blankRow()]); setWarehouse(""); setPosted(false); setExtras(extraDefaults()); setOverridden({}); setCarAmountTouched(false);
