@@ -614,6 +614,34 @@ while the trip is wrong and gone the moment the right button is pressed. Both
 routines are `security invoker`, so a restricted user is alerted only about
 trips they may see.
 
+## A Jeddah Airport pickup has a 30-minute grace
+
+`transport_driver_reason` — the one routine behind manual assign
+(`transport_assign_check`, `transport_assign_trip`) and auto-assign, so a
+change here reaches every path a driver is checked against a trip — treats a
+driver as not late for a Jeddah Airport pickup until **30 minutes past the
+scheduled time**. The passenger is still clearing immigration and collecting
+luggage, which the business allows 45 minutes to an hour for, so a driver
+reaching the airport within that window has not actually missed anything.
+
+The repositioning check (does the gap between a driver's last trip and this
+one give him enough time to get there, per the Route Master) widens what
+counts as "enough" by 30 minutes when the trip being driven **into** starts at
+Jeddah Airport (`arr_from[i] ilike '%airport%' and ilike '%jeddah%'`) — capped
+at 30, not open-ended. The error message still reports the true schedule gap,
+not the padded one, so a driver who is genuinely short is told the real
+number. This does **not** touch `transport_reposition_conflict` (the >100 km
+Force-Assign approval rule) or the 12-hour work-time count — those ask
+different questions, and only "is the driver late for this pickup" is
+softened.
+
+A duty window with no 10-hour rest in it chains every trip together, so a
+gap that was never a problem on its own can surface the moment a new trip is
+assigned onto the end of the chain — migration 388 was written against
+exactly that: a driver's own earlier 75-minute gap into a Jeddah Airport
+pickup, needing 90 by the Route Master, only turned into a hard error once a
+third trip pulled his whole day into one window with no rest break in it.
+
 ## The module invoices are vouchers
 
 Visa, Transport and Hotel invoices are **trade documents** (`visa_invoice`,
