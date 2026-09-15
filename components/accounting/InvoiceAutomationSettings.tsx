@@ -29,7 +29,7 @@ import { dateTimeStr } from "@/lib/format";
 
 type Rule = {
   id: string; module: string; rule_key: string; name: string; label: string;
-  kind: "trigger" | "accounts"; system_rule: boolean; enabled: boolean;
+  kind: "trigger" | "accounts"; system_rule: boolean; enabled: boolean; always_runs: boolean;
   event_key: string | null; event_value: string | null; event_label: string | null; event_table: string | null;
   action_key: string | null; action_label: string | null;
   trigger_label: string | null; cost_center: string | null; notes: string | null;
@@ -171,10 +171,15 @@ export default function InvoiceAutomationSettings({ canEdit }: { canEdit: boolea
                   <td className="td text-slate-600">{whenText(r)}</td>
                   <td className="td text-slate-600">{r.action_label ?? "Module posting"}</td>
                   <td className="td text-right">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                      r.enabled ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
-                      {r.enabled ? "ON" : "OFF"}
-                    </span>
+                    {r.always_runs ? (
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700"
+                        title="This switch has no effect — it always posts on its own trigger">Always ON</span>
+                    ) : (
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        r.enabled ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
+                        {r.enabled ? "ON" : "OFF"}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -200,21 +205,26 @@ export default function InvoiceAutomationSettings({ canEdit }: { canEdit: boolea
                   <button onClick={() => remove(r)} disabled={busy === r.id}
                     className="rounded-md px-2 py-1 text-xs text-red-500 hover:underline">Delete</button>
                 )}
-                <button
-                  onClick={() => (r.enabled ? save(r, { enabled: false }) : setConfirming(r))}
-                  disabled={!canEdit || busy === r.id}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${
-                    r.enabled ? "border border-slate-200 text-slate-600 hover:bg-slate-50"
-                              : "bg-brand text-white hover:bg-brand-600"}`}>
-                  {busy === r.id ? "Saving…" : r.enabled ? "Turn OFF" : "Turn ON"}
-                </button>
+                {r.always_runs ? (
+                  <span className="rounded-full bg-blue-100 px-3 py-1.5 text-sm font-medium text-blue-700">Always ON</span>
+                ) : (
+                  <button
+                    onClick={() => (r.enabled ? save(r, { enabled: false }) : setConfirming(r))}
+                    disabled={!canEdit || busy === r.id}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${
+                      r.enabled ? "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                                : "bg-brand text-white hover:bg-brand-600"}`}>
+                    {busy === r.id ? "Saving…" : r.enabled ? "Turn OFF" : "Turn ON"}
+                  </button>
+                )}
               </div>
             </div>
 
             {isCar ? (
               <p className="rounded bg-slate-50 px-3 py-2 text-sm text-slate-600">
                 <b>When:</b> {r.trigger_label}. This is a Car Sales posting — its trigger and its accounts are
-                resolved inside the Car module and are not configurable here yet. It can be switched on and off.
+                resolved inside the Car module and are not configurable here yet.{" "}
+                {r.always_runs ? "It always posts and this switch has no effect." : "It can be switched on and off."}
               </p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">

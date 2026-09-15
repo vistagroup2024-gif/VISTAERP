@@ -152,7 +152,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/purchases/returns", label: "Purchase Return" },
   ] },
   { label: "Accounting", icon: "accounting", perm: ["accounting.view"], items: [
-    { href: "/accounting/workflow", label: "Work Flow" },
     { href: "/accounting/receipts", label: "Receipt" },
     { href: "/accounting/payments", label: "Payment" },
     { href: "/accounting/contra", label: "Contra" },
@@ -176,8 +175,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/assets", label: "Fixed Assets" },
     { href: "/accounting/close", label: "Year-End Close" },
     { href: "/accounting/product-costing", label: "Product Costing" },
-    { href: "/accounting/rules", label: "Voucher Authorisation" },
-    { href: "/accounting/automation", label: "Invoice Automation" },
     { href: "/accounting/audit", label: "Audit Trail" },
   ] },
   // Inventory (goods). Mirrors the order of the desktop Inventory menu; the BRN
@@ -224,6 +221,17 @@ export const GROUPS: NavGroup[] = [
   ] },
   { label: "Company", icon: "settings", section: "Settings", perm: ["system.companies", "system.config", "system.masters"], items: [
     { href: "/settings/companies", label: "Companies" },
+  ] },
+  // Everything that decides how a voucher itself behaves — its numbering, its
+  // document chain, who must authorise it, and what the ERP is allowed to post
+  // by itself — used to be split between here and the Accounting module, where
+  // Work Flow, Voucher Authorisation and Invoice Automation sat beside the
+  // vouchers themselves rather than beside the settings that shape them. One
+  // place now, so setting any of it up does not mean hunting across two menus.
+  { label: "Accounting Setup", icon: "settings", section: "Settings", perm: ["accounting.view", "system.config"], items: [
+    { href: "/accounting/workflow", label: "Work Flow" },
+    { href: "/accounting/rules", label: "Voucher Authorisation" },
+    { href: "/accounting/automation", label: "Invoice Automation" },
     { href: "/settings/numbering", label: "Voucher Numbering", perm: ["system.config"] },
   ] },
   // No `perm`, on purpose. This is a PERSONAL setting — which of your own
