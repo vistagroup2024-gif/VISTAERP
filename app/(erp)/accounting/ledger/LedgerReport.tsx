@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID, dateStr } from "@/lib/format";
 import { todaySA, yearSA } from "@/lib/saudiTime";
 import AccountPickTree, { type PickNode } from "./AccountPickTree";
+import SearchSelect from "@/components/ui/SearchSelect";
 
 type Row = {
   entry_id: string; date: string; entry_no: string;
@@ -25,6 +26,26 @@ type Result = {
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(Number(n) || 0));
 const drcr = (n: number) => `${money(n)}${n >= 0 ? "Dr" : "Cr"}`;
 const y = yearSA();
+
+// The columns that can be shown or hidden. Date, Debit, Credit and Balance
+// are the backbone of a ledger and are drawn regardless — these are what a
+// layout actually varies, always in this order.
+const OPTIONAL_COLUMNS = [
+  { key: "voucher", label: "Voucher No" },
+  { key: "tag_area", label: "Tag Area" },
+  { key: "cost_center", label: "Cost Center" },
+  { key: "account", label: "Contra Account" },
+  { key: "reference", label: "Reference" },
+  { key: "remarks", label: "Remarks" },
+] as const;
+type ColKey = (typeof OPTIONAL_COLUMNS)[number]["key"];
+const DEFAULT_COLUMNS: ColKey[] = ["voucher", "tag_area", "account", "remarks"];
+const isColKey = (v: string): v is ColKey => OPTIONAL_COLUMNS.some((c) => c.key === v);
+
+type Layout = {
+  id: string; name: string; columns: ColKey[];
+  only_balance: boolean; moved_only: boolean; page_break: boolean; show_index: boolean; is_default: boolean;
+};
 
 /**
  * Ledger — pick the accounts, pick the window, run it.
@@ -57,6 +78,71 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(true);
+
+  // A layout is which of the optional columns show, plus the four report
+  // options, saved by name. Loaded once; the caller's default (if any) is
+  // applied automatically so the ledger opens the way they last set it up.
+  const [columns, setColumns] = useState<ColKey[]>(DEFAULT_COLUMNS);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [layouts, setLayouts] = useState<Layout[]>([]);
+  const [layoutId, setLayoutId] = useState<string | null>(null);
+  const appliedDefault = useRef(false);
+
+  const loadLayouts = useCallback(async () => {
+    const { data, error } = await supabase.rpc("ledger_layouts_list");
+    if (error) return;
+    const ls = ((data ?? []) as any[]).map((l) => ({
+      ...l, columns: (Array.isArray(l.columns) ? l.columns : []).filter(isColKey),
+    })) as Layout[];
+    setLayouts(ls);
+    if (!appliedDefault.current) {
+      appliedDefault.current = true;
+      const def = ls.find((l) => l.is_default);
+      if (def) applyLayout(def.id, ls);
+    }
+  }, [supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadLayouts(); }, [loadLayouts]);
+
+  function applyLayout(id: string, from?: Layout[]) {
+    const l = (from ?? layouts).find((x) => x.id === id);
+    if (!l) return;
+    setLayoutId(id);
+    setColumns(l.columns.length ? l.columns : DEFAULT_COLUMNS);
+    setOnlyBal(l.only_balance); setMovedOnly(l.moved_only); setPageBreak(l.page_break); setShowIndex(l.show_index);
+  }
+  function pickLayout(id: string) {
+    if (!id) { setLayoutId(null); setColumns(DEFAULT_COLUMNS); return; }
+    applyLayout(id);
+  }
+  function toggleColumn(key: ColKey) {
+    setColumns((cs) => {
+      const next = cs.includes(key) ? cs.filter((c) => c !== key) : [...cs, key];
+      return OPTIONAL_COLUMNS.map((c) => c.key).filter((k) => next.includes(k));
+    });
+  }
+  async function saveLayout(asNew: boolean) {
+    const current = layouts.find((l) => l.id === layoutId);
+    const name = asNew || !current ? prompt("Name this layout:", current?.name ?? "") : current.name;
+    if (!name) return;
+    const makeDefault = confirm(`Make "${name}" your default layout — applied automatically next time you open the Ledger?`);
+    const { data, error } = await supabase.rpc("ledger_layout_save", {
+      p_id: asNew ? null : layoutId, p_name: name, p_columns: columns,
+      p_only_balance: onlyBal, p_moved_only: movedOnly, p_page_break: pageBreak, p_show_index: showIndex,
+      p_is_default: makeDefault,
+    });
+    if (error) return setErr(error.message);
+    setLayoutId(data as string);
+    await loadLayouts();
+  }
+  async function deleteLayout() {
+    if (!layoutId) return;
+    const l = layouts.find((x) => x.id === layoutId);
+    if (!confirm(`Delete the layout "${l?.name ?? ""}"?`)) return;
+    const { error } = await supabase.rpc("ledger_layout_delete", { p_id: layoutId });
+    if (error) return setErr(error.message);
+    setLayoutId(null); setColumns(DEFAULT_COLUMNS);
+    await loadLayouts();
+  }
 
   const nameOf = useMemo(() => new Map(nodes.map((n) => [n.id, n.name])), [nodes]);
 
@@ -154,6 +240,30 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
             </label>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 text-sm">
+            <label className="label mb-0 shrink-0">Layout</label>
+            <SearchSelect value={layoutId ?? ""} onChange={pickLayout} placeholder="Default columns"
+              className="max-w-[220px]"
+              options={layouts.map((l) => ({ value: l.id, label: l.name + (l.is_default ? " ★" : "") }))} />
+            <button type="button" onClick={() => setColumnsOpen((o) => !o)} className="btn-outline text-xs">
+              {columnsOpen ? "Hide columns" : "Columns…"}
+            </button>
+            <button type="button" onClick={() => saveLayout(true)} className="btn-outline text-xs">Save as…</button>
+            {layoutId && <button type="button" onClick={() => saveLayout(false)} className="btn-outline text-xs">Update</button>}
+            {layoutId && <button type="button" onClick={deleteLayout} className="btn-outline text-xs text-danger">Delete</button>}
+          </div>
+
+          {columnsOpen && (
+            <div className="grid grid-cols-2 gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm sm:grid-cols-3">
+              {OPTIONAL_COLUMNS.map((c) => (
+                <label key={c.key} className="flex items-center gap-2 text-slate-600">
+                  <input type="checkbox" checked={columns.includes(c.key)} onChange={() => toggleColumn(c.key)} />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
             <button onClick={run} disabled={busy || checked.size === 0} className="btn disabled:opacity-40">
               {busy ? "Running…" : `Run${checked.size ? ` · ${checked.size} account${checked.size === 1 ? "" : "s"}` : ""}`}
@@ -213,10 +323,9 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
                     <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                       <tr>
                         <th className="px-2 py-1.5 text-left">Date</th>
-                        <th className="px-2 py-1.5 text-left">Voucher No</th>
-                        <th className="px-2 py-1.5 text-left">Tag Area</th>
-                        <th className="px-2 py-1.5 text-left">Account</th>
-                        <th className="px-2 py-1.5 text-left">Remarks</th>
+                        {columns.map((key) => (
+                          <th key={key} className="px-2 py-1.5 text-left">{OPTIONAL_COLUMNS.find((c) => c.key === key)!.label}</th>
+                        ))}
                         <th className="px-2 py-1.5 text-right">Debit</th>
                         <th className="px-2 py-1.5 text-right">Credit</th>
                         <th className="px-2 py-1.5 text-right">Balance</th>
@@ -224,8 +333,7 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
                     </thead>
                     <tbody>
                       <tr className="border-t border-slate-100">
-                        <td className="px-2 py-1" colSpan={4} />
-                        <td className="px-2 py-1 text-slate-500">Opening Balance</td>
+                        <td className="px-2 py-1 text-slate-500" colSpan={1 + columns.length}>Opening Balance</td>
                         <td className="px-2 py-1 text-right tabular-nums">{Number(b.opening) > 0 ? money(b.opening) : ""}</td>
                         <td className="px-2 py-1 text-right tabular-nums">{Number(b.opening) < 0 ? money(b.opening) : ""}</td>
                         <td className="px-2 py-1 text-right tabular-nums">{drcr(Number(b.opening))}</td>
@@ -235,12 +343,17 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
                         return (
                           <tr key={i} className="border-t border-slate-100">
                             <td className="whitespace-nowrap px-2 py-1">{dateStr(r.date)}</td>
-                            <td className="px-2 py-1">
-                              <Link href={`/accounting/vouchers/${r.entry_id}`} className="font-mono text-xs text-brand hover:underline">{r.entry_no}</Link>
-                            </td>
-                            <td className="px-2 py-1 text-xs text-slate-500">{r.tag_area ?? "NONE"}</td>
-                            <td className="px-2 py-1 text-slate-600">{r.contra ?? "—"}</td>
-                            <td className="px-2 py-1 text-slate-500">{r.memo ?? ""}</td>
+                            {columns.map((key) => (
+                              <td key={key} className="px-2 py-1 text-slate-600">
+                                {key === "voucher" ? (
+                                  <Link href={`/accounting/vouchers/${r.entry_id}`} className="font-mono text-xs text-brand hover:underline">{r.entry_no}</Link>
+                                ) : key === "tag_area" ? r.tag_area ?? "NONE"
+                                : key === "cost_center" ? r.cost_center ?? "—"
+                                : key === "account" ? r.contra ?? "—"
+                                : key === "reference" ? r.reference ?? "—"
+                                : r.memo ?? ""}
+                              </td>
+                            ))}
                             <td className="px-2 py-1 text-right tabular-nums">{Number(r.debit) ? money(r.debit) : ""}</td>
                             <td className="px-2 py-1 text-right tabular-nums">{Number(r.credit) ? money(r.credit) : ""}</td>
                             <td className="px-2 py-1 text-right tabular-nums">{drcr(bal)}</td>
@@ -249,13 +362,13 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
                       })}
                       {b.rows.length === 0 && (
                         <tr className="border-t border-slate-100">
-                          <td className="px-2 py-3 text-center text-slate-400" colSpan={8}>Nothing in this period.</td>
+                          <td className="px-2 py-3 text-center text-slate-400" colSpan={4 + columns.length}>Nothing in this period.</td>
                         </tr>
                       )}
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
-                        <td className="px-2 py-1.5" colSpan={5}>Total</td>
+                        <td className="px-2 py-1.5" colSpan={1 + columns.length}>Total</td>
                         <td className="px-2 py-1.5 text-right tabular-nums">{money(b.total_debit)}</td>
                         <td className="px-2 py-1.5 text-right tabular-nums">{money(b.total_credit)}</td>
                         <td className="px-2 py-1.5 text-right tabular-nums">{drcr(Number(b.closing))}</td>
