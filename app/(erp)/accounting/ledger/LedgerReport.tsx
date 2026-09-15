@@ -53,7 +53,6 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
   const [movedOnly, setMovedOnly] = useState(false);
   const [pageBreak, setPageBreak] = useState(false);
   const [showIndex, setShowIndex] = useState(false);
-  const [sort, setSort] = useState("code");
   const [res, setRes] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -71,13 +70,13 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
       p_to: to || null,
       p_only_with_balance: opts?.onlyBal ?? onlyBal,
       p_moved_only: movedOnly,
-      p_sort: sort,
+      p_sort: "code",
     });
     setBusy(false);
     if (error) return setErr(error.message);
     setRes(data as Result);
     setPickerOpen(false);
-  }, [supabase, from, to, onlyBal, movedOnly, sort]);
+  }, [supabase, from, to, onlyBal, movedOnly]);
 
   const run = () => runWith(Array.from(checked));
 
@@ -119,25 +118,21 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
   return (
     <div className="space-y-4">
       <div className="no-print grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-        <div className={`card p-0 ${pickerOpen ? "" : "hidden lg:block"}`}>
-          <div className="border-b border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <div className={`card flex flex-col p-0 lg:h-[75vh] ${pickerOpen ? "" : "hidden lg:flex"}`}>
+          <div className="shrink-0 border-b border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             Accounts
           </div>
-          <AccountPickTree nodes={nodes} checked={checked} onChange={setChecked} />
+          <div className="min-h-0 flex-1">
+            <AccountPickTree nodes={nodes} checked={checked} onChange={setChecked} />
+          </div>
         </div>
 
         <div className="card space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div><label className="label">From</label>
               <input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
             <div><label className="label">To</label>
               <input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} /></div>
-            <div><label className="label">Sort by</label>
-              <select className="input" value={sort} onChange={(e) => setSort(e.target.value)}>
-                <option value="code">Account code</option>
-                <option value="name">Account name</option>
-                <option value="balance">Largest balance</option>
-              </select></div>
           </div>
 
           <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
@@ -166,29 +161,28 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
             <button onClick={() => setPickerOpen((o) => !o)} className="btn-outline text-sm lg:hidden">
               {pickerOpen ? "Hide accounts" : "Choose accounts"}
             </button>
-            {res && <>
-              <button onClick={() => window.print()} className="btn-outline text-sm ml-auto">🖨 Print / PDF</button>
-              <button onClick={toCsv} className="btn-outline text-sm">⤓ Excel (CSV)</button>
-            </>}
           </div>
 
           {err && <p className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</p>}
-          {res && (
-            <p className="text-xs text-slate-400">
-              {res.accounts_shown} of {res.accounts_asked} account{res.accounts_asked === 1 ? "" : "s"} shown
-              {res.accounts_shown < res.accounts_asked && " — the rest were filtered out by the options above"}.
-            </p>
-          )}
         </div>
       </div>
 
       {res && (
-        <div className="card p-0">
-          <div className="border-b border-slate-200 p-3">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-white print:static print:inset-auto print:z-auto print:overflow-visible">
+          <div className="no-print sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-2">
+            <button onClick={() => setRes(null)} className="btn-outline text-sm">← Back to selection</button>
             <h2 className="font-semibold text-slate-800">
               Ledger {from && to ? `(${dateStr(from)} to ${dateStr(to)})` : from ? `(from ${dateStr(from)})` : to ? `(to ${dateStr(to)})` : ""}
             </h2>
+            <span className="text-xs text-slate-400">
+              {res.accounts_shown} of {res.accounts_asked} account{res.accounts_asked === 1 ? "" : "s"} shown
+              {res.accounts_shown < res.accounts_asked && " — the rest were filtered out by the options"}
+            </span>
+            <button onClick={() => window.print()} className="btn-outline ml-auto text-sm">🖨 Print / PDF</button>
+            <button onClick={toCsv} className="btn-outline text-sm">⤓ Excel (CSV)</button>
           </div>
+          <div className="p-4">
+          <div className="card p-0">
 
           {showIndex && res.accounts.length > 1 && (
             <div className="keep-together border-b border-slate-200 p-3">
@@ -211,7 +205,6 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
                    className={`${pageBreak && bi > 0 ? "page-break" : ""} border-b border-slate-200 last:border-b-0`}>
                 <div className="flex flex-wrap items-baseline gap-x-3 bg-amber-50/70 px-3 py-1.5">
                   <span className="font-semibold text-slate-800">{b.name}</span>
-                  <span className="font-mono text-[11px] text-slate-400">{b.code}</span>
                   {b.group && <span className="text-xs text-slate-400">in {b.group}</span>}
                   <span className="ml-auto text-xs text-slate-500">Closing <b className="tabular-nums">{drcr(Number(b.closing))}</b></span>
                 </div>
@@ -288,6 +281,8 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
               <span className="w-32" />
             </div>
           )}
+          </div>
+          </div>
         </div>
       )}
 

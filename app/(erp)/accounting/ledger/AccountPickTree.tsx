@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 export type PickNode = {
   id: string; code: string; name: string; is_group: boolean;
@@ -17,12 +17,21 @@ export type PickNode = {
  * itself, which carries no postings of its own. A group's box therefore shows
  * three states — all of its accounts, some of them, or none — and clicking it
  * is a toggle between all and none.
+ *
+ * Search is a separate quick-pick, not a filter on this tree: typing opens a
+ * popup of matching ACCOUNTS only (never a group — a group cannot be found
+ * this way, only browsed to and ticked, which is what its checkbox is for).
+ * Picking one ticks it and closes the popup; the tree underneath stays exactly
+ * as it was, so a search never disturbs manual browsing already done.
  */
 export default function AccountPickTree({ nodes, checked, onChange }: {
   nodes: PickNode[]; checked: Set<string>; onChange: (next: Set<string>) => void;
 }) {
   const [q, setQ] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [rect, setRect] = useState<{ left: number; top: number; width: number } | null>(null);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
 
   const childrenOf = useMemo(() => {
     const m = new Map<string | null, PickNode[]>();
@@ -35,8 +44,6 @@ export default function AccountPickTree({ nodes, checked, onChange }: {
       x.code.localeCompare(y.code, undefined, { numeric: true })));
     return m;
   }, [nodes]);
-
-  const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
   // Every postable account under a node, itself included.
   const leavesUnder = useMemo(() => {
@@ -53,35 +60,55 @@ export default function AccountPickTree({ nodes, checked, onChange }: {
     return m;
   }, [nodes, childrenOf]);
 
-  // A search shows what matched plus its ancestors, so a match keeps its place
-  // in the tree rather than appearing as a loose row.
-  const visible = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return null;
-    const keep = new Set<string>();
-    for (const n of nodes) {
-      if (`${n.code} ${n.name}`.toLowerCase().includes(needle)) {
-        keep.add(n.id);
-        let p = n.parent_id;
-        while (p && !keep.has(p)) { keep.add(p); p = byId.get(p)?.parent_id ?? null; }
-      }
-    }
-    return keep;
-  }, [q, nodes, byId]);
-
   const flat = useMemo(() => {
     const out: { n: PickNode; depth: number }[] = [];
     const walk = (list: PickNode[], depth: number) => {
       for (const n of list) {
-        if (visible && !visible.has(n.id)) continue;
         out.push({ n, depth });
         const kids = childrenOf.get(n.id) ?? [];
-        if ((visible ? true : !collapsed.has(n.id)) && kids.length) walk(kids, depth + 1);
+        if (!collapsed.has(n.id) && kids.length) walk(kids, depth + 1);
       }
     };
     walk(childrenOf.get(null) ?? [], 0);
     return out;
-  }, [childrenOf, collapsed, visible]);
+  }, [childrenOf, collapsed]);
+
+  // Postable accounts only — a group is browsed to, never searched for.
+  const matches = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return [];
+    return nodes.filter((n) => n.is_postable && `${n.code} ${n.name}`.toLowerCase().includes(needle)).slice(0, 50);
+  }, [q, nodes]);
+
+  const place = useCallback(() => {
+    const b = searchBoxRef.current?.getBoundingClientRect();
+    if (!b) return;
+    setRect({ left: b.left, top: b.bottom + 4, width: b.width });
+  }, []);
+  useLayoutEffect(() => { if (matches.length > 0) place(); }, [matches.length, place]);
+  useEffect(() => {
+    if (matches.length === 0) return;
+    const onScroll = () => place();
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!searchBoxRef.current?.contains(t) && !popupRef.current?.contains(t)) setQ("");
+    };
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [matches.length, place]);
+
+  function pick(n: PickNode) {
+    const next = new Set(checked);
+    next.add(n.id);
+    onChange(next);
+    setQ("");
+  }
 
   function toggleNode(n: PickNode) {
     const leaves = leavesUnder.get(n.id) ?? [];
@@ -102,21 +129,34 @@ export default function AccountPickTree({ nodes, checked, onChange }: {
     () => nodes.filter((n) => n.is_postable).map((n) => n.id), [nodes]);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-slate-200 p-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the chart…"
+    <div className="flex h-full min-h-0 flex-col">
+      <div ref={searchBoxRef} className="flex items-center gap-2 border-b border-slate-200 p-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search accounts…"
           className="input flex-1 py-1 text-sm" />
       </div>
+      {matches.length > 0 && rect && (
+        <div ref={popupRef}
+          style={{ position: "fixed", left: rect.left, top: rect.top, width: Math.max(rect.width, 240), zIndex: 60 }}
+          className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+          {matches.map((n) => (
+            <button key={n.id} type="button" onClick={() => pick(n)}
+              className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm hover:bg-brand-50 ${checked.has(n.id) ? "text-brand-700" : "text-slate-700"}`}>
+              <span className="min-w-0 flex-1 truncate">{n.name}</span>
+              {checked.has(n.id) && <span className="shrink-0 text-xs text-brand">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex items-center gap-2 border-b border-slate-100 px-2 py-1 text-xs">
         <button type="button" onClick={() => onChange(new Set(allLeaves))} className="text-brand hover:underline">Select all</button>
         <button type="button" onClick={() => onChange(new Set())} className="text-slate-500 hover:underline">Unselect all</button>
         <span className="ml-auto text-slate-400">{checked.size} selected</span>
       </div>
-      <div className="min-h-[16rem] flex-1 overflow-auto py-1 text-sm">
+      <div className="min-h-0 flex-1 overflow-y-auto py-1 text-sm">
         {flat.map(({ n, depth }) => {
           const kids = childrenOf.get(n.id) ?? [];
           const st = state(n);
-          const open = visible ? true : !collapsed.has(n.id);
+          const open = !collapsed.has(n.id);
           return (
             <div key={n.id} className="flex items-center gap-1 py-0.5 pr-2 hover:bg-brand-50/40"
                  style={{ paddingLeft: 4 + depth * 14 }}>
@@ -134,7 +174,6 @@ export default function AccountPickTree({ nodes, checked, onChange }: {
                 className={`min-w-0 flex-1 cursor-pointer truncate ${n.is_group ? "font-semibold text-slate-700" : "text-slate-600"}`}>
                 {n.name}
               </span>
-              <span className="shrink-0 font-mono text-[10px] text-slate-300">{n.code}</span>
             </div>
           );
         })}
