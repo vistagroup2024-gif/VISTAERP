@@ -224,6 +224,17 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
     const c = currencies.find((x) => x.code === code);
     setFxRate(code === "SAR" ? "" : (c ? String(Number(c.rate_to_base)) : ""));
   }
+  // The Cash / Bank account carries its own currency (a USD bank account is
+  // always USD) — picking it sets the voucher's currency to match, rate and
+  // all, the same as picking it from the dropdown directly. Only while the
+  // currency box itself is still shown (a new, unsaved voucher): an existing
+  // one's currency cannot change, so there is nothing to cascade into.
+  function pickCash(id: string | null) {
+    setCash(id);
+    if (entryId || !id) return;
+    const acct = payAccounts.find((a) => a.id === id);
+    if (acct?.currency && acct.currency !== currency) pickCurrency(acct.currency);
+  }
   const dims = () => ({ cost_center: costCenter || null, tag_area: tagArea || null });
   const fx = currency !== "SAR" ? (calc(fxRate) || 0) : 1;
   const toBase = (n: number) => +(n * fx).toFixed(2);
@@ -622,7 +633,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
             <input type="date" className="input" value={date} disabled={readOnly} onChange={(e) => setDate(e.target.value)} /></div>
           {!isJournal && (
             <div className="md:col-span-1"><label className="label">{isContra ? "From (cash/bank)" : (variant?.cashLabel ?? "Cash / Bank")}</label>
-              <AccountPicker accounts={payAccounts} value={cash} onChange={setCash} placeholder={variant?.cashLabel ?? "Cash / bank…"} /></div>
+              <AccountPicker accounts={payAccounts} value={cash} onChange={pickCash} placeholder={variant?.cashLabel ?? "Cash / bank…"} /></div>
           )}
           {isContra && (
             <div><label className="label">To (cash/bank)</label>

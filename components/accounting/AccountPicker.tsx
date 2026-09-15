@@ -18,7 +18,7 @@ function getRecent(): string[] {
   try { return JSON.parse(localStorage.getItem("acct:recent") || "[]"); } catch { return []; }
 }
 
-export type PickAccount = { id: string; code: string; name: string; subtype: string | null; nature: string };
+export type PickAccount = { id: string; code: string; name: string; subtype: string | null; nature: string; currency?: string | null };
 
 // Keyboard-friendly type-ahead account picker backed by a native datalist so the
 // operator can type a name and pick without leaving the keyboard.
