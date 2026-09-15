@@ -5,10 +5,10 @@ import Icon from "@/components/ui/Icon";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import TripAlerts from "@/components/transport/TripAlerts";
 import { TRIP_ALERT_PERMS } from "@/lib/tripAlerts";
-import { visibleCards, type CardAccess } from "@/lib/dashboardCards";
+import { visibleCards, type CardAccess, type CardKey } from "@/lib/dashboardCards";
 import { getStaffAccess, staffCan, staffLanding, getSessionUser } from "@/lib/staffSession";
 import { redirect } from "next/navigation";
-import { todaySA } from "@/lib/saudiTime";
+import { todaySA, monthStartSA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +45,18 @@ export default async function Dashboard() {
   const noCompany = !(prof as any)?.company_id;
   const m = { ...((metrics as any) ?? {}), ...((moduleMetrics as any) ?? {}) };
 
+  // Sales / Expenses / P&L / Cash Flow show a strong "this month" figure, so
+  // their click-through lands on that same month rather than the
+  // destination report's own default — computed per request, since "this
+  // month" is not something a static href can carry.
+  const period = `from=${monthStartSA()}&to=${todaySA()}`;
+  const hrefOverride: Partial<Record<CardKey, string>> = {
+    cash_flow: `/accounting/ledger?subtype=Cash,Bank&${period}`,
+    sales: `/accounting/profit-loss?${period}`,
+    expenses: `/accounting/profit-loss?${period}`,
+    pnl: `/accounting/profit-loss?${period}`,
+  };
+
   return (
     <div className="space-y-4">
       <RealtimeRefresh tables={["umrah_groups", "brn_inventory", "brn_consumption", "group_brn_allocation"]} />
@@ -79,7 +91,11 @@ export default async function Dashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {cards.map((def) => <DashboardCard key={def.key} def={def} metrics={m} />)}
+          {cards.map((def) => (
+            <DashboardCard key={def.key}
+              def={hrefOverride[def.key] ? { ...def, href: hrefOverride[def.key] } : def}
+              metrics={m} />
+          ))}
         </div>
       )}
     </div>

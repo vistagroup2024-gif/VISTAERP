@@ -30,10 +30,10 @@ export interface CardDef {
 
 export const DASHBOARD_CARDS: CardDef[] = [
   { key: "cash_bank", label: "Cash & Bank",
-    hint: "Balance across every cash and bank account", href: "/accounting/ledger" },
+    hint: "Balance across every cash and bank account", href: "/accounting/ledger?subtype=Cash,Bank" },
   { key: "cash_flow", label: "Cash Flow",
     hint: "What moved through cash and bank — in, out and net, month and year. The Cash & Bank card shows the closing balance; this shows the movement",
-    href: "/accounting/ledger" },
+    href: "/accounting/ledger?subtype=Cash,Bank" },
   { key: "balance_sheet", label: "Balance Sheet",
     hint: "Assets, liabilities, equity and the retained result, with the difference that says whether the books balance",
     href: "/accounting/balance-sheet" },
@@ -48,7 +48,7 @@ export const DASHBOARD_CARDS: CardDef[] = [
     hint: "Income less expense, month and year", href: "/accounting/profit-loss" },
   { key: "car_balances", label: "Car Customer Balances",
     hint: "Everything a car customer owes — instalments, the invoice advance AND the monthly service charge. Due (its date has arrived), Overdue (its month has ended), Total of the two, the customers' ledger balance, and what has been collected",
-    href: "/car-sales/contracts" },
+    href: "/car-sales/reports/outstanding" },
   { key: "pending_sales_orders", label: "Pending Sales Orders",
     hint: "Sale Orders not yet turned into an invoice or a purchase order", href: "/accounting/sales/orders" },
   { key: "pending_purchase_orders", label: "Pending Purchase Orders",

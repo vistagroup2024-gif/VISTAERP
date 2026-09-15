@@ -4,62 +4,67 @@ import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import { sar } from "../../lib";
-import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
+// This is the dashboard's Car Customer Balances card, per customer instead of
+// summed. car_customer_balances() is car_money's (dashboard_metrics()) own
+// per-customer breakdown — same three sources (instalments, the invoice
+// advance, the monthly service charge), same disjoint Due/Overdue split, same
+// ledger balance — so a row here always foots to what the card shows.
+// Building this report's own totals from car_installments alone, the way it
+// did before, is what let it disagree with the card in the first place.
 export default async function OutstandingReport() {
   await guardStaffPage("carsales.reports");
   const supabase = createClient();
-  const { data } = await supabase.from("car_contracts")
-    .select("id, contract_no, sale_price, net_payable, advance, status, customer:customer_id(name), vehicle:vehicle_id(make, model, plate_no), car_installments(amount, paid_amount, due_date)")
-    .neq("status", "cancelled").order("created_at", { ascending: false });
-  const today = todaySA();
-  const rows = (data ?? []).map((c: any) => {
-    const insts = c.car_installments ?? [];
-    const paid = insts.reduce((a: number, i: any) => a + Number(i.paid_amount || 0), 0);
-    const due = insts.filter((i: any) => i.due_date <= today).reduce((a: number, i: any) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
-    const overdue = insts.filter((i: any) => i.due_date < today).reduce((a: number, i: any) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
-    return {
-      id: c.id, contract_no: c.contract_no, customer: c.customer?.name ?? "—",
-      vehicle: [c.vehicle?.make, c.vehicle?.model, c.vehicle?.plate_no].filter(Boolean).join(" "),
-      total: Number(c.net_payable || 0), advance: Number(c.advance || 0), paid,
-      outstanding: Number(c.net_payable || 0) - Number(c.advance || 0) - paid, due, overdue,
-    };
-  }).filter((r) => r.outstanding > 0.005);
-  const t = rows.reduce((a, r) => ({ total: a.total + r.total, paid: a.paid + r.paid, outstanding: a.outstanding + r.outstanding, due: a.due + r.due, overdue: a.overdue + r.overdue }), { total: 0, paid: 0, outstanding: 0, due: 0, overdue: 0 });
+  const { data } = await supabase.rpc("car_customer_balances");
+  const rows = ((data ?? []) as any[]).map((r) => ({
+    id: r.customer_id, name: r.name ?? "—", phone: r.phone ?? "—",
+    cars: Number(r.cars || 0), value: Number(r.value || 0), advance: Number(r.advance || 0),
+    due: Number(r.due || 0), overdue: Number(r.overdue || 0), total_due: Number(r.total_due || 0),
+    collected: Number(r.collected || 0), balance: Number(r.balance || 0),
+  })).filter((r) => Math.abs(r.balance) > 0.005 || r.total_due > 0.005);
+  const t = rows.reduce((a, r) => ({
+    value: a.value + r.value, due: a.due + r.due, overdue: a.overdue + r.overdue,
+    total_due: a.total_due + r.total_due, collected: a.collected + r.collected, balance: a.balance + r.balance,
+  }), { value: 0, due: 0, overdue: 0, total_due: 0, collected: 0, balance: 0 });
 
   return (
     <div>
-      <PageHeader title="Outstanding Details"><PrintButton /></PageHeader>
+      <PageHeader title="Outstanding Details" subtitle="Everything a car customer owes — instalments, the invoice advance and the monthly service charge, the same as the dashboard's Car Customer Balances card."><PrintButton /></PageHeader>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[820px]">
+        <table className="w-full min-w-[900px]">
           <thead className="bg-slate-50"><tr>
-            <th className="th">Contract</th><th className="th">Customer</th><th className="th">Vehicle</th>
-            <th className="th text-right">Contract</th><th className="th text-right">Paid</th>
-            <th className="th text-right">Outstanding</th><th className="th text-right">Due</th><th className="th text-right">Overdue</th>
+            <th className="th">Customer</th><th className="th">Mobile</th><th className="th text-right">Cars</th>
+            <th className="th text-right">Contract Value</th>
+            <th className="th text-right">Due</th><th className="th text-right">Overdue</th>
+            <th className="th text-right">Total Due</th><th className="th text-right">Collected</th>
+            <th className="th text-right">Ledger Balance</th>
           </tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-t border-slate-100">
-                <td className="td"><Link href={`/car-sales/contracts/${r.id}`} className="text-brand hover:underline">{r.contract_no}</Link></td>
-                <td className="td">{r.customer}</td><td className="td">{r.vehicle}</td>
-                <td className="td text-right tabular-nums">{sar(r.total)}</td>
-                <td className="td text-right tabular-nums">{sar(r.paid)}</td>
-                <td className="td text-right tabular-nums font-medium">{sar(r.outstanding)}</td>
-                <td className="td text-right tabular-nums">{sar(r.due)}</td>
+                <td className="td"><Link href={`/car-sales/customers/${r.id}`} className="text-brand hover:underline">{r.name}</Link></td>
+                <td className="td">{r.phone}</td>
+                <td className="td text-right">{r.cars}</td>
+                <td className="td text-right tabular-nums">{sar(r.value)}</td>
+                <td className="td text-right tabular-nums">{r.due > 0 ? <span className="text-amber-700">{sar(r.due)}</span> : "—"}</td>
                 <td className="td text-right tabular-nums">{r.overdue > 0 ? <span className="text-red-600">{sar(r.overdue)}</span> : "—"}</td>
+                <td className="td text-right tabular-nums font-medium">{sar(r.total_due)}</td>
+                <td className="td text-right tabular-nums">{sar(r.collected)}</td>
+                <td className="td text-right tabular-nums font-medium">{sar(r.balance)}</td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>No outstanding balances.</td></tr>}
+            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>No outstanding balances.</td></tr>}
           </tbody>
           {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
             <td className="td" colSpan={3}>Total ({rows.length})</td>
-            <td className="td text-right tabular-nums">{sar(t.total)}</td>
-            <td className="td text-right tabular-nums">{sar(t.paid)}</td>
-            <td className="td text-right tabular-nums">{sar(t.outstanding)}</td>
+            <td className="td text-right tabular-nums">{sar(t.value)}</td>
             <td className="td text-right tabular-nums">{sar(t.due)}</td>
             <td className="td text-right tabular-nums">{sar(t.overdue)}</td>
+            <td className="td text-right tabular-nums">{sar(t.total_due)}</td>
+            <td className="td text-right tabular-nums">{sar(t.collected)}</td>
+            <td className="td text-right tabular-nums">{sar(t.balance)}</td>
           </tr></tfoot>}
         </table>
       </div>

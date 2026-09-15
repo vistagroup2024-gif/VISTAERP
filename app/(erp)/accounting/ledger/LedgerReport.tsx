@@ -65,9 +65,11 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
 }) {
   const supabase = createClient();
   // Trial Balance, Aging and the chart itself link straight here with one
-  // account in the URL. That has to keep working: land on it, already run.
-  const [checked, setChecked] = useState<Set<string>>(
-    () => new Set(initialAccount ? [initialAccount] : []));
+  // account in the URL; a dashboard card links with several, comma-joined
+  // (its subtype resolved account-by-account on the page). Both have to keep
+  // working: land on it, already run.
+  const initialIds = useMemo(() => (initialAccount ? initialAccount.split(",").filter(Boolean) : []), [initialAccount]);
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(initialIds));
   const [from, setFrom] = useState(initialFrom || `${y}-01-01`);
   const [to, setTo] = useState(initialTo || todaySA());
   const [onlyBal, setOnlyBal] = useState(true);
@@ -169,12 +171,12 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
   // Arriving from a link. Once only — after that the buttons are in charge.
   const arrived = useRef(false);
   useEffect(() => {
-    if (arrived.current || !initialAccount) return;
+    if (arrived.current || initialIds.length === 0) return;
     arrived.current = true;
-    // One account asked for by name is always wanted, empty or not.
-    runWith([initialAccount], { onlyBal: false });
+    // Account(s) asked for by name are always wanted, empty or not.
+    runWith(initialIds, { onlyBal: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialAccount]);
+  }, [initialIds]);
 
   // Excel opens a CSV without being asked to import anything, which is what
   // "Export" meant on the old dialog. A BOM so Arabic account names survive.
