@@ -806,57 +806,72 @@ ledger, not sale less what was bought.
 
 ## Transport Costing & Pricing is a separate module, built entirely from data the ERP already has
 
-`/transport/costing` (migrations 389–390) answers "what does this trip actually
-cost, and what should we charge for it" from the same vehicles, drivers,
-routes, trips and expenses every other Transport screen uses — nothing about
-the existing Transport module changed to build it, and it creates no
-duplicate vehicle, route, driver or expense record.
+`/transport/costing` answers "what does this trip actually cost, and what
+should we charge for it" from data every other screen already produces —
+posted vouchers, the Route Master, trips, the Tag Area master — and creates
+no duplicate vehicle, route, or expense record.
 
-**What "owned" means was already in the schema, not invented for this.**
-Every completed trip — outsourced included — carries a `vehicle_id`, because
-that column names the CATEGORY of vehicle the booking needed, not who
-actually drove it. `transport_vehicle_cost_model()` — the one routine
-everything else in the module calls, so fuel, driver and overhead cost are
-never re-derived twice — only ever reads a vehicle's own operating history
-off `is_outsourced = false` completed trips. An outsourced trip's cost is
-its `vendor_cost`, full stop; it never touches that vehicle's fuel, driver,
-depreciation or overhead lines, matching how Route Profitability blends an
-owned leg's own cost/KM against an outsourced leg's real vendor cost rather
-than pretending one model fits both.
+**A vehicle, for costing, is a plate — not the booking category.**
+`transport_vehicles` (Starex, Staria, Camry, Bus…) names the CATEGORY a
+booking asks for, fulfilled by whichever physical vehicle or vendor is
+assigned; it was never a list of physical assets, so the first cut of this
+module (389) built cost profiles on it and got the shape wrong. The real
+owned fleet is the leaves under Accounting → Tag Areas → **VEHICLES →
+VISTA TRANSPORT** — four plates today (`STAREX (ATA 4086)`, `STAREX (KDA
+6681)`, `STARIA (STA 6390)`, `STARIA (LUXURY)`), imported from the same
+tag-area tree that names every other dimension. `transport_vista_vehicles()`
+is what the module's vehicle pickers read (391), everywhere `transport_vehicles`
+was read before; `transport_vehicle_cost_model(p_company, p_tag_area_id, …)`
+takes one of these ids, not a `transport_vehicles` id, and refuses anything
+outside that group.
 
-**A driver cost is a personal recurring cost, not whoever is named on an
-expense row.** `transport_expenses` already had `vehicle_id` and `driver_id`,
-so this reuses it rather than adding a driver-expense table — but a row
-carrying BOTH is a vehicle cost that happens to note who incurred it (a
-driver filling the tank), not a salary or accommodation charge, and 390 is
-the trap to avoid re-introducing: summing every expense tagged to a vehicle's
-CURRENT driver, instead of only the driver-only rows (no `vehicle_id`), let a
-fuel receipt for one vehicle silently inflate a different vehicle's driver
-line because the same person happened to be tagged on both. The driver
-bucket reads only rows with no vehicle attached.
+**A plate's cost is exactly what was posted against it — nothing inferred.**
+`transport_vehicle_cost_model()` sums every POSTED expense-type account's
+journal line whose `tag_area` names this plate, grouped by the account
+itself: Car Petrol, Vehicle Maintenance, Vehicle Insurance, even a driver's
+iqama fee if the business chooses to tag that voucher line to this van. The
+chart of accounts IS the breakdown now — there is no fixed fuel/oil/tyre/
+driver taxonomy left to get wrong, and the whole class of bug 390 fixed (a
+fuel receipt tagged to the wrong vehicle's driver double-counting) cannot
+recur, because there is no more inference: a cost belongs to whichever tag
+area a human actually chose on the voucher line. Depreciation and Fleet
+Overhead are the only two "modeled" lines left, because neither has a
+cash-posting equivalent in the ledger; depreciation still comes from a
+per-plate Vehicle Cost Profile (`transport_vehicle_profiles`, keyed on the
+tag area id, edited on the module's own Vehicle Cost Profiles tab — neither
+the Vehicles master screen nor the Tag Area master itself is touched).
 
-**Fleet overhead has exactly one source**: `transport_expenses` rows tagged
-to neither a vehicle nor a driver, category `admin_overhead` — nothing
-outside Transport is ever swept in, which is the module's own explicit
-promise to itself. `transport_vehicle_overhead_share()` splits that pool five
-ways (equal / by KM / by revenue / by active days / manual, with "by KM" and
-"by vehicle utilization" being the same measure under two names, not two
-different numbers) and is the only place any of them are computed.
+**Revenue has a real gap this module does not paper over.** `transport_trips`
+has never recorded which specific plate ran a trip, only the category
+booked, so cost (exact, from vouchers) and revenue/KM (from trips) cannot be
+joined on `vehicle_id`. Asked directly, the business chose to close this by
+registering each plate against the driver currently driving it —
+`transport_drivers.vista_vehicle_reg` (391), set from Transport → Drivers →
+Registration No. (Costing plate), picked from the same VISTA TRANSPORT list.
+A trip's `driver_id` is matched back to a plate through that field. This is
+an approximation for a driver who changes plates mid-period, not a per-trip
+record, and the engine says so rather than hiding it:
+`vehicle_match_source` reads `driver_registration_current` or
+`no_driver_registered`, a plate with no driver registered gets an explicit
+NO DRIVER REGISTERED warning in the Calculator, and Route Profitability
+counts a trip whose driver has no registered plate in revenue but flags it
+under `unmatched_owned_trips` rather than guessing which vehicle it cost.
 
-**Nothing is invented where the history is not there.** Fuel, oil and tyre
-cost each prefer actual expense ÷ actual KM over an assumed rate, falling
-back to a configured lifecycle model (cost ÷ life-KM, set per vehicle on the
-module's own Vehicle Cost Profile tab — the Vehicles master screen is
-untouched) and finally to `insufficient_data`, shown as that in the
-breakdown rather than a fabricated zero-looking-like-a-real-number. A
-`confidence` score (HIGH ≥ 12 months of that vehicle's own history, MEDIUM
-3–11, LOW under 3) is measured from actual data span, bounded by the period
-asked for — not the size of the window requested — so a 12-month query
-against six weeks of real history reads LOW, honestly. `transport_expenses`
-gained new free-text categories for this (tyre, oil_service, insurance,
-registration, nusuk, driver_salary/accommodation/iqama/insurance,
-admin_overhead) alongside the original six, unchanged, on the same Expenses
-screen.
+**Fleet overhead has exactly one source, unchanged**: `transport_expenses`
+rows tagged to neither a vehicle nor a driver, category `admin_overhead` —
+nothing outside Transport is ever swept in. `transport_vehicle_overhead_share()`
+splits that pool five ways (equal / by KM / by revenue / by active days /
+manual, with "by KM" and "by vehicle utilization" being the same measure
+under two names, not two different numbers); only which vehicles it is
+split across moved, from the 8 categories to the 4 plates.
+
+**Nothing is invented where the history is not there.** Direct cost with no
+voucher posted yet reads `insufficient_data` rather than a fabricated
+zero-looking-like-a-real-number. A `confidence` score (HIGH ≥ 12 months of
+that plate's own matched-trip history, MEDIUM 3–11, LOW under 3) is measured
+from actual data span, bounded by the period asked for — not the size of the
+window requested — so a 12-month query against six weeks of real history
+reads LOW, honestly.
 
 **Margin and markup are never the same number.** `transport_costing_price_for`
 computes margin as `cost / (1 - m/100)` and markup as `cost * (1 + m/100)`,

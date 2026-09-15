@@ -10,10 +10,13 @@ import SearchSelect from "@/components/ui/SearchSelect";
 interface Ref { id: string; name: string }
 interface Expense { id: string; category: string; amount: number; currency: string; spent_on: string; vehicle_id: string | null; driver_id: string | null; note: string | null }
 
-// The original six, unchanged, then the categories the Transport Costing
-// module reads (driver-tagged rows use driver_id with no vehicle_id;
-// admin_overhead is entered with neither, and is the ONLY input the fleet
-// overhead allocator reads — see CLAUDE.md).
+// The original six, unchanged, then a few more added for general recording.
+// The Transport Costing module (migration 391) no longer reads any of the
+// vehicle/driver-tagged categories here — a plate's cost is now whatever
+// posted accounting voucher is tagged to it (Tag Area = the plate, under
+// Accounting -> Tag Areas -> VEHICLES -> VISTA TRANSPORT). Only
+// "admin_overhead", entered with neither a vehicle nor a driver, still feeds
+// the fleet overhead allocator — see CLAUDE.md.
 const CATS = [
   "fuel", "toll", "parking", "maintenance", "fine", "other",
   "tyre", "oil_service", "insurance", "registration", "nusuk",

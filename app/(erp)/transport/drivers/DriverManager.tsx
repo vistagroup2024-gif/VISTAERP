@@ -9,13 +9,13 @@ import SearchSelect from "@/components/ui/SearchSelect";
 interface Vehicle { id: string; name: string }
 interface Driver {
   id: string; name: string; iqama: string | null; license_no: string | null; tafweej_reg?: string | null; mobile: string | null;
-  vehicle_id: string | null; languages: string[]; status: string; emergency_contact: string | null;
+  vehicle_id: string | null; vista_vehicle_reg?: string | null; languages: string[]; status: string; emergency_contact: string | null;
   iqama_expiry: string | null; license_expiry: string | null; nusuk_registered?: boolean; base_city?: string | null;
   username?: string | null; portal_enabled?: boolean;
 }
 
 const BLANK = {
-  name: "", iqama: "", license_no: "", tafweej_reg: "", mobile: "", vehicle_id: "", languages: "", status: "active",
+  name: "", iqama: "", license_no: "", tafweej_reg: "", mobile: "", vehicle_id: "", vista_vehicle_reg: "", languages: "", status: "active",
   emergency_contact: "", iqama_expiry: "", license_expiry: "", nusuk_registered: false, base_city: "",
   username: "", portal_enabled: false, password: "",
 };
@@ -28,7 +28,7 @@ function expiringSoon(d: string | null) {
   return days <= 30;
 }
 
-export default function DriverManager({ initial, vehicles }: { initial: Driver[]; vehicles: Vehicle[] }) {
+export default function DriverManager({ initial, vehicles, vistaVehicles }: { initial: Driver[]; vehicles: Vehicle[]; vistaVehicles: Vehicle[] }) {
   const router = useRouter();
   const supabase = createClient();
   const vName = new Map(vehicles.map((v) => [v.id, v.name]));
@@ -44,6 +44,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       name: f.name.trim(), iqama: f.iqama.trim() || null, license_no: f.license_no.trim() || null,
       tafweej_reg: (f.tafweej_reg ?? "").trim() || null,
       mobile: f.mobile.trim() || null, vehicle_id: f.vehicle_id || null,
+      vista_vehicle_reg: (f.vista_vehicle_reg ?? "").trim() || null,
       languages: f.languages ? String(f.languages).split(",").map((s: string) => s.trim()).filter(Boolean) : [],
       status: f.status, emergency_contact: f.emergency_contact.trim() || null,
       iqama_expiry: f.iqama_expiry || null, license_expiry: f.license_expiry || null,
@@ -71,7 +72,7 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
     setEditId(d.id);
     setEdit({
       name: d.name, iqama: d.iqama ?? "", license_no: d.license_no ?? "", tafweej_reg: d.tafweej_reg ?? "", mobile: d.mobile ?? "", base_city: d.base_city ?? "",
-      vehicle_id: d.vehicle_id ?? "", languages: (d.languages ?? []).join(", "), status: d.status,
+      vehicle_id: d.vehicle_id ?? "", vista_vehicle_reg: d.vista_vehicle_reg ?? "", languages: (d.languages ?? []).join(", "), status: d.status,
       emergency_contact: d.emergency_contact ?? "", iqama_expiry: d.iqama_expiry ?? "", license_expiry: d.license_expiry ?? "",
       nusuk_registered: !!d.nusuk_registered, username: d.username ?? "", portal_enabled: !!d.portal_enabled, password: "",
     });
@@ -113,6 +114,12 @@ export default function DriverManager({ initial, vehicles }: { initial: Driver[]
       <div><label className="label">Mobile</label><input className="input" value={f.mobile} onChange={(e) => set({ ...f, mobile: e.target.value })} /></div>
       <div><label className="label">Vehicle</label>
         <SearchSelect value={f.vehicle_id} onChange={(v) => set({ ...f, vehicle_id: v })} placeholder="— none —" options={vehicles.map((v) => ({ value: v.id, label: v.name }))} /></div>
+      {/* Which physical VISTA TRANSPORT plate this driver currently drives.
+          The Costing module matches a completed trip back to a plate through
+          this field, since transport_trips only ever carries driver_id. */}
+      <div><label className="label">Registration No. (Costing plate)</label>
+        <SearchSelect value={f.vista_vehicle_reg} onChange={(v) => set({ ...f, vista_vehicle_reg: v })} placeholder="— not set —"
+          options={vistaVehicles.map((v) => ({ value: v.name, label: v.name }))} /></div>
       <div><label className="label">Base City</label><input className="input" placeholder="Makkah / Madinah / Jeddah" value={f.base_city} onChange={(e) => set({ ...f, base_city: e.target.value })} title="Home base — used to locate the driver for auto-assign when there is no recent trip or movement" /></div>
       <div><label className="label">Languages (comma)</label><input className="input" placeholder="Arabic, Urdu, English" value={f.languages} onChange={(e) => set({ ...f, languages: e.target.value })} /></div>
       <div><label className="label">Status</label>

@@ -7,12 +7,12 @@ import { todaySA } from "@/lib/saudiTime";
 import SearchSelect from "@/components/ui/SearchSelect";
 
 type Vehicle = {
-  id: string; name: string; category: string | null; vehicle_type: string | null;
-  seating_capacity: number | null; is_active: boolean;
+  id: string; name: string;
   purchase_price: number | null; purchase_date: string | null; model_year: number | null;
   expected_life_km: number | null; expected_life_years: number | null; expected_resale_value: number | null;
   depreciation_enabled: boolean; tyre_cost: number | null; tyre_life_km: number | null;
   oil_change_cost: number | null; oil_change_interval_km: number | null; overhead_manual_monthly: number | null;
+  driver_name: string | null; driver_matched: boolean;
 };
 type Route = { id: string; name: string; from_location: string | null; to_location: string | null; distance_km: number | null };
 
@@ -172,7 +172,7 @@ function CalculatorTab({ vehicles, routes, period, setPeriod, from, setFrom, to,
     for (const [k, v] of Object.entries(ov)) if (v !== "" && v !== undefined) overrides[k] = k === "overhead_method" ? v : Number(v);
     if (manualEmpty !== "") overrides.return_pct_override = manualEmpty;
     const { data, error: err } = await supabase.rpc("transport_costing_calculate", {
-      p_company: COMPANY_ID, p_vehicle_id: vehicleId, p_route_id: routeId,
+      p_company: COMPANY_ID, p_tag_area_id: vehicleId, p_route_id: routeId,
       p_period: period, p_period_from: period === "custom" ? from : null, p_period_to: period === "custom" ? to : null,
       p_trip_type: tripType, p_return_condition: returnCond, p_overrides: overrides,
     });
@@ -186,7 +186,7 @@ function CalculatorTab({ vehicles, routes, period, setPeriod, from, setFrom, to,
     if (!result) return;
     setBusy(true); setError(null);
     const { error: err } = await supabase.rpc("transport_costing_snapshot_save", {
-      p_label: `${result.vehicle?.name ?? ""} — ${result.route?.name ?? ""}`, p_vehicle_id: vehicleId, p_route_id: routeId,
+      p_label: `${result.vehicle?.name ?? ""} — ${result.route?.name ?? ""}`, p_tag_area_id: vehicleId, p_route_id: routeId,
       p_trip_type: tripType, p_return_condition: returnCond, p_period_label: period,
       p_period_from: result.period?.from, p_period_to: result.period?.to,
       p_result: result, p_selling_price: sellPrice ? Number(sellPrice) : null, p_overrides: result.overrides_applied ?? {},
@@ -211,7 +211,7 @@ function CalculatorTab({ vehicles, routes, period, setPeriod, from, setFrom, to,
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div><label className="label">Vehicle</label>
             <SearchSelect value={vehicleId} onChange={setVehicleId} placeholder="Choose a vehicle…"
-              options={vehicles.map((v: Vehicle) => ({ value: v.id, label: `${v.name}${v.category ? " (" + v.category + ")" : ""}` }))} /></div>
+              options={vehicles.map((v: Vehicle) => ({ value: v.id, label: v.driver_name ? `${v.name} — ${v.driver_name}` : v.name }))} /></div>
           <div><label className="label">Route</label>
             <SearchSelect value={routeId} onChange={setRouteId} placeholder="Choose a route…"
               options={routes.map((r: Route) => ({ value: r.id, label: `${r.name}${r.distance_km ? " — " + r.distance_km + " km" : ""}` }))} /></div>
@@ -387,7 +387,7 @@ function VehiclePerfTab({ vehicles, period, setPeriod, from, setFrom, to, setTo,
     if (!vehicleId) return;
     setBusy(true); setError(null);
     const { data, error: err } = await supabase.rpc("transport_costing_vehicle_performance", {
-      p_company: COMPANY_ID, p_vehicle_id: vehicleId, p_period: period,
+      p_company: COMPANY_ID, p_tag_area_id: vehicleId, p_period: period,
       p_period_from: period === "custom" ? from : null, p_period_to: period === "custom" ? to : null,
     });
     setBusy(false); if (err) return setError(err.message); setD(data);
@@ -629,7 +629,7 @@ function ProfileRow({ v, open, onToggle, supabase }: { v: Vehicle; open: boolean
     setBusy(true); setMsg(null);
     const n = (x: any) => (x === "" || x === null || x === undefined ? null : Number(x));
     const { error } = await supabase.rpc("transport_vehicle_cost_profile_save", {
-      p_vehicle_id: v.id, p_purchase_price: n(f.purchase_price), p_purchase_date: f.purchase_date || null,
+      p_tag_area_id: v.id, p_purchase_price: n(f.purchase_price), p_purchase_date: f.purchase_date || null,
       p_model_year: n(f.model_year), p_expected_life_km: n(f.expected_life_km), p_expected_life_years: n(f.expected_life_years),
       p_expected_resale_value: n(f.expected_resale_value), p_depreciation_enabled: f.depreciation_enabled,
       p_tyre_cost: n(f.tyre_cost), p_tyre_life_km: n(f.tyre_life_km), p_oil_change_cost: n(f.oil_change_cost),
@@ -646,7 +646,7 @@ function ProfileRow({ v, open, onToggle, supabase }: { v: Vehicle; open: boolean
   return (
     <div className="card">
       <button onClick={onToggle} className="flex w-full items-center justify-between text-left">
-        <span className="font-medium text-slate-700">{v.name}{v.category ? ` — ${v.category}` : ""}</span>
+        <span className="font-medium text-slate-700">{v.name}{v.driver_name ? ` — ${v.driver_name}` : " — no driver registered"}</span>
         <span className="text-sm text-slate-400">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
