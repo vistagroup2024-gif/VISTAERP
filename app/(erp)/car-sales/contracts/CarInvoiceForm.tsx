@@ -371,16 +371,22 @@ export default function CarInvoiceForm({ existing, installments = [], customers,
             <Field label="Net Payable (auto)">
               <input className="input bg-slate-50 font-medium" value={netPayable.toFixed(2)} readOnly tabIndex={-1} />
             </Field>
-            <Field label="Advance (SAR)"><input type="number" step="0.01" className="input" value={h.advance} onChange={(e) => setH({ ...h, advance: e.target.value })} /></Field>
-            {/* PAID / PARTIAL PAID is derived from the Car Receipts, not chosen.
-                The receipts already say which it is, and a label anyone could
-                set would be the half that lies. */}
-            <Field label="Advance Status">
-              <div className={`input flex items-center font-medium ${
-                advStatus === "paid" ? "bg-emerald-50 text-emerald-700"
-                : advStatus === "partial" ? "bg-amber-50 text-amber-700"
-                : "bg-red-50 text-red-700"}`}>
-                {advanceAsked <= 0 ? "No advance" : advStatus === "paid" ? "Paid" : advStatus === "partial" ? "Partial Paid" : "Unpaid"}
+            {/* PAID / PARTIAL PAID is derived from the Car Receipts, not
+                chosen — the receipts already say which it is, and a label
+                anyone could set would be the half that lies. Shown as a
+                badge beside the amount, the way a Visa Group's Masar badge
+                sits beside its number, rather than its own field. */}
+            <Field label="Advance (SAR)">
+              <div className="flex items-center gap-2">
+                <input type="number" step="0.01" className="input" value={h.advance} onChange={(e) => setH({ ...h, advance: e.target.value })} />
+                {advanceAsked > 0 && (
+                  <span className={`badge shrink-0 ${
+                    advStatus === "paid" ? "bg-emerald-100 text-emerald-700"
+                    : advStatus === "partial" ? "bg-amber-100 text-amber-700"
+                    : "bg-red-100 text-red-700"}`}>
+                    {advStatus === "paid" ? "Paid" : advStatus === "partial" ? "Partial Paid" : "Unpaid"}
+                  </span>
+                )}
               </div>
             </Field>
             {/* The due date is when the advance is EXPECTED. Once it is fully
