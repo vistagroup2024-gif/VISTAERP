@@ -268,6 +268,11 @@ function CalculatorTab({ vehicles, routes, period, setPeriod, from, setFrom, to,
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Estimated Trip Cost</div>
               <div className="text-3xl font-bold text-slate-800">{sar(result.trip_cost)}</div>
               <div className="text-sm text-slate-500">Cost / KM: {cpk(result.cost_per_km)} · {km2(result.km?.total_km)} total{result.km?.extra_return_km > 0 ? ` (incl. ${km2(result.km.extra_return_km)} expected empty return)` : ""}</div>
+              {result.monthly_km > 0 && (
+                <div className="text-xs text-slate-400" title="Cost/KM divides this period's total cost by this vehicle's actual driven KM — booked (paying) trips plus estimated empty repositioning between one drop-off and the next pickup, resolved through the Route Master. A gap that can't be matched to a known city pair adds nothing rather than a guess.">
+                  Vehicle KM this period: {km2(result.monthly_km)} = {km2(result.monthly_km_booked)} booked + {km2(result.monthly_km_deadhead_estimated)} estimated deadhead
+                </div>
+              )}
             </div>
             <ConfidenceBadge c={result.confidence} />
             <span className="text-xs text-slate-400">Period: {PERIODS.find((p) => p[0] === period)?.[1]} ({dateStr(result.period?.from)} – {dateStr(result.period?.to)})</span>

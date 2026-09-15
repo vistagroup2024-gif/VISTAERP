@@ -900,6 +900,38 @@ trip that is known to come back with a fare.
 A **Costing Snapshot** freezes the numbers a calculation actually used,
 because the ERP data behind it moves.
 
+**The KM a vehicle actually drives is more than its booked trips.**
+`transport_trips` can only ever hold a real, paid booking — `booking_id` and
+`sell_rate` are both `NOT NULL` — so there is no row anywhere for a driver
+repositioning empty between one drop-off and the next pickup, even though
+that driving is real and the fuel for it is already in Direct Expenses.
+`transport_deadhead_km()` (393) is the distance twin of
+`transport_deadhead_min()` — already used for scheduling feasibility, e.g.
+388's Jeddah Airport grace — resolving two free-text locations to cities via
+`loc_city()` and looking the gap up in the Route Master, city pair either
+direction, falling back to `transport_city_distance()`. `transport_driver_km()`
+sums a driver's booked KM plus this estimated deadhead between consecutive
+completed trips, and is the ONE place both `transport_vehicle_cost_model()`
+(the Calculator's cost/km) and `transport_vehicle_overhead_share()`'s `by_km`
+method read from, so "how far did this vehicle go" means the same thing in
+both — the alternative, each re-deriving it, is exactly the "two screens
+disagree" trap this file keeps finding.
+
+This is a floor, not a true odometer reading: `pickup_location` is almost
+always a clean "Jeddah Airport", but `drop_location` is usually a specific
+hotel name, and `loc_city()`'s keyword match only resolves it when that name
+happens to contain the city word — a gap it cannot resolve to a real city
+pair adds 0, not a guess, so the estimate reliably catches genuine
+city-to-city repositioning but undercounts same-city moves between two
+named hotels. `transport_driver_km()` reports how many gaps it considered
+and how many it could not resolve, so that undercount stays visible instead
+of being silently absorbed into the total. Verified against a real case:
+STARIA LUXURY (SXA 7141) driven by Rahat Nazar, August 2026 — 65 booked
+trips = 7,009 km, plus 1,440 km of resolved deadhead (mostly the same
+Jeddah Airport ↔ Makkah gap the business asked about), moving `monthly_km`
+to 8,449 and `cost_per_km` down from 1.4250 to 1.1822 — same real cost,
+spread over the vehicle's real distance instead of only its billable one.
+
 ## The voucher is typed through
 
 `lib/focusNext.ts`: picking an account moves the cursor to the amount, and
