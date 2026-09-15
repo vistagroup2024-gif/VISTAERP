@@ -322,8 +322,8 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
     if (isContra) {
       const amt = calc(amount);
       return [
-        { account_id: cash, debit: amt, credit: 0, description: narration || null },
-        { account_id: toAcct, debit: 0, credit: amt, description: narration || null },
+        { account_id: cash, debit: amt, credit: 0, description: narration || null, ...dims() },
+        { account_id: toAcct, debit: 0, credit: amt, description: narration || null, ...dims() },
       ];
     }
     const total = lines.reduce((s, l) => s + (calc(l.amount) || 0), 0);
@@ -332,8 +332,9 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
       debit: kind === "payment" ? (calc(l.amount) || 0) : 0,
       credit: kind === "receipt" ? (calc(l.amount) || 0) : 0,
       description: l.remarks || null,
+      ...dims(),
     }));
-    const bank = { account_id: cash, debit: kind === "receipt" ? total : 0, credit: kind === "payment" ? total : 0, description: narration || null };
+    const bank = { account_id: cash, debit: kind === "receipt" ? total : 0, credit: kind === "payment" ? total : 0, description: narration || null, ...dims() };
     return [bank, ...partyLines];
   }
 
