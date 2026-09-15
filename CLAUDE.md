@@ -792,6 +792,20 @@ every car posting since 385 would have failed. A rehearsal that exercises the
 routine is the only thing that catches it; a `create function` that succeeds
 proves nothing.
 
+It happened again in 391, the same shape exactly: `transport_vehicle_cost_model`
+declared a loop variable `r` for its accounts loop while a `transport_routes r`
+join sat a few lines above in the same function — plpgsql read `r.distance_km`
+there as the not-yet-assigned record `r`, not the joined route, and raised
+"record "r" is not assigned yet" only when a plate actually had a driver
+matched. 391's own self-check ran against a plate with no driver registered,
+which skips that query entirely — passing proves the untested branch works,
+nothing about the one that was never exercised. **A rehearsal is only as good
+as the state it runs against**: cover the branch that matters (here, a real
+driver-matched plate), not just whichever one happens to be easiest to set up
+live. Fixed in 392 by renaming the loop variable to `acct_row` — a plpgsql
+variable should never share a name with a table alias used anywhere else in
+the same function, not just nearby.
+
 ## A cost is not an expense
 
 The subtype **`COGS`** on an expense-type account (on the account editor) is
