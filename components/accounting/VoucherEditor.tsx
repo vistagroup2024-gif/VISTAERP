@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import type { DocRight } from "@/lib/docRights";
 import { COMPANY_ID, dateStr } from "@/lib/format";
 import AccountPicker, { type PickAccount } from "./AccountPicker";
-import AdvanceReceiptForm from "./AdvanceReceiptForm";
 import SearchSelect from "@/components/ui/SearchSelect";
 import { todaySA } from "@/lib/saudiTime";
 import { enterMovesOn } from "@/lib/focusNext";
@@ -60,11 +59,19 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
     [cashBank, variant?.cashMatch]);
 
   /* Money coming in has one door. A car advance is a receipt like any other —
-     it just names a Sale Order instead of a ledger account — so it is a tab on
-     this voucher rather than a screen somebody has to remember to go to. */
+     it just names a Sale Order instead of a ledger account — so it is folded
+     into this voucher as a mode, sharing its date/cash/reference/narration,
+     rather than a whole separate screen or tab somebody has to remember to
+     go to for something that isn't daily use. */
   const advanceTabAvailable = kind === "receipt" && !variant;
-  const [tab, setTab] = useState<"voucher" | "advance">("voucher");
-  const onAdvance = advanceTabAvailable && tab === "advance";
+  const [advanceMode, setAdvanceMode] = useState(false);
+
+  /* The same idea, the other way: a Payment against a Purchase Order not yet
+     turned into its bill. Unlike the car advance, this goes through the same
+     acct_approval_rules gate a normal Payment does — po_payment_save is a
+     thin wrapper over gl_submit, not a door of its own. */
+  const poAdvanceTabAvailable = kind === "payment" && !variant;
+  const [poAdvanceMode, setPoAdvanceMode] = useState(false);
 
   const [date, setDate] = useState(() => todaySA());
   const [narration, setNarration] = useState("");
@@ -111,6 +118,107 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
       setCostCenters((cc as any[]) ?? []); setTagAreas((ta as any[]) ?? []); setCurrencies((cu as any[]) ?? []);
     })();
   }, [supabase]);
+  // Advance mode's own data: car Sale Orders still waiting for their invoice,
+  // with what has already been received against each — the same query
+  // AdvanceReceiptForm used to run on its own screen.
+  type AdvOrder = { id: string; doc_no: string; doc_date: string | null; party_name: string | null; cost_center: string | null; total: number; advance: number; received: number };
+  const [advOrders, setAdvOrders] = useState<AdvOrder[]>([]);
+  const [advLoading, setAdvLoading] = useState(false);
+  const loadAdvOrders = useCallback(async () => {
+    setAdvLoading(true);
+    const { data: pending, error: perr } = await supabase.rpc("car_pending_sale_orders");
+    if (perr) { setError(perr.message); setAdvLoading(false); return; }
+    const rows = (pending ?? []) as any[];
+    const ids = rows.map((o) => o.id);
+    const [{ data: metas }, { data: taken }] = ids.length
+      ? await Promise.all([
+          supabase.from("trade_documents").select("id, meta").in("id", ids),
+          supabase.from("car_receipts").select("source_doc_id, amount").in("source_doc_id", ids),
+        ])
+      : [{ data: [] as any[] }, { data: [] as any[] }];
+    const advanceOf = new Map<string, number>((metas ?? []).map((d: any) => [d.id, Number(d.meta?.advance) || 0]));
+    const receivedOf = new Map<string, number>();
+    for (const t of (taken ?? []) as any[]) receivedOf.set(t.source_doc_id, (receivedOf.get(t.source_doc_id) ?? 0) + (Number(t.amount) || 0));
+    setAdvOrders(rows.map((o) => ({
+      id: o.id, doc_no: o.doc_no, doc_date: o.doc_date, party_name: o.party_name, cost_center: o.cost_center,
+      total: Number(o.total) || 0, advance: advanceOf.get(o.id) ?? 0, received: receivedOf.get(o.id) ?? 0,
+    })));
+    setAdvLoading(false);
+  }, [supabase]);
+  useEffect(() => { if (advanceTabAvailable) loadAdvOrders(); }, [advanceTabAvailable, loadAdvOrders]);
+  const [advOrderId, setAdvOrderId] = useState("");
+  const advOrder = advOrders.find((o) => o.id === advOrderId) ?? null;
+  const advStillDue = advOrder ? Math.max(0, advOrder.advance - advOrder.received) : 0;
+  function pickAdvOrder(id: string) {
+    setAdvOrderId(id);
+    const o = advOrders.find((x) => x.id === id);
+    const rest = o ? Math.max(0, o.advance - o.received) : 0;
+    setAmount(rest > 0 ? String(rest) : "");
+  }
+  async function saveAdvance() {
+    if (!may("create")) return;
+    setError(null);
+    if (!advOrderId) return setError("Choose the Sale Order this advance is against.");
+    if (!cash) return setError("Choose the cash / bank account the money went into.");
+    const amt = calc(amount);
+    if (!(amt > 0)) return setError("Enter an amount.");
+    setSaving(true);
+    const { error } = await supabase.rpc("car_receipt_save", {
+      p_id: null,
+      p_header: { source_doc_id: advOrderId, receipt_date: date, amount: String(amt), cash_account_id: cash, method: "cash", reference, notes: narration },
+      p_allocs: [],
+    });
+    setSaving(false);
+    if (error) return setError(error.message);
+    resetToNew(`received ${money(amt)} on ${advOrder?.doc_no ?? "the order"} — new voucher ready`);
+    await loadAdvOrders();
+    router.refresh();
+  }
+
+  // PO-advance mode's own data: Purchase Orders still waiting for their
+  // Purchase Voucher, with what has already been advanced against each.
+  type AdvPO = { id: string; doc_no: string; doc_date: string | null; party_name: string | null; cost_center: string | null; total: number; advanced: number };
+  const [poOrders, setPoOrders] = useState<AdvPO[]>([]);
+  const [poLoading, setPoLoading] = useState(false);
+  const loadPoOrders = useCallback(async () => {
+    setPoLoading(true);
+    const { data, error: perr } = await supabase.rpc("po_pending_advance");
+    if (perr) { setError(perr.message); setPoLoading(false); return; }
+    setPoOrders(((data ?? []) as any[]).map((o) => ({
+      id: o.id, doc_no: o.doc_no, doc_date: o.doc_date, party_name: o.party_name, cost_center: o.cost_center,
+      total: Number(o.total) || 0, advanced: Number(o.advanced) || 0,
+    })));
+    setPoLoading(false);
+  }, [supabase]);
+  useEffect(() => { if (poAdvanceTabAvailable) loadPoOrders(); }, [poAdvanceTabAvailable, loadPoOrders]);
+  const [poOrderId, setPoOrderId] = useState("");
+  const poOrder = poOrders.find((o) => o.id === poOrderId) ?? null;
+  const poStillOwed = poOrder ? Math.max(0, poOrder.total - poOrder.advanced) : 0;
+  function pickPoOrder(id: string) {
+    setPoOrderId(id);
+    setAmount("");
+  }
+  async function savePoAdvance() {
+    if (!may("create")) return;
+    setError(null);
+    if (!poOrderId) return setError("Choose the Purchase Order this advance is against.");
+    if (!cash) return setError("Choose the cash / bank account the money went from.");
+    const amt = calc(amount);
+    if (!(amt > 0)) return setError("Enter an amount.");
+    setSaving(true);
+    const { data, error } = await supabase.rpc("po_payment_save", {
+      p_company: COMPANY_ID, p_date: date, p_cash_bank: cash, p_source_doc_id: poOrderId,
+      p_amount: amt, p_narration: narration || null, p_reference: reference || null,
+    });
+    setSaving(false);
+    if (error) return setError(error.message);
+    const res = data as any;
+    resetToNew(res?.pending
+      ? `submitted for approval (${money(Number(res.amount))}) — new voucher ready`
+      : `paid ${money(amt)} on ${poOrder?.doc_no ?? "the order"} — new voucher ready`);
+    await loadPoOrders();
+    router.refresh();
+  }
   function pickCurrency(code: string) {
     setCurrency(code);
     const c = currencies.find((x) => x.code === code);
@@ -154,7 +262,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
   function resetToNew(keepMessage?: string) {
     setEntryId(null); setEntryNo(null); setEditable(true); setDone(keepMessage ?? null); setError(null); setDocField("");
     setDate(todaySA());
-    setNarration(""); setReference(""); setAmount(""); setToAcct(null); setCostCenter(""); setTagArea("");
+    setNarration(""); setReference(""); setAmount(""); setToAcct(null); setCostCenter(""); setTagArea(""); setAdvOrderId(""); setPoOrderId("");
     setLines([emptyLine()]);
     try { const m = JSON.parse(localStorage.getItem(memKey) || "{}"); setCash(m.cash ?? null); } catch { setCash(null); }
   }
@@ -339,6 +447,8 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
   }
 
   async function save(printAfter = false) {
+    if (advanceMode) return saveAdvance();
+    if (poAdvanceMode) return savePoAdvance();
     if (!(entryId ? may("edit") : may("create"))) return;
     setError(null);
     if (!date) return setError("Date is required");
@@ -460,51 +570,54 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
 
   const balanced = isJournal ? Math.abs(totals.diff) < 0.005 : true;
   const readOnly = !!entryId && !editable;
+  const inAdvanceMode = advanceMode || poAdvanceMode;
 
   return (
     <div className="space-y-4" onKeyDown={enterMovesOn}>
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">{title}</h1>
-        {!onAdvance && readOnly && <span className="badge badge-neutral">Locked</span>}
-        {!onAdvance && done && <span className="badge badge-success capitalize">{done}</span>}
+        {advanceTabAvailable && (
+          <label className="flex items-center gap-1.5 text-sm font-normal text-slate-500">
+            <input type="checkbox" checked={advanceMode} onChange={(e) => setAdvanceMode(e.target.checked)} className="h-3.5 w-3.5" />
+            Advance against a Sale Order
+          </label>
+        )}
+        {poAdvanceTabAvailable && (
+          <label className="flex items-center gap-1.5 text-sm font-normal text-slate-500">
+            <input type="checkbox" checked={poAdvanceMode} onChange={(e) => setPoAdvanceMode(e.target.checked)} className="h-3.5 w-3.5" />
+            Advance against a Purchase Order
+          </label>
+        )}
+        {!inAdvanceMode && readOnly && <span className="badge badge-neutral">Locked</span>}
+        {done && <span className="badge badge-success capitalize">{done}</span>}
       </div>
 
-      {advanceTabAvailable && (
-        <div className="flex flex-wrap gap-1 border-b border-slate-200" role="tablist">
-          {([["voucher", "Receipt"], ["advance", "Advance on a Sale Order"]] as const).map(([k, label]) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
-                tab === k ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
-              {label}
-            </button>
-          ))}
+      {!inAdvanceMode && (
+        <>
+        {/* Record toolbar */}
+        <div className="panel flex flex-wrap items-center gap-2 px-3 py-2">
+          <button type="button" onClick={() => resetToNew()} disabled={busy} className="btn-outline btn-sm">New</button>
+          <button type="button" onClick={() => nav("prev")} disabled={busy} className="btn-outline btn-sm">‹ Previous</button>
+          <button type="button" onClick={() => nav("next")} disabled={busy} className="btn-outline btn-sm">Next ›</button>
+          <div className="ml-auto flex items-center gap-2">
+            <button type="button" onClick={printVoucher} disabled={!entryId || !may("print")} title={may("print") ? undefined : "You don't have Print rights on this voucher"} className="btn-outline btn-sm disabled:opacity-40">Print</button>
+            <button type="button" onClick={del} disabled={!entryId || !editable || busy || !may("delete")} title={may("delete") ? undefined : "You don't have Delete rights on this voucher"} className="btn-outline btn-sm text-danger disabled:opacity-40">Delete</button>
+          </div>
         </div>
+        {readOnly && <div className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-700">This voucher was generated by another module or has allocations — it is read-only here.</div>}
+        </>
       )}
-
-      {onAdvance && <AdvanceReceiptForm cashBank={cashBank} />}
-
-      {!onAdvance && <>
-      {/* Record toolbar */}
-      <div className="panel flex flex-wrap items-center gap-2 px-3 py-2">
-        <button type="button" onClick={() => resetToNew()} disabled={busy} className="btn-outline btn-sm">New</button>
-        <button type="button" onClick={() => nav("prev")} disabled={busy} className="btn-outline btn-sm">‹ Previous</button>
-        <button type="button" onClick={() => nav("next")} disabled={busy} className="btn-outline btn-sm">Next ›</button>
-        <div className="ml-auto flex items-center gap-2">
-          <button type="button" onClick={printVoucher} disabled={!entryId || !may("print")} title={may("print") ? undefined : "You don't have Print rights on this voucher"} className="btn-outline btn-sm disabled:opacity-40">Print</button>
-          <button type="button" onClick={del} disabled={!entryId || !editable || busy || !may("delete")} title={may("delete") ? undefined : "You don't have Delete rights on this voucher"} className="btn-outline btn-sm text-danger disabled:opacity-40">Delete</button>
-        </div>
-      </div>
-
       {error && <div className="rounded-md border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{error}</div>}
-      {readOnly && <div className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-700">This voucher was generated by another module or has allocations — it is read-only here.</div>}
 
       <div className="card space-y-4">
         {/* Header */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div><label className="label">Document No.</label>
-            <input className="input font-mono" value={docField} placeholder="Auto (type a no. + Enter to open)"
-              onChange={(e) => setDocField(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); loadByDoc(); } }}
-              title="Auto-assigned on save. Type an existing number and press Enter to open it." /></div>
+          {!inAdvanceMode && (
+            <div><label className="label">Document No.</label>
+              <input className="input font-mono" value={docField} placeholder="Auto (type a no. + Enter to open)"
+                onChange={(e) => setDocField(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); loadByDoc(); } }}
+                title="Auto-assigned on save. Type an existing number and press Enter to open it." /></div>
+          )}
           <div><label className="label">Date</label>
             <input type="date" className="input" value={date} disabled={readOnly} onChange={(e) => setDate(e.target.value)} /></div>
           {!isJournal && (
@@ -523,17 +636,17 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
             <div><label className="label">Reference</label>
               <input className="input" value={reference} disabled={readOnly} onChange={(e) => setReference(e.target.value)} placeholder="Cheque / ref no" /></div>
           )}
-          {!isContra && (
+          {!isContra && !inAdvanceMode && (
             <div><label className="label">Cost Center</label>
               <SearchSelect value={costCenter} onChange={setCostCenter} disabled={readOnly} placeholder="—"
                 options={costCenters.map((c) => ({ value: c.name, label: c.name }))} /></div>
           )}
-          {!isContra && (
+          {!isContra && !inAdvanceMode && (
             <div><label className="label">Tag Area</label>
               <SearchSelect value={tagArea} onChange={setTagArea} disabled={readOnly} placeholder="—"
                 options={tagAreas.map((t) => ({ value: t.name, label: t.name }))} /></div>
           )}
-          {!entryId && (
+          {!entryId && !inAdvanceMode && (
             <>
               <div><label className="label">Currency</label>
                 <select className="input" value={currency} onChange={(e) => pickCurrency(e.target.value)}>
@@ -550,8 +663,73 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
             <input className="input" value={narration} disabled={readOnly} onChange={(e) => setNarration(e.target.value)} placeholder="Description" /></div>
         </div>
 
-        {/* Lines (not for contra) */}
-        {!isContra && (
+        {/* Advance against a Sale Order — a car advance is money in, so it is
+            money coming in has one door, it just names a Sale Order instead
+            of a ledger account and posts through car_receipt_save. */}
+        {advanceMode && (
+          <div className="space-y-3">
+            <div>
+              <label className="label">Sale Order</label>
+              <SearchSelect value={advOrderId} onChange={pickAdvOrder} placeholder={advLoading ? "Loading…" : "Choose the order…"}
+                options={advOrders.map((o) => ({ value: o.id, label: `${o.doc_no} · ${o.party_name ?? "—"} · ${money(o.total)}` }))} />
+            </div>
+            <div><label className="label">Amount</label>
+              <input className="input text-right tabular-nums" inputMode="decimal" value={amount}
+                onChange={(e) => setAmount(e.target.value)} placeholder="0.00" /></div>
+            {advOrder && (
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                {advOrder.doc_no} of {dateStr(advOrder.doc_date)} · {advOrder.cost_center ?? "—"} · advance agreed{" "}
+                <b className="text-slate-800 tabular-nums">{money(advOrder.advance)}</b>
+                {advOrder.received > 0 && <> · already received <b className="text-slate-800 tabular-nums">{money(advOrder.received)}</b></>}
+                {" · "}still to receive <b className="text-slate-800 tabular-nums">{money(advStillDue)}</b>
+              </div>
+            )}
+            <p className="text-xs text-slate-400">
+              Posts to {advOrder?.party_name ?? "the customer"}’s own account, so they stand in credit until the Car
+              Invoice charges them. The Car Invoice takes this receipt over when it is raised — the advance is never due twice.
+            </p>
+            <p className="text-sm text-slate-500">
+              {advLoading ? "…" : advOrders.length === 0
+                ? "No car sale order is waiting for its invoice."
+                : `${advOrders.length} car sale order${advOrders.length === 1 ? "" : "s"} not invoiced yet`}
+            </p>
+          </div>
+        )}
+
+        {/* Advance against a Purchase Order — a supplier advance, through the
+            same approval gate a normal Payment goes through. */}
+        {poAdvanceMode && (
+          <div className="space-y-3">
+            <div>
+              <label className="label">Purchase Order</label>
+              <SearchSelect value={poOrderId} onChange={pickPoOrder} placeholder={poLoading ? "Loading…" : "Choose the order…"}
+                options={poOrders.map((o) => ({ value: o.id, label: `${o.doc_no} · ${o.party_name ?? "—"} · ${money(o.total)}` }))} />
+            </div>
+            <div><label className="label">Amount</label>
+              <input className="input text-right tabular-nums" inputMode="decimal" value={amount}
+                onChange={(e) => setAmount(e.target.value)} placeholder="0.00" /></div>
+            {poOrder && (
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                {poOrder.doc_no} of {dateStr(poOrder.doc_date)} · {poOrder.cost_center ?? "—"} · total{" "}
+                <b className="text-slate-800 tabular-nums">{money(poOrder.total)}</b>
+                {poOrder.advanced > 0 && <> · already advanced <b className="text-slate-800 tabular-nums">{money(poOrder.advanced)}</b></>}
+                {" · "}still owed <b className="text-slate-800 tabular-nums">{money(poStillOwed)}</b>
+              </div>
+            )}
+            <p className="text-xs text-slate-400">
+              Posts to {poOrder?.party_name ?? "the supplier"}’s own account, checked against Voucher Authorisation exactly
+              like a Payment typed by hand. The Purchase Voucher settles this advance against its bill the moment it is raised.
+            </p>
+            <p className="text-sm text-slate-500">
+              {poLoading ? "…" : poOrders.length === 0
+                ? "No purchase order is waiting for its Purchase Voucher."
+                : `${poOrders.length} purchase order${poOrders.length === 1 ? "" : "s"} not loaded into a Purchase Voucher yet`}
+            </p>
+          </div>
+        )}
+
+        {/* Lines (not for contra, not while taking an advance) */}
+        {!isContra && !inAdvanceMode && (
           <div className="space-y-2">
           {!readOnly && (
             <div className="flex items-center justify-end gap-3">
@@ -625,12 +803,28 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
         )}
 
         <div className="flex items-center gap-2">
-          <button onClick={() => save(false)} disabled={saving || readOnly || (isJournal && !balanced) || !(entryId ? may("edit") : may("create"))} className="btn">
-            {!(entryId ? may("edit") : may("create")) ? (entryId ? "No Edit rights" : "No Create rights")
-              : saving ? (entryId ? "Saving…" : "Posting…") : entryId ? "Save changes" : "Save & Post"}
-            {(entryId ? may("edit") : may("create")) && <span className="ml-1 opacity-70 text-xs">Ctrl+S</span>}
-          </button>
-          <span className="ml-auto text-xs text-slate-400">{entryId ? "Editing an existing voucher — the document number is kept." : "Posts to the ledger immediately — no separate posting step."}</span>
+          {advanceMode ? (
+            <button onClick={() => save(false)} disabled={saving || !advOrderId || !cash || !(calc(amount) > 0) || !may("create")} className="btn">
+              {!may("create") ? "No Create rights" : saving ? "Saving…" : "Save receipt"}
+              {may("create") && <span className="ml-1 opacity-70 text-xs">Ctrl+S</span>}
+            </button>
+          ) : poAdvanceMode ? (
+            <button onClick={() => save(false)} disabled={saving || !poOrderId || !cash || !(calc(amount) > 0) || !may("create")} className="btn">
+              {!may("create") ? "No Create rights" : saving ? "Saving…" : "Save payment"}
+              {may("create") && <span className="ml-1 opacity-70 text-xs">Ctrl+S</span>}
+            </button>
+          ) : (
+            <button onClick={() => save(false)} disabled={saving || readOnly || (isJournal && !balanced) || !(entryId ? may("edit") : may("create"))} className="btn">
+              {!(entryId ? may("edit") : may("create")) ? (entryId ? "No Edit rights" : "No Create rights")
+                : saving ? (entryId ? "Saving…" : "Posting…") : entryId ? "Save changes" : "Save & Post"}
+              {(entryId ? may("edit") : may("create")) && <span className="ml-1 opacity-70 text-xs">Ctrl+S</span>}
+            </button>
+          )}
+          <span className="ml-auto text-xs text-slate-400">
+            {advanceMode ? "Posts to the customer's account immediately, against the Sale Order chosen above."
+              : poAdvanceMode ? "Checked against Voucher Authorisation like any Payment, against the Purchase Order chosen above."
+              : entryId ? "Editing an existing voucher — the document number is kept." : "Posts to the ledger immediately — no separate posting step."}
+          </span>
         </div>
       </div>
 
@@ -687,7 +881,6 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
           </div>
         </div>
       )}
-      </>}
     </div>
   );
 }
