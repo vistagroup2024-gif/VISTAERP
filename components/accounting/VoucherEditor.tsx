@@ -57,7 +57,6 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
   const payAccounts = useMemo(
     () => (variant?.cashMatch ? cashBank.filter((a) => a.name.toUpperCase().includes(variant.cashMatch!.toUpperCase())) : cashBank),
     [cashBank, variant?.cashMatch]);
-
   /* Money coming in has one door. A car advance is a receipt like any other —
      it just names a Sale Order instead of a ledger account — so it is folded
      into this voucher as a mode, sharing its date/cash/reference/narration,
@@ -102,6 +101,20 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
   const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
   const [costCenter, setCostCenter] = useState("");
   const [tagArea, setTagArea] = useState("");
+  // Cascading filters (2/2) — a cost centre chosen on the header narrows the
+  // line-account picker to what belongs to it (loadPickAccounts() already
+  // resolved every account up to its nearest tagged ancestor group). Never
+  // strands the clerk: with nothing selected, nothing tagged anywhere yet, or
+  // a match that would come back empty, the full list shows. Cash/Bank stays
+  // unfiltered — a bank account is shared infrastructure, not a cost centre's.
+  const filteredAccounts = useMemo(() => {
+    if (!costCenter) return accounts;
+    const ccId = costCenters.find((c) => c.name === costCenter)?.id;
+    if (!ccId) return accounts;
+    if (!accounts.some((a) => a.cost_center_id)) return accounts;
+    const narrowed = accounts.filter((a) => a.cost_center_id === ccId);
+    return narrowed.length ? narrowed : accounts;
+  }, [accounts, costCenter, costCenters]);
   // Multi-currency, on every voucher: amounts are typed in the chosen currency
   // and posted in base (SAR) at the rate, which comes from the currency master
   // and can be overtyped. The entry records the currency and rate.
@@ -770,7 +783,7 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
                   <tr key={i} className="border-t border-slate-100">
                     <td className="px-2 py-1 text-slate-400">{i + 1}</td>
                     <td className="px-2 py-1 min-w-[220px]">
-                      <AccountPicker accounts={accounts} value={l.account} onChange={(id) => setLine(i, { account: id })} />
+                      <AccountPicker accounts={filteredAccounts} value={l.account} onChange={(id) => setLine(i, { account: id })} />
                     </td>
                     {isJournal ? <>
                       <td className="px-2 py-1"><input className="input text-right tabular-nums" inputMode="decimal" value={l.debit} disabled={readOnly}

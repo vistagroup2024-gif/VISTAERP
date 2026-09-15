@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { resolveCostCenters } from "@/lib/costCenterTree";
 
 /* The rate fields are part of this shape, not extras a caller may bolt on. They
    were not, and productOptions() below rebuilt every row without them — so the
@@ -12,6 +13,11 @@ export type PickProduct = {
   id: string; name: string; group?: string | null; uom?: string | null;
   purchase_rate?: number | null;   // what the item costs to buy — the PO ceiling
   total_cost?: number | null;      // purchase rate + expenses — the quotation's COGS
+  // The item's own cost centre, or its nearest tagged ancestor group's —
+  // resolved once in productOptions(), not filtered there: a voucher's own
+  // cost centre can be picked after the items are already loaded, so the
+  // caller filters this array itself once it knows what to filter by.
+  cost_center_id?: string | null;
 };
 
 /**
@@ -147,9 +153,10 @@ export default function ProductPicker({
  */
 export function productOptions(rows: {
   id: string; name: string; parent_id: string | null; is_group?: boolean;
-  purchase_rate?: number | null; total_cost?: number | null;
+  purchase_rate?: number | null; total_cost?: number | null; cost_center_id?: string | null;
 }[]): PickProduct[] {
   const nameById = new Map(rows.map((r) => [r.id, r.name] as const));
+  const effectiveCC = resolveCostCenters(rows.map((r) => ({ id: r.id, parent_id: r.parent_id, cost_center_id: r.cost_center_id })));
   return rows
     .filter((r) => !r.is_group)
     // Carry the rates through. A screen that picks an item and then asks what it
@@ -160,5 +167,6 @@ export function productOptions(rows: {
       group: r.parent_id ? nameById.get(r.parent_id) ?? null : null,
       purchase_rate: r.purchase_rate ?? null,
       total_cost: r.total_cost ?? null,
+      cost_center_id: effectiveCC.get(r.id) ?? null,
     }));
 }

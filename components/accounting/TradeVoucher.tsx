@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import ProductPicker, { productOptions } from "./ProductPicker";
+import ProductPicker, { productOptions, type PickProduct } from "./ProductPicker";
 import LoadFromPicker from "./LoadFromPicker";
 import { TRADE_DOCS, isCarCostCenter, megaCount, expandMega, type HeaderExtra, type LineExtra } from "@/lib/tradeDocs";
 import type { DocRight } from "@/lib/docRights";
@@ -104,7 +104,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // everything priced in SAR, which is nearly everything.
   const [currency, setCurrency] = useState("");
   const [fxRate, setFxRate] = useState("");
-  const [products, setProducts] = useState<{ id: string; name: string; group?: string | null; purchase_rate?: number | null; total_cost?: number | null }[]>([]);
+  const [products, setProducts] = useState<PickProduct[]>([]);
   const [costCenters, setCostCenters] = useState<{ id: string; name: string }[]>([]);
   const [tagAreas, setTagAreas] = useState<{ id: string; name: string }[]>([]);
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
@@ -141,6 +141,19 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
   // Car-sales cost centres (CAR SALES INSTALLMENT / CAR TRADING) reveal the
   // costing block and the vehicle expense columns.
   const isCar = isCarCostCenter(costCenter);
+  // Cascading filters (2/2) — a cost centre chosen on the header narrows the
+  // item picker to what belongs to it (Masters → Product Tree tags a GROUP,
+  // productOptions() already resolved every leaf up to its nearest tagged
+  // ancestor). Never strands the clerk: with nothing selected, nothing tagged
+  // anywhere yet, or a match that would come back empty, the full list shows.
+  const filteredProducts = useMemo(() => {
+    if (!costCenter) return products;
+    const ccId = costCenters.find((c) => c.name === costCenter)?.id;
+    if (!ccId) return products;
+    if (!products.some((p) => p.cost_center_id)) return products;
+    const narrowed = products.filter((p) => p.cost_center_id === ccId);
+    return narrowed.length ? narrowed : products;
+  }, [products, costCenter, costCenters]);
   // What the Load button is called. On a car cost centre a Purchase Voucher is
   // raised from the Purchase Order rather than an MRN — a car has no warehouse
   // to be received into — so the button has to say so. The DATABASE decides
@@ -200,7 +213,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       const types = cfg.party === "supplier" ? ["supplier"] : cfg.party === "customer" ? ["customer", "b2b_agent"] : ["customer", "supplier", "b2b_agent"];
       const [{ data: pa }, { data: pr }, { data: cc }, { data: ta }, { data: wh }, { data: ac }] = await Promise.all([
         supabase.from("parties").select("id, name").in("party_type", types).eq("is_active", true).order("name"),
-        supabase.from("acct_products").select("id, name, parent_id, is_group, purchase_rate, total_cost").eq("is_active", true).order("name"),
+        supabase.from("acct_products").select("id, name, parent_id, is_group, purchase_rate, total_cost, cost_center_id").eq("is_active", true).order("name"),
         supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
         supabase.from("warehouses").select("id, name").eq("is_active", true).order("name"),
@@ -831,7 +844,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
         {locked
           ? <div className="input flex h-auto min-h-[38px] items-center whitespace-normal break-words bg-slate-50 text-slate-600"
               title={products.find((p) => p.id === val)?.name}>{products.find((p) => p.id === val)?.name ?? "—"}</div>
-          : <ProductPicker products={products} value={val || null}
+          : <ProductPicker products={filteredProducts} value={val || null}
               onChange={(id) => pickHeaderProduct(f, id)} placeholder="Item / product" />}</div>;
     }
     const derived = !!f.derived && !overridden[f.key];
@@ -1135,7 +1148,7 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
                     </td>
                   )}
                   <td className="px-2 py-1 min-w-[340px]">
-                    <ProductPicker products={products} value={r.product_id} onChange={(id) => pickItem(i, id)} placeholder="Item / product" />
+                    <ProductPicker products={filteredProducts} value={r.product_id} onChange={(id) => pickItem(i, id)} placeholder="Item / product" />
                   </td>
                   {showUnits && <td className="px-2 py-1"><input className="input w-24" value={r.units} onChange={(e) => setRow(i, { units: e.target.value })} /></td>}
                   <td className="px-2 py-1"><input className="input w-28 text-right tabular-nums" inputMode="decimal" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} /></td>

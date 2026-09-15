@@ -18,7 +18,13 @@ function getRecent(): string[] {
   try { return JSON.parse(localStorage.getItem("acct:recent") || "[]"); } catch { return []; }
 }
 
-export type PickAccount = { id: string; code: string; name: string; subtype: string | null; nature: string; currency?: string | null };
+export type PickAccount = {
+  id: string; code: string; name: string; subtype: string | null; nature: string; currency?: string | null;
+  // The account's own cost centre, or its nearest tagged ancestor group's —
+  // resolved once by the caller's loader, not filtered here: the picker only
+  // shows what it is given, the caller decides what that is.
+  cost_center_id?: string | null;
+};
 
 // Keyboard-friendly type-ahead account picker backed by a native datalist so the
 // operator can type a name and pick without leaving the keyboard.

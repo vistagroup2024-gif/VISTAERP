@@ -13,14 +13,17 @@ export default async function ProductTreePage() {
   const sb = createClient();
   // Paged rather than a bare select: PostgREST stops at 1000 rows and says
   // nothing, and this tree is a few hundred and only ever grows.
-  const { data } = await fetchAllRows<any>((from, to) =>
-    sb.from("acct_products")
-      .select("id, parent_id, name, is_group, is_active, sort, purchase_rate, sell_rate")
-      .order("id").range(from, to));
+  const [{ data }, { data: costCenters }] = await Promise.all([
+    fetchAllRows<any>((from, to) =>
+      sb.from("acct_products")
+        .select("id, parent_id, name, is_group, is_active, sort, purchase_rate, sell_rate, cost_center_id")
+        .order("id").range(from, to)),
+    sb.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
+  ]);
   return (
     <div>
       <PageHeader title="Product Tree" />
-      <TreeMaster table="acct_products" initial={data ?? []} rateEditor
+      <TreeMaster table="acct_products" initial={data ?? []} rateEditor costCenters={costCenters ?? []}
         note="A hierarchical catalogue of products / service items. Create groups, then items under them. Select an item and press 'Rates' to set the default Purchase/Sell rate and per-customer / per-supplier overrides — these price the module invoices automatically." />
     </div>
   );

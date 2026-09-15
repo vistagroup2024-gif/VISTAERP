@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { resolveCostCenters } from "@/lib/costCenterTree";
 
 // NOTE — there is deliberately no whole-ledger loader here any more.
 //
@@ -14,17 +15,26 @@ import { createClient } from "@/lib/supabase/server";
 // only through `fetchAllRows`, which pages until a short page comes back.
 
 // Postable, active accounts for voucher pickers (server-side).
+//
+// Reads the WHOLE tree (groups included), not just the postable rows: a
+// leaf's cost centre is often its group's, per resolveCostCenters(), and
+// resolving that needs the group rows in the same list. The group rows are
+// dropped again once resolution is done — only postable accounts are ever
+// picked from a voucher.
 export async function loadPickAccounts() {
   const supabase = createClient();
   const { data } = await supabase
     .from("accounts")
-    .select("id, code, name, subtype, type, currency")
-    .eq("is_postable", true)
-    .eq("status", "active")
+    .select("id, code, name, subtype, type, currency, parent_id, cost_center_id, is_postable, status")
     .order("code");
-  const accounts = (data ?? []).map((a: any) => ({
-    id: a.id, code: a.code, name: a.name, subtype: a.subtype, nature: a.type, currency: a.currency,
-  }));
+  const rows = data ?? [];
+  const effectiveCC = resolveCostCenters(rows.map((a: any) => ({ id: a.id, parent_id: a.parent_id, cost_center_id: a.cost_center_id })));
+  const accounts = rows
+    .filter((a: any) => a.is_postable && a.status === "active")
+    .map((a: any) => ({
+      id: a.id, code: a.code, name: a.name, subtype: a.subtype, nature: a.type, currency: a.currency,
+      cost_center_id: effectiveCC.get(a.id) ?? null,
+    }));
   const cashBank = accounts.filter((a) => a.subtype === "Cash" || a.subtype === "Bank");
   return { accounts, cashBank };
 }

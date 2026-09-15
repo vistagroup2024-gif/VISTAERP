@@ -14,6 +14,10 @@ export type AcctNode = {
   nature: "asset" | "liability" | "equity" | "income" | "expense" | "control";
   is_group: boolean; is_postable: boolean; parent_id: string | null; path: string | null;
   currency: string; subtype: string | null; status: string;
+  /** Which cost centre this GROUP belongs to, so a voucher can narrow its
+   *  account picker once it knows the cost centre it was given. Unset on a
+   *  leaf account — it inherits its nearest tagged ancestor group. */
+  cost_center_id?: string | null;
   /** Where it sits among its siblings. 0 everywhere until somebody reorders. */
   sort_order?: number | null;
   /** Set when this account IS a customer, agent or supplier — the record the
@@ -75,7 +79,7 @@ function drcr(net: number) {
   );
 }
 
-export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
+export default function AccountTree({ nodes, costCenters }: { nodes: AcctNode[]; costCenters?: { id: string; name: string }[] }) {
   const rights = useDocRights("coa");
   const router = useRouter();
   const supabase = createClient();
@@ -158,11 +162,12 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
     router.push("/accounting/accounts/new" + (p.toString() ? `?${p}` : ""));
   }
 
-  async function saveProps(f: { name: string; name_ar: string; subtype: string; currency: string; status: string }) {
+  async function saveProps(f: { name: string; name_ar: string; subtype: string; currency: string; status: string; costCenterId?: string }) {
     if (!editing) return;
     setBusy(true); setOpErr(null);
     const patch: any = { name: f.name.trim(), name_ar: f.name_ar || null, currency: f.currency, status: f.status };
     if (!editing.is_group) patch.subtype = f.subtype || null;
+    if (costCenters && editing.is_group) patch.cost_center_id = f.costCenterId || null;
     const { error } = await supabase.from("accounts").update(patch).eq("id", editing.id);
     setBusy(false);
     if (error) return setOpErr(error.message);
@@ -408,7 +413,7 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
         {flat.length === 0 && <div className="p-6 text-center text-slate-400">No accounts.</div>}
       </div>
 
-      {editing && <PropsModal node={editing} busy={busy} onCancel={() => setEditing(null)} onSave={saveProps} />}
+      {editing && <PropsModal node={editing} busy={busy} costCenters={costCenters} onCancel={() => setEditing(null)} onSave={saveProps} />}
       {moving && <MoveModal node={moving} targets={moveTargets} busy={busy} onCancel={() => setMoving(null)} onMove={doMove} />}
       {movingMany && (
         <MoveManyModal nodes={checkedNodes} targets={manyTargets} busy={busy}
@@ -422,15 +427,16 @@ export default function AccountTree({ nodes }: { nodes: AcctNode[] }) {
 }
 
 // ── Properties (Edit) modal ──────────────────────────────────────────────────
-function PropsModal({ node, busy, onCancel, onSave }: {
-  node: AcctNode; busy: boolean;
+function PropsModal({ node, busy, costCenters, onCancel, onSave }: {
+  node: AcctNode; busy: boolean; costCenters?: { id: string; name: string }[];
   onCancel: () => void;
-  onSave: (f: { name: string; name_ar: string; subtype: string; currency: string; status: string }) => void;
+  onSave: (f: { name: string; name_ar: string; subtype: string; currency: string; status: string; costCenterId?: string }) => void;
 }) {
   const [f, setF] = useState({
     name: node.name, name_ar: node.name_ar ?? "", subtype: node.subtype ?? "",
     currency: node.currency ?? "SAR", status: node.status ?? "active",
   });
+  const [costCenterId, setCostCenterId] = useState(node.cost_center_id ?? "");
   return (
     <Modal title={`Properties · ${node.name}`} onClose={onCancel}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -452,10 +458,18 @@ function PropsModal({ node, busy, onCancel, onSave }: {
           <select className="input" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
             <option value="active">Active</option><option value="inactive">Inactive</option>
           </select></div>
+        {costCenters && node.is_group && (
+          <div className="sm:col-span-2">
+            <label className="label">Cost Centre</label>
+            <SearchSelect value={costCenterId} onChange={setCostCenterId} placeholder="— none —"
+              options={costCenters.map((c) => ({ value: c.id, label: c.name }))} />
+            <p className="mt-1 text-xs text-slate-400">Everything under this group belongs to that cost centre, unless a group beneath it says otherwise.</p>
+          </div>
+        )}
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="btn-outline">Cancel</button>
-        <button onClick={() => onSave(f)} disabled={busy || !f.name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>
+        <button onClick={() => onSave({ ...f, costCenterId })} disabled={busy || !f.name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>
       </div>
     </Modal>
   );

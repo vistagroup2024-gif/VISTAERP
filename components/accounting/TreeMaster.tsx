@@ -16,8 +16,9 @@ const TABLE_DOC: Record<string, string> = {
   acct_tag_areas: "tag_areas",
 };
 
-type Node = { id: string; parent_id: string | null; name: string; is_group: boolean; is_active: boolean; sort: number; [k: string]: any };
+type Node = { id: string; parent_id: string | null; name: string; is_group: boolean; is_active: boolean; sort: number; cost_center_id?: string | null; [k: string]: any };
 type Extra = { key: string; label: string };
+type CostCenterOpt = { id: string; name: string };
 
 // Reusable hierarchical master: Product Tree, Cost Center, Tag Area.
 //
@@ -47,8 +48,12 @@ type Extra = { key: string; label: string };
 // to 0, and the list JUMPS TO THE TOP every time a checkbox is ticked. The
 // Chart of Accounts hit exactly this and says so in its own comment. Nothing
 // remounts here now.
-export default function TreeMaster({ table, initial, extra, extras, note, rateEditor }: {
+export default function TreeMaster({ table, initial, extra, extras, note, rateEditor, costCenters }: {
   table: string; initial: Node[]; extra?: Extra; extras?: Extra[]; note?: string; rateEditor?: boolean;
+  // Which cost centre a GROUP belongs to — offered only where the caller
+  // passes this in (Product Tree today), so a voucher can later narrow its
+  // item picker to what is actually under the cost centre it was given.
+  costCenters?: CostCenterOpt[];
 }) {
   const rights = useDocRights(TABLE_DOC[table] ?? "");
   const router = useRouter();
@@ -118,21 +123,23 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
     return out;
   }, [roots, byParent, collapsed, visible]);
 
-  async function add(f: { name: string; parent: string; isGroup: boolean; extras: Record<string, string> }) {
+  async function add(f: { name: string; parent: string; isGroup: boolean; extras: Record<string, string>; costCenterId?: string }) {
     setBusy(true); setErr(null);
     const payload: any = { company_id: COMPANY_ID, name: f.name.trim(), parent_id: f.parent || null, is_group: f.isGroup };
     if (!f.isGroup) for (const ex of exs) payload[ex.key] = f.extras[ex.key] ? Number(f.extras[ex.key]) : 0;
+    if (costCenters && f.isGroup) payload.cost_center_id = f.costCenterId || null;
     const { error } = await supabase.from(table).insert(payload);
     setBusy(false);
     if (error) return setErr(error.message);
     setAdding(null); router.refresh();
   }
 
-  async function saveEdit(f: { name: string; active: boolean; extras: Record<string, string> }) {
+  async function saveEdit(f: { name: string; active: boolean; extras: Record<string, string>; costCenterId?: string }) {
     if (!editing) return;
     setBusy(true); setErr(null);
     const patch: any = { name: f.name.trim(), is_active: f.active };
     if (!editing.is_group) for (const ex of exs) patch[ex.key] = f.extras[ex.key] ? Number(f.extras[ex.key]) : 0;
+    if (costCenters && editing.is_group) patch.cost_center_id = f.costCenterId || null;
     const { error } = await supabase.from(table).update(patch).eq("id", editing.id);
     setBusy(false);
     if (error) return setErr(error.message);
@@ -300,10 +307,10 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
       </div>
 
       {adding && (
-        <AddModal isGroup={adding.isGroup} parent={adding.parent} groups={groups} exs={exs} busy={busy}
+        <AddModal isGroup={adding.isGroup} parent={adding.parent} groups={groups} exs={exs} busy={busy} costCenters={costCenters}
           onCancel={() => setAdding(null)} onSave={add} />
       )}
-      {editing && <EditModal node={editing} exs={exs} busy={busy} onCancel={() => setEditing(null)} onSave={saveEdit} />}
+      {editing && <EditModal node={editing} exs={exs} busy={busy} costCenters={costCenters} onCancel={() => setEditing(null)} onSave={saveEdit} />}
       {moving && (
         <MoveModal title={`Move · ${moving.name}`} current={moving.parent_id ?? ""} targets={moveTargets} busy={busy}
           onCancel={() => setMoving(null)} onMove={(t) => moveInto([moving.id], t)} />
@@ -323,20 +330,22 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
 
 // The only place a new row is named. There is no second copy of these fields
 // sitting above the tree any more.
-function AddModal({ isGroup: initGroup, parent: initParent, groups, exs, busy, onCancel, onSave }: {
-  isGroup: boolean; parent: string; groups: Node[]; exs: Extra[]; busy: boolean;
+function AddModal({ isGroup: initGroup, parent: initParent, groups, exs, busy, costCenters, onCancel, onSave }: {
+  isGroup: boolean; parent: string; groups: Node[]; exs: Extra[]; busy: boolean; costCenters?: CostCenterOpt[];
   onCancel: () => void;
-  onSave: (f: { name: string; parent: string; isGroup: boolean; extras: Record<string, string> }) => void;
+  onSave: (f: { name: string; parent: string; isGroup: boolean; extras: Record<string, string>; costCenterId?: string }) => void;
 }) {
   const [name, setName] = useState("");
   const [parent, setParent] = useState(initParent);
   const [isGroup, setIsGroup] = useState(initGroup);
   const [ex, setEx] = useState<Record<string, string>>({});
+  const [costCenterId, setCostCenterId] = useState("");
+  const save = () => onSave({ name, parent, isGroup, extras: ex, costCenterId });
   return (
     <Modal title={isGroup ? "New group" : "New item"} onClose={onCancel}>
       <label className="label">Name *</label>
       <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus
-        onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) onSave({ name, parent, isGroup, extras: ex }); }} />
+        onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) save(); }} />
       <div className="mt-3">
         <label className="label">Under group</label>
         <SearchSelect value={parent} onChange={setParent} placeholder="— top level —"
@@ -350,9 +359,17 @@ function AddModal({ isGroup: initGroup, parent: initParent, groups, exs, busy, o
       <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
         <input type="checkbox" checked={isGroup} onChange={(e) => setIsGroup(e.target.checked)} /> Is a group
       </label>
+      {costCenters && isGroup && (
+        <div className="mt-3">
+          <label className="label">Cost Centre</label>
+          <SearchSelect value={costCenterId} onChange={setCostCenterId} placeholder="— none —"
+            options={costCenters.map((c) => ({ value: c.id, label: c.name }))} />
+          <p className="mt-1 text-xs text-slate-400">Everything under this group belongs to that cost centre, unless a group beneath it says otherwise.</p>
+        </div>
+      )}
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="btn-outline">Cancel</button>
-        <button onClick={() => onSave({ name, parent, isGroup, extras: ex })} disabled={busy || !name.trim()} className="btn">
+        <button onClick={save} disabled={busy || !name.trim()} className="btn">
           {busy ? "Adding…" : "Add"}
         </button>
       </div>
@@ -360,13 +377,14 @@ function AddModal({ isGroup: initGroup, parent: initParent, groups, exs, busy, o
   );
 }
 
-function EditModal({ node, exs, busy, onCancel, onSave }: {
-  node: Node; exs: Extra[]; busy: boolean;
-  onCancel: () => void; onSave: (f: { name: string; active: boolean; extras: Record<string, string> }) => void;
+function EditModal({ node, exs, busy, costCenters, onCancel, onSave }: {
+  node: Node; exs: Extra[]; busy: boolean; costCenters?: CostCenterOpt[];
+  onCancel: () => void; onSave: (f: { name: string; active: boolean; extras: Record<string, string>; costCenterId?: string }) => void;
 }) {
   const [name, setName] = useState(node.name);
   const [active, setActive] = useState(node.is_active);
   const [ex, setEx] = useState<Record<string, string>>(Object.fromEntries(exs.map((e) => [e.key, String(node[e.key] ?? "")])));
+  const [costCenterId, setCostCenterId] = useState(node.cost_center_id ?? "");
   return (
     <Modal title={`Edit · ${node.name}`} onClose={onCancel}>
       <label className="label">Name</label>
@@ -375,10 +393,18 @@ function EditModal({ node, exs, busy, onCancel, onSave }: {
         <div key={e.key} className="mt-3"><label className="label">{e.label}</label>
           <input className="input" type="number" step="any" value={ex[e.key] ?? ""} onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} /></div>
       ))}
+      {costCenters && node.is_group && (
+        <div className="mt-3">
+          <label className="label">Cost Centre</label>
+          <SearchSelect value={costCenterId} onChange={setCostCenterId} placeholder="— none —"
+            options={costCenters.map((c) => ({ value: c.id, label: c.name }))} />
+          <p className="mt-1 text-xs text-slate-400">Everything under this group belongs to that cost centre, unless a group beneath it says otherwise.</p>
+        </div>
+      )}
       <label className="mt-3 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active</label>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="btn-outline">Cancel</button>
-        <button onClick={() => onSave({ name, active, extras: ex })} disabled={busy || !name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>
+        <button onClick={() => onSave({ name, active, extras: ex, costCenterId })} disabled={busy || !name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>
       </div>
     </Modal>
   );

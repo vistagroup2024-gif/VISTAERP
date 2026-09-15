@@ -7,7 +7,10 @@ export const dynamic = "force-dynamic";
 
 export default async function AccountsPage() {
   const supabase = createClient();
-  const { data } = await supabase.rpc("acct_tree", { p_company: COMPANY_ID });
+  const [{ data }, { data: costCenters }] = await Promise.all([
+    supabase.rpc("acct_tree", { p_company: COMPANY_ID }),
+    supabase.from("acct_cost_centers").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
+  ]);
   const nodes = (data ?? []) as AcctNode[];
 
   // NO "New Account" BUTTON UP HERE. There used to be one, green, in the page
@@ -20,7 +23,7 @@ export default async function AccountsPage() {
   return (
     <div>
       <PageHeader title="Chart of Accounts" />
-      <AccountTree nodes={nodes} />
+      <AccountTree nodes={nodes} costCenters={costCenters ?? []} />
     </div>
   );
 }
