@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useDocRights } from "@/components/AccessProvider";
+import MultiSearchSelect from "@/components/ui/MultiSearchSelect";
 
 type Approver = { user_id: string; name: string | null };
 type Rule = {
@@ -48,32 +49,7 @@ const DOC_TYPES: DocType[] = [
   { key: "hotel_invoice",    label: "Hotel Invoice",     group: "Module Invoicing", gated: false },
 ];
 const label = (k: string) => DOC_TYPES.find((d) => d.key === k)?.label ?? k;
-const DOC_GROUPS = Array.from(new Set(DOC_TYPES.map((d) => d.group)));
 
-/** A row of chips: click to add, click again to drop. Empty means the whole
- *  set, which is the convention the rest of the access model uses. */
-function Chips({ options, value, onChange, empty }: {
-  options: { v: string; l: string; off?: boolean; why?: string }[];
-  value: string[]; onChange: (v: string[]) => void; empty: string;
-}) {
-  const toggle = (v: string) =>
-    onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((o) => (
-        <button key={o.v} type="button" disabled={o.off} title={o.why}
-          onClick={() => toggle(o.v)}
-          className={`rounded-full border px-2.5 py-1 text-xs ${
-            o.off ? "cursor-not-allowed border-slate-100 text-slate-300"
-            : value.includes(o.v) ? "border-brand bg-brand/10 font-medium text-brand-700"
-            : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
-          {value.includes(o.v) ? "✓ " : ""}{o.l}
-        </button>
-      ))}
-      {value.length === 0 && <span className="self-center text-xs text-slate-400">{empty}</span>}
-    </div>
-  );
-}
 const money = (n: number) => Number(n || 0).toLocaleString();
 
 const blank = () => ({
@@ -157,8 +133,6 @@ export default function RulesPage() {
     load();
   }
 
-  const toggle = (id: string) =>
-    setF((c) => ({ ...c, approvers: c.approvers.includes(id) ? c.approvers.filter((x) => x !== id) : [...c.approvers, id] }));
 
   return (
     <div className="max-w-5xl space-y-5">
@@ -185,21 +159,14 @@ export default function RulesPage() {
               value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
 
           <div className="sm:col-span-3"><label className="label">Voucher types</label>
-            <div className="space-y-2">
-              {DOC_GROUPS.map((g) => (
-                <div key={g} className="flex flex-wrap items-baseline gap-2">
-                  <span className="w-32 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{g}</span>
-                  <Chips
-                    options={DOC_TYPES.filter((d) => d.group === g).map((d) => ({
-                      v: d.key, l: d.label, off: !d.gated,
-                      why: d.gated ? undefined
-                        : "This voucher posts through an engine rather than through the authorisation gate, so a rule cannot hold it.",
-                    }))}
-                    value={f.doc_types} onChange={(v) => setF({ ...f, doc_types: v })}
-                    empty="" />
-                </div>
-              ))}
-            </div>
+            <MultiSearchSelect
+              options={DOC_TYPES.map((d) => ({
+                value: d.key, label: d.label, group: d.group, disabled: !d.gated,
+                disabledReason: d.gated ? undefined
+                  : "This voucher posts through an engine rather than through the authorisation gate, so a rule cannot hold it.",
+              }))}
+              value={f.doc_types} onChange={(v) => setF({ ...f, doc_types: v })}
+              placeholder="Choose the voucher types this rule holds…" />
             {f.doc_types.length === 0 && (
               <p className="mt-1 text-xs text-amber-600">Pick at least one — a rule with no voucher type holds nothing.</p>
             )}
@@ -214,14 +181,14 @@ export default function RulesPage() {
             <p className="mt-1 text-xs text-slate-400">0 = every voucher of these types.</p></div>
 
           <div className="sm:col-span-2"><label className="label">Cost centres</label>
-            <Chips options={costCenters.map((c) => ({ v: c.name, l: c.name }))}
+            <MultiSearchSelect options={costCenters.map((c) => ({ value: c.name, label: c.name }))}
               value={f.cost_centers} onChange={(v) => setF({ ...f, cost_centers: v })}
-              empty="Any cost centre" /></div>
+              placeholder="Any cost centre" /></div>
 
           <div className="sm:col-span-3"><label className="label">Only when raised by</label>
-            <Chips options={staff.map((u) => ({ v: u.id, l: u.full_name || u.email || "—" }))}
+            <MultiSearchSelect options={staff.map((u) => ({ value: u.id, label: u.full_name || u.email || "—" }))}
               value={f.created_bys} onChange={(v) => setF({ ...f, created_bys: v })}
-              empty="Anyone" /></div>
+              placeholder="Anyone" /></div>
 
           <div><label className="label">Approvals needed</label>
             <input className="input text-right" type="number" min={1}
@@ -235,16 +202,9 @@ export default function RulesPage() {
 
         <div>
           <label className="label">Who may authorise it</label>
-          <div className="flex flex-wrap gap-2">
-            {staff.map((u) => (
-              <button key={u.id} type="button" onClick={() => toggle(u.id)}
-                className={`rounded-full border px-3 py-1 text-sm ${f.approvers.includes(u.id)
-                  ? "border-brand bg-brand/10 font-medium text-brand-700"
-                  : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
-                {f.approvers.includes(u.id) ? "✓ " : ""}{u.full_name || u.email}
-              </button>
-            ))}
-          </div>
+          <MultiSearchSelect options={staff.map((u) => ({ value: u.id, label: u.full_name || u.email || "—" }))}
+            value={f.approvers} onChange={(v) => setF({ ...f, approvers: v })}
+            placeholder="Whoever may authorise this voucher type" />
           <p className="mt-1 text-xs text-slate-400">
             Nobody picked = whoever may authorise this voucher type. A maker can never approve their
             own voucher, and an admin can always approve.
