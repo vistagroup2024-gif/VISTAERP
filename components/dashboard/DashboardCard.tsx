@@ -238,8 +238,11 @@ export default function DashboardCard({ def, metrics }: { def: CardDef; metrics:
   const cols = list.length === 4 || list.length <= 2 ? "grid-cols-2" : "grid-cols-3";
   const body = (
     <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-pop">
+      {/* The one VISTA-orange touch on the card — a thin line along the top
+         edge only, never a border around the whole card. */}
+      <div className="h-[2px] w-full shrink-0 bg-brand-orange" aria-hidden />
       <header className="flex items-start justify-between gap-2 border-b border-brand-100 bg-brand-50/70 px-2 py-1">
-        <h3 className="line-clamp-2 break-words text-[10px] font-bold uppercase tracking-wide text-brand-800">{def.label}</h3>
+        <h3 className="line-clamp-2 break-words text-[10px] font-bold uppercase tracking-wide text-brand-700">{def.label}</h3>
         {def.href && (
           <span className="shrink-0 text-brand-400 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>›</span>
         )}
