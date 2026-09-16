@@ -10,7 +10,6 @@ import { navItemFor } from "@/lib/nav";
 
 type Tab = { id: string; url: string; label: string; pinned?: boolean };
 const HOME: Tab = { id: "home", url: "/dashboard", label: "Home", pinned: true };
-const STORAGE_KEY = "erp:tabs:v1";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Strips this shell's own embed/tabId params but keeps everything else,
@@ -130,34 +129,31 @@ export default function TabShell({ name, access, initialPath }: {
     });
   }, [goHome]);
 
-  // Restore what was open last, then reconcile with whatever route actually
-  // brought us here this time — a bookmark, a link followed from outside
-  // the ERP, a plain refresh.
+  // A plain browser refresh — or closing the ERP and opening it again —
+  // starts clean, on Home only. Tabs are this browsing SESSION's, not
+  // something to bring back; the previous behaviour (reopening every tab
+  // that had been open, via localStorage) is exactly what "refresh" is not
+  // supposed to mean here. A genuine fresh navigation TO a specific screen —
+  // a bookmark, a link followed from outside the ERP — still opens that
+  // screen as its own tab: the request the server sees looks identical
+  // either way, so the Navigation Timing API is what tells a reload apart
+  // from a first visit; anything else (a fresh navigate, back/forward) falls
+  // through to the initialPath handling below, unchanged.
   useEffect(() => {
     if (ready.current) return;
     ready.current = true;
-    let restored: Tab[] = [HOME];
-    let restoredActive = "home";
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const saved = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(saved?.tabs) && saved.tabs.length) {
-        restored = [HOME, ...saved.tabs.filter((t: Tab) => t && t.id && t.id !== "home" && t.url)];
-        if (saved.activeId) restoredActive = saved.activeId;
-      }
-    } catch {}
+    const navType = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type;
+    if (navType === "reload") {
+      setTabs([HOME]);
+      setActiveId("home");
+      return;
+    }
     const norm = normalize(initialPath);
     if (norm && norm !== "/" && normalize(HOME.url) !== norm) {
-      const existing = restored.find((t) => normalize(t.url) === norm);
-      if (existing) restoredActive = existing.id;
-      else {
-        const id = `t${Date.now().toString(36)}`;
-        restored = [...restored, { id, url: norm, label: labelFor(norm) }];
-        restoredActive = id;
-      }
+      const id = `t${Date.now().toString(36)}`;
+      setTabs([HOME, { id, url: norm, label: labelFor(norm) }]);
+      setActiveId(id);
     }
-    setTabs(restored);
-    setActiveId(restored.some((t) => t.id === restoredActive) ? restoredActive : "home");
   }, [initialPath]);
 
   // A navigation the click interceptor below did not catch — a stray Link
@@ -171,13 +167,6 @@ export default function TabShell({ name, access, initialPath }: {
     seenPath.current = initialPath;
     openTab(initialPath);
   }, [initialPath, openTab]);
-
-  useEffect(() => {
-    if (!ready.current) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs: tabs.filter((t) => t.id !== "home"), activeId }));
-    } catch {}
-  }, [tabs, activeId]);
 
   const closeTab = useCallback((id: string) => {
     if (id === "home") return;
@@ -220,9 +209,10 @@ export default function TabShell({ name, access, initialPath }: {
     return () => window.removeEventListener("message", onMessage);
   }, [updateTab]);
 
-  // Cosmetic only: the address bar follows the active tab, so a refresh or
-  // a copied link lands back on it. It is history.replaceState, never a
-  // router call — it must not trigger a Next.js navigation of its own.
+  // Cosmetic only: the address bar follows the active tab, so a copied link
+  // lands back on it (a plain refresh no longer does — see the mount effect
+  // above). It is history.replaceState, never a router call — it must not
+  // trigger a Next.js navigation of its own.
   useEffect(() => {
     const t = tabs.find((x) => x.id === activeId);
     if (!t || typeof window === "undefined") return;
