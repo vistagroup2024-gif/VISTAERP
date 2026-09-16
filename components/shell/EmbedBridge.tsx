@@ -32,6 +32,33 @@ export default function EmbedBridge({ tabId }: { tabId: string }) {
     qs.delete("tabId");
     const rest = qs.toString();
     const url = rest ? `${pathname}?${rest}` : pathname;
+
+    // The middleware tells ?embed=1 apart from a fresh top-level visit by
+    // the query string, or — for a router.push()/<Link>, which never
+    // reloads the document and so never resends ?embed=1 itself — the
+    // Referer of the request that's asking. Both read what THIS document's
+    // OWN address bar says right now, and a router.push changes the
+    // pathname to whatever the link targeted and drops every query param
+    // that link didn't carry — embed and tabId included. That held past the
+    // FIRST such navigation only: the tab's address bar was left with
+    // neither, so the very next one had no ?embed=1 anywhere to read — not
+    // in its own request, not in the Referer of the one after it — and the
+    // ERP layout drew the whole shell again, nested inside the tab that
+    // already had one. Restoring embed/tabId onto this document's own
+    // address bar after EVERY navigation, not only the very first, is what
+    // closes that for good: whatever this tab navigates to next, the
+    // Referer the browser sends for it is always this document's current
+    // location, which always still carries them. A no-op history entry,
+    // never a Next.js navigation of its own — same as the shell's own
+    // address-bar sync in TabShell.
+    const embedQs = new URLSearchParams(search);
+    embedQs.set("embed", "1");
+    embedQs.set("tabId", tabId);
+    const embedUrl = `${pathname}?${embedQs.toString()}`;
+    if (window.location.pathname + window.location.search !== embedUrl) {
+      window.history.replaceState(null, "", embedUrl);
+    }
+
     // A microtask lets this navigation's own <title> (if the page sets one)
     // land before it is read, rather than posting the previous tab's title.
     queueMicrotask(() => {
