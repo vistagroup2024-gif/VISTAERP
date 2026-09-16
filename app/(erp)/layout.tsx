@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { Suspense } from "react";
 import { AccessProvider } from "@/components/AccessProvider";
-import NavButtons from "@/components/NavButtons";
 import TabShell from "@/components/shell/TabShell";
 import EmbedBridge from "@/components/shell/EmbedBridge";
 import { getSessionUser, getStaffAccess } from "@/lib/staffSession";
@@ -39,15 +38,12 @@ export default async function ErpLayout({
     return (
       <AccessProvider value={{ isAdmin: access.isAdmin, docRights: access.docRights }}>
         <Suspense fallback={null}><EmbedBridge tabId={h.get("x-erp-tab") ?? ""} /></Suspense>
+        {/* No Back/Home row here any more — both live once in the shell's own
+            tab strip (Back beside the pinned Home tab) instead of once per
+            tab, which put two Home buttons on screen at the same time.
+            EmbedBridge is what lets that single Back button reach into
+            THIS tab's own history. */}
         <main className="min-w-0 p-4 lg:p-8">
-          {/* Back and Home for EVERY screen, drawn once per tab rather than by
-              each page. Putting it in PageHeader covered the 137 screens that
-              use one and missed 46 that draw their own title bar; putting it
-              here covers all of them, and no page can show a second pair
-              because no page renders it. Home switches the SHELL to its
-              pinned Home tab rather than navigating this tab away from
-              whatever it is showing. */}
-          <div className="no-print mb-3"><NavButtons /></div>
           {children}
         </main>
       </AccessProvider>

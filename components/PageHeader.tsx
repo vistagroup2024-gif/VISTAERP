@@ -20,8 +20,9 @@ export default function PageHeader({
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
       <div className="flex items-start gap-3">
-        {/* Back / Home is drawn once by the ERP layout for every screen, so it is
-            deliberately not here. `hideBack` is kept for callers that pass it. */}
+        {/* Back is drawn once in the shell's own tab strip, beside the pinned
+            Home tab, for every screen — deliberately not here. `hideBack` is
+            kept for callers that still pass it. */}
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900">{title}</h1>
           {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}

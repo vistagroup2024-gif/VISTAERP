@@ -66,6 +66,13 @@ export default function TabShell({ name, access, initialPath }: {
   const [tabs, setTabs] = useState<Tab[]>([HOME]);
   const [activeId, setActiveId] = useState("home");
   const ready = useRef(false);
+  // One iframe per open tab, same-origin, so Back can reach straight into
+  // the active one's own history — the parent frame itself never navigates.
+  const frames = useRef(new Map<string, HTMLIFrameElement>());
+  const goBack = useCallback(() => {
+    frames.current.get(activeId)?.contentWindow?.postMessage(
+      { type: "erp-tab", action: "back" }, window.location.origin);
+  }, [activeId]);
 
   const openTab = useCallback((href: string) => {
     const norm = normalize(href);
@@ -152,7 +159,16 @@ export default function TabShell({ name, access, initialPath }: {
       const d = e.data;
       if (!d || d.type !== "erp-tab") return;
       if (d.action === "nav" && typeof d.tabId === "string" && typeof d.url === "string") {
-        updateTab(d.tabId, { url: normalize(d.url), label: d.title ? cleanTitle(d.title) : undefined });
+        const url = normalize(d.url);
+        const title = d.title ? cleanTitle(d.title) : "";
+        // No page in this app sets its own <title> — the root layout's is a
+        // flat "Vista ERP", so document.title never carries a real screen
+        // name. Trusting it anyway overwrote every tab's good, nav-derived
+        // label with that same useless string the instant its tab reported
+        // in. Fall back to the nav model instead, exactly like the tab's own
+        // initial label already does — and once a page DOES set a real
+        // title, this starts preferring it automatically, no further change.
+        updateTab(d.tabId, { url, label: title && title !== "Vista ERP" ? title : labelFor(url) });
       } else if (d.action === "home") {
         setActiveId("home");
       }
@@ -183,6 +199,18 @@ export default function TabShell({ name, access, initialPath }: {
   // anything drawn here later, rather than patching each one by hand. A
   // modified click (new-tab, new-window) is left alone so the browser's own
   // "open in new tab" still works.
+  //
+  // CAPTURE phase, not bubble: Next's own <Link> attaches its click handler
+  // on the anchor itself and, unless the event already arrives with
+  // defaultPrevented, calls preventDefault() and does ITS OWN client-side
+  // navigation there — before a bubble-phase handler up here would even
+  // run. A bubble handler's own "if (e.defaultPrevented) return" then saw
+  // Link's preventDefault already set and did nothing — the click fell
+  // through to a real Next.js navigation, which this layout discards
+  // entirely outside embed mode (it renders only the shell, never the
+  // routed page), so nothing appeared until a hard refresh re-ran the
+  // layout from a clean request. Capturing first means THIS is what calls
+  // preventDefault, and Link sees that and skips its own navigation.
   function onChromeClick(e: React.MouseEvent) {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
@@ -196,14 +224,15 @@ export default function TabShell({ name, access, initialPath }: {
   return (
     <ShellNavProvider value={nav}>
       <PushNudge />
-      <div className="flex h-screen" onClick={onChromeClick}>
+      <div className="flex h-screen" onClickCapture={onChromeClick}>
         <Sidebar name={name} access={access} />
         <div className="flex h-full min-w-0 flex-1 flex-col pt-14 lg:pt-0">
           <AppHeader name={name} access={access} />
-          <TabStrip tabs={tabs} activeId={activeId} onSelect={setActiveId} onClose={closeTab} />
+          <TabStrip tabs={tabs} activeId={activeId} onSelect={setActiveId} onClose={closeTab} onBack={goBack} />
           <div className="relative min-h-0 flex-1">
             {tabs.map((t) => (
               <iframe key={t.id} src={embedSrc(t)} title={t.label}
+                ref={(el) => { if (el) frames.current.set(t.id, el); else frames.current.delete(t.id); }}
                 className={`absolute inset-0 h-full w-full border-0 ${t.id === activeId ? "" : "hidden"}`} />
             ))}
           </div>
@@ -213,11 +242,16 @@ export default function TabShell({ name, access, initialPath }: {
   );
 }
 
-function TabStrip({ tabs, activeId, onSelect, onClose }: {
-  tabs: Tab[]; activeId: string; onSelect: (id: string) => void; onClose: (id: string) => void;
+function TabStrip({ tabs, activeId, onSelect, onClose, onBack }: {
+  tabs: Tab[]; activeId: string; onSelect: (id: string) => void; onClose: (id: string) => void; onBack: () => void;
 }) {
   return (
     <div className="no-print flex items-center gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50 px-2 py-1.5">
+      <button type="button" onClick={onBack} aria-label="Back" title="Back"
+        className="shrink-0 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/70 hover:text-slate-800">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75"
+             strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+      </button>
       {tabs.map((t) => (
         <div key={t.id}
           onClick={() => onSelect(t.id)}
