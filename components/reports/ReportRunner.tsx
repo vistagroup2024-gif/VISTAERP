@@ -26,10 +26,14 @@ import type { Need } from "@/lib/reports/types";
  * user's ticked ids back to names before the RPC is called, fetching the
  * id→name map itself only when a report actually needs it.
  */
-export default function ReportRunner({ registry, report, options }: {
+export default function ReportRunner({ registry, report, options, onData }: {
   registry: Record<string, ReportCfg>;
   report: string;
   options?: Partial<Record<Need, MultiOption[]>>;
+  /** Lets the page wrapping this engine build its own KPI row off the exact
+   *  rows/groups just fetched — never a second fetch of its own that could
+   *  show a different filtered state than the table underneath it. */
+  onData?: (rows: any[] | null, groups: DataGroup[] | undefined) => void;
 }) {
   const cfg = registry[report];
   const supabase = useMemo(() => createClient(), []);
@@ -84,14 +88,19 @@ export default function ReportRunner({ registry, report, options }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg?.key]);
 
-  if (!cfg) return <p className="text-sm text-danger-fg">Unknown report &quot;{report}&quot;.</p>;
-
   // "grouped" reports' RPC returns the DataGroup[] shape directly (one block
   // per account/entity, its own rows and subtotal) — see lib/reports/types.ts.
-  const isGrouped = cfg.shape === "grouped";
+  const isGrouped = cfg?.shape === "grouped";
   const groups: DataGroup[] | undefined = isGrouped ? ((rows as DataGroup[]) ?? []) : undefined;
   const flatRows = !isGrouped ? rows ?? [] : [];
   const exportRows = isGrouped ? (groups ?? []).flatMap((g) => g.rows) : flatRows;
+
+  useEffect(() => {
+    onData?.(rows, groups);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
+
+  if (!cfg) return <p className="text-sm text-danger-fg">Unknown report &quot;{report}&quot;.</p>;
 
   return (
     <div>
