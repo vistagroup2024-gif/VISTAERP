@@ -12,6 +12,7 @@ const REPORTS = [
   { href: "/car-sales/reports/service-charges", title: "Monthly Service Charges", desc: "Charge status by vehicle & ownership." },
   { href: "/car-sales/reports/customer-summary", title: "Customer Summary", desc: "Per-customer ledger, due & overdue." },
   { href: "/car-sales/reports/profitability", title: "Vehicle Profitability", desc: "Purchase vs sale, profit, collected & outstanding." },
+  { href: "/car-sales/reports/delivery", title: "Car Delivery Report", desc: "Sold vehicles and delivery status, with the invoice that sold them." },
 ];
 
 export default async function ReportsIndex() {

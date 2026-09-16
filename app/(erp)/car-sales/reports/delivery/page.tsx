@@ -1,0 +1,68 @@
+import { createClient } from "@/lib/supabase/server";
+import { guardStaffPage } from "@/lib/staffSession";
+import { COMPANY_ID, dateStr } from "@/lib/format";
+import PageHeader from "@/components/PageHeader";
+import PrintButton from "@/components/PrintButton";
+import { sar, VEHICLE_STATUS_LABEL, VEHICLE_STATUS_TONE, vehicleTitle } from "../../lib";
+
+export const dynamic = "force-dynamic";
+
+function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="card">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+      <p className={`mt-1 text-xl font-bold ${tone ?? "text-slate-800"}`}>{value}</p>
+    </div>
+  );
+}
+
+// Car Delivery Report — the dashboard's Delivery Status card, one row per
+// vehicle. report_car_delivery() (migration 414) reads the exact same
+// car_vehicles.status dashboard_metrics() counts, so the KPIs here always
+// foot to the card.
+export default async function CarDeliveryReport() {
+  await guardStaffPage("carsales.reports");
+  const supabase = createClient();
+  const { data } = await supabase.rpc("report_car_delivery", { p_company: COMPANY_ID });
+  const rows = ((data ?? []) as any[]);
+  const sold = rows.filter((r) => r.status === "sold" || r.status === "delivered").length;
+  const delivered = rows.filter((r) => r.delivered).length;
+  const pending = sold - delivered;
+  const pct = sold > 0 ? (delivered / sold) * 100 : 0;
+
+  return (
+    <div>
+      <PageHeader title="Car Delivery Report" subtitle="Sold vehicles and their delivery status, with the invoice that sold them."><PrintButton /></PageHeader>
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Kpi label="Sales Quantity" value={String(sold)} />
+        <Kpi label="Delivered" value={String(delivered)} tone="text-green-700" />
+        <Kpi label="Pending" value={String(pending)} tone={pending > 0 ? "text-amber-700" : "text-green-700"} />
+        <Kpi label="Delivery %" value={`${pct.toFixed(1)}%`} />
+      </div>
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full min-w-[900px]">
+          <thead className="bg-slate-50"><tr>
+            <th className="th">Vehicle</th><th className="th">Cost Centre</th><th className="th">Customer</th>
+            <th className="th">Tag Area</th><th className="th">Invoice No</th><th className="th">Invoice Date</th>
+            <th className="th text-right">Invoice Amount</th><th className="th">Status</th>
+          </tr></thead>
+          <tbody>
+            {rows.filter((r) => r.status === "sold" || r.status === "delivered").map((r) => (
+              <tr key={r.vehicle_id} className="border-t border-slate-100">
+                <td className="td">{vehicleTitle(r)}{r.plate_no ? <span className="ml-1 text-xs text-slate-400">{r.plate_no}</span> : null}</td>
+                <td className="td">{r.cost_centre ?? "—"}</td>
+                <td className="td">{r.customer ?? "—"}</td>
+                <td className="td">{r.tag_area ?? "—"}</td>
+                <td className="td">{r.invoice_no ?? "—"}</td>
+                <td className="td">{r.invoice_date ? dateStr(r.invoice_date) : "—"}</td>
+                <td className="td text-right tabular-nums">{sar(r.invoice_amount)}</td>
+                <td className="td"><span className={`badge ${VEHICLE_STATUS_TONE[r.status] ?? ""}`}>{VEHICLE_STATUS_LABEL[r.status] ?? r.status}</span></td>
+              </tr>
+            ))}
+            {sold === 0 && <tr><td className="td text-slate-400" colSpan={8}>No cars sold yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

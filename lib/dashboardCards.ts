@@ -63,7 +63,7 @@ export const DASHBOARD_CARDS: CardDef[] = [
   { key: "stock", label: "Stock",
     hint: "Quantity and value on hand", href: "/stock/valuation" },
   { key: "delivery_status", label: "Delivery Status",
-    hint: "Sold vs delivered vs still to go out", href: "/car-sales/vehicles" },
+    hint: "Sold vs delivered vs still to go out", href: "/car-sales/reports/delivery" },
   { key: "bookings", label: "Bookings",
     hint: "Hotel bookings by status, and today's movements", href: "/hotels/bookings" },
 
