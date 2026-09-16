@@ -5,7 +5,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 const REPORTS = [
-  { href: "/car-sales/reports/outstanding", title: "Outstanding Details", desc: "Per-contract paid, outstanding, due & overdue." },
+  { href: "/car-sales/reports/outstanding", title: "Car Customer Balances", desc: "Ageing summary (default) and month-by-month due & receipts — same figures as the dashboard card." },
   { href: "/car-sales/reports/aging", title: "Installment Aging", desc: "Overdue buckets: current / 1-30 / 31-60 / 61-90 / 90+." },
   { href: "/car-sales/reports/upcoming", title: "Upcoming Collection", desc: "Installments due soon, with contact numbers." },
   { href: "/car-sales/reports/held", title: "Vehicles Held by Vista", desc: "Retained vehicles with outstanding & agreement notes." },
