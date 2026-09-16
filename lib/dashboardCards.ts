@@ -41,11 +41,12 @@ export const DASHBOARD_CARDS: CardDef[] = [
     hint: "What customers owe and what is owed to suppliers, read off the LEDGER so car, visa, transport and hotel balances are all in it. Overdue covers only invoices and bills that carry a due date, so it is a floor rather than the whole of what is late",
     href: "/accounting/aging" },
   { key: "sales", label: "Sales",
-    hint: "Income booked this month and this year", href: "/accounting/sales-report" },
+    hint: "Income booked this month and this year, and how many invoices this month", href: "/accounting/sales-report" },
   { key: "expenses", label: "Expenses",
     hint: "Expense booked this month and this year", href: "/accounting/targets?tab=exp" },
   { key: "pnl", label: "Profit & Loss",
-    hint: "Income less expense, month and year", href: "/accounting/profit-loss" },
+    hint: "The bottom line — gross profit, net profit and margin, month and year. Income and Expense have their own cards, so this one is the calculation those two combine into, not a repeat of either",
+    href: "/accounting/profit-loss" },
   { key: "car_balances", label: "Car Customer Balances",
     hint: "Everything a car customer owes — instalments, the invoice advance AND the monthly service charge. Due (its date has arrived), Overdue (its month has ended), Total of the two, the customers' ledger balance, and what has been collected",
     href: "/car-sales/reports/outstanding" },
@@ -59,12 +60,13 @@ export const DASHBOARD_CARDS: CardDef[] = [
     hint: "Sale orders still awaiting their invoice — one leaves this card the moment a Car Invoice is raised from it. Advance is the one agreed on the order itself (Car Sales Details); Balance is the advance still to come in, advance minus received",
     href: "/accounting/sales/advance-vs-receipt" },
   { key: "purchase_vs_sale", label: "Purchase vs Sale",
-    hint: "What was bought against what was sold, month and year", href: "/accounting/purchase-vs-sale" },
+    hint: "Trading activity, not a second P&L: purchases this month (value and how many), against how many sales happened — Sales and Profit & Loss already carry the revenue and margin figures",
+    href: "/accounting/purchase-vs-sale" },
   { key: "stock", label: "Stock",
     hint: "Quantity and value on hand", href: "/stock/valuation" },
   { key: "delivery_status", label: "Delivery Status",
     hint: "Sold vs delivered vs still to go out", href: "/car-sales/reports/delivery" },
-  { key: "bookings", label: "Bookings",
+  { key: "bookings", label: "Hotel Bookings",
     hint: "Hotel bookings by status, and today's movements", href: "/hotels/bookings" },
 
   // These came off the module dashboards when those were removed.
@@ -91,32 +93,6 @@ export const DASHBOARD_CARDS: CardDef[] = [
 ];
 
 export const ALL_CARD_KEYS = DASHBOARD_CARDS.map((c) => c.key);
-
-// ── Dashboard tabs ──────────────────────────────────────────────────────────
-//
-// The old VISTA software grouped its dashboard under tabs above the cards;
-// this ERP had the cards but not the grouping. Four tabs, matching module
-// boundaries already used elsewhere (the sidebar's own "Umrah" section in
-// lib/nav.ts groups Visa/BRN/Hotels/Transport the same way) rather than
-// inventing a new grouping — a card moves tab, nothing about the card itself
-// changes, and a report/drill-down a card links to is untouched.
-export interface DashboardTabDef { key: string; label: string; cards: CardKey[] }
-
-export const DASHBOARD_TABS: DashboardTabDef[] = [
-  { key: "overview", label: "Overview", cards: [
-    "cash_bank", "cash_flow", "balance_sheet", "ar_ap", "sales", "expenses", "pnl",
-    "purchase_vs_sale", "approvals", "pdc",
-  ] },
-  { key: "sales_purchase", label: "Sales & Purchase", cards: [
-    "pending_sales_orders", "pending_purchase_orders", "order_status",
-    "so_advance_receipt", "delivery_status", "stock",
-  ] },
-  { key: "umrah", label: "Umrah", cards: [
-    "visa_groups", "hotel_financials", "brn_beds", "brn_availability", "brn_agreements",
-    "transport", "bookings",
-  ] },
-  { key: "car_sales", label: "Car Sales", cards: ["car_balances", "car_contracts", "car_ownership"] },
-];
 
 /**
  * `cards` is what staff_access() returned: the string "all" for an admin, or a

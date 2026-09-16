@@ -68,7 +68,7 @@ function cells(key: CardKey, m: any): Cell[] {
     case "sales": return [
       { label: "This month", value: cash(d.month), strong: true },
       { label: "Year to date", value: cash(d.year) },
-      { label: "All time", value: cash(d.total) },
+      { label: "Invoices (m)", value: qty(d.invoices_month) },
     ];
     case "expenses": return [
       { label: "This month", value: cash(d.month), strong: true, tone: "neg" },
@@ -76,15 +76,19 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "All time", value: cash(d.total) },
     ];
     case "pnl": {
-      // Income less the cost of what was sold, less the expenses. The cost is
-      // its own line — it is the margin, not the overhead.
-      const mm = N(d.income_month) - N(d.cogs_month) - N(d.expense_month), yy = N(d.income_year) - N(d.cogs_year) - N(d.expense_year);
+      // Income and Expense already have their own cards — this one is the
+      // BOTTOM LINE those two combine into, not a third place showing the
+      // same input figures. Gross Profit is the one step of the calculation
+      // neither of those cards carries (income less cost of sales); Net
+      // Profit/Margin/YTD are what "how is the business doing" actually asks.
+      const gm = N(d.income_month) - N(d.cogs_month);
+      const mm = gm - N(d.expense_month), yy = N(d.income_year) - N(d.cogs_year) - N(d.expense_year);
+      const marginPct = N(d.income_month) !== 0 ? (mm / N(d.income_month)) * 100 : null;
       return [
-        { label: "Income (m)", value: cash(d.income_month), tone: "pos" },
-        { label: "Cost of sales (m)", value: cash(d.cogs_month) },
-        { label: "Expense (m)", value: cash(d.expense_month), tone: "neg" },
-        { label: mm >= 0 ? "Profit (m)" : "Loss (m)", value: cash(Math.abs(mm)), strong: true, tone: mm >= 0 ? "pos" : "neg" },
-        { label: yy >= 0 ? "Profit (ytd)" : "Loss (ytd)", value: cash(Math.abs(yy)), tone: yy >= 0 ? "pos" : "neg" },
+        { label: "Gross Profit (m)", value: cash(gm), tone: gm >= 0 ? "pos" : "neg" },
+        { label: mm >= 0 ? "Net Profit (m)" : "Net Loss (m)", value: cash(Math.abs(mm)), strong: true, tone: mm >= 0 ? "pos" : "neg" },
+        { label: "Net Margin (m)", value: raw(marginPct === null ? "—" : `${marginPct.toFixed(1)}%`) },
+        { label: yy >= 0 ? "Net Profit (ytd)" : "Net Loss (ytd)", value: cash(Math.abs(yy)), tone: yy >= 0 ? "pos" : "neg" },
       ];
     }
     // Everything a car customer owes, in one card: the instalments, the advance
@@ -126,18 +130,17 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "Received", value: cash(d.received), tone: "pos" },
       { label: "Balance", value: cash(d.balance), tone: N(d.balance) > 0 ? "warn" : undefined },
     ];
-    case "purchase_vs_sale": {
-      // Sale is every posted sale document, the Car Invoice included. The
-      // margin is sale less the cost of what was sold — not sale less what was
-      // bought, which would set two cars bought against one car sold.
-      const gm = N(d.sale_month) - N(d.cogs_month);
-      return [
-        { label: "Buy (m)", value: cash(d.purchase_month) },
-        { label: "Sale (m)", value: cash(d.sale_month) },
-        { label: "Gross profit (m)", value: cash(gm), strong: true, tone: gm >= 0 ? "pos" : "neg" },
-        { label: "Sale (ytd)", value: cash(d.sale_year) },
-      ];
-    }
+    // Trading ACTIVITY, not a second P&L — Sales already has the revenue
+    // figure and P&L already has the margin, so neither is repeated here.
+    // Purchases (m) is the one money figure no other card shows; the two
+    // transaction counts are the "how much buying and selling actually
+    // happened" read a value-only comparison can't give.
+    case "purchase_vs_sale": return [
+      { label: "Purchases (m)", value: cash(d.purchase_month), strong: true },
+      { label: "Purchase Txns (m)", value: qty(d.purchase_txns_month) },
+      { label: "Sale Txns (m)", value: qty(d.sale_txns_month) },
+      { label: "Purchases (ytd)", value: cash(d.purchase_year) },
+    ];
     case "stock": return [
       { label: "Value", value: cash(d.value), strong: true },
       { label: "Quantity", value: qty(d.qty) },
@@ -218,28 +221,34 @@ function cells(key: CardKey, m: any): Cell[] {
   }
 }
 
+// A compact grid of cells rather than a flex row that wraps: a fixed column
+// count means a busy 5-cell card is always exactly two short rows, never an
+// unpredictable wrap that depends on how wide its own column happens to be —
+// which is what made the old flex-wrap layout run tall on some breakpoints
+// and not others for the same card. 1px gaps + a white cell background on a
+// slate-100 grid is the divider, so no separate border classes are needed.
 export default function DashboardCard({ def, metrics }: { def: CardDef; metrics: any }) {
   const list = cells(def.key, metrics);
+  const cols = list.length <= 2 ? "grid-cols-2" : "grid-cols-3";
   const body = (
-    <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-pop">
-      <header className="flex items-center justify-between gap-2 border-b border-brand-100 bg-brand-50/70 px-3 py-1.5">
-        <h3 className="truncate text-[11px] font-bold uppercase tracking-wider text-brand-800">{def.label}</h3>
+    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-pop">
+      <header className="flex items-center justify-between gap-2 border-b border-brand-100 bg-brand-50/70 px-2 py-1">
+        <h3 className="truncate text-[10px] font-bold uppercase tracking-wide text-brand-800">{def.label}</h3>
         {def.href && (
           <span className="shrink-0 text-brand-400 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>›</span>
         )}
       </header>
-      <div className="flex flex-1 flex-wrap divide-slate-100">
-        {list.map((c, i) => (
-          <div key={c.label}
-               className={`min-w-[4.75rem] flex-1 basis-0 px-2.5 py-2 ${i > 0 ? "border-l border-slate-100" : ""}`}>
-            <p className="text-[10px] font-medium uppercase leading-tight tracking-wide text-slate-400">{c.label}</p>
+      <div className={`grid flex-1 ${cols} gap-px overflow-hidden bg-slate-100`}>
+        {list.map((c) => (
+          <div key={c.label} className="bg-white px-2 py-1">
+            <p className="truncate text-[9px] font-medium uppercase leading-tight tracking-wide text-slate-400">{c.label}</p>
             <p title={c.value.title}
-               className={`mt-0.5 truncate tabular-nums ${c.strong ? "text-xl font-extrabold" : "text-lg font-semibold"} ${c.tone ? TONE[c.tone] : "text-slate-800"}`}>
+               className={`truncate tabular-nums ${c.strong ? "text-base font-extrabold" : "text-sm font-semibold"} ${c.tone ? TONE[c.tone] : "text-slate-800"}`}>
               {c.value.text}
             </p>
           </div>
         ))}
-        {list.length === 0 && <p className="px-3 py-4 text-sm text-slate-400">No data.</p>}
+        {list.length === 0 && <p className="col-span-full bg-white px-3 py-4 text-sm text-slate-400">No data.</p>}
       </div>
     </article>
   );
