@@ -17,7 +17,11 @@ const TABLE_DOC: Record<string, string> = {
 };
 
 type Node = { id: string; parent_id: string | null; name: string; is_group: boolean; is_active: boolean; sort: number; cost_center_id?: string | null; [k: string]: any };
-type Extra = { key: string; label: string };
+// `type` defaults to "number" (Product Tree rates, Cost Centre's Sales
+// Target); "date" is for a compliance-style expiry field (Tag Area's Car
+// Authorization / Insurance / Operation Card / Fahas) — stored and shown as
+// the raw date string, never coerced through Number().
+type Extra = { key: string; label: string; type?: "number" | "date" };
 type CostCenterOpt = { id: string; name: string };
 
 // Reusable hierarchical master: Product Tree, Cost Center, Tag Area.
@@ -126,7 +130,7 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
   async function add(f: { name: string; parent: string; isGroup: boolean; extras: Record<string, string>; costCenterId?: string }) {
     setBusy(true); setErr(null);
     const payload: any = { company_id: COMPANY_ID, name: f.name.trim(), parent_id: f.parent || null, is_group: f.isGroup };
-    if (!f.isGroup) for (const ex of exs) payload[ex.key] = f.extras[ex.key] ? Number(f.extras[ex.key]) : 0;
+    if (!f.isGroup) for (const ex of exs) payload[ex.key] = ex.type === "date" ? (f.extras[ex.key] || null) : (f.extras[ex.key] ? Number(f.extras[ex.key]) : 0);
     if (costCenters && f.isGroup) payload.cost_center_id = f.costCenterId || null;
     const { error } = await supabase.from(table).insert(payload);
     setBusy(false);
@@ -138,7 +142,7 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
     if (!editing) return;
     setBusy(true); setErr(null);
     const patch: any = { name: f.name.trim(), is_active: f.active };
-    if (!editing.is_group) for (const ex of exs) patch[ex.key] = f.extras[ex.key] ? Number(f.extras[ex.key]) : 0;
+    if (!editing.is_group) for (const ex of exs) patch[ex.key] = ex.type === "date" ? (f.extras[ex.key] || null) : (f.extras[ex.key] ? Number(f.extras[ex.key]) : 0);
     if (costCenters && editing.is_group) patch.cost_center_id = f.costCenterId || null;
     const { error } = await supabase.from(table).update(patch).eq("id", editing.id);
     setBusy(false);
@@ -295,7 +299,9 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
                     {!n.is_active && <span className="ml-2 rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">inactive</span>}
                   </span>
                   {!n.is_group && exs.map((ex) => (
-                    <span key={ex.key} className="w-32 shrink-0 text-right tabular-nums text-xs">{Number(n[ex.key] ?? 0).toLocaleString()}</span>
+                    <span key={ex.key} className="w-32 shrink-0 text-right tabular-nums text-xs">
+                      {ex.type === "date" ? (n[ex.key] ?? "—") : Number(n[ex.key] ?? 0).toLocaleString()}
+                    </span>
                   ))}
                   {n.is_group && exs.map((ex) => <span key={ex.key} className="w-32 shrink-0" />)}
                 </div>
@@ -353,8 +359,13 @@ function AddModal({ isGroup: initGroup, parent: initParent, groups, exs, busy, c
       </div>
       {!isGroup && exs.map((e) => (
         <div key={e.key} className="mt-3"><label className="label">{e.label}</label>
-          <input className="input" type="number" step="any" value={ex[e.key] ?? ""}
-            onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} /></div>
+          {e.type === "date" ? (
+            <input className="input" type="date" value={ex[e.key] ?? ""}
+              onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} />
+          ) : (
+            <input className="input" type="number" step="any" value={ex[e.key] ?? ""}
+              onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} />
+          )}</div>
       ))}
       <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
         <input type="checkbox" checked={isGroup} onChange={(e) => setIsGroup(e.target.checked)} /> Is a group
@@ -383,7 +394,7 @@ function EditModal({ node, exs, busy, costCenters, onCancel, onSave }: {
 }) {
   const [name, setName] = useState(node.name);
   const [active, setActive] = useState(node.is_active);
-  const [ex, setEx] = useState<Record<string, string>>(Object.fromEntries(exs.map((e) => [e.key, String(node[e.key] ?? "")])));
+  const [ex, setEx] = useState<Record<string, string>>(Object.fromEntries(exs.map((e) => [e.key, node[e.key] == null ? "" : String(node[e.key])])));
   const [costCenterId, setCostCenterId] = useState(node.cost_center_id ?? "");
   return (
     <Modal title={`Edit · ${node.name}`} onClose={onCancel}>
@@ -391,7 +402,11 @@ function EditModal({ node, exs, busy, costCenters, onCancel, onSave }: {
       <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       {!node.is_group && exs.map((e) => (
         <div key={e.key} className="mt-3"><label className="label">{e.label}</label>
-          <input className="input" type="number" step="any" value={ex[e.key] ?? ""} onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} /></div>
+          {e.type === "date" ? (
+            <input className="input" type="date" value={ex[e.key] ?? ""} onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} />
+          ) : (
+            <input className="input" type="number" step="any" value={ex[e.key] ?? ""} onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} />
+          )}</div>
       ))}
       {costCenters && node.is_group && (
         <div className="mt-3">

@@ -28,6 +28,8 @@ export type AcctNode = {
     id: string; code: string | null; phone: string | null; email: string | null;
     currency: string | null; credit_limit: number | null; credit_days: number | null;
     sales_target: number | null; is_active: boolean;
+    iqama_no: string | null; iqama_expiry: string | null;
+    driver_card_expiry: string | null; driver_license_expiry: string | null;
   } | null;
   own_debit: number; own_credit: number;
 };
@@ -194,6 +196,8 @@ export default function AccountTree({ nodes, costCenters }: { nodes: AcctNode[];
       p_phone: f.phone || null, p_email: f.email || null, p_currency: f.currency,
       p_credit_limit: Number(f.credit_limit) || 0, p_credit_days: Number(f.credit_days) || 0,
       p_sales_target: Number(f.sales_target) || 0, p_is_active: f.is_active,
+      p_iqama_no: f.iqama_no || null, p_iqama_expiry: f.iqama_expiry || null,
+      p_driver_card_expiry: f.driver_card_expiry || null, p_driver_license_expiry: f.driver_license_expiry || null,
     });
     setBusy(false);
     if (error) return setOpErr(error.message);
@@ -483,6 +487,7 @@ function PropsModal({ node, busy, costCenters, onCancel, onSave }: {
 export type PartyFields = {
   name: string; code: string; phone: string; email: string; currency: string;
   credit_limit: string; credit_days: string; sales_target: string; is_active: boolean;
+  iqama_no: string; iqama_expiry: string; driver_card_expiry: string; driver_license_expiry: string;
 };
 
 function PartyModal({ node, busy, onCancel, onSave }: {
@@ -497,6 +502,8 @@ function PartyModal({ node, busy, onCancel, onSave }: {
     credit_days: String(p?.credit_days ?? 0),
     sales_target: String(p?.sales_target ?? 0),
     is_active: p?.is_active ?? true,
+    iqama_no: p?.iqama_no ?? "", iqama_expiry: p?.iqama_expiry ?? "",
+    driver_card_expiry: p?.driver_card_expiry ?? "", driver_license_expiry: p?.driver_license_expiry ?? "",
   });
   const set = (k: keyof PartyFields, v: any) => setF((x) => ({ ...x, [k]: v }));
   return (
@@ -531,6 +538,23 @@ function PartyModal({ node, busy, onCancel, onSave }: {
           Active — an inactive one is no longer offered on bookings, groups or vouchers
         </label>
       </div>
+
+      {/* Compliance — Vista Car Customers track their own Iqama and driver
+         documents here; blank on any party that does not carry them. */}
+      <div className="mt-4 border-t border-slate-100 pt-4">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Compliance</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div><label className="label">Iqama number</label>
+            <input className="input" value={f.iqama_no} onChange={(e) => set("iqama_no", e.target.value)} /></div>
+          <div><label className="label">Iqama expiry</label>
+            <input className="input" type="date" value={f.iqama_expiry} onChange={(e) => set("iqama_expiry", e.target.value)} /></div>
+          <div><label className="label">Driver card expiry</label>
+            <input className="input" type="date" value={f.driver_card_expiry} onChange={(e) => set("driver_card_expiry", e.target.value)} /></div>
+          <div><label className="label">Driver license expiry</label>
+            <input className="input" type="date" value={f.driver_license_expiry} onChange={(e) => set("driver_license_expiry", e.target.value)} /></div>
+        </div>
+      </div>
+
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="btn-outline">Cancel</button>
         <button onClick={() => onSave(f)} disabled={busy || !f.name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>

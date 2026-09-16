@@ -133,6 +133,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/transport/reports", label: "Reports", perm: ["transport.reports"] },
     { href: "/transport/costing", label: "Costing & Pricing", perm: ["transport.reports", "transport.masters"] },
     { href: "/transport/reports/ledger", label: "Trip Ledger", perm: ["transport.trip_ledger"] },
+    { href: "/transport/compliance", label: "Compliance Portal", perm: ["transport.reports"] },
   ] },
   { label: "Sales", icon: "sales", perm: ["sales.view", "parties.manage"], items: [
     // Service Catalog, Visa Tracking, Packages and Invoices used to sit here.
