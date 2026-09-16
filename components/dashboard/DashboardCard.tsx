@@ -130,16 +130,19 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "Received", value: cash(d.received), tone: "pos" },
       { label: "Balance", value: cash(d.balance), tone: N(d.balance) > 0 ? "warn" : undefined },
     ];
-    // Trading ACTIVITY, not a second P&L — Sales already has the revenue
-    // figure and P&L already has the margin, so neither is repeated here.
-    // Purchases (m) is the one money figure no other card shows; the two
-    // transaction counts are the "how much buying and selling actually
-    // happened" read a value-only comparison can't give.
+    // Inventory MOVEMENT, not money and not a transaction count — Sales and
+    // P&L already carry the revenue and margin figures, so this card asks a
+    // different question: how many physical units came in, how many went
+    // out, and how many are left. Purchased/Sold read the stock ledger the
+    // same way stock_statement() does per item (receipts vs issues),
+    // summed across every physical item including cars, which post through
+    // the same ledger one unit at a time. Remaining is today's on-hand
+    // count — the FLOW this month against the Stock card's own BALANCE, the
+    // same pairing Cash Flow already is to Cash & Bank.
     case "purchase_vs_sale": return [
-      { label: "Purchases (m)", value: cash(d.purchase_month), strong: true },
-      { label: "Purchase Txns (m)", value: qty(d.purchase_txns_month) },
-      { label: "Sale Txns (m)", value: qty(d.sale_txns_month) },
-      { label: "Purchases (ytd)", value: cash(d.purchase_year) },
+      { label: "Purchased Qty (m)", value: qty(d.purchased_qty_month), strong: true, tone: "pos" },
+      { label: "Sold Qty (m)", value: qty(d.sold_qty_month), tone: "info" },
+      { label: "Remaining Qty", value: qty(d.remaining_qty) },
     ];
     case "stock": return [
       { label: "Value", value: cash(d.value), strong: true },
