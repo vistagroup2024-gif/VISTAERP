@@ -5,6 +5,9 @@ import Link from "next/link";
 import ReportRange from "./ReportRange";
 import { getStaffAccess, staffCan } from "@/lib/staffSession";
 import { todaySA, monthStartSA } from "@/lib/saudiTime";
+import { COMPANY_ID } from "@/lib/format";
+import TrendChart from "@/components/reports/charts/TrendChart";
+import DataTable from "@/components/reports/DataTable";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +36,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: { fr
   const from = searchParams.from || monthStart();
   const to = searchParams.to || today;
 
-  const [{ data, error }, { data: expenses }, { data: ratings }] = await Promise.all([
+  const [{ data, error }, { data: expenses }, { data: ratings }, { data: extraData }] = await Promise.all([
     sb.rpc("transport_reports", { p_from: from, p_to: to }),
     sb.from("transport_expenses").select("category, amount").gte("spent_on", from).lte("spent_on", to),
     sb.from("transport_ratings").select("rating, driver_id").gte("created_at", from).lte("created_at", to + "T23:59:59"),
+    sb.rpc("report_transport_bookings_extra", { p_company: COMPANY_ID, p_from: from, p_to: to }),
   ]);
   const r: any = data ?? {};
   const s = r.summary ?? {};
+  const extra: any = extraData ?? { by_country: [], monthly: [], trips: [] };
   const money = (n: any) => `${Number(n ?? 0).toFixed(2)} SAR`;
 
   const expByCat = new Map<string, number>();
@@ -70,14 +75,39 @@ export default async function ReportsPage({ searchParams }: { searchParams: { fr
         ))}
       </div>
 
+      {extra.monthly?.length > 1 && (
+        <div className="card mb-4">
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly Revenue Trend</h2>
+          <TrendChart data={extra.monthly} xKey="month" series={[{ key: "revenue", label: "Revenue" }]} />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Table title="Expenses by Category" cols={["Category", "Amount"]} rows={Array.from(expByCat.entries()).map(([k, v]) => [k, money(v)])} />
         <Table title="Revenue by Agent" cols={["Agent", "Bookings", "Revenue"]} rows={(r.by_agent ?? []).map((x: any) => [x.name, x.bookings, money(x.revenue)])} />
+        <Table title="Country-wise Summary" cols={["Country", "Bookings", "Revenue"]} rows={(extra.by_country ?? []).map((x: any) => [x.country, x.bookings, money(x.revenue)])} />
         <Table title="Peak Routes" cols={["Route", "Trips"]} rows={(r.by_route ?? []).map((x: any) => [x.route, x.trips])} />
         <Table title="Vehicle Utilisation" cols={["Vehicle", "Trips"]} rows={(r.by_vehicle ?? []).map((x: any) => [x.vehicle, x.trips])} />
         <Table title="Driver Utilisation" cols={["Driver", "Trips"]} rows={(r.by_driver ?? []).map((x: any) => [x.driver, x.trips])} />
         <Table title="Daily Trips" cols={["Day", "Trips"]} rows={(r.daily ?? []).map((x: any) => [x.day, x.trips])} />
         <Table title="Cancelled Trips" cols={["Day", "Route", "Trips"]} rows={(r.cancelled_trips ?? []).map((x: any) => [x.day, x.route, x.trips])} />
+      </div>
+
+      <div className="mt-4">
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">Trip Detail</h2>
+        <DataTable
+          cols={[
+            { key: "customer", label: "Customer" },
+            { key: "contact", label: "WhatsApp / Contact" },
+            { key: "trip_date", label: "Travel Date", kind: "date" },
+            { key: "route", label: "Route" },
+            { key: "car", label: "Car" },
+            { key: "amount", label: "Amount", kind: "money", total: true },
+            { key: "status", label: "Status" },
+          ]}
+          rows={extra.trips ?? []}
+          empty="No trips for this period."
+        />
       </div>
     </div>
   );
