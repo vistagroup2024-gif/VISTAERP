@@ -140,6 +140,8 @@ export const GROUPS: NavGroup[] = [
     // back here to unhide one; do not build a replacement for it.
     { href: "/accounting/sales/quotations", label: "Sales Quotation", perm: ["sales.view"] },
     { href: "/accounting/sales/orders", label: "Sale Order", perm: ["sales.view"] },
+    { href: "/accounting/sales/orders-report", label: "Sales Orders Report", perm: ["sales.view"] },
+    { href: "/accounting/sales/advance-vs-receipt", label: "Sale Order · Advance vs Receipt", perm: ["sales.view"] },
     { href: "/accounting/sales/air-tickets", label: "Air Ticket Bookings", perm: ["sales.view"] },
     { href: "/accounting/sales/invoices", label: "Sales Invoice", perm: ["sales.view"] },
     { href: "/accounting/sales/delivery-notes", label: "Delivery Note", perm: ["sales.view"] },
@@ -148,6 +150,7 @@ export const GROUPS: NavGroup[] = [
   { label: "Purchase", icon: "purchase", perm: ["purchase.view"], items: [
     { href: "/purchase/bills", label: "Supplier Bills" },
     { href: "/accounting/purchases/orders", label: "Purchase Order" },
+    { href: "/accounting/purchases/orders-report", label: "Purchase Orders Report" },
     { href: "/accounting/purchases/vouchers", label: "Purchase Voucher" },
     { href: "/accounting/purchases/mrn", label: "Material Receipt (MRN)" },
     { href: "/accounting/purchases/returns", label: "Purchase Return" },
