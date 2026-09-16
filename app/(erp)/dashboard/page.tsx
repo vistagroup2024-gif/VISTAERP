@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { dateStr } from "@/lib/format";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
@@ -5,7 +6,7 @@ import Icon from "@/components/ui/Icon";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import TripAlerts from "@/components/transport/TripAlerts";
 import { TRIP_ALERT_PERMS } from "@/lib/tripAlerts";
-import { visibleCards, type CardAccess, type CardKey } from "@/lib/dashboardCards";
+import { visibleCards, DASHBOARD_TABS, type CardAccess, type CardKey } from "@/lib/dashboardCards";
 import { getStaffAccess, staffCan, staffLanding, getSessionUser } from "@/lib/staffSession";
 import { redirect } from "next/navigation";
 import { todaySA, monthStartSA } from "@/lib/saudiTime";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 // Which cards a user sees is set per user (Users → Dashboard). An admin sees
 // them all; everyone else sees what has been ticked — the opposite of the other
 // access maps, because a dashboard shows the whole company's money at once.
-export default async function Dashboard() {
+export default async function Dashboard({ searchParams }: { searchParams: { tab?: string } }) {
   const supabase = createClient();
   const user = await getSessionUser();
 
@@ -30,6 +31,15 @@ export default async function Dashboard() {
   }
 
   const cards = visibleCards(access.dashboardCards as CardAccess);
+  // The old VISTA software had tabs above the dashboard; this groups the same
+  // cards under them rather than changing what any card shows or links to.
+  // A tab with nothing this user may see (all its cards restricted) drops out
+  // the same way an empty module drops out of the sidebar.
+  const cardByKey = new Map(cards.map((c) => [c.key, c]));
+  const tabs = DASHBOARD_TABS
+    .map((t) => ({ ...t, visible: t.cards.map((k) => cardByKey.get(k)).filter((c): c is NonNullable<typeof c> => !!c) }))
+    .filter((t) => t.visible.length > 0);
+  const activeTab = tabs.find((t) => t.key === searchParams.tab) ?? tabs[0];
   // The trip alerts go to whoever runs operations, whatever cards they hold —
   // an alert nobody who can act on it sees is not an alert.
   const tripAlerts = TRIP_ALERT_PERMS.some((k) => staffCan(access, k));
@@ -90,13 +100,25 @@ export default async function Dashboard() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {cards.map((def) => (
-            <DashboardCard key={def.key}
-              def={hrefOverride[def.key] ? { ...def, href: hrefOverride[def.key] } : def}
-              metrics={m} />
-          ))}
-        </div>
+        <>
+          {tabs.length > 1 && (
+            <div className="flex flex-wrap gap-2 print:hidden">
+              {tabs.map((t) => (
+                <Link key={t.key} href={`/dashboard?tab=${t.key}`}
+                  className={`rounded-full px-3 py-1 text-sm font-medium ${t.key === activeTab.key ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                  {t.label} <span className="ml-1 tabular-nums opacity-70">{t.visible.length}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {activeTab.visible.map((def) => (
+              <DashboardCard key={def.key}
+                def={hrefOverride[def.key] ? { ...def, href: hrefOverride[def.key] } : def}
+                metrics={m} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

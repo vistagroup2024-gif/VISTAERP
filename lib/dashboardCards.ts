@@ -92,6 +92,32 @@ export const DASHBOARD_CARDS: CardDef[] = [
 
 export const ALL_CARD_KEYS = DASHBOARD_CARDS.map((c) => c.key);
 
+// ── Dashboard tabs ──────────────────────────────────────────────────────────
+//
+// The old VISTA software grouped its dashboard under tabs above the cards;
+// this ERP had the cards but not the grouping. Four tabs, matching module
+// boundaries already used elsewhere (the sidebar's own "Umrah" section in
+// lib/nav.ts groups Visa/BRN/Hotels/Transport the same way) rather than
+// inventing a new grouping — a card moves tab, nothing about the card itself
+// changes, and a report/drill-down a card links to is untouched.
+export interface DashboardTabDef { key: string; label: string; cards: CardKey[] }
+
+export const DASHBOARD_TABS: DashboardTabDef[] = [
+  { key: "overview", label: "Overview", cards: [
+    "cash_bank", "cash_flow", "balance_sheet", "ar_ap", "sales", "expenses", "pnl",
+    "purchase_vs_sale", "approvals", "pdc",
+  ] },
+  { key: "sales_purchase", label: "Sales & Purchase", cards: [
+    "pending_sales_orders", "pending_purchase_orders", "order_status",
+    "so_advance_receipt", "delivery_status", "stock",
+  ] },
+  { key: "umrah", label: "Umrah", cards: [
+    "visa_groups", "hotel_financials", "brn_beds", "brn_availability", "brn_agreements",
+    "transport", "bookings",
+  ] },
+  { key: "car_sales", label: "Car Sales", cards: ["car_balances", "car_contracts", "car_ownership"] },
+];
+
 /**
  * `cards` is what staff_access() returned: the string "all" for an admin, or a
  * {key: true} map for everyone else. An empty map means NO cards — the
