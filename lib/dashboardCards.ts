@@ -43,7 +43,7 @@ export const DASHBOARD_CARDS: CardDef[] = [
   { key: "sales", label: "Sales",
     hint: "Income booked this month and this year", href: "/accounting/sales-report" },
   { key: "expenses", label: "Expenses",
-    hint: "Expense booked this month and this year", href: "/accounting/profit-loss" },
+    hint: "Expense booked this month and this year", href: "/accounting/targets?tab=exp" },
   { key: "pnl", label: "Profit & Loss",
     hint: "Income less expense, month and year", href: "/accounting/profit-loss" },
   { key: "car_balances", label: "Car Customer Balances",

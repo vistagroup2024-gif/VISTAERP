@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { todaySA, yearSA } from "@/lib/saudiTime";
@@ -15,7 +16,9 @@ type Budget = { account_id: string; code: string; name: string; budget: number; 
 
 export default function TargetsBudget() {
   const supabase = createClient();
-  const [tab, setTab] = useState<"cc" | "cust" | "exp">("cc");
+  const params = useSearchParams();
+  const initialTab = params.get("tab") === "exp" ? "exp" : params.get("tab") === "cust" ? "cust" : "cc";
+  const [tab, setTab] = useState<"cc" | "cust" | "exp">(initialTab);
   const [from, setFrom] = useState(jan);
   const [to, setTo] = useState(today);
   const [year, setYear] = useState(thisYear);
@@ -71,6 +74,21 @@ export default function TargetsBudget() {
       {tab === "cust" && <TargetTable head="Customer" rows={cust} />}
 
       {tab === "exp" && (
+        <div className="space-y-3">
+          {exp.length > 0 && (() => {
+            const totBudget = exp.reduce((s, r) => s + Number(r.budget), 0);
+            const totActual = exp.reduce((s, r) => s + Number(r.actual), 0);
+            const variance = totBudget - totActual;
+            const pct = totBudget > 0 ? (totActual / totBudget) * 100 : null;
+            return (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="card"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">Budget ({year})</p><p className="mt-1 text-xl font-bold text-slate-800">{money(totBudget)}</p></div>
+                <div className="card"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">Actual</p><p className="mt-1 text-xl font-bold text-slate-800">{money(totActual)}</p></div>
+                <div className="card"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">Variance</p><p className={`mt-1 text-xl font-bold ${variance < 0 ? "text-red-600" : "text-green-700"}`}>{money(variance)}</p></div>
+                <div className="card"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">Used %</p><p className={`mt-1 text-xl font-bold ${pct === null ? "text-slate-800" : pct > 100 ? "text-red-600" : pct > 85 ? "text-amber-700" : "text-slate-800"}`}>{pct === null ? "—" : `${pct.toFixed(1)}%`}</p></div>
+              </div>
+            );
+          })()}
         <div className="card overflow-x-auto p-0 text-sm">
           <table className="w-full">
             <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -94,6 +112,7 @@ export default function TargetsBudget() {
               {exp.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">No expense activity or budgets for {year}.</td></tr>}
             </tbody>
           </table>
+        </div>
         </div>
       )}
     </div>
