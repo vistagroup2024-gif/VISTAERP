@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { todaySA } from "@/lib/saudiTime";
 import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Vehicle { id: string; name: string }
@@ -24,7 +25,9 @@ const STATUS: Record<string, string> = { active: "bg-green-100 text-green-700", 
 
 function expiringSoon(d: string | null) {
   if (!d) return false;
-  const days = (new Date(d).getTime() - Date.now()) / 86400000;
+  // UTC-midnight-anchored date arithmetic, not Date.now() (an absolute
+  // instant, and the viewer's own clock besides) against a wall-clock date.
+  const days = (new Date(d + "T00:00:00Z").getTime() - new Date(todaySA() + "T00:00:00Z").getTime()) / 86400000;
   return days <= 30;
 }
 

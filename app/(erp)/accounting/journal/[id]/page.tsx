@@ -38,16 +38,16 @@ export default async function JournalDetail({ params }: { params: { id: string }
               <tr key={l.id} className="border-t border-slate-100">
                 <td className="td">{l.accounts?.name}</td>
                 <td className="td text-slate-500">{l.description}</td>
-                <td className="td text-right">{Number(l.debit) ? money(l.debit, "PKR") : ""}</td>
-                <td className="td text-right">{Number(l.credit) ? money(l.credit, "PKR") : ""}</td>
+                <td className="td text-right">{Number(l.debit) ? money(l.debit) : ""}</td>
+                <td className="td text-right">{Number(l.credit) ? money(l.credit) : ""}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="border-t border-slate-200 bg-slate-50 font-semibold">
               <td className="td" colSpan={2}>Totals</td>
-              <td className="td text-right">{money(totalDr, "PKR")}</td>
-              <td className="td text-right">{money(totalCr, "PKR")}</td>
+              <td className="td text-right">{money(totalDr)}</td>
+              <td className="td text-right">{money(totalCr)}</td>
             </tr>
           </tfoot>
         </table>

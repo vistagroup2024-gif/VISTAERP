@@ -39,7 +39,7 @@ export default async function JournalPage() {
                   <td className="td">{dateStr(e.entry_date)}</td>
                   <td className="td">{e.memo}</td>
                   <td className="td capitalize">{e.source ?? "—"}</td>
-                  <td className="td text-right">{money(amount, "PKR")}</td>
+                  <td className="td text-right">{money(amount)}</td>
                   <td className="td"><span className={`badge ${e.status === "posted" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>{e.status}</span></td>
                 </tr>
               );

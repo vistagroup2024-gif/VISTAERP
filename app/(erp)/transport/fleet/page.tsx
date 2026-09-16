@@ -1,12 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import FleetDocs from "./FleetDocs";
+import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
 
 function Alert({ label, date }: { label: string; date: string | null }) {
   if (!date) return null;
-  const days = Math.round((new Date(date).getTime() - Date.now()) / 86400000);
+  // UTC-midnight-anchored date arithmetic, not Date.now() (an absolute
+  // instant) against a wall-clock date — Date.now() is still on UTC
+  // "yesterday" for the first ~3 hours of the Saudi day, which shifted this
+  // by a day for that window.
+  const days = Math.round((new Date(date + "T00:00:00Z").getTime() - new Date(todaySA() + "T00:00:00Z").getTime()) / 86400000);
   const overdue = days < 0;
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${overdue ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>

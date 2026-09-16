@@ -1,17 +1,31 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendWhatsApp } from "@/lib/whatsapp";
+import { getStaffAccess } from "@/lib/staffSession";
 
 // Admin diagnostic for the WhatsApp Cloud API configuration.
 //   GET  -> reports which phone number id / token the running deployment is
 //           actually using and verifies the token can load that number.
 //   POST -> sends a one-off test message to a given number.
-// Staff-only. The token is never returned in full (last 4 digits only).
+// Admin-only — this reveals config (token last 4 digits) and, on POST, sends
+// a real message through the company's WhatsApp Business number to whatever
+// "to" the caller provides, so "signed in" alone is not enough here the way
+// it is for the RPC-backed proxies elsewhere in this app: there is no
+// database-level gate behind it to fall back on, since this route talks to
+// Meta's Graph API directly rather than through a Postgres RPC.
 
-export async function GET() {
+async function requireAdmin() {
   const sb = createClient();
   const { data: { user } } = await sb.auth.getUser();
+  if (!user) return { user: null, ok: false as const };
+  const access = await getStaffAccess();
+  return { user, ok: access.isAdmin };
+}
+
+export async function GET() {
+  const { user, ok } = await requireAdmin();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (!ok) return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
   const token = process.env.WHATSAPP_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -43,9 +57,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const sb = createClient();
-  const { data: { user } } = await sb.auth.getUser();
+  const { user, ok } = await requireAdmin();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (!ok) return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
   const b = await req.json().catch(() => ({}));
   if (!b?.to) return NextResponse.json({ error: "Provide a 'to' number." }, { status: 400 });

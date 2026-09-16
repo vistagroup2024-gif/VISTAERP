@@ -4,30 +4,26 @@ import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import { sar } from "../../lib";
-import { todaySA } from "@/lib/saudiTime";
 
 export const dynamic = "force-dynamic";
-const days = (d: string) => Math.floor((Date.now() - new Date(d + "T00:00:00Z").getTime()) / 86400000);
 
+// Reads car_installment_aging() (migration 430) — the same three due-date
+// sources (installments, the invoice advance, monthly service charges)
+// dashboard_metrics()'s car_due_items and car_customer_balances() already
+// use, bucketed per contract instead of per customer so this report keeps
+// its five ageing columns. Summing car_installments alone (the old
+// approach) ignored the advance and service-charge legs and could disagree
+// with the dashboard's Car Customer Balances card and the other two
+// car-sales aging reports for any customer carrying either.
 export default async function AgingReport() {
   await guardStaffPage("carsales.reports");
   const supabase = createClient();
-  const { data } = await supabase.from("car_contracts")
-    .select("id, contract_no, status, customer:customer_id(name), car_installments(amount, paid_amount, due_date)")
-    .neq("status", "cancelled");
-  const today = todaySA();
-  const rows = (data ?? []).map((c: any) => {
-    const b = { current: 0, d30: 0, d60: 0, d90: 0, d90p: 0, total: 0 };
-    for (const i of c.car_installments ?? []) {
-      const rem = Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0));
-      if (rem <= 0) continue;
-      b.total += rem;
-      if (i.due_date >= today) { b.current += rem; continue; }
-      const dd = days(i.due_date);
-      if (dd <= 30) b.d30 += rem; else if (dd <= 60) b.d60 += rem; else if (dd <= 90) b.d90 += rem; else b.d90p += rem;
-    }
-    return { id: c.id, contract_no: c.contract_no, customer: c.customer?.name ?? "—", ...b };
-  }).filter((r) => r.total > 0.005);
+  const { data } = await supabase.rpc("car_installment_aging");
+  const rows = ((data ?? []) as any[]).map((r) => ({
+    id: r.id, contract_no: r.contract_no, customer: r.customer ?? "—",
+    current: Number(r.current || 0), d30: Number(r.d30 || 0), d60: Number(r.d60 || 0),
+    d90: Number(r.d90 || 0), d90p: Number(r.d90p || 0), total: Number(r.total || 0),
+  }));
   const t = rows.reduce((a, r) => ({ current: a.current + r.current, d30: a.d30 + r.d30, d60: a.d60 + r.d60, d90: a.d90 + r.d90, d90p: a.d90p + r.d90p, total: a.total + r.total }), { current: 0, d30: 0, d60: 0, d90: 0, d90p: 0, total: 0 });
 
   return (

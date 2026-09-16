@@ -1,6 +1,6 @@
 import { SA_TZ } from "@/lib/saudiTime";
 
-export function money(amount: number | null | undefined, currency = "PKR") {
+export function money(amount: number | null | undefined, currency = "SAR") {
   const n = Number(amount ?? 0);
   return new Intl.NumberFormat("en-US", {
     style: "currency",
