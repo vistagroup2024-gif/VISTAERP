@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { guardStaffPage } from "@/lib/staffSession";
 import { COMPANY_ID, dateStr } from "@/lib/format";
@@ -17,13 +18,16 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 // Car Delivery Report — the dashboard's Delivery Status card, one row per
-// vehicle. report_car_delivery() (migration 414) reads the exact same
+// vehicle. report_car_delivery() (migration 414, extended in 426 with an
+// optional date range and contract_id) reads the exact same
 // car_vehicles.status dashboard_metrics() counts, so the KPIs here always
-// foot to the card.
-export default async function CarDeliveryReport() {
+// foot to the card when no date filter is applied — same as the card.
+export default async function CarDeliveryReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
   await guardStaffPage("carsales.reports");
   const supabase = createClient();
-  const { data } = await supabase.rpc("report_car_delivery", { p_company: COMPANY_ID });
+  const from = searchParams.from || "";
+  const to = searchParams.to || "";
+  const { data } = await supabase.rpc("report_car_delivery", { p_company: COMPANY_ID, p_from: from || null, p_to: to || null });
   const rows = ((data ?? []) as any[]);
   const sold = rows.filter((r) => r.status === "sold" || r.status === "delivered").length;
   const delivered = rows.filter((r) => r.delivered).length;
@@ -33,6 +37,12 @@ export default async function CarDeliveryReport() {
   return (
     <div>
       <PageHeader title="Car Delivery Report" subtitle="Sold vehicles and their delivery status, with the invoice that sold them."><PrintButton /></PageHeader>
+      <form className="card mb-4 flex flex-wrap items-end gap-3 print:hidden" method="get">
+        <div><label className="label">Invoice Date From</label><input type="date" name="from" defaultValue={from} className="input" /></div>
+        <div><label className="label">Invoice Date To</label><input type="date" name="to" defaultValue={to} className="input" /></div>
+        <button className="btn">Run</button>
+        {(from || to) && <a href="/car-sales/reports/delivery" className="text-sm text-slate-400 hover:underline">Clear</a>}
+      </form>
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi label="Sales Quantity" value={String(sold)} />
         <Kpi label="Delivered" value={String(delivered)} tone="text-green-700" />
@@ -53,13 +63,15 @@ export default async function CarDeliveryReport() {
                 <td className="td">{r.cost_centre ?? "—"}</td>
                 <td className="td">{r.customer ?? "—"}</td>
                 <td className="td">{r.tag_area ?? "—"}</td>
-                <td className="td">{r.invoice_no ?? "—"}</td>
+                <td className="td">
+                  {r.contract_id ? <Link href={`/car-sales/contracts/${r.contract_id}`} className="text-brand hover:underline">{r.invoice_no ?? "—"}</Link> : (r.invoice_no ?? "—")}
+                </td>
                 <td className="td">{r.invoice_date ? dateStr(r.invoice_date) : "—"}</td>
                 <td className="td text-right tabular-nums">{sar(r.invoice_amount)}</td>
                 <td className="td"><span className={`badge ${VEHICLE_STATUS_TONE[r.status] ?? ""}`}>{VEHICLE_STATUS_LABEL[r.status] ?? r.status}</span></td>
               </tr>
             ))}
-            {sold === 0 && <tr><td className="td text-slate-400" colSpan={8}>No cars sold yet.</td></tr>}
+            {sold === 0 && <tr><td className="td text-slate-400" colSpan={8}>No cars sold in this window.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { COMPANY_ID } from "@/lib/format";
 import { todaySA } from "@/lib/saudiTime";
@@ -12,13 +13,21 @@ function daysFrom(today: string, expiry: string) {
   return Math.round((new Date(expiry + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime()) / 86400000);
 }
 
+// Customer documents drill to Party Details (/accounting/customers/[id],
+// which already shows Iqama and every other party field). Vehicle documents
+// stay plain text: a Tag Area leaf has no per-node URL of its own — the
+// Tag Areas master (components/accounting/TreeMaster.tsx) is a client-side
+// tree with no id-in-URL selection to link into, and building one is a
+// larger change than this report on its own calls for.
 function Row({ d, today, kind }: { d: Doc; today: string; kind: "Vehicle" | "Customer" }) {
   const days = daysFrom(today, d.expiry);
   const overdue = days < 0;
   return (
     <tr className="border-t border-slate-100">
       <td className="td">{kind}</td>
-      <td className="td font-medium text-slate-700">{d.entity}</td>
+      <td className="td font-medium text-slate-700">
+        {kind === "Customer" ? <Link href={`/accounting/customers/${d.id}`} className="text-brand hover:underline">{d.entity}</Link> : d.entity}
+      </td>
       <td className="td">{d.doc_name}</td>
       <td className="td">{d.expiry}</td>
       <td className={`td text-right font-medium ${overdue ? "text-red-600" : days <= 30 ? "text-amber-600" : "text-slate-500"}`}>

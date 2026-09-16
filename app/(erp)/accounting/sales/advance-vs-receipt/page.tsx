@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { COMPANY_ID, dateStr } from "@/lib/format";
+import { COMPANY_ID } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
+import AdvanceReceiptTable from "./AdvanceReceiptTable";
 
 export const dynamic = "force-dynamic";
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -16,13 +16,24 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
   );
 }
 
-// Same pending Sale Orders report_sale_orders() already returns (migration
-// 411), split by whether the advance agreed on the order has fully come in —
-// the dashboard's Sale Order · Advance vs Receipt card's detail screen.
-export default async function AdvanceVsReceiptPage() {
+const STATUS_OPTS: [string, string][] = [["pending", "Pending Orders"], ["history", "Invoiced Orders"], ["all", "All Orders"]];
+
+// report_sale_orders() (migration 411, extended 426 with the actual receipt
+// rows behind each order's "Received") split by whether the advance agreed
+// on the order has fully come in — the dashboard's Sale Order · Advance vs
+// Receipt card's detail screen. Status defaults to "pending" (the card's own
+// scope) but is now a real filter, and a date-range narrows by order date —
+// neither existed before, so the screen could only ever show today's open
+// orders and never the history behind a closed one.
+export default async function AdvanceVsReceiptPage({ searchParams }: { searchParams: { status?: string; from?: string; to?: string } }) {
   const sb = createClient();
-  const { data } = await sb.rpc("report_sale_orders", { p_company: COMPANY_ID, p_status: "pending" });
-  const rows = ((data as any)?.rows ?? []) as any[];
+  const status = STATUS_OPTS.some(([k]) => k === searchParams.status) ? searchParams.status! : "pending";
+  const from = searchParams.from || "";
+  const to = searchParams.to || "";
+  const { data } = await sb.rpc("report_sale_orders", { p_company: COMPANY_ID, p_status: status });
+  const allRows = ((data as any)?.rows ?? []) as any[];
+  const receipts = ((data as any)?.receipts ?? []) as any[];
+  const rows = allRows.filter((r) => (!from || r.doc_date >= from) && (!to || r.doc_date <= to));
   const withAdvance = rows.filter((r) => Number(r.advance || 0) > 0);
   const pending = withAdvance.filter((r) => Number(r.advance_balance || 0) > 0.005);
   const received = withAdvance.filter((r) => Number(r.advance_balance || 0) <= 0.005);
@@ -31,50 +42,31 @@ export default async function AdvanceVsReceiptPage() {
   const advReceived = withAdvance.reduce((s, r) => s + Number(r.advance_received || 0), 0);
   const advPending = pending.reduce((s, r) => s + Number(r.advance_balance || 0), 0);
 
-  const Table = ({ title, list }: { title: string; list: any[] }) => (
-    <div>
-      <h2 className="mb-2 text-sm font-semibold text-slate-700">{title} ({list.length})</h2>
-      <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[760px] text-sm">
-          <thead className="bg-slate-50"><tr>
-            <th className="th">Order No</th><th className="th">Date</th><th className="th">Customer</th><th className="th">Cost Centre</th>
-            <th className="th text-right">SO Amount</th><th className="th text-right">Advance</th>
-            <th className="th text-right">Received</th><th className="th text-right">Balance</th>
-          </tr></thead>
-          <tbody>
-            {list.map((r) => (
-              <tr key={r.doc_id} className="border-t border-slate-100">
-                <td className="td"><Link href={`/accounting/sales/orders?id=${r.doc_id}`} className="text-brand hover:underline">{r.doc_no}</Link></td>
-                <td className="td">{dateStr(r.doc_date)}</td>
-                <td className="td">{r.customer}</td>
-                <td className="td">{r.cost_centre}</td>
-                <td className="td text-right tabular-nums">{money(r.total)}</td>
-                <td className="td text-right tabular-nums">{money(r.advance)}</td>
-                <td className="td text-right tabular-nums">{money(r.advance_received)}</td>
-                <td className="td text-right tabular-nums font-medium">{money(r.advance_balance)}</td>
-              </tr>
-            ))}
-            {list.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>None.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-4">
-      <PageHeader title="Sale Order · Advance vs Receipt" subtitle="Pending Sale Orders with an agreed advance, split by whether that advance has fully come in.">
+      <PageHeader title="Sale Order · Advance vs Receipt" subtitle="Sale Orders with an agreed advance, split by whether that advance has fully come in — expand a row for the receipt(s) behind it.">
         <PrintButton />
       </PageHeader>
+      <form className="card flex flex-wrap items-end gap-3 print:hidden" method="get">
+        <div>
+          <label className="label">Orders</label>
+          <select name="status" defaultValue={status} className="input">
+            {STATUS_OPTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </div>
+        <div><label className="label">Order Date From</label><input type="date" name="from" defaultValue={from} className="input" /></div>
+        <div><label className="label">Order Date To</label><input type="date" name="to" defaultValue={to} className="input" /></div>
+        <button className="btn">Run</button>
+      </form>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Kpi label="Pending Orders" value={String(rows.length)} />
+        <Kpi label="Orders" value={String(rows.length)} />
         <Kpi label="Total Order Value" value={money(total)} />
         <Kpi label="Advance Received" value={money(advReceived)} tone="text-green-700" />
         <Kpi label="Advance Pending" value={money(advPending)} tone={advPending > 0 ? "text-amber-700" : "text-green-700"} />
         <Kpi label="Fully Received" value={String(received.length)} />
       </div>
-      <Table title="Advance Pending" list={pending} />
-      <Table title="Advance Fully Received" list={received} />
+      <AdvanceReceiptTable title="Advance Pending" rows={pending} receipts={receipts} />
+      <AdvanceReceiptTable title="Advance Fully Received" rows={received} receipts={receipts} />
     </div>
   );
 }

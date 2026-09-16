@@ -55,7 +55,10 @@ export default async function DrawingsReportPage({ searchParams }: { searchParam
       <div>
         <h2 className="mb-2 text-sm font-semibold text-slate-700">By Account</h2>
         <DataTable
-          cols={[{ key: "name", label: "Drawing Account" }, { key: "amount", label: "Amount", kind: "money", total: true }]}
+          cols={[
+            { key: "name", label: "Drawing Account", href: (r: any) => r.account_id ? `/accounting/ledger?account=${r.account_id}&from=${from}&to=${to}` : null },
+            { key: "amount", label: "Amount", kind: "money", total: true },
+          ]}
           rows={d.by_account} empty="No drawings in this period." />
       </div>
 
@@ -65,7 +68,7 @@ export default async function DrawingsReportPage({ searchParams }: { searchParam
           cols={[
             { key: "voucher", label: "Voucher" },
             { key: "date", label: "Date", kind: "date" },
-            { key: "account", label: "Drawing Account" },
+            { key: "account", label: "Drawing Account", href: (r: any) => r.account_id ? `/accounting/ledger?account=${r.account_id}&from=${from}&to=${to}` : null },
             { key: "credit_account", label: "Credit Account" },
             { key: "amount", label: "Amount", kind: "money", total: true },
             { key: "remarks", label: "Remarks" },

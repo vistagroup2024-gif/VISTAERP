@@ -58,7 +58,11 @@ export default async function PurchaseReportPage({ searchParams }: { searchParam
         <div>
           <h2 className="mb-2 text-sm font-semibold text-slate-700">By Supplier</h2>
           <DataTable
-            cols={[{ key: "name", label: "Supplier" }, { key: "txns", label: "Txns", kind: "int" }, { key: "amount", label: "Amount", kind: "money", total: true }]}
+            cols={[
+              { key: "name", label: "Supplier", href: (r: any) => r.account_id ? `/accounting/ledger?account=${r.account_id}&from=${from}&to=${to}` : null },
+              { key: "txns", label: "Txns", kind: "int" },
+              { key: "amount", label: "Amount", kind: "money", total: true },
+            ]}
             rows={p.by_supplier} empty="No purchases in this period." />
         </div>
         <div>
@@ -72,7 +76,11 @@ export default async function PurchaseReportPage({ searchParams }: { searchParam
       <div>
         <h2 className="mb-2 text-sm font-semibold text-slate-700">By Cost Centre</h2>
         <DataTable
-          cols={[{ key: "name", label: "Cost Centre" }, { key: "txns", label: "Txns", kind: "int" }, { key: "amount", label: "Amount", kind: "money", total: true }]}
+          cols={[
+            { key: "name", label: "Cost Centre", href: (r: any) => r.name && r.name !== "Unassigned" ? `/accounting/transactions?cc=${encodeURIComponent(r.name)}&type=purchase_voucher&from=${from}&to=${to}` : null },
+            { key: "txns", label: "Txns", kind: "int" },
+            { key: "amount", label: "Amount", kind: "money", total: true },
+          ]}
           rows={p.by_cost_centre} empty="No purchases in this period." />
       </div>
     </div>
