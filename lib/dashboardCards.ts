@@ -59,7 +59,7 @@ export const DASHBOARD_CARDS: CardDef[] = [
     hint: "Sale orders still awaiting their invoice — one leaves this card the moment a Car Invoice is raised from it. Advance is the one agreed on the order itself (Car Sales Details); Balance is the advance still to come in, advance minus received",
     href: "/accounting/sales/advance-vs-receipt" },
   { key: "purchase_vs_sale", label: "Purchase vs Sale",
-    hint: "What was bought against what was sold, month and year", href: "/accounting/sales/invoices" },
+    hint: "What was bought against what was sold, month and year", href: "/accounting/purchase-vs-sale" },
   { key: "stock", label: "Stock",
     hint: "Quantity and value on hand", href: "/stock/valuation" },
   { key: "delivery_status", label: "Delivery Status",

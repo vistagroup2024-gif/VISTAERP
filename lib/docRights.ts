@@ -122,6 +122,8 @@ export const DOC_TREE: DocModule[] = [
       { key: "sale_orders_report", label: "Sales Orders Report", rights: R, href: "/accounting/sales/orders-report" },
       { key: "so_advance_vs_receipt", label: "Sale Order · Advance vs Receipt", rights: R, href: "/accounting/sales/advance-vs-receipt" },
       { key: "purchase_orders_report", label: "Purchase Orders Report", rights: R, href: "/accounting/purchases/orders-report" },
+      { key: "purchase_report", label: "Purchase Report", rights: R, href: "/accounting/purchase-report" },
+      { key: "purchase_vs_sale_report", label: "Purchase vs Sale", rights: R, href: "/accounting/purchase-vs-sale" },
       { key: "vat",            label: "VAT Return",         rights: R, href: "/accounting/vat" },
       { key: "targets",        label: "Targets & Budget",   rights: R, href: "/accounting/targets" },
       { key: "audit",          label: "Audit Trail",        rights: R, href: "/accounting/audit" },
