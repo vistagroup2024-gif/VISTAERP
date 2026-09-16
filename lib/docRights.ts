@@ -128,6 +128,7 @@ export const DOC_TREE: DocModule[] = [
       { key: "purchase_vs_sale_report", label: "Purchase vs Sale", rights: R, href: "/accounting/purchase-vs-sale" },
       { key: "vat",            label: "VAT Return",         rights: R, href: "/accounting/vat" },
       { key: "targets",        label: "Targets & Budget",   rights: R, href: "/accounting/targets" },
+      { key: "drawings_report", label: "Drawings Report",   rights: R, href: "/accounting/drawings" },
       { key: "audit",          label: "Audit Trail",        rights: R, href: "/accounting/audit" },
     ] },
     { group: "Period", docs: [
