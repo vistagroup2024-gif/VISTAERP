@@ -1030,3 +1030,85 @@ it, the rate comes from the currency master (`currencies.rate_to_base`) and can
 be overtyped, the entry is posted in SAR, and `gl_voucher_stamp_fx` writes the
 currency and rate on it (the Journal's `gl_journal_fx` did that already). The
 bill-wise popup works in SAR, so `lineAmt` is the base amount.
+
+## Umrah Package (planned) — the architecture it has to fit, before a line of it is written
+
+Visa, Hotel and Transport are three separate modules today. A combined Umrah
+Package module — one screen a group's whole trip is costed and priced from —
+is planned as its own build. This section is the architecture investigation
+that build has to start from, recorded so it isn't redone. **Nothing in this
+section has been built.** No table, column or RPC named here exists yet.
+
+**The GL side of Visa, Hotel and Transport is fully built and switched off.**
+`acct_automation_rules` already carries six correctly-configured rules —
+`visa.group_created` → `visa.generate_invoice`, `visa.supplier_cost`,
+`hotel.vendor_confirmed` → `hotel.post_gl`, `hotel.supplier_cost`,
+`transport.trip_completed` → `transport.post_gl`, `transport.vendor_cost` —
+each with real accounts and cost centres already set. All six are
+`enabled = false`: migration 377 turned them on as part of moving posting onto
+`trade_documents` (`visa_invoice`/`hotel_invoice`/`transport_invoice`, raised
+through `trade_doc_raise`), and 378 turned them straight back off on the
+record that whether they run is the business's decision. So today
+`trade_documents` has not one row with `meta ? 'source_kind'`, and the whole
+of `journal_entries` has nine rows, none of them visa, hotel or transport.
+**`invoice_created` on a group or a trip proves none of this** — it is a
+manual staff tick from migrations 129/163, predating the automation entirely,
+meaning "I already typed this into the old system," and it never touches
+`journal_entries`. A group or trip reading `invoice_created = true` can still
+have no GL entry anywhere, and 325 of 416 groups and 598 of 839 trips do.
+
+That is why the Package module has to be designed for **both** states at
+once: read actual cost from the module tables as they stand today, and
+prefer `trade_documents` once the business turns the automation on, without
+a rebuild in between. Concretely: a group's visa cost is never stored — it
+is derived live from the rate master (`visa_pick_product`/`visa_sell_rate`/
+`visa_purchase_rate`, migration 244) keyed on `visa_type` and nights, and
+stays that way until `visa_invoice` rows exist to read instead. Hotel cost
+for a group is `group_brn_allocation` joined to `brn_inventory.rate_per_bed`
+— **not** `hotel_bookings`/`hotel_purchase_bookings`, which is a separate,
+lightly-used FIT-booking engine with its own (also off) automation rule and
+no real join back to a group beyond an unenforced text `group_no`. Transport
+cost is already on the trip itself (`transport_trips.vendor_cost` paid out,
+`sell_rate` + `extra_charge` charged, `normal_rate` a pre-package reference
+rate, `agent_sell_rate` display-only to the agent and financially inert) —
+the number exists, but the trip isn't reliably tied to a group yet (next
+paragraph). Reading module-table cost now and switching to `trade_documents`
+later is two branches of one query, not two designs — build it that way from
+the start rather than hard-coding "read the module table."
+
+**Fix the Transport ↔ Umrah Group link before or as part of this build, not
+around it.** `transport_bookings`/`transport_trips` have no foreign key to
+`umrah_groups` — the only link is `transport_bookings.nusuk_group_no`
+text-matched against `umrah_groups.group_no`, narrowed by the shared
+`group_companies` row, through `transport_exists_for_group()`. That function
+is only ever used for one compliance existence-check today, which is why the
+gap has been harmless so far — a Package module summing a group's transport
+cost/revenue reliably cannot be built on a text match, the exact shape of bug
+this file keeps finding elsewhere (the deadhead-km `pickup_location` trap,
+the two-definitions-of-a-party trap). A stored id — `transport_bookings.
+umrah_group_id uuid references umrah_groups(id)`, or the reverse — is a real
+schema change for the Package build itself to make, not a workaround to
+design past.
+
+**Reference, never duplicate.** `umrah_groups` (dates, pax, agent,
+`group_company_id`), `group_brn_allocation`/`brn_inventory` (hotel cost),
+`transport_trips` (transport cost/sell), the visa rate-master, and
+`group_companies`' own accounting identity (`supplier_party_id`/
+`supplier_account_id`) all stay exactly where they are — the Package module
+reads them by id, the same as every other place in this ERP that avoids the
+two-definitions trap. Nothing here gets a second copy on a package table.
+
+**What genuinely has no home yet, and belongs on the Package module itself**:
+the group's all-in **selling price**, its **advance schedule**, **ROE**,
+**PKR cost per pax**, and **package profitability** (sell less the assembled
+visa + hotel + transport + ticket cost) — none of these exist anywhere today,
+on `umrah_groups` or otherwise, and none of Visa, Hotel or Transport has a
+legitimate claim to them. This is the Package module's own data, to be
+designed properly when that build starts — not sketched into an existing
+table now.
+
+**One naming trap for that design**: "package" already names two unrelated
+things — `packages`/`package_items` (a pre-priced sales catalogue, 1 row,
+hidden screen) and `transport_packages` (a transport-only fixed vehicle/route
+price list). The Umrah Package module is neither. Keep its tables, RPCs and
+labels clearly apart from both when the build starts.
