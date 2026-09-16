@@ -129,6 +129,7 @@ export const DOC_TREE: DocModule[] = [
       { key: "vat",            label: "VAT Return",         rights: R, href: "/accounting/vat" },
       { key: "targets",        label: "Targets & Budget",   rights: R, href: "/accounting/targets" },
       { key: "drawings_report", label: "Drawings Report",   rights: R, href: "/accounting/drawings" },
+      { key: "cost_centre_costing", label: "Cost Centre Costing", rights: R, href: "/accounting/cost-centre-costing" },
       { key: "audit",          label: "Audit Trail",        rights: R, href: "/accounting/audit" },
     ] },
     { group: "Period", docs: [
