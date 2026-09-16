@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
-import { todaySA, yearSA } from "@/lib/saudiTime";
+import { todaySA, yearSA, monthStartSA } from "@/lib/saudiTime";
+import TrendChart from "@/components/reports/charts/TrendChart";
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 const thisYear = yearSA();
@@ -13,6 +15,12 @@ const today = todaySA();
 
 type Row = { label: string; target: number; actual: number; variance: number };
 type Budget = { account_id: string; code: string; name: string; budget: number; actual: number; variance: number };
+type Analysis = {
+  total: number; monthly: { month: string; amount: number }[];
+  by_cost_centre: { name: string; amount: number }[]; by_account_group: { name: string; amount: number }[];
+  by_account: { account_id: string; code: string; name: string; amount: number }[];
+};
+const EMPTY_ANALYSIS: Analysis = { total: 0, monthly: [], by_cost_centre: [], by_account_group: [], by_account: [] };
 
 export default function TargetsBudget() {
   const supabase = createClient();
@@ -26,6 +34,9 @@ export default function TargetsBudget() {
   const [cust, setCust] = useState<Row[]>([]);
   const [exp, setExp] = useState<Budget[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [expAnalysis, setExpAnalysis] = useState<Analysis>(EMPTY_ANALYSIS);
+  const [expCurMonth, setExpCurMonth] = useState(0);
+  const [expYtd, setExpYtd] = useState(0);
 
   async function loadCc() {
     const { data } = await supabase.rpc("report_cost_center_targets", { p_from: from, p_to: to });
@@ -38,6 +49,14 @@ export default function TargetsBudget() {
   async function loadExp() {
     const { data } = await supabase.rpc("report_expense_budget", { p_year: year });
     setExp((data as Budget[]) ?? []); setDraft({});
+    const [{ data: analysis }, { data: cm }, { data: ytd }] = await Promise.all([
+      supabase.rpc("report_expense_analysis", { p_company: COMPANY_ID, p_from: `${year}-01-01`, p_to: `${year}-12-31` }),
+      supabase.rpc("report_expense_analysis", { p_company: COMPANY_ID, p_from: monthStartSA(), p_to: today }),
+      supabase.rpc("report_expense_analysis", { p_company: COMPANY_ID, p_from: `${thisYear}-01-01`, p_to: today }),
+    ]);
+    setExpAnalysis((analysis as Analysis) ?? EMPTY_ANALYSIS);
+    setExpCurMonth(Number((cm as any)?.total ?? 0));
+    setExpYtd(Number((ytd as any)?.total ?? 0));
   }
   useEffect(() => { if (tab === "cc") loadCc(); if (tab === "cust") loadCust(); if (tab === "exp") loadExp(); /* eslint-disable-next-line */ }, [tab, from, to, year]);
 
@@ -89,6 +108,79 @@ export default function TargetsBudget() {
               </div>
             );
           })()}
+
+          {/* Read-only analysis — report_expense_analysis() (425), the same
+             "expense account" definition report_expense_budget() already
+             uses, so its Total always matches the budget table below.
+             Current Month / YTD are always today-anchored, independent of
+             the Year selector above, matching how Sales Report defines them. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="card"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">Total Expenses ({year})</p><p className="mt-1 text-xl font-bold text-slate-800">{money(expAnalysis.total)}</p></div>
+            <div className="card"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">Current Month</p><p className="mt-1 text-xl font-bold text-slate-800">{money(expCurMonth)}</p></div>
+            <div className="card"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">YTD ({thisYear})</p><p className="mt-1 text-xl font-bold text-slate-800">{money(expYtd)}</p></div>
+          </div>
+
+          {expAnalysis.monthly.length > 1 && (
+            <div className="card">
+              <h3 className="mb-2 text-sm font-semibold text-slate-700">Monthly Expense</h3>
+              <TrendChart data={expAnalysis.monthly} xKey="month" series={[{ key: "amount", label: "Expense" }]} />
+            </div>
+          )}
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="card overflow-x-auto p-0 text-sm">
+              <div className="border-b border-slate-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">By Cost Centre</div>
+              <table className="w-full">
+                <tbody>
+                  {expAnalysis.by_cost_centre.map((r) => (
+                    <tr key={r.name} className="border-t border-slate-100">
+                      <td className="px-3 py-1.5">{r.name}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{money(r.amount)}</td>
+                    </tr>
+                  ))}
+                  {expAnalysis.by_cost_centre.length === 0 && <tr><td className="px-3 py-4 text-center text-slate-400">No activity.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <div className="card overflow-x-auto p-0 text-sm">
+              <div className="border-b border-slate-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">By Account Group</div>
+              <table className="w-full">
+                <tbody>
+                  {expAnalysis.by_account_group.map((r) => (
+                    <tr key={r.name} className="border-t border-slate-100">
+                      <td className="px-3 py-1.5">{r.name}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{money(r.amount)}</td>
+                    </tr>
+                  ))}
+                  {expAnalysis.by_account_group.length === 0 && <tr><td className="px-3 py-4 text-center text-slate-400">No activity.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="card overflow-x-auto p-0 text-sm">
+            <div className="border-b border-slate-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Expense Accounts ({year}) — drill into an account for its transactions</div>
+            <table className="w-full">
+              <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                <tr><th className="px-3 py-2 text-left">Account</th><th className="px-3 py-2 text-right">Amount</th></tr>
+              </thead>
+              <tbody>
+                {expAnalysis.by_account.map((r) => (
+                  <tr key={r.account_id} className="border-t border-slate-100">
+                    <td className="px-3 py-1.5">
+                      <Link href={`/accounting/ledger?account=${r.account_id}&from=${year}-01-01&to=${year}-12-31`} className="hover:text-brand hover:underline">
+                        {r.code} — {r.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{money(r.amount)}</td>
+                  </tr>
+                ))}
+                {expAnalysis.by_account.length === 0 && <tr><td colSpan={2} className="px-3 py-4 text-center text-slate-400">No activity.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+
+          <h3 className="text-sm font-semibold text-slate-700">Budget — editable</h3>
         <div className="card overflow-x-auto p-0 text-sm">
           <table className="w-full">
             <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
