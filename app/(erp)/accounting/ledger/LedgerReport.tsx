@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID, dateStr } from "@/lib/format";
 import { todaySA, yearSA } from "@/lib/saudiTime";
-import AccountPickTree, { type PickNode } from "./AccountPickTree";
+import AccountPickTree, { type PickNode } from "@/components/accounting/AccountPickTree";
 import SearchSelect from "@/components/ui/SearchSelect";
 
 type Row = {

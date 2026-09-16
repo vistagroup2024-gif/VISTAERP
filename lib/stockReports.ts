@@ -1,36 +1,28 @@
-// Registry of the Inventory reports. Data only (no JSX, no functions), so a
-// server page can import it and hand a client component the report KEY — the
-// client resolves the config itself. Passing the config object across the
-// server→client boundary would serialize fine today but breaks the moment a
-// field becomes a function, so the key is the contract.
+// Registry of the Inventory reports — the first user of, and now a plain
+// specialisation of, the generic registry contract in lib/reports/types.ts
+// (Param/Col/StockReportCfg are the same shapes, narrowed to what Inventory's
+// own purpose-built RPCs actually take). Data only (no JSX, no functions), so
+// a server page can import it and hand a client component the report KEY —
+// the client resolves the config itself, the same convention every other
+// report registry now follows.
+import type { Col as GenericCol, Need, ReportCfg } from "@/lib/reports/types";
+import { NEED_ARG } from "@/lib/reports/types";
 
-export type ColKind = "text" | "qty" | "money" | "date" | "pct" | "int" | "class";
-
-export interface Col {
-  key: string;
-  label: string;
-  kind?: ColKind;   // text (default) | qty | money | date | pct | int | class
-  total?: boolean;  // summed in the footer
-}
+export type ColKind = GenericCol["kind"];
+export type Col = GenericCol;
 
 /** Which controls the report needs — also the RPC arguments it is called with. */
-export type Param = "from" | "to" | "asof" | "items" | "warehouse" | "movedOnly" | "mode" | "limit";
+export type Param = Extract<Need, "from" | "to" | "asof" | "items" | "warehouse" | "movedOnly" | "mode" | "limit">;
 
-export interface StockReportCfg {
-  key: string;
-  title: string;
-  subtitle: string;
-  rpc: string;
+export interface StockReportCfg extends Omit<ReportCfg, "params" | "mode" | "shape"> {
   params: Param[];
   mode?: "fast" | "slow";   // fixed p_mode for the fast/slow variants
-  cols: Col[];
-  empty: string;
 }
 
 /** RPC argument name for each control. */
 export const PARAM_ARG: Record<Param, string> = {
-  from: "p_from", to: "p_to", asof: "p_as_of", items: "p_items",
-  warehouse: "p_wh", movedOnly: "p_moved_only", mode: "p_mode", limit: "p_limit",
+  from: NEED_ARG.from, to: NEED_ARG.to, asof: NEED_ARG.asof, items: NEED_ARG.items,
+  warehouse: NEED_ARG.warehouse, movedOnly: NEED_ARG.movedOnly, mode: NEED_ARG.mode, limit: NEED_ARG.limit,
 };
 
 const ITEM: Col = { key: "item", label: "Item" };
