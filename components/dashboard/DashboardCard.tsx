@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { money, dateStr } from "@/lib/format";
+import Icon from "@/components/ui/Icon";
 import type { CardDef, CardKey } from "@/lib/dashboardCards";
 
 type Tone = "pos" | "neg" | "warn" | "info" | undefined;
@@ -224,39 +225,42 @@ function cells(key: CardKey, m: any): Cell[] {
   }
 }
 
-// A compact grid of cells rather than a flex row that wraps: a fixed column
-// count means a busy card is always exactly the same shape, never an
-// unpredictable wrap that depends on how wide its own column happens to be —
-// which is what made the old flex-wrap layout run tall on some breakpoints
-// and not others for the same card. 1px gaps + a white cell background on a
-// slate-100 grid is the divider, so no separate border classes are needed.
-// 4 cells go 2×2 rather than 3-then-1 — a lone fourth cell under three full
-// ones was the awkward half-empty row this is fixing; every other count
-// still reads best across three.
+// Every cell sits on a 6-wide base grid rather than a fixed 2/3-column
+// count, so a row always divides evenly whatever the cell count is — 2 cells
+// are two halves, 3 are three thirds, 4 are two rows of two, and 5 (the one
+// count that doesn't factor into 6) is a row of three thirds over a row of
+// two halves. Nothing is ever left with an empty, unbalanced cell.
+function spanFor(count: number, index: number): string {
+  if (count <= 1) return "col-span-6";
+  if (count === 2 || count === 4) return "col-span-3";
+  if (count === 3 || count === 6) return "col-span-2";
+  if (count === 5) return index < 3 ? "col-span-2" : "col-span-3";
+  return "col-span-2"; // uncovered counts (7+): a plain three-per-row grid
+}
+
 export default function DashboardCard({ def, metrics }: { def: CardDef; metrics: any }) {
   const list = cells(def.key, metrics);
-  const cols = list.length === 4 || list.length <= 2 ? "grid-cols-2" : "grid-cols-3";
   const body = (
     <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-pop">
-      {/* The one VISTA-orange touch on the card — a thin line along the top
-         edge only, never a border around the whole card. */}
-      <div className="h-[2px] w-full shrink-0 bg-brand-orange" aria-hidden />
-      <header className="flex items-start justify-between gap-2 border-b border-brand-100 bg-brand-50/70 px-2 py-1">
-        <h3 className="line-clamp-2 break-words text-[10px] font-bold uppercase tracking-wide text-brand-700">{def.label}</h3>
+      <header className="flex items-start justify-between gap-2 border-b border-brand-100 bg-brand-100/50 px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Icon name={def.icon} size={14} className="shrink-0 text-brand-400" />
+          <h3 className="line-clamp-2 break-words text-[14px] font-bold leading-snug text-brand-700">{def.label}</h3>
+        </div>
         {def.href && (
           <span className="shrink-0 text-brand-400 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>›</span>
         )}
       </header>
-      <div className={`grid flex-1 ${cols} gap-px overflow-hidden bg-slate-100`}>
-        {list.map((c) => (
-          <div key={c.label} className="bg-white px-2 py-1">
+      <div className="grid flex-1 grid-cols-6 gap-px overflow-hidden bg-slate-100">
+        {list.map((c, i) => (
+          <div key={c.label} className={`flex flex-col items-center justify-center bg-white px-2 py-1.5 text-center ${spanFor(list.length, i)}`}>
             {/* Two lines, never an ellipsis — a label cut to "YEAR TO DA…"
                forces a guess; wrapping it costs a few px of height instead.
                min-h reserves that second line's space on every cell so a
                row stays level whether or not that particular label needs it. */}
-            <p className="line-clamp-2 min-h-[19px] break-words text-[9px] font-medium uppercase leading-tight tracking-wide text-slate-400">{c.label}</p>
+            <p className="line-clamp-2 min-h-[24px] w-full break-words text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500">{c.label}</p>
             <p title={c.value.title}
-               className={`truncate tabular-nums ${c.strong ? "text-base font-extrabold" : "text-sm font-semibold"} ${c.tone ? TONE[c.tone] : "text-slate-800"}`}>
+               className={`mt-0.5 w-full truncate tabular-nums ${c.strong ? "text-lg font-bold" : "text-base font-semibold"} ${c.tone ? TONE[c.tone] : "text-slate-800"}`}>
               {c.value.text}
             </p>
           </div>
