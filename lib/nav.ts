@@ -166,6 +166,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/pdc", label: "PDC Register" },
     { href: "/accounting/approvals", label: "Approval Inbox" },
     { href: "/accounting/aging", label: "Aging (AR/AP)" },
+    { href: "/accounting/cash-bank", label: "Cash & Bank" },
     { href: "/accounting/ledger", label: "Ledger / Statement" },
     { href: "/accounting/journal", label: "Voucher Register" },
     { href: "/accounting/trial-balance", label: "Trial Balance" },
