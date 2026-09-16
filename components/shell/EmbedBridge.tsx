@@ -46,9 +46,16 @@ export default function EmbedBridge({ tabId }: { tabId: string }) {
     if (typeof window === "undefined" || window.parent === window) return;
     function onMessage(e: MessageEvent) {
       if (e.origin !== window.location.origin) return;
-      if (e.data?.type === "erp-tab" && e.data.action === "back") {
+      if (e.data?.type !== "erp-tab") return;
+      if (e.data.action === "back") {
         if (window.history.length > 1) router.back();
         else router.push(HOME);
+      } else if (e.data.action === "goto" && typeof e.data.url === "string") {
+        // The shell telling this tab (Home, when its own click inside the
+        // iframe drifted it to a dashboard card's report) to go back to a
+        // specific route — used to keep the pinned Home tab's real content
+        // in agreement with its label, which never changes.
+        router.push(e.data.url);
       }
     }
     window.addEventListener("message", onMessage);

@@ -13,18 +13,37 @@ const HOME: Tab = { id: "home", url: "/dashboard", label: "Home", pinned: true }
 const STORAGE_KEY = "erp:tabs:v1";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** A stable key for "is this the same screen" — no trailing slash, and the
- *  embed/tabId params this shell adds for its own iframes stripped, so a
- *  link into the app and the tab it opened compare equal. */
-function normalize(href: string): string {
-  const [path0, qs0] = href.split("?");
+/** Strips this shell's own embed/tabId params but keeps everything else,
+ *  hash included — what a tab's own `url` is stored as, so its iframe still
+ *  lands on whatever anchor a link meant (e.g. the trip-alert bell's
+ *  `#trip-alerts`). Hash is kept LAST, after the query string — appending
+ *  `?embed=1&tabId=…` onto a URL blindly (after any `#` was already there)
+ *  put the embed marker INSIDE the fragment, which a browser never sends to
+ *  the server at all: the iframe's real request then carried no `embed=1`,
+ *  so the page could not tell it should render bare and drew the whole
+ *  shell again, nested inside itself. */
+function cleanUrl(href: string): string {
+  const hashIdx = href.indexOf("#");
+  const hash = hashIdx === -1 ? "" : href.slice(hashIdx);
+  const beforeHash = hashIdx === -1 ? href : href.slice(0, hashIdx);
+  const [path0, qs0] = beforeHash.split("?");
   const path = path0.length > 1 ? path0.replace(/\/+$/, "") : path0;
-  if (!qs0) return path;
+  if (!qs0) return path + hash;
   const qs = new URLSearchParams(qs0);
   qs.delete("embed");
   qs.delete("tabId");
   const rest = qs.toString();
-  return rest ? `${path}?${rest}` : path;
+  return (rest ? `${path}?${rest}` : path) + hash;
+}
+
+/** A stable key for "is this the same screen" — no trailing slash, no hash
+ *  (an anchor within the page, not a different screen — the trip-alert
+ *  bell's `#trip-alerts` should reuse an already-open Operations tab, not
+ *  open a second one), and the embed/tabId params this shell adds for its
+ *  own iframes stripped, so a link into the app and the tab it opened
+ *  compare equal. */
+function normalize(href: string): string {
+  return cleanUrl(href).split("#")[0];
 }
 
 /** What to call a tab before its own page has had a chance to say (via
@@ -32,7 +51,7 @@ function normalize(href: string): string {
  *  not know — a voucher opened by id, a report drilled into — falls back to
  *  the last named path segment. */
 function labelFor(href: string): string {
-  const path = href.split("?")[0];
+  const path = href.split("#")[0].split("?")[0];
   const item = navItemFor(path);
   if (item) return item.label;
   const seg = path.split("/").filter(Boolean);
@@ -46,8 +65,14 @@ function cleanTitle(t: string): string {
 }
 
 function embedSrc(tab: Tab): string {
-  const sep = tab.url.includes("?") ? "&" : "?";
-  return `${tab.url}${sep}embed=1&tabId=${tab.id}`;
+  // tab.url can still carry a hash (cleanUrl keeps it) — embed=1&tabId= must
+  // land in the query string, before the hash, or the browser swallows it
+  // into the fragment and never sends it to the server. See cleanUrl above.
+  const hashIdx = tab.url.indexOf("#");
+  const base = hashIdx === -1 ? tab.url : tab.url.slice(0, hashIdx);
+  const hash = hashIdx === -1 ? "" : tab.url.slice(hashIdx);
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}embed=1&tabId=${tab.id}${hash}`;
 }
 
 /**
@@ -74,18 +99,36 @@ export default function TabShell({ name, access, initialPath }: {
       { type: "erp-tab", action: "back" }, window.location.origin);
   }, [activeId]);
 
+  // Home is pinned so it is always a way back to /dashboard — but a click
+  // INSIDE the Home tab's own iframe (a dashboard card) is not caught by
+  // onChromeClick below (that only sees clicks in the chrome OUTSIDE the
+  // iframes; a click inside one never bubbles across the frame boundary), so
+  // it navigates the Home tab's iframe itself to the card's report. The tab
+  // strip's own label is protected from changing for a pinned tab
+  // (updateTab below), so the strip keeps saying "Home" — but the iframe
+  // really did leave /dashboard, and nothing ever sent it back, so clicking
+  // "Home" again just reshowed whatever it had drifted to. Telling that
+  // iframe to go back to /dashboard every time Home is selected is what
+  // keeps the pinned tab's label and its actual content in agreement.
+  const goHome = useCallback(() => {
+    setActiveId("home");
+    frames.current.get("home")?.contentWindow?.postMessage(
+      { type: "erp-tab", action: "goto", url: HOME.url }, window.location.origin);
+  }, []);
+
   const openTab = useCallback((href: string) => {
     const norm = normalize(href);
     if (!norm || norm === "/") return;
-    if (normalize(HOME.url) === norm) { setActiveId("home"); return; }
+    if (normalize(HOME.url) === norm) { goHome(); return; }
     setTabs((ts) => {
       const existing = ts.find((t) => normalize(t.url) === norm);
       if (existing) { setActiveId(existing.id); return ts; }
       const id = `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       setActiveId(id);
-      return [...ts, { id, url: norm, label: labelFor(norm) }];
+      const url = cleanUrl(href);
+      return [...ts, { id, url, label: labelFor(url) }];
     });
-  }, []);
+  }, [goHome]);
 
   // Restore what was open last, then reconcile with whatever route actually
   // brought us here this time — a bookmark, a link followed from outside
@@ -228,7 +271,7 @@ export default function TabShell({ name, access, initialPath }: {
         <Sidebar name={name} access={access} />
         <div className="flex h-full min-w-0 flex-1 flex-col pt-14 lg:pt-0">
           <AppHeader name={name} access={access} />
-          <TabStrip tabs={tabs} activeId={activeId} onSelect={setActiveId} onClose={closeTab} onBack={goBack} />
+          <TabStrip tabs={tabs} activeId={activeId} onSelect={(id) => (id === "home" ? goHome() : setActiveId(id))} onClose={closeTab} onBack={goBack} />
           <div className="relative min-h-0 flex-1">
             {tabs.map((t) => (
               <iframe key={t.id} src={embedSrc(t)} title={t.label}
