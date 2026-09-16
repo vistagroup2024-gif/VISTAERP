@@ -16,11 +16,19 @@ export const dynamic = "force-dynamic";
 // Building this report's own totals from car_installments alone, the way it
 // did before, is what let it disagree with the card in the first place.
 //
-// TWO TABS: Customer Due Ageing Summary (default — "what is owed right now")
-// and Monthly Balance (car_customer_monthwise(), migration 410 — "what was
-// due and collected, month by month, current back through 3 months and
-// everything older"). Both read the same three due-date sources, so they
-// never tell two different stories about the same customer.
+// TWO TABS: Customer Due Ageing Summary (default — one row per customer,
+// combining car_customer_balances()'s "what is owed right now" with
+// car_customer_monthwise()'s "what was due and collected, month by month" —
+// both read the same three due-date sources, so merging them client-side
+// (no new RPC) never tells two different stories about the same customer)
+// and Monthly Balance (the month-by-month table on its own, unchanged, for
+// when only that view is wanted).
+//
+// Follow-up Date is not a column here: nothing in the schema records a
+// follow-up/next-contact date against a car customer, contract or
+// installment (checked car_contracts, car_installments, car_receipts,
+// parties — none carry it). Inventing one was explicitly ruled out; see the
+// Phase 5 report to the user for what adding it would require.
 export default async function OutstandingReport({ searchParams }: { searchParams: { tab?: string } }) {
   await guardStaffPage("carsales.reports");
   const supabase = createClient();
@@ -43,52 +51,117 @@ export default async function OutstandingReport({ searchParams }: { searchParams
 }
 
 async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
-  const { data } = await supabase.rpc("car_customer_balances");
-  const rows = ((data ?? []) as any[]).map((r) => ({
-    id: r.customer_id, name: r.name ?? "—", phone: r.phone ?? "—",
-    cars: Number(r.cars || 0), value: Number(r.value || 0), advance: Number(r.advance || 0),
-    due: Number(r.due || 0), overdue: Number(r.overdue || 0), total_due: Number(r.total_due || 0),
-    collected: Number(r.collected || 0), balance: Number(r.balance || 0),
-  })).filter((r) => Math.abs(r.balance) > 0.005 || r.total_due > 0.005);
-  const t = rows.reduce((a, r) => ({
-    value: a.value + r.value, due: a.due + r.due, overdue: a.overdue + r.overdue,
-    total_due: a.total_due + r.total_due, collected: a.collected + r.collected, balance: a.balance + r.balance,
-  }), { value: 0, due: 0, overdue: 0, total_due: 0, collected: 0, balance: 0 });
+  const [{ data }, { data: monthly }] = await Promise.all([
+    supabase.rpc("car_customer_balances"),
+    supabase.rpc("car_customer_monthwise", { p_company: COMPANY_ID }),
+  ]);
+  const monthlyById = new Map(((monthly ?? []) as any[]).map((m) => [m.customer_id, m]));
+
+  const rows = ((data ?? []) as any[]).map((r) => {
+    const m = monthlyById.get(r.customer_id);
+    monthlyById.delete(r.customer_id);
+    return {
+      id: r.customer_id, name: r.name ?? "—", phone: r.phone ?? "—",
+      cars: Number(r.cars || 0), value: Number(r.value || 0),
+      due: Number(r.due || 0), overdue: Number(r.overdue || 0), total_due: Number(r.total_due || 0),
+      collected: Number(r.collected || 0), balance: Number(r.balance || 0),
+      due_cur: Number(m?.due_cur || 0), due_last: Number(m?.due_last || 0), due_l2: Number(m?.due_l2 || 0),
+      due_l3: Number(m?.due_l3 || 0), due_prev: Number(m?.due_prev || 0),
+      rcpt_cur: Number(m?.rcpt_cur || 0), rcpt_last: Number(m?.rcpt_last || 0), rcpt_l2: Number(m?.rcpt_l2 || 0), rcpt_l3: Number(m?.rcpt_l3 || 0),
+    };
+  })
+    // A customer whose only contract is cancelled has no row in
+    // car_customer_balances() (it excludes cancelled) but can still have a
+    // monthwise row (which doesn't filter status) — carry those in too, so
+    // this merged view never drops activity the Monthly Balance tab shows.
+    .concat(Array.from(monthlyById.values()).map((m: any) => ({
+      id: m.customer_id, name: m.name ?? "—", phone: m.phone ?? "—",
+      cars: 0, value: 0, due: 0, overdue: 0, total_due: 0, collected: 0, balance: 0,
+      due_cur: Number(m.due_cur || 0), due_last: Number(m.due_last || 0), due_l2: Number(m.due_l2 || 0),
+      due_l3: Number(m.due_l3 || 0), due_prev: Number(m.due_prev || 0),
+      rcpt_cur: Number(m.rcpt_cur || 0), rcpt_last: Number(m.rcpt_last || 0), rcpt_l2: Number(m.rcpt_l2 || 0), rcpt_l3: Number(m.rcpt_l3 || 0),
+    })))
+    .filter((r) =>
+      Math.abs(r.balance) > 0.005 || r.total_due > 0.005 ||
+      [r.due_cur, r.due_last, r.due_l2, r.due_l3, r.due_prev, r.rcpt_cur, r.rcpt_last, r.rcpt_l2, r.rcpt_l3].some((v) => Math.abs(v) > 0.005));
+
+  const sum = (k: string) => rows.reduce((s, r) => s + Number((r as any)[k] || 0), 0);
+  const th2 = "sticky left-0 z-10 bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500";
+  const td2 = "sticky left-0 z-10 bg-white px-3 py-2";
+  const td2Foot = "sticky left-0 z-10 bg-slate-50 px-3 py-2";
 
   return (
     <div className="card overflow-x-auto p-0">
-      <table className="w-full min-w-[900px]">
-        <thead className="bg-slate-50"><tr>
-          <th className="th">Customer</th><th className="th">Mobile</th><th className="th text-right">Cars</th>
-          <th className="th text-right">Contract Value</th>
-          <th className="th text-right">Due</th><th className="th text-right">Overdue</th>
-          <th className="th text-right">Total Due</th><th className="th text-right">Collected</th>
-          <th className="th text-right">Ledger Balance</th>
-        </tr></thead>
+      <table className="w-full min-w-[1900px] text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className={th2} rowSpan={2}>Customer</th>
+            <th className="th" rowSpan={2}>Mobile</th>
+            <th className="th text-right" rowSpan={2}>Cars</th>
+            <th className="th text-right" rowSpan={2}>Contract Value</th>
+            <th className="th text-right" rowSpan={2}>Ledger Balance</th>
+            <th className="th text-right" rowSpan={2}>Due</th>
+            <th className="th text-right" rowSpan={2}>Overdue</th>
+            <th className="th text-right" rowSpan={2}>Total Due</th>
+            <th className="th text-right" rowSpan={2}>Collected</th>
+            <th className="th text-center border-l border-slate-200" colSpan={5}>Monthly Due</th>
+            <th className="th text-center border-l border-slate-200" colSpan={4}>Monthly Receipts</th>
+          </tr>
+          <tr>
+            <th className="th text-right border-l border-slate-200">This Month</th>
+            <th className="th text-right">Last Month</th>
+            <th className="th text-right">2 Months Ago</th>
+            <th className="th text-right">3 Months Ago</th>
+            <th className="th text-right">Previous</th>
+            <th className="th text-right border-l border-slate-200">This Month</th>
+            <th className="th text-right">Last Month</th>
+            <th className="th text-right">2 Months Ago</th>
+            <th className="th text-right">3 Months Ago</th>
+          </tr>
+        </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-t border-slate-100">
-              <td className="td"><Link href={`/car-sales/customers/${r.id}`} className="text-brand hover:underline">{r.name}</Link></td>
+              <td className={td2}><Link href={`/car-sales/customers/${r.id}`} className="text-brand hover:underline">{r.name}</Link></td>
               <td className="td">{r.phone}</td>
               <td className="td text-right">{r.cars}</td>
               <td className="td text-right tabular-nums">{sar(r.value)}</td>
+              <td className="td text-right tabular-nums font-medium">{sar(r.balance)}</td>
               <td className="td text-right tabular-nums">{r.due > 0 ? <span className="text-amber-700">{sar(r.due)}</span> : "—"}</td>
               <td className="td text-right tabular-nums">{r.overdue > 0 ? <span className="text-red-600">{sar(r.overdue)}</span> : "—"}</td>
               <td className="td text-right tabular-nums font-medium">{sar(r.total_due)}</td>
               <td className="td text-right tabular-nums">{sar(r.collected)}</td>
-              <td className="td text-right tabular-nums font-medium">{sar(r.balance)}</td>
+              <td className="td text-right tabular-nums border-l border-slate-100">{sar(r.due_cur)}</td>
+              <td className="td text-right tabular-nums">{sar(r.due_last)}</td>
+              <td className="td text-right tabular-nums">{sar(r.due_l2)}</td>
+              <td className="td text-right tabular-nums">{sar(r.due_l3)}</td>
+              <td className="td text-right tabular-nums text-red-600">{sar(r.due_prev)}</td>
+              <td className="td text-right tabular-nums text-green-700 border-l border-slate-100">{sar(r.rcpt_cur)}</td>
+              <td className="td text-right tabular-nums text-green-700">{sar(r.rcpt_last)}</td>
+              <td className="td text-right tabular-nums text-green-700">{sar(r.rcpt_l2)}</td>
+              <td className="td text-right tabular-nums text-green-700">{sar(r.rcpt_l3)}</td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>No outstanding balances.</td></tr>}
+          {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={18}>No outstanding balances or recent activity.</td></tr>}
         </tbody>
         {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
-          <td className="td" colSpan={3}>Total ({rows.length})</td>
-          <td className="td text-right tabular-nums">{sar(t.value)}</td>
-          <td className="td text-right tabular-nums">{sar(t.due)}</td>
-          <td className="td text-right tabular-nums">{sar(t.overdue)}</td>
-          <td className="td text-right tabular-nums">{sar(t.total_due)}</td>
-          <td className="td text-right tabular-nums">{sar(t.collected)}</td>
-          <td className="td text-right tabular-nums">{sar(t.balance)}</td>
+          <td className={td2Foot}>Total ({rows.length})</td>
+          <td className="td" colSpan={2} />
+          <td className="td text-right tabular-nums">{sar(sum("value"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("balance"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("due"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("overdue"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("total_due"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("collected"))}</td>
+          <td className="td text-right tabular-nums border-l border-slate-100">{sar(sum("due_cur"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("due_last"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("due_l2"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("due_l3"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("due_prev"))}</td>
+          <td className="td text-right tabular-nums border-l border-slate-100">{sar(sum("rcpt_cur"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("rcpt_last"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("rcpt_l2"))}</td>
+          <td className="td text-right tabular-nums">{sar(sum("rcpt_l3"))}</td>
         </tr></tfoot>}
       </table>
     </div>
