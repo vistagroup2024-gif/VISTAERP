@@ -940,6 +940,26 @@ moving `monthly_km` to 9,799 and `cost_per_km` down from 1.4250 to 1.0193 —
 same real cost, spread over the vehicle's real distance instead of only its
 billable one.
 
+**Not every cost belongs on every route, and there is no persisted mapping
+saying which does.** Car Parking is real on a Jeddah Airport transfer and
+never happens on Makkah-Madinah, but `transport_vehicle_cost_model()` blends
+every posted expense into one `cost_per_km` and `transport_costing_calculate()`
+multiplies that same rate by any route's distance — so Makkah-Madinah was
+still carrying its share of a fee it never incurs. Rather than a route↔account
+master (one more table to keep in step with the Chart of Accounts), the
+Calculator asks fresh on every run: `p_overrides.excluded_components` names
+which of THAT call's own component keys (`acct_<id>`, `depreciation`,
+`overhead`) to leave out of the total (404). Nothing is saved — the checklist
+above the Calculate button is ticked by default and resets on the next
+vehicle or period, so leaving everything ticked reproduces the prior result
+exactly. The same mechanism doubles as "how much would cost drop if we cut
+this" for any component, not only a route-specific one. `transport_costing_calculate()`
+already forwarded `p_overrides` untouched, so the Calculator needed no change
+beyond the checklist itself; Route Compare and Route Profitability call
+`transport_vehicle_cost_model()` with a bare `{}` of their own (they price
+every vehicle against one route, not one what-if), so a deselection there
+would need its own plumbing if it's ever wanted.
+
 ## The voucher is typed through
 
 `lib/focusNext.ts`: picking an account moves the cursor to the amount, and

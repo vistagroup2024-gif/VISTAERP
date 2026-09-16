@@ -88,15 +88,19 @@ function BreakdownTable({ components }: { components: any[] }) {
         </tr></thead>
         <tbody>
           {(components ?? []).map((c: any) => (
-            <tr key={c.key} className="border-t border-slate-100">
+            <tr key={c.key} className={`border-t border-slate-100 ${c.excluded ? "opacity-50" : ""}`}>
               <td className="td font-medium">{COMP_LABELS[c.key] ?? c.label}</td>
-              <td className="td text-right tabular-nums">{sar(c.monthly_cost)}</td>
+              <td className={`td text-right tabular-nums ${c.excluded ? "line-through" : ""}`}>{sar(c.monthly_cost)}</td>
               <td className="td text-right tabular-nums">{cpk(c.cost_per_km)}</td>
               <td className="td text-slate-400">{c.driver_name ? `Driver: ${c.driver_name}` : "—"}</td>
               <td className="td">
-                <span className={c.source === "override" ? "font-medium text-amber-700" : c.source === "insufficient_data" ? "text-slate-400" : "text-slate-600"}>
-                  {SRC_NOTE[c.source] ?? c.source}
-                </span>
+                {c.excluded ? (
+                  <span className="font-medium text-slate-500">Excluded from this calculation</span>
+                ) : (
+                  <span className={c.source === "override" ? "font-medium text-amber-700" : c.source === "insufficient_data" ? "text-slate-400" : "text-slate-600"}>
+                    {SRC_NOTE[c.source] ?? c.source}
+                  </span>
+                )}
               </td>
             </tr>
           ))}
@@ -165,12 +169,51 @@ function CalculatorTab({ vehicles, routes, period, setPeriod, from, setFrom, to,
   const [sellPrice, setSellPrice] = useState("");
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
+  // Which of the vehicle's own cost components to leave out of THIS
+  // calculation — a Car Parking fee that's only real on some routes, or "how
+  // much would cost drop if we cut this". Never saved: asked for fresh every
+  // time Calculate runs. Populated from the vehicle's own components before
+  // Calculate is even pressed, so a route the expense doesn't belong to can
+  // be priced right the first time rather than after a re-run.
+  const [components, setComponents] = useState<any[]>([]);
+  const [deselected, setDeselected] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setDeselected(new Set());
+    if (!vehicleId) { setComponents([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data: boundsRows } = await supabase.rpc("transport_costing_period_bounds", {
+        p_period: period, p_from: period === "custom" ? from : null, p_to: period === "custom" ? to : null,
+      });
+      const bounds = boundsRows?.[0]; // a set-returning function — one row back
+      if (cancelled || !bounds?.period_from) return;
+      const { data } = await supabase.rpc("transport_vehicle_cost_model", {
+        p_company: COMPANY_ID, p_tag_area_id: vehicleId, p_from: bounds.period_from, p_to: bounds.period_to, p_overrides: {},
+      });
+      if (!cancelled) setComponents(data?.components ?? []);
+    })();
+    return () => { cancelled = true; };
+  }, [vehicleId, period, from, to, supabase]);
+
+  function toggleComponent(key: string) {
+    setDeselected((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+  // Placeholder rows (no vehicle history yet, depreciation off/unconfigured)
+  // carry nothing to include or exclude.
+  const selectable = components.filter((c) => !["insufficient_data", "not_configured", "disabled"].includes(c.source));
+
   async function calculate() {
     if (!vehicleId || !routeId) { setError("Choose a vehicle and a route."); return; }
     setBusy(true); setError(null); setSavedMsg(null);
     const overrides: Record<string, any> = {};
     for (const [k, v] of Object.entries(ov)) if (v !== "" && v !== undefined) overrides[k] = k === "overhead_method" ? v : Number(v);
     if (manualEmpty !== "") overrides.return_pct_override = manualEmpty;
+    if (deselected.size > 0) overrides.excluded_components = Array.from(deselected);
     const { data, error: err } = await supabase.rpc("transport_costing_calculate", {
       p_company: COMPANY_ID, p_tag_area_id: vehicleId, p_route_id: routeId,
       p_period: period, p_period_from: period === "custom" ? from : null, p_period_to: period === "custom" ? to : null,
@@ -179,6 +222,7 @@ function CalculatorTab({ vehicles, routes, period, setPeriod, from, setFrom, to,
     setBusy(false);
     if (err) return setError(err.message);
     setResult(data);
+    if (data?.components) setComponents(data.components);
     setSellPrice(data?.pricing?.recommended_price ? String(data.pricing.recommended_price) : "");
   }
 
@@ -255,6 +299,25 @@ function CalculatorTab({ vehicles, routes, period, setPeriod, from, setFrom, to,
                 <option value="manual">Manual</option>
               </select></div>
             <p className="col-span-full text-xs text-amber-700">⚠ Every value here overrides the ERP's own historical figure for this calculation only — nothing stored is changed.</p>
+          </div>
+        )}
+        {selectable.length > 0 && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+            <p className="mb-1 text-sm font-semibold text-slate-700">Include in this calculation</p>
+            <p className="mb-2 text-xs text-slate-400">
+              Every cost is ticked by default — the same figure shown everywhere else in the ERP. Untick one to leave
+              it out of just this run: a Car Parking fee that isn't real on this route, or to see how much cost would
+              drop if it were cut. Nothing is saved — the next calculation starts fresh with everything ticked again.
+            </p>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
+              {selectable.map((c) => (
+                <label key={c.key} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={!deselected.has(c.key)} onChange={() => toggleComponent(c.key)} />
+                  <span className="min-w-0 flex-1 truncate">{COMP_LABELS[c.key] ?? c.label}</span>
+                  <span className="shrink-0 tabular-nums text-xs text-slate-400">{sar(c.monthly_cost)}/mo</span>
+                </label>
+              ))}
+            </div>
           </div>
         )}
         {error && <p className="text-sm text-red-600">{error}</p>}
