@@ -41,7 +41,7 @@ export const DASHBOARD_CARDS: CardDef[] = [
     hint: "What customers owe and what is owed to suppliers, read off the LEDGER so car, visa, transport and hotel balances are all in it. Overdue covers only invoices and bills that carry a due date, so it is a floor rather than the whole of what is late",
     href: "/accounting/aging" },
   { key: "sales", label: "Sales",
-    hint: "Income booked this month and this year", href: "/accounting/profit-loss" },
+    hint: "Income booked this month and this year", href: "/accounting/sales-report" },
   { key: "expenses", label: "Expenses",
     hint: "Expense booked this month and this year", href: "/accounting/profit-loss" },
   { key: "pnl", label: "Profit & Loss",

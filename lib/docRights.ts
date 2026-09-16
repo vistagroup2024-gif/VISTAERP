@@ -118,6 +118,7 @@ export const DOC_TREE: DocModule[] = [
       { key: "balance_sheet",  label: "Balance Sheet",      rights: R, href: "/accounting/balance-sheet" },
       { key: "aging",          label: "Aging (AR/AP)",      rights: R, href: "/accounting/aging" },
       { key: "cash_bank",      label: "Cash & Bank",        rights: R, href: "/accounting/cash-bank" },
+      { key: "sales_report",   label: "Sales Report",       rights: R, href: "/accounting/sales-report" },
       { key: "vat",            label: "VAT Return",         rights: R, href: "/accounting/vat" },
       { key: "targets",        label: "Targets & Budget",   rights: R, href: "/accounting/targets" },
       { key: "audit",          label: "Audit Trail",        rights: R, href: "/accounting/audit" },

@@ -52,7 +52,7 @@ export default async function Dashboard() {
   const period = `from=${monthStartSA()}&to=${todaySA()}`;
   const hrefOverride: Partial<Record<CardKey, string>> = {
     cash_flow: `/accounting/ledger?subtype=Cash,Bank&${period}`,
-    sales: `/accounting/profit-loss?${period}`,
+    sales: `/accounting/sales-report?${period}`,
     expenses: `/accounting/profit-loss?${period}`,
     pnl: `/accounting/profit-loss?${period}`,
   };
