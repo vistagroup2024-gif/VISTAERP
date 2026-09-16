@@ -31,7 +31,7 @@ export default async function CustomerReportPage({ params }: { params: { id: str
   if (!account) return <div><PageHeader title="Account" /><p className="text-sm text-slate-400">Not found.</p></div>;
 
   const { data: party } = account.party_id
-    ? await sb.from("parties").select("id, name, phone, email, party_type, credit_limit, credit_days").eq("id", account.party_id).maybeSingle()
+    ? await sb.from("parties").select("id, name, phone, email, party_type, credit_limit, credit_days, iqama_no, iqama_expiry").eq("id", account.party_id).maybeSingle()
     : { data: null };
 
   const kind = account.subtype === "Payable" ? "supplier" : "customer";
@@ -43,11 +43,18 @@ export default async function CustomerReportPage({ params }: { params: { id: str
   const { data: txnData } = await sb.rpc("report_transactions", { p_company: COMPANY_ID, p_from: from, p_to: to, p_account_ids: [account.id] });
   const txns = ((txnData ?? []) as any[]).slice(0, 50);
 
+  const { data: billsData } = await sb.rpc("party_outstanding", { p_company: COMPANY_ID, p_account_id: account.id });
+  const bills = (billsData ?? []) as any[];
+
+  const { data: mwData } = await sb.rpc("report_customer_monthwise", { p_company: COMPANY_ID, p_account_id: account.id });
+  const mw = (mwData as any) ?? {};
+
   const { data: carLink } = party ? await sb.from("car_contracts").select("id").eq("customer_id", party.id).limit(1) : { data: [] };
 
   return (
     <div className="space-y-4">
-      <PageHeader title={party?.name ?? account.name} subtitle={`${party?.phone ?? ""} ${party?.email ? "· " + party.email : ""}`.trim() || account.code}>
+      <PageHeader title={party?.name ?? account.name}
+        subtitle={`${party?.phone ?? ""} ${party?.email ? "· " + party.email : ""} ${party?.iqama_no ? "· Iqama " + party.iqama_no : ""}`.trim() || account.code}>
         <PrintButton />
         {!!carLink?.length && <Link href={`/car-sales/customers/${party!.id}`} className="btn-outline">Car Sales Detail →</Link>}
         <Link href={`/accounting/ledger?account=${account.id}`} className="btn-outline">Full Ledger →</Link>
@@ -81,6 +88,70 @@ export default async function CustomerReportPage({ params }: { params: { id: str
           </table>
         </div>
       )}
+
+      {/* Open bills — party_outstanding(), the same read the voucher's own
+         bill-wise-adjustment popup uses, so this list and what a Receipt/
+         Payment can adjust against never disagree. */}
+      <div>
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">Open Bills</h2>
+        <div className="card overflow-x-auto p-0">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <tr><th className="px-3 py-2 text-left">Bill No</th><th className="px-3 py-2 text-left">Bill Date</th>
+                <th className="px-3 py-2 text-left">Due Date</th><th className="px-3 py-2 text-right">Amount</th>
+                <th className="px-3 py-2 text-right">Adjusted</th><th className="px-3 py-2 text-right">Balance</th></tr>
+            </thead>
+            <tbody>
+              {bills.map((b: any) => (
+                <tr key={b.id} className="border-t border-slate-100">
+                  <td className="px-3 py-1.5">{b.doc_no}</td>
+                  <td className="px-3 py-1.5">{dateStr(b.doc_date)}</td>
+                  <td className="px-3 py-1.5">{b.due_date ? dateStr(b.due_date) : "—"}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{money(b.amount)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(b.amount) - Number(b.outstanding))}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums font-medium">{money(b.outstanding)}</td>
+                </tr>
+              ))}
+              {bills.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={6}>No open bills — fully adjusted, or the balance above came from the ledger directly.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Monthwise — report_customer_monthwise(), the same This/Last/2-ago/
+         3-ago/Older bucket shape the Car Customer Balances Monthly Balance
+         tab already uses, generalised off the ledger for any receivable/
+         payable account. */}
+      <div>
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthwise Receivables &amp; Receipts</h2>
+        <div className="card overflow-x-auto p-0">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <tr><th className="px-3 py-2 text-left"> </th><th className="px-3 py-2 text-right">This Month</th>
+                <th className="px-3 py-2 text-right">Last Month</th><th className="px-3 py-2 text-right">2 Months Ago</th>
+                <th className="px-3 py-2 text-right">3 Months Ago</th><th className="px-3 py-2 text-right">Older</th></tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-slate-100">
+                <td className="px-3 py-1.5 font-medium">Billed</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{money(mw.billed_cur)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{money(mw.billed_last)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{money(mw.billed_l2)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{money(mw.billed_l3)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-red-600">{money(mw.billed_prev)}</td>
+              </tr>
+              <tr className="border-t border-slate-100">
+                <td className="px-3 py-1.5 font-medium">Received</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-green-700">{money(mw.received_cur)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-green-700">{money(mw.received_last)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-green-700">{money(mw.received_l2)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-green-700">{money(mw.received_l3)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div>
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Recent Transactions (this year)</h2>

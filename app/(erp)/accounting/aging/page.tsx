@@ -3,8 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { COMPANY_ID } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
-import WhatsAppButton from "@/components/WhatsAppButton";
-import { waMsg } from "@/lib/waMessages";
+import AgingRows from "./AgingRows";
 
 export const dynamic = "force-dynamic";
 
@@ -71,26 +70,7 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.account_id} className="border-t border-slate-100">
-                <td className="px-3 py-1.5"><Link href={`/accounting/customers/${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link>{r.phone ? <span className="ml-2 text-xs text-slate-400">{r.phone}</span> : ""}</td>
-                <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{money(Number(r.total))}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums text-slate-400">{money(Number(r.not_due))}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b0))}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b1))}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b2))}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b3))}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums text-red-600">{money(Number(r.b4))}</td>
-                <td className={`px-3 py-1.5 text-right tabular-nums font-medium ${Math.abs(Number(r.ledger_balance) - Number(r.total)) > 0.5 ? "text-amber-700" : ""}`}
-                  title={Math.abs(Number(r.ledger_balance) - Number(r.total)) > 0.5 ? "Differs from the billed total — a receipt or payment was saved on account, not adjusted against a bill." : undefined}>
-                  {money(Number(r.ledger_balance))}
-                </td>
-                <td className="sticky right-0 bg-white px-3 py-1.5 text-right shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)] print:hidden">
-                  {kind === "customer" && <WhatsAppButton phone={r.phone} label="Remind"
-                    message={waMsg.paymentReminder({ name: r.name, amount: Number(r.total), currency: "SAR" })} />}
-                </td>
-              </tr>
-            ))}
+            <AgingRows rows={rows as any} kind={kind} />
             {rows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={10}>Nothing outstanding.</td></tr>}
           </tbody>
           <tfoot>

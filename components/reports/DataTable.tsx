@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import Link from "next/link";
 import type { Col } from "@/lib/reports/types";
 import { cellText, isNumeric } from "@/lib/reports/export";
 
@@ -225,5 +226,11 @@ function Cell({ col, row }: { col: Col; row: any }) {
     const tone = v === "A" ? "bg-green-100 text-green-700" : v === "B" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600";
     return <td className="px-3 py-2 text-right"><span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${tone}`}>{v}</span></td>;
   }
-  return <td className={`px-3 py-2 ${isNumeric(col) ? "text-right tabular-nums" : ""}`}>{cellText(col, v)}</td>;
+  const text = cellText(col, v);
+  const href = col.href?.(row);
+  return (
+    <td className={`px-3 py-2 ${isNumeric(col) ? "text-right tabular-nums" : ""}`}>
+      {href ? <Link href={href} className="text-brand hover:underline">{text}</Link> : text}
+    </td>
+  );
 }

@@ -15,6 +15,11 @@ export interface Col {
   total?: boolean;      // summed in the footer
   sortable?: boolean;   // default true for text/date, true for numeric kinds
   hideByDefault?: boolean;
+  /** Drill-down: when set, the cell's text is wrapped in a link to this
+   *  href. Returning null/undefined for a given row leaves it plain text —
+   *  a report drills down where there is something to drill into, not on
+   *  every row unconditionally. */
+  href?: (row: any) => string | null | undefined;
 }
 
 /** Every filter control a report can ask for. Existing accounting/transport

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { COMPANY_ID, dateStr } from "@/lib/format";
+import { COMPANY_ID } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
+import OrdersReportTable from "./OrdersReportTable";
 
 export const dynamic = "force-dynamic";
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -25,6 +26,7 @@ export default async function PurchaseOrdersReportPage({ searchParams }: { searc
   const status = searchParams.status === "history" ? "history" : searchParams.status === "all" ? "all" : "pending";
   const { data } = await sb.rpc("report_purchase_orders", { p_company: COMPANY_ID, p_status: status });
   const rows = ((data as any)?.rows ?? []) as any[];
+  const lines = ((data as any)?.lines ?? []) as any[];
   const total = rows.reduce((s, r) => s + Number(r.total || 0), 0);
   const balance = rows.reduce((s, r) => s + Number(r.balance_value || 0), 0);
 
@@ -44,32 +46,7 @@ export default async function PurchaseOrdersReportPage({ searchParams }: { searc
         <Kpi label="Total Value" value={money(total)} />
         <Kpi label="Balance to Receive" value={money(balance)} tone={balance > 0 ? "text-amber-700" : "text-green-700"} />
       </div>
-      <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[900px] text-sm">
-          <thead className="bg-slate-50"><tr>
-            <th className="th">PO No</th><th className="th">Date</th><th className="th">Delivery</th>
-            <th className="th">Supplier</th><th className="th">Cost Centre</th>
-            <th className="th text-right">PO Value</th><th className="th text-right">Received</th>
-            <th className="th text-right">Balance</th><th className="th">Status</th>
-          </tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.doc_id} className="border-t border-slate-100">
-                <td className="td"><Link href={`/accounting/purchases/orders?id=${r.doc_id}`} className="text-brand hover:underline">{r.doc_no}</Link></td>
-                <td className="td">{dateStr(r.doc_date)}</td>
-                <td className="td">{r.delivery_date ? dateStr(r.delivery_date) : "—"}</td>
-                <td className="td">{r.supplier}</td>
-                <td className="td">{r.cost_centre}</td>
-                <td className="td text-right tabular-nums">{money(r.total)}</td>
-                <td className="td text-right tabular-nums">{money(r.received_value)}</td>
-                <td className="td text-right tabular-nums font-medium">{money(r.balance_value)}</td>
-                <td className="td">{r.consumed ? <span className="badge bg-green-100 text-green-700">Received</span> : <span className="badge bg-amber-100 text-amber-700">Pending</span>}</td>
-              </tr>
-            ))}
-            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>Nothing here.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <OrdersReportTable rows={rows as any} lines={lines as any} />
     </div>
   );
 }

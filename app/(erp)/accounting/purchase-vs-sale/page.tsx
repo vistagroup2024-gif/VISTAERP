@@ -4,6 +4,7 @@ import { todaySA, yearSA } from "@/lib/saudiTime";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import TrendChart from "@/components/reports/charts/TrendChart";
+import DataTable from "@/components/reports/DataTable";
 
 export const dynamic = "force-dynamic";
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -48,6 +49,19 @@ export default async function PurchaseVsSalePage({ searchParams }: { searchParam
     sale: s.by_cost_centre.find((x: any) => x.name === name)?.amount ?? 0,
   }));
 
+  // Product-wise — both report_purchases() and report_sales() now carry qty
+  // alongside amount (a car sale included: report_sales() no longer drops it
+  // just because it has no acct_products line).
+  const productNames = Array.from(new Set([...p.by_product.map((x: any) => x.name), ...s.by_product.map((x: any) => x.name)]));
+  const combinedProduct = productNames.map((name) => {
+    const pp = p.by_product.find((x: any) => x.name === name);
+    const ss = s.by_product.find((x: any) => x.name === name);
+    return {
+      name, purchase_qty: pp?.qty ?? 0, purchase_value: pp?.amount ?? 0,
+      sale_qty: ss?.qty ?? 0, sale_value: ss?.amount ?? 0,
+    };
+  }).sort((a, b) => (b.purchase_value + b.sale_value) - (a.purchase_value + a.sale_value));
+
   return (
     <div className="space-y-4">
       <PageHeader title="Purchase vs Sale" subtitle="What was bought against what was sold — same document-level definitions the dashboard card uses.">
@@ -78,6 +92,32 @@ export default async function PurchaseVsSalePage({ searchParams }: { searchParam
           <TrendChart data={combinedCc} xKey="name" series={[{ key: "sale", label: "Sale" }, { key: "purchase", label: "Purchase" }]} />
         </div>
       )}
+
+      {/* Charts show the shape; these tables are what the exact numbers
+         actually are, and what the charts above are exportable/readable as. */}
+      <div>
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly</h2>
+        <DataTable
+          cols={[
+            { key: "month", label: "Month" },
+            { key: "purchase", label: "Purchase Value", kind: "money", total: true },
+            { key: "sale", label: "Sale Value", kind: "money", total: true },
+          ]}
+          rows={combinedMonthly} empty="No activity in this period." />
+      </div>
+
+      <div>
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">By Product</h2>
+        <DataTable
+          cols={[
+            { key: "name", label: "Product / Vehicle / Service" },
+            { key: "purchase_qty", label: "Purchase Qty", kind: "qty" },
+            { key: "purchase_value", label: "Purchase Value", kind: "money", total: true },
+            { key: "sale_qty", label: "Sale Qty", kind: "qty" },
+            { key: "sale_value", label: "Sale Value", kind: "money", total: true },
+          ]}
+          rows={combinedProduct} empty="No product-level activity in this period." />
+      </div>
     </div>
   );
 }
