@@ -67,12 +67,12 @@ function cells(key: CardKey, m: any): Cell[] {
     ];
     case "sales": return [
       { label: "This month", value: cash(d.month), strong: true },
-      { label: "Year to date", value: cash(d.year) },
+      { label: "YTD", value: cash(d.year) },
       { label: "Invoices (m)", value: qty(d.invoices_month) },
     ];
     case "expenses": return [
       { label: "This month", value: cash(d.month), strong: true, tone: "neg" },
-      { label: "Year to date", value: cash(d.year) },
+      { label: "YTD", value: cash(d.year) },
       { label: "All time", value: cash(d.total) },
     ];
     case "pnl": {
@@ -85,10 +85,10 @@ function cells(key: CardKey, m: any): Cell[] {
       const mm = gm - N(d.expense_month), yy = N(d.income_year) - N(d.cogs_year) - N(d.expense_year);
       const marginPct = N(d.income_month) !== 0 ? (mm / N(d.income_month)) * 100 : null;
       return [
-        { label: "Gross Profit (m)", value: cash(gm), tone: gm >= 0 ? "pos" : "neg" },
-        { label: mm >= 0 ? "Net Profit (m)" : "Net Loss (m)", value: cash(Math.abs(mm)), strong: true, tone: mm >= 0 ? "pos" : "neg" },
-        { label: "Net Margin (m)", value: raw(marginPct === null ? "—" : `${marginPct.toFixed(1)}%`) },
-        { label: yy >= 0 ? "Net Profit (ytd)" : "Net Loss (ytd)", value: cash(Math.abs(yy)), tone: yy >= 0 ? "pos" : "neg" },
+        { label: "Gross Profit", value: cash(gm), tone: gm >= 0 ? "pos" : "neg" },
+        { label: mm >= 0 ? "Net Profit" : "Net Loss", value: cash(Math.abs(mm)), strong: true, tone: mm >= 0 ? "pos" : "neg" },
+        { label: "Net Margin", value: raw(marginPct === null ? "—" : `${marginPct.toFixed(1)}%`) },
+        { label: yy >= 0 ? "Net Profit YTD" : "Net Loss YTD", value: cash(Math.abs(yy)), tone: yy >= 0 ? "pos" : "neg" },
       ];
     }
     // Everything a car customer owes, in one card: the instalments, the advance
@@ -140,8 +140,8 @@ function cells(key: CardKey, m: any): Cell[] {
     // count — the FLOW this month against the Stock card's own BALANCE, the
     // same pairing Cash Flow already is to Cash & Bank.
     case "purchase_vs_sale": return [
-      { label: "Purchased Qty (m)", value: qty(d.purchased_qty_month), strong: true, tone: "pos" },
-      { label: "Sold Qty (m)", value: qty(d.sold_qty_month), tone: "info" },
+      { label: "Purchased Qty", value: qty(d.purchased_qty_month), strong: true, tone: "pos" },
+      { label: "Sold Qty", value: qty(d.sold_qty_month), tone: "info" },
       { label: "Remaining Qty", value: qty(d.remaining_qty) },
     ];
     case "stock": return [
@@ -225,18 +225,21 @@ function cells(key: CardKey, m: any): Cell[] {
 }
 
 // A compact grid of cells rather than a flex row that wraps: a fixed column
-// count means a busy 5-cell card is always exactly two short rows, never an
+// count means a busy card is always exactly the same shape, never an
 // unpredictable wrap that depends on how wide its own column happens to be —
 // which is what made the old flex-wrap layout run tall on some breakpoints
 // and not others for the same card. 1px gaps + a white cell background on a
 // slate-100 grid is the divider, so no separate border classes are needed.
+// 4 cells go 2×2 rather than 3-then-1 — a lone fourth cell under three full
+// ones was the awkward half-empty row this is fixing; every other count
+// still reads best across three.
 export default function DashboardCard({ def, metrics }: { def: CardDef; metrics: any }) {
   const list = cells(def.key, metrics);
-  const cols = list.length <= 2 ? "grid-cols-2" : "grid-cols-3";
+  const cols = list.length === 4 || list.length <= 2 ? "grid-cols-2" : "grid-cols-3";
   const body = (
     <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-pop">
-      <header className="flex items-center justify-between gap-2 border-b border-brand-100 bg-brand-50/70 px-2 py-1">
-        <h3 className="truncate text-[10px] font-bold uppercase tracking-wide text-brand-800">{def.label}</h3>
+      <header className="flex items-start justify-between gap-2 border-b border-brand-100 bg-brand-50/70 px-2 py-1">
+        <h3 className="line-clamp-2 break-words text-[10px] font-bold uppercase tracking-wide text-brand-800">{def.label}</h3>
         {def.href && (
           <span className="shrink-0 text-brand-400 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>›</span>
         )}
@@ -244,7 +247,11 @@ export default function DashboardCard({ def, metrics }: { def: CardDef; metrics:
       <div className={`grid flex-1 ${cols} gap-px overflow-hidden bg-slate-100`}>
         {list.map((c) => (
           <div key={c.label} className="bg-white px-2 py-1">
-            <p className="truncate text-[9px] font-medium uppercase leading-tight tracking-wide text-slate-400">{c.label}</p>
+            {/* Two lines, never an ellipsis — a label cut to "YEAR TO DA…"
+               forces a guess; wrapping it costs a few px of height instead.
+               min-h reserves that second line's space on every cell so a
+               row stays level whether or not that particular label needs it. */}
+            <p className="line-clamp-2 min-h-[19px] break-words text-[9px] font-medium uppercase leading-tight tracking-wide text-slate-400">{c.label}</p>
             <p title={c.value.title}
                className={`truncate tabular-nums ${c.strong ? "text-base font-extrabold" : "text-sm font-semibold"} ${c.tone ? TONE[c.tone] : "text-slate-800"}`}>
               {c.value.text}
