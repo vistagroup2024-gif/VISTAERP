@@ -113,6 +113,7 @@ export const DOC_TREE: DocModule[] = [
     { group: "Reports", docs: [
       { key: "ledger",         label: "Ledger / Statement", rights: R, href: "/accounting/ledger" },
       { key: "voucher_register", label: "Voucher Register", rights: R, href: "/accounting/journal" },
+      { key: "transactions_report", label: "Transactions Report", rights: R, href: "/accounting/transactions" },
       { key: "trial_balance",  label: "Trial Balance",      rights: R, href: "/accounting/trial-balance" },
       { key: "profit_loss",    label: "Profit & Loss",      rights: R, href: "/accounting/profit-loss" },
       { key: "balance_sheet",  label: "Balance Sheet",      rights: R, href: "/accounting/balance-sheet" },

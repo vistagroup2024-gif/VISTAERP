@@ -175,6 +175,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/purchase-vs-sale", label: "Purchase vs Sale" },
     { href: "/accounting/ledger", label: "Ledger / Statement" },
     { href: "/accounting/journal", label: "Voucher Register" },
+    { href: "/accounting/transactions", label: "Transactions Report" },
     { href: "/accounting/trial-balance", label: "Trial Balance" },
     { href: "/accounting/targets", label: "Targets & Budget" },
     { href: "/accounting/profit-loss", label: "Profit & Loss" },
