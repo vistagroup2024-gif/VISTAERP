@@ -73,7 +73,7 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
           <tbody>
             {rows.map((r) => (
               <tr key={r.account_id} className="border-t border-slate-100">
-                <td className="px-3 py-1.5"><Link href={`/accounting/ledger?account=${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link>{r.phone ? <span className="ml-2 text-xs text-slate-400">{r.phone}</span> : ""}</td>
+                <td className="px-3 py-1.5"><Link href={`/accounting/customers/${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link>{r.phone ? <span className="ml-2 text-xs text-slate-400">{r.phone}</span> : ""}</td>
                 <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{money(Number(r.total))}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums text-slate-400">{money(Number(r.not_due))}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b0))}</td>

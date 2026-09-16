@@ -119,6 +119,7 @@ export const DOC_TREE: DocModule[] = [
       { key: "balance_sheet",  label: "Balance Sheet",      rights: R, href: "/accounting/balance-sheet" },
       { key: "aging",          label: "Aging (AR/AP)",      rights: R, href: "/accounting/aging" },
       { key: "cash_bank",      label: "Cash & Bank",        rights: R, href: "/accounting/cash-bank" },
+      { key: "customer_report", label: "Customer Report",   rights: R, href: "/accounting/customers" },
       { key: "sales_report",   label: "Sales Report",       rights: R, href: "/accounting/sales-report" },
       { key: "sale_orders_report", label: "Sales Orders Report", rights: R, href: "/accounting/sales/orders-report" },
       { key: "so_advance_vs_receipt", label: "Sale Order · Advance vs Receipt", rights: R, href: "/accounting/sales/advance-vs-receipt" },
