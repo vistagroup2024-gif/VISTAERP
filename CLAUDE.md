@@ -907,7 +907,7 @@ repositioning empty between one drop-off and the next pickup, even though
 that driving is real and the fuel for it is already in Direct Expenses.
 `transport_deadhead_km()` (393) is the distance twin of
 `transport_deadhead_min()` — already used for scheduling feasibility, e.g.
-388's Jeddah Airport grace — resolving two free-text locations to cities via
+388's Jeddah Airport grace — resolving two locations to cities via
 `loc_city()` and looking the gap up in the Route Master, city pair either
 direction, falling back to `transport_city_distance()`. `transport_driver_km()`
 sums a driver's booked KM plus this estimated deadhead between consecutive
@@ -917,20 +917,28 @@ method read from, so "how far did this vehicle go" means the same thing in
 both — the alternative, each re-deriving it, is exactly the "two screens
 disagree" trap this file keeps finding.
 
-This is a floor, not a true odometer reading: `pickup_location` is almost
-always a clean "Jeddah Airport", but `drop_location` is usually a specific
-hotel name, and `loc_city()`'s keyword match only resolves it when that name
-happens to contain the city word — a gap it cannot resolve to a real city
-pair adds 0, not a guess, so the estimate reliably catches genuine
-city-to-city repositioning but undercounts same-city moves between two
-named hotels. `transport_driver_km()` reports how many gaps it considered
-and how many it could not resolve, so that undercount stays visible instead
-of being silently absorbed into the total. Verified against a real case:
-STARIA LUXURY (SXA 7141) driven by Rahat Nazar, August 2026 — 65 booked
-trips = 7,009 km, plus 1,440 km of resolved deadhead (mostly the same
-Jeddah Airport ↔ Makkah gap the business asked about), moving `monthly_km`
-to 8,449 and `cost_per_km` down from 1.4250 to 1.1822 — same real cost,
-spread over the vehicle's real distance instead of only its billable one.
+**The gap is resolved through the trip's own booked ROUTE, never through
+`pickup_location`/`drop_location`** (403; a first cut of `transport_driver_km()`
+chained the free-text fields instead and is the wrong shape to repeat). Those
+two fields are a driver's own typing — usually a specific hotel name, not a
+city — so `loc_city()` had no keyword to match and silently invented a fake
+"city" from the hotel's first word, which then matched nothing in the Route
+Master and dropped the whole gap to 0. A route's own name is written in clean
+"City/Landmark - City/Landmark" form (`transport_route_origin`/
+`transport_route_dest` already parse it that way), so the gap between two
+trips is the PREVIOUS trip's route destination to the NEXT trip's route
+origin — what city the vehicle actually ended up in — not what a booking
+form happened to have typed for that specific stop. `transport_driver_km()`
+still reports how many gaps it considered and how many it could not resolve
+(a route named without a " - " separator mostly), so any remaining shortfall
+stays visible rather than silently absorbed into the total. Verified against
+a real case: STARIA LUXURY (SXA 7141) driven by Rahat Nazar, August 2026 — 65
+booked trips = 7,009 km, plus 2,790 km of resolved deadhead (62 of 64 gaps;
+route-wise resolution roughly doubled it over the free-text version's 1,440,
+which was silently dropping real repositioning it had no city keyword for),
+moving `monthly_km` to 9,799 and `cost_per_km` down from 1.4250 to 1.0193 —
+same real cost, spread over the vehicle's real distance instead of only its
+billable one.
 
 ## The voucher is typed through
 
