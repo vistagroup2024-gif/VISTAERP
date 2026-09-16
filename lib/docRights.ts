@@ -66,6 +66,11 @@ export const DOC_TREE: DocModule[] = [
     { group: "Sales", docs: [
       { key: "sales_quotation", label: "Sales Quotation", rights: V, href: "/accounting/sales/quotations" },
       { key: "sale_order",      label: "Sale Order",      rights: V, href: "/accounting/sales/orders" },
+      // The airline/GDS hold, before it is issued. Its own route (a worklist
+      // needs one — see nav.ts) even though it never posts: it loads into
+      // Air Ticket Invoice exactly the way a Sale Order loads into a Sales
+      // Invoice, just one document type earlier.
+      { key: "air_ticket_booking", label: "Air Ticket Booking", rights: V, href: "/accounting/sales/air-tickets" },
       { key: "sales_invoice",   label: "Sales Invoice",   rights: V, href: "/accounting/sales/invoices" },
       // A tab of Sales Invoice rather than a route of its own, so it has no
       // href — the middleware gates the screen through sales_invoice and this

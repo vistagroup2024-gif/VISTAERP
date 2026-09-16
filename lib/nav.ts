@@ -140,6 +140,7 @@ export const GROUPS: NavGroup[] = [
     // back here to unhide one; do not build a replacement for it.
     { href: "/accounting/sales/quotations", label: "Sales Quotation", perm: ["sales.view"] },
     { href: "/accounting/sales/orders", label: "Sale Order", perm: ["sales.view"] },
+    { href: "/accounting/sales/air-tickets", label: "Air Ticket Bookings", perm: ["sales.view"] },
     { href: "/accounting/sales/invoices", label: "Sales Invoice", perm: ["sales.view"] },
     { href: "/accounting/sales/delivery-notes", label: "Delivery Note", perm: ["sales.view"] },
     { href: "/accounting/sales/returns", label: "Sales Return", perm: ["sales.view"] },

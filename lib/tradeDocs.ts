@@ -30,7 +30,7 @@ export interface LineExtra {
 export interface HeaderExtra {
   key: string;
   label: string;
-  kind: "money" | "text" | "date" | "int" | "percent" | "account" | "check" | "product" | "party";
+  kind: "money" | "text" | "date" | "datetime" | "int" | "percent" | "account" | "check" | "product" | "party";
   /** For kind "party": which side of the master to offer. A document with BOTH
    *  a customer and a supplier — an air ticket bought from a consolidator and
    *  sold on — cannot express its second party through the one party_id column,
@@ -363,6 +363,44 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
     // book against Inventory on rules the posting owns.
     lineExtras: [{ key: "remarks", label: "Remarks", kind: "text" }],
   },
+  // ── AIR TICKET BOOKING ───────────────────────────────────────────────────
+  // The hold: a seat the airline/GDS is holding for a few hours or days, not
+  // yet a sale. It is a trade document like any other (no new table — see
+  // 405), but one that never posts: it is not in trade_doc_save's posting
+  // list, so saving it just holds the row open, the same as a Sale Order
+  // does until something is raised from it. Issuing the ticket IS loading
+  // this into an Air Ticket Invoice (the Load button, via loadsFrom on that
+  // type) — there is no separate "Issue" step to fall out of sync with it.
+  //
+  // "Cancelled" and the hold's own expiry live in meta because neither is a
+  // column any other document needs: cancelled is ticked by a person (the
+  // client backed out); hold_status='expired' is written only by the hourly
+  // cron (air_ticket_bookings_expire, 405) once hold_expires_at has passed
+  // and nothing was issued. Both are read back by the dashboard
+  // (/accounting/sales/air-tickets) and by the notification_situations row
+  // that reminds staff before a hold runs out.
+  air_ticket_booking: {
+    type: "air_ticket_booking", prefix: "ATB-", title: "Air Ticket Booking", party: "customer",
+    showTagArea: true, showCurrency: true, hideRoundOff: true,
+    amountLabel: "Fare", defaultCostCenter: "AIR TICKET",
+    headerExtras: [
+      { key: "supplier_id", label: "Supplier", kind: "party", partyType: "supplier" },
+      { key: "haji_name", label: "Haji Name", kind: "text" },
+      { key: "booking_via", label: "Booking Via", kind: "text" },
+      { key: "hold_expires_at", label: "Hold Expires", kind: "datetime",
+        hint: "when the airline releases the seat if it isn't issued by then" },
+      { key: "cancelled", label: "Cancelled", kind: "check" },
+    ],
+    lineExtras: [
+      { key: "supplier_rate", label: "Supplier Rate" },
+      { key: "supplier_amount", label: "Supplier Amount",
+        derived: ({ qty, extras }) => qty * (Number(extras.supplier_rate) || 0) },
+      { key: "airline", label: "Airline", kind: "text" },
+      { key: "sector", label: "Sector", kind: "text" },
+      { key: "travel_date", label: "Travel Date", kind: "date" },
+      { key: "pnr", label: "PNR", kind: "text" },
+    ],
+  },
   // ── AIR TICKET INVOICE ──────────────────────────────────────────────────
   // A back-to-back document: the ticket is bought from a consolidator and sold
   // to the passenger, and BOTH sides belong on the one voucher because they are
@@ -388,6 +426,10 @@ export const TRADE_DOCS: Record<string, TradeDocCfg> = {
   // They are ordinary line columns, so leaving them blank costs nothing.
   air_ticket_invoice: {
     type: "air_ticket_invoice", prefix: "ATI-", title: "Air Ticket Invoice", party: "customer",
+    // Loads from the hold — issuing IS raising this invoice, not a separate
+    // step, so the Load button is how a held Air Ticket Booking becomes one.
+    // Still typeable from scratch for a ticket the booking screen never saw.
+    loadsFrom: { type: "air_ticket_booking", title: "Air Ticket Booking" },
     showDue: true, showMode: true, showTagArea: true, showCurrency: true, hideRoundOff: true,
     amountLabel: "Gross", defaultCostCenter: "AIR TICKET",
     headerExtras: [

@@ -43,7 +43,12 @@ async function run() {
   // groups, so labels stay current as shared inventory is consumed. The function
   // carries its own high statement_timeout, so it completes off the request path.
   const { error: aErr } = await supabase.rpc("refresh_brn_availability", { p_secret: secret });
-  return NextResponse.json({ ok: true, created: data ?? 0, tafweej: tafweej ?? 0, hotelHcn: hotelHcn ?? 0, custom: custom ?? 0, availability: aErr ? aErr.message : "refreshed" });
+  // A held air ticket that nobody issued by its own hold_expires_at flips to
+  // Expired here — the airline's own release, mirrored rather than left for
+  // the dashboard to notice on its own the next time somebody looks.
+  const { data: expired, error: eErr } = await supabase.rpc("air_ticket_bookings_expire", { p_secret: secret });
+  if (eErr) return NextResponse.json({ ok: false, error: eErr.message }, { status: 500 });
+  return NextResponse.json({ ok: true, created: data ?? 0, tafweej: tafweej ?? 0, hotelHcn: hotelHcn ?? 0, custom: custom ?? 0, availability: aErr ? aErr.message : "refreshed", airTicketExpired: expired ?? 0 });
 }
 
 export async function GET(req: Request) {

@@ -37,6 +37,9 @@ export const DOC_SERIES: SeriesDef[] = [
   { key: "trade_mrn",               label: "Material Receipt Note", kind: "document", defaultPrefix: "MRN-", defaultPadding: 5 },
   { key: "trade_purchase_voucher",  label: "Purchase Voucher",      kind: "document", defaultPrefix: "PV-",  defaultPadding: 5, ledger: "gl_trade_purchase_voucher" },
   { key: "trade_purchase_return",   label: "Purchase Return",       kind: "document", defaultPrefix: "PRN-", defaultPadding: 5, ledger: "gl_trade_purchase_return" },
+  // No ledger: a hold never posts, the same as a Sale Order — it only loads
+  // into the Air Ticket Invoice, which is what actually reaches the GL.
+  { key: "trade_air_ticket_booking",label: "Air Ticket Booking",    kind: "document", defaultPrefix: "ATB-", defaultPadding: 5 },
   { key: "trade_air_ticket_invoice",label: "Air Ticket Invoice",    kind: "document", defaultPrefix: "ATI-", defaultPadding: 5, ledger: "gl_trade_air_ticket_invoice" },
   { key: "trade_visa_invoice",      label: "Visa Invoice",          kind: "document", defaultPrefix: "VI-",  defaultPadding: 5, ledger: "gl_trade_visa_invoice" },
   { key: "trade_transport_invoice", label: "Transport Invoice",     kind: "document", defaultPrefix: "TI-",  defaultPadding: 5, ledger: "gl_trade_transport_invoice" },

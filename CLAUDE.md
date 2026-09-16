@@ -960,6 +960,62 @@ beyond the checklist itself; Route Compare and Route Profitability call
 every vehicle against one route, not one what-if), so a deselection there
 would need its own plumbing if it's ever wanted.
 
+## An air ticket booking is a hold; issuing it is loading it into the invoice
+
+The Air Ticket Invoice has always been a complete, posting voucher — a
+customer, a supplier, four legs, a bill each side. What was missing was
+everything **before** it: the flight is searched outside the ERP (whichever
+IATA system the deal calls for), then a booking is created that the airline
+or GDS holds for a few hours or days — and releases on its own if nobody
+issues it. `air_ticket_booking` (405) is that hold, tracked start to finish.
+
+**No new table.** It is one more `trade_documents.doc_type`, the exact engine
+every other trade voucher already uses (`TradeVoucher`, `trade_doc_save`,
+`trade_doc_load`, `trade_doc_get` — none of them special-case a doc_type, so
+none of them needed touching). It never posts: `trade_doc_save`'s posting
+list does not include it, the same as `sale_order`/`sales_quotation`, so
+saving one just holds the row at `status='open'` — nothing moves until it is
+issued, cancelled, or the hold runs out on its own.
+
+**Issuing is not a separate step.** It is loading the booking into an Air
+Ticket Invoice — the Load button, via `air_ticket_invoice`'s `loadsFrom` and
+the matching `workflow_steps` row — and saving that, exactly the way a Sale
+Order becomes a Sales Invoice one document earlier in the same chain. There
+is no dedicated "Issue" RPC to fall out of sync with the invoice.
+
+**Two pieces of state live in `meta`, and "issued" is not one of them.**
+`cancelled` is ticked by a person (the client backed out); `hold_status =
+'expired'` is written only by `air_ticket_bookings_expire()`, the hourly
+cron (folded into the existing `/api/cron/reminders` route, anon-callable
+and `p_secret`-gated like the other five) once `hold_expires_at` has passed
+with nothing issued. "Issued" is never stored at all — it is the same
+`exists (... source_doc_id = d.id)` consumed-check every other document in
+a `workflow_steps` chain already answers with, so a booking's status can
+never disagree with whether its invoice actually exists.
+
+**The dashboard is the one deviation from how every other trade voucher is
+found.** A Sale Order has no list screen — a clerk finds one by typing its
+number into the header's own Document No. box (`trade_doc_find`, `docNo`).
+A hold's whole point is a human noticing it before it runs out, so
+`/accounting/sales/air-tickets` is a worklist (`air_ticket_bookings_list()`,
+`security invoker`) instead, sorted soonest-to-expire first, and a row
+opens straight into that booking via `TradeVoucher`'s new `initialId` prop
+(server-read from `?id=`, calling the same `load()` the docNo box already
+had) rather than making staff copy a number across screens.
+
+**Follow-up alerting reuses the existing reminder engine rather than adding
+a new one.** `air_ticket.hold_expiring` is one more row in
+`notification_situations` (the table `generate_custom_reminders` already
+walks hourly) — an admin turns it into a threshold rule on Settings →
+Notification Rules the same way the other nine situations are, and it fires
+with zero new plpgsql or cron wiring.
+
+Verified end to end before shipping: a booking held 3 hours out stayed
+`held`; one 2 hours overdue flipped to `expired` on the very next
+`air_ticket_bookings_expire()` call and stopped being a reminder candidate;
+the still-held one loaded correctly into a fresh Air Ticket Invoice with its
+supplier, PNR, sector and rate all carried across.
+
 ## The voucher is typed through
 
 `lib/focusNext.ts`: picking an account moves the cursor to the amount, and

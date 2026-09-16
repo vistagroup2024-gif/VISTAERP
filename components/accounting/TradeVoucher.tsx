@@ -43,7 +43,14 @@ function addMonthsISO(iso: string, n: number) {
 // Takes the doc-type key rather than the config object: the config carries the
 // derived-value functions for the car costing block, and functions cannot cross
 // the server -> client component boundary. The client resolves it locally.
-export default function TradeVoucher({ type, rights }: { type: string; rights?: Partial<Record<DocRight, boolean>> }) {
+export default function TradeVoucher({ type, rights, initialId }: {
+  type: string; rights?: Partial<Record<DocRight, boolean>>;
+  // Opens straight into an existing document — a dashboard's own row linking
+  // in, the way the header's docNo box already finds one by number. Read
+  // server-side from the URL by the page, not client-side here, the way
+  // Ledger's initialAccount is.
+  initialId?: string;
+}) {
   const cfg = TRADE_DOCS[type];
   // Rights come resolved from the server page. Absent = unrestricted, which is
   // what an admin or a user with no Access rights configured gets.
@@ -252,6 +259,13 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       return changed ? next : cur;
     });
   }, [extraDefaults]);
+
+  // Arriving from a link with a document already named — a dashboard's row,
+  // say. Runs once; after that Prev/Next and the buttons are in charge.
+  useEffect(() => {
+    if (initialId) load(initialId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialId]);
 
   function resetNew(keepMessage?: string) {
     setId(null); setDocNo(""); setDone(keepMessage ?? null); setErr(null);
@@ -832,6 +846,12 @@ export default function TradeVoucher({ type, rights }: { type: string; rights?: 
       return <div key={f.key}><label className="label">{f.label}{lockedHeaderKeys.has(f.key) && lockNote}</label>
         <input type="date" className={`input ${lockedHeaderKeys.has(f.key) ? "bg-slate-50 text-slate-600" : ""}`}
           value={val} readOnly={lockedHeaderKeys.has(f.key)} onChange={(e) => setExtra(f, e.target.value)} /></div>;
+    }
+    if (f.kind === "datetime") {
+      // Stored as typed, no timezone conversion — the same Saudi-wall-clock
+      // convention every other date on this voucher already follows.
+      return <div key={f.key}><label className="label">{f.label}{f.hint && <span className="ml-1 font-normal normal-case text-slate-400">({f.hint})</span>}</label>
+        <input type="datetime-local" className="input" value={val} onChange={(e) => setExtra(f, e.target.value)} /></div>;
     }
     if (f.kind === "text") {
       return <div key={f.key}><label className="label">{f.label}{lockedHeaderKeys.has(f.key) && lockNote}</label>
