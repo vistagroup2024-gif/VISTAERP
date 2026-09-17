@@ -56,10 +56,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: { fr
   return (
     <div className="max-w-5xl">
       <PageHeader title="Transport Reports">
+        <ReportRange />
         {canLedger && <Link href="/transport/reports/ledger" className="btn-outline text-sm">Trip Ledger →</Link>}
         <PrintButton />
       </PageHeader>
-      <ReportRange from={from} to={to} />
 
       {error && <div className="card text-red-600">{error.message}</div>}
 
