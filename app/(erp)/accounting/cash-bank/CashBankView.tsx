@@ -7,19 +7,14 @@ import { ACCOUNTING_REPORTS } from "@/lib/reports/accounting";
 import ReportFilterBar, { defaultReportFilters, type Filters } from "@/components/reports/ReportFilters";
 import DataTable, { type DataGroup } from "@/components/reports/DataTable";
 import DonutChart from "@/components/reports/charts/DonutChart";
+import TrendChart from "@/components/reports/charts/TrendChart";
+import ReportKpi from "@/components/reports/ReportKpi";
+import PeriodDropdown from "@/components/reports/PeriodDropdown";
+import { defaultYearMonths, asOfFromYearMonths, type YearMonths } from "@/lib/reports/period";
 import { downloadCsv } from "@/lib/reports/export";
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 const CFG = ACCOUNTING_REPORTS.cash_bank;
-
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div className="card">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-1 text-xl font-bold ${tone ?? "text-slate-800"}`}>{value}</p>
-    </div>
-  );
-}
 
 const sumGroup = (groups: DataGroup[], key: string, field: string) =>
   groups.find((g) => g.key === key)?.subtotal?.[field] ?? 0;
@@ -32,19 +27,28 @@ const sumGroup = (groups: DataGroup[], key: string, field: string) =>
 // duplicating whichever of Debit/Credit was filled, and a Share column
 // repeating that same split per row now shown once, as the chart).
 //
+// There is no standalone "As at" date box any more — this is an as-at
+// report, so the ERP-wide Year+Months period control (PeriodDropdown)
+// resolves to a single date via asOfFromYearMonths() (the last day of the
+// latest month picked, capped at today) instead of keeping its own separate
+// picker.
+//
 // A zero-balance account (opened, never moved, or since cleared) is dropped
 // from both the table and the chart — dropping it is presentation only,
 // group subtotals are still the RPC's own sums and unaffected by it.
 export default function CashBankView() {
   const supabase = useMemo(() => createClient(), []);
+  const [ym, setYm] = useState<YearMonths>(defaultYearMonths);
   const [filters, setFilters] = useState<Filters>(defaultReportFilters);
   const [groups, setGroups] = useState<DataGroup[] | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const asOf = asOfFromYearMonths(ym);
+
   const run = useCallback(async () => {
     setBusy(true);
     const { data } = await supabase.rpc("report_cash_bank", {
-      p_company: COMPANY_ID, p_as_of: filters.asof,
+      p_company: COMPANY_ID, p_as_of: asOf,
       p_account_ids: filters.account, p_cost_center_ids: filters.costCenter,
     });
     setBusy(false);
@@ -52,9 +56,9 @@ export default function CashBankView() {
       ...g, rows: g.rows.filter((r: any) => Math.abs(r.debit_balance) > 0.005 || Math.abs(r.credit_balance) > 0.005),
     })).filter((g) => g.rows.length > 0);
     setGroups(raw);
-  }, [supabase, filters.asof, filters.account, filters.costCenter]);
+  }, [supabase, asOf, filters.account, filters.costCenter]);
 
-  useEffect(() => { run(); }, [filters.asof, filters.account, filters.costCenter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { run(); }, [asOf, filters.account, filters.costCenter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cash = groups ? sumGroup(groups, "cash_driver", "balance") + sumGroup(groups, "cash_other", "balance") : null;
   const bank = groups ? sumGroup(groups, "bank", "balance") : null;
@@ -62,20 +66,26 @@ export default function CashBankView() {
   const total = groups ? (cash ?? 0) + (bank ?? 0) + (bankPkr ?? 0) : null;
   const show = (n: number | null) => (n === null ? "—" : money(n));
 
+  const byType = [
+    { type: "Bank", amount: bank ?? 0 },
+    { type: "PK Bank", amount: bankPkr ?? 0 },
+    { type: "Cash", amount: cash ?? 0 },
+  ];
   const chartData = (groups ?? []).flatMap((g) => g.rows).map((r: any) => ({ name: r.name, value: Math.abs(Number(r.balance) || 0) }));
   const exportRows = (groups ?? []).flatMap((g) => g.rows);
 
   return (
     <div className="space-y-4">
-      <div className="print:hidden">
-        <ReportFilterBar needs={["asof", "account", "costCenter"]} value={filters} onChange={setFilters} onRun={run} busy={busy} />
+      <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
+        <ReportFilterBar needs={["account", "costCenter"]} value={filters} onChange={setFilters} onRun={run} busy={busy} />
+        <PeriodDropdown value={ym} onChange={setYm} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Bank" value={show(bank)} />
-        <Kpi label="PK Bank" value={show(bankPkr)} />
-        <Kpi label="Cash" value={show(cash)} />
-        <Kpi label="Total Cash & Bank" value={show(total)} tone="text-brand-700" />
+        <ReportKpi label="Bank" value={show(bank)} icon="accounting" />
+        <ReportKpi label="PK Bank" value={show(bankPkr)} icon="accounting" />
+        <ReportKpi label="Cash" value={show(cash)} icon="wallet" />
+        <ReportKpi label="Total Cash & Bank" value={show(total)} icon="receipt" tone={total !== null && total < 0 ? "neg" : "info"} />
       </div>
 
       {groups === null ? (
@@ -88,9 +98,15 @@ export default function CashBankView() {
             </div>
             <DataTable cols={CFG.cols} groups={groups} empty="No cash or bank accounts with a balance." />
           </div>
-          <div className="card">
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">Share of Total</h2>
-            <DonutChart data={chartData} nameKey="name" valueKey="value" height={280} />
+          <div className="space-y-4">
+            <div className="card">
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">Balance by Type</h2>
+              <TrendChart data={byType} xKey="type" series={[{ key: "amount", label: "Balance" }]} height={160} />
+            </div>
+            <div className="card">
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">Share of Total</h2>
+              <DonutChart data={chartData} nameKey="name" valueKey="value" height={240} />
+            </div>
           </div>
         </div>
       )}

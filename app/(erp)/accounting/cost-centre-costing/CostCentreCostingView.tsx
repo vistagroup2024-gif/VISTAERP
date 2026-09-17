@@ -6,18 +6,10 @@ import { defaultYearMonths, monthRanges, periodLabel, type YearMonths } from "@/
 import YearMonthsPicker from "@/components/reports/YearMonthsPicker";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable, { type DataGroup } from "@/components/reports/DataTable";
+import ReportKpi from "@/components/reports/ReportKpi";
 
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div className="card">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-1 text-xl font-bold ${tone ?? "text-slate-800"}`}>{value}</p>
-    </div>
-  );
-}
 
 // Non-contiguous month picks (e.g. Jan + Mar) call report_cost_centre_costing
 // once per contiguous run and merge here — the common case (all months, or
@@ -131,13 +123,13 @@ export default function CostCentreCostingView() {
       <YearMonthsPicker value={ym} onChange={setYm} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Target" value={money(t.target)} />
-        <Kpi label="Sales" value={money(t.sales)} />
-        <Kpi label="Achievement %" value={achievement === null ? "—" : `${achievement.toFixed(1)}%`} />
-        <Kpi label="Gross Profit" value={money(t.gross_profit)} tone={t.gross_profit >= 0 ? "text-green-700" : "text-red-600"} />
-        <Kpi label="GP %" value={gpPct === null ? "—" : `${gpPct.toFixed(1)}%`} />
-        <Kpi label="Expense" value={money(t.expense)} />
-        <Kpi label="Net Profit" value={money(t.net_profit)} tone={t.net_profit >= 0 ? "text-green-700" : "text-red-600"} />
+        <ReportKpi label="Target" value={money(t.target)} icon="trendUp" />
+        <ReportKpi label="Sales" value={money(t.sales)} icon="sales" tone="info" />
+        <ReportKpi label="Achievement %" value={achievement === null ? "—" : `${achievement.toFixed(1)}%`} icon="trendUp" />
+        <ReportKpi label="Gross Profit" value={money(t.gross_profit)} icon="wallet" tone={t.gross_profit >= 0 ? "pos" : "neg"} />
+        <ReportKpi label="GP %" value={gpPct === null ? "—" : `${gpPct.toFixed(1)}%`} icon="wallet" />
+        <ReportKpi label="Expense" value={money(t.expense)} icon="receipt" tone="neg" />
+        <ReportKpi label="Net Profit" value={money(t.net_profit)} icon="accounting" tone={t.net_profit >= 0 ? "pos" : "neg"} />
       </div>
 
       {monthly.length > 1 && (

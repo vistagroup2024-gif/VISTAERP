@@ -1,12 +1,14 @@
-// A shared Year + Months period, for the reports that genuinely analyse by
-// calendar period (Sales, Cost Centre Costing — not an as-at balance report,
-// which keeps its own single date). Selecting specific months (not
-// necessarily a contiguous run — e.g. January and March, skipping February)
-// is broken into the smallest number of contiguous date ranges, so the
-// existing report RPCs (which each take one p_from/p_to) can be called
-// as-is and their results merged — no new calculation, no RPC signature
-// change for this.
-import { yearSA } from "@/lib/saudiTime";
+// A shared Year + Months period, the one period control every report and
+// dashboard in the ERP is meant to use — a period-range report (Sales, Cost
+// Centre Costing) turns it into {from,to} via monthRanges(); an as-at
+// balance report (Cash & Bank) turns it into a single date via
+// asOfFromYearMonths() instead, rather than keeping its own separate date
+// picker. Selecting specific months (not necessarily a contiguous run —
+// e.g. January and March, skipping February) is broken into the smallest
+// number of contiguous date ranges, so the existing report RPCs (which each
+// take one p_from/p_to) can be called as-is and their results merged — no
+// new calculation, no RPC signature change for this.
+import { todaySA, yearSA } from "@/lib/saudiTime";
 
 export const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -37,6 +39,18 @@ export function monthRanges({ year, months }: YearMonths): { from: string; to: s
     if (m !== undefined) { runStart = m; runEnd = m; }
   }
   return ranges;
+}
+
+/** The single "as at" date an as-at report needs from a Year+Months
+ *  selection: the last day of the LATEST selected month, capped at today —
+ *  picking a month still in progress (or the current month) reads as at
+ *  today, never a future date the ledger has no postings for yet. */
+export function asOfFromYearMonths(ym: YearMonths): string {
+  const ranges = monthRanges(ym);
+  if (ranges.length === 0) return todaySA();
+  const latest = ranges[ranges.length - 1].to;
+  const today = todaySA();
+  return latest > today ? today : latest;
 }
 
 /** A short label for the current selection — "2026", "Jan-Mar 2026", "Jan, Mar 2026". */

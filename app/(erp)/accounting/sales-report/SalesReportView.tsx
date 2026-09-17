@@ -8,18 +8,10 @@ import { defaultYearMonths, monthRanges, periodLabel, type YearMonths } from "@/
 import YearMonthsPicker from "@/components/reports/YearMonthsPicker";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable, { type DataGroup } from "@/components/reports/DataTable";
+import ReportKpi from "@/components/reports/ReportKpi";
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div className="card">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-1 text-xl font-bold ${tone ?? "text-slate-800"}`}>{value}</p>
-    </div>
-  );
-}
 
 const EMPTY = { total: 0, txns: 0, monthly: [] as any[], by_cost_centre: [] as any[], by_cc_month: [] as any[], by_customer: [] as any[], by_product: [] as any[] };
 type SalesData = typeof EMPTY;
@@ -175,17 +167,17 @@ export default function SalesReportView() {
       <div>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Summary — {periodLabel(ym)}{loading ? " (loading…)" : ""}</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-          <Kpi label="Total Sales (period)" value={money(s.total)} />
-          <Kpi label="Current Month" value={money(curMonth.total)} />
-          <Kpi label="Previous Month" value={money(prevMonth.total)} />
-          <Kpi label="Previous Year (same months)" value={money(py.total)} />
-          <Kpi label="Target" value={money(totalTarget)} />
-          <Kpi label="Achievement %" value={achievement === null ? "No target set" : `${achievement.toFixed(1)}%`}
-            tone={achievement !== null ? (achievement >= 100 ? "text-green-700" : achievement >= 80 ? "text-amber-700" : "text-red-600") : undefined} />
-          <Kpi label="Difference vs Target" value={money(Number(s.total) - totalTarget)} tone={Number(s.total) - totalTarget >= 0 ? "text-green-700" : "text-red-600"} />
-          <Kpi label="Transactions" value={String(s.txns)} />
-          <Kpi label="Quantity" value={new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(totalQty)} />
-          <Kpi label="Average Sale" value={money(avgSale)} />
+          <ReportKpi label="Total Sales (period)" value={money(s.total)} icon="sales" tone="info" />
+          <ReportKpi label="Current Month" value={money(curMonth.total)} icon="sales" />
+          <ReportKpi label="Previous Month" value={money(prevMonth.total)} icon="sales" />
+          <ReportKpi label="Previous Year (same months)" value={money(py.total)} icon="sales" />
+          <ReportKpi label="Target" value={money(totalTarget)} icon="trendUp" />
+          <ReportKpi label="Achievement %" value={achievement === null ? "No target set" : `${achievement.toFixed(1)}%`} icon="trendUp"
+            tone={achievement !== null ? (achievement >= 100 ? "pos" : achievement >= 80 ? "warn" : "neg") : undefined} />
+          <ReportKpi label="Difference vs Target" value={money(Number(s.total) - totalTarget)} icon="trendUp" tone={Number(s.total) - totalTarget >= 0 ? "pos" : "neg"} />
+          <ReportKpi label="Transactions" value={String(s.txns)} icon="receipt" />
+          <ReportKpi label="Quantity" value={new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(totalQty)} icon="inventory" />
+          <ReportKpi label="Average Sale" value={money(avgSale)} icon="sales" />
         </div>
       </div>
 
