@@ -28,6 +28,10 @@ export const PARAM_ARG: Record<Param, string> = {
 const ITEM: Col = { key: "item", label: "Item" };
 const UOM: Col = { key: "uom", label: "UOM" };
 const WH: Col = { key: "warehouse", label: "Warehouse" };
+// Valuation and Ageing (migration 432) carry the item's id now, so their own
+// item column can drill into that item's own Stock Movement instead of
+// staying plain text — the rest of ITEM's shape is unchanged.
+const ITEM_LINKED: Col = { key: "item", label: "Item", href: (row) => row.item_id ? `/stock/movement?item=${row.item_id}` : null };
 
 export const STOCK_REPORTS: Record<string, StockReportCfg> = {
   opening: {
@@ -86,7 +90,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
     key: "valuation", title: "Stock Valuation",
     subtitle: "Quantity, average cost and value held, with each item's share of the total.",
     rpc: "stock_valuation_report", params: ["asof", "warehouse", "items"],
-    cols: [ITEM, UOM, WH,
+    cols: [ITEM_LINKED, UOM, WH,
       { key: "qty", label: "Qty", kind: "qty", total: true },
       { key: "avg_cost", label: "Avg Cost", kind: "money" },
       { key: "value", label: "Value", kind: "money", total: true },
@@ -109,7 +113,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
     key: "ageing", title: "Ageing Analysis",
     subtitle: "How long the stock on hand has been sitting, oldest receipts consumed first.",
     rpc: "stock_ageing_analysis", params: ["asof", "warehouse", "items"],
-    cols: [ITEM, UOM,
+    cols: [ITEM_LINKED, UOM,
       { key: "qty", label: "On Hand", kind: "qty", total: true },
       { key: "d0_30", label: "0–30 d", kind: "qty", total: true },
       { key: "d31_60", label: "31–60 d", kind: "qty", total: true },

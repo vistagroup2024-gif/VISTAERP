@@ -26,7 +26,7 @@ import type { Need } from "@/lib/reports/types";
  * user's ticked ids back to names before the RPC is called, fetching the
  * id→name map itself only when a report actually needs it.
  */
-export default function ReportRunner({ registry, report, options, onData }: {
+export default function ReportRunner({ registry, report, options, onData, initialFilters }: {
   registry: Record<string, ReportCfg>;
   report: string;
   options?: Partial<Record<Need, MultiOption[]>>;
@@ -34,10 +34,15 @@ export default function ReportRunner({ registry, report, options, onData }: {
    *  rows/groups just fetched — never a second fetch of its own that could
    *  show a different filtered state than the table underneath it. */
   onData?: (rows: any[] | null, groups: DataGroup[] | undefined) => void;
+  /** Pre-fills specific filters on first load — how a drilldown link (Stock
+   *  Valuation's item -> Stock Movement pre-filtered to it) arrives already
+   *  scoped, instead of opening the report empty and making the owner pick
+   *  the same item again by hand. Only read once, on mount. */
+  initialFilters?: Partial<Filters>;
 }) {
   const cfg = registry[report];
   const supabase = useMemo(() => createClient(), []);
-  const [filters, setFilters] = useState<Filters>(defaultReportFilters);
+  const [filters, setFilters] = useState<Filters>(() => ({ ...defaultReportFilters(), ...initialFilters }));
   const [rows, setRows] = useState<any[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -92,7 +97,11 @@ export default function ReportRunner({ registry, report, options, onData }: {
   // means anything (an empty items/product/party filter is not "the whole
   // company's stock/ledger", it is "nothing chosen yet").
   useEffect(() => {
-    if (cfg && !cfg.params.some((p) => ["items", "product", "party"].includes(p))) run();
+    // A drilldown link can arrive with one of these already picked
+    // (initialFilters) — that's a real selection, not "nothing chosen
+    // yet", so it does not hold back auto-run the way an empty one does.
+    const stillUnpicked = (p: string) => ["items", "product", "party"].includes(p) && !((filters as any)[p]?.length);
+    if (cfg && !cfg.params.some(stillUnpicked)) run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg?.key]);
 
