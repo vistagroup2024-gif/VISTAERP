@@ -98,10 +98,14 @@ function plValues(sales: number, cogs: number, expense: number) {
 
 // Group -> leaf -> Month, built once from either report_cost_centre_costing()
 // or report_tag_area_costing() — same shape, same treatment, just a
-// different source. `depth` "group" collapses straight to the group's own
-// monthly breakdown (skipping the leaf level); "leaf" keeps Group -> leaf,
-// each leaf expandable into its own months.
-function buildCostingGroups(rows: CostRow[], depth: "group" | "leaf"): DataGroup[] {
+// different source. `hasGroup`/`hasLeaf` pick the row hierarchy (Group only,
+// leaf only, or Group -> leaf) and `withMonth` says whether the deepest level
+// expands into its own months at all — these three are independent toggles
+// in the UI (P&L Filteration), not one exclusive tab each, so a group with
+// Month wise switched off has nothing to expand into and shows no chevron
+// (DataTable itself only offers to expand a group that has children).
+function buildCostingGroups(rows: CostRow[], opts: { hasGroup: boolean; hasLeaf: boolean; withMonth: boolean }): DataGroup[] {
+  const { hasGroup, hasLeaf, withMonth } = opts;
   const byGroup = new Map<string, CostRow[]>();
   for (const r of rows) {
     const arr = byGroup.get(r.group) ?? [];
@@ -112,30 +116,43 @@ function buildCostingGroups(rows: CostRow[], depth: "group" | "leaf"): DataGroup
     [...monthly].sort((a, b) => a.month.localeCompare(b.month)).map((m) => ({
       label: monthShort(m.month), ...plValues(Number(m.sales || 0), Number(m.cogs || 0), Number(m.expense || 0)),
     }));
-
-  const groups: DataGroup[] = Array.from(byGroup.entries()).map(([group, leaves]) => {
-    const gSales = leaves.reduce((s, r) => s + r.sales, 0);
-    const gCogs = leaves.reduce((s, r) => s + r.cogs, 0);
-    const gExpense = leaves.reduce((s, r) => s + r.expense, 0);
-    const gValues = plValues(gSales, gCogs, gExpense);
-
-    if (depth === "group") {
-      const merged = new Map<string, { month: string; sales: number; cogs: number; expense: number }>();
-      for (const r of leaves) for (const m of r.monthly) {
-        const e = merged.get(m.month) ?? { month: m.month, sales: 0, cogs: 0, expense: 0 };
-        e.sales += Number(m.sales || 0); e.cogs += Number(m.cogs || 0); e.expense += Number(m.expense || 0);
-        merged.set(m.month, e);
-      }
-      return { key: group, label: group, values: gValues, rows: monthRows(Array.from(merged.values())), subtotal: gValues };
+  function mergedMonths(rs: CostRow[]) {
+    const merged = new Map<string, { month: string; sales: number; cogs: number; expense: number }>();
+    for (const r of rs) for (const m of r.monthly) {
+      const e = merged.get(m.month) ?? { month: m.month, sales: 0, cogs: 0, expense: 0 };
+      e.sales += Number(m.sales || 0); e.cogs += Number(m.cogs || 0); e.expense += Number(m.expense || 0);
+      merged.set(m.month, e);
     }
+    return Array.from(merged.values());
+  }
 
-    leaves.sort((a, b) => b.sales - a.sales);
+  if (hasGroup && !hasLeaf) {
+    const groups: DataGroup[] = Array.from(byGroup.entries()).map(([group, leaves]) => {
+      const gValues = plValues(leaves.reduce((s, r) => s + r.sales, 0), leaves.reduce((s, r) => s + r.cogs, 0), leaves.reduce((s, r) => s + r.expense, 0));
+      return { key: group, label: group, values: gValues, rows: withMonth ? monthRows(mergedMonths(leaves)) : [] };
+    });
+    return groups.sort((a, b) => Number(b.values!.revenue) - Number(a.values!.revenue));
+  }
+
+  if (!hasGroup && hasLeaf) {
+    const flat: DataGroup[] = rows.map((r) => ({
+      key: r.name, label: r.name, values: plValues(r.sales, r.cogs, r.expense),
+      rows: withMonth ? monthRows(r.monthly) : [],
+    }));
+    return flat.sort((a, b) => Number(b.values!.revenue) - Number(a.values!.revenue));
+  }
+
+  // hasGroup && hasLeaf — Group -> leaf, each leaf expanding into months only
+  // when Month wise is also on.
+  const groups: DataGroup[] = Array.from(byGroup.entries()).map(([group, leaves]) => {
+    const gValues = plValues(leaves.reduce((s, r) => s + r.sales, 0), leaves.reduce((s, r) => s + r.cogs, 0), leaves.reduce((s, r) => s + r.expense, 0));
+    const sortedLeaves = [...leaves].sort((a, b) => b.sales - a.sales);
     return {
       key: group, label: group, values: gValues, rows: [],
-      subgroups: leaves.map((r) => ({
+      subgroups: sortedLeaves.map((r) => ({
         key: `${group}::${r.name}`, label: r.name,
         values: plValues(r.sales, r.cogs, r.expense),
-        rows: monthRows(r.monthly), subtotal: plValues(r.sales, r.cogs, r.expense),
+        rows: withMonth ? monthRows(r.monthly) : [],
       })),
     };
   });
@@ -153,11 +170,44 @@ const PL_COLS = [
   { key: "per_pct", label: "PER %", kind: "pct" as const },
 ];
 
+// The five P&L Filteration buttons are independent criteria, not one
+// exclusive tab each — CC Group and Month wise are both real things a user
+// wants to see together (Group -> Month), so this is a multi-select toggle
+// group (the test this file's own multi-select-filter convention states),
+// with three mutual-exclusion rules layered on because these particular
+// options are not ALL freely combinable:
+//  - Year wise swaps the whole view to a flat This-Period-vs-Last-Year
+//    comparison and can't be combined with a grouping; picking it clears
+//    everything else, and picking anything else clears it.
+//  - Tag Area is an alternate SOURCE to CC Group/Cost Center (a different
+//    dimension entirely, not an extra level within the same one), so it
+//    clears them and they clear it.
+//  - Month wise is additive on top of whichever grouping (or none) is
+//    active — it never clears anything.
 type PLMode = "ccGroup" | "costCenter" | "monthWise" | "yearWise" | "tagArea";
 const PL_MODES: { key: PLMode; label: string }[] = [
   { key: "ccGroup", label: "CC Group" }, { key: "costCenter", label: "Cost Center" },
   { key: "monthWise", label: "Month wise" }, { key: "yearWise", label: "Year wise" }, { key: "tagArea", label: "Tag Area" },
 ];
+
+function toggleMode(prev: Set<PLMode>, m: PLMode): Set<PLMode> {
+  const next = new Set(prev);
+  const turningOn = !next.has(m);
+  if (m === "yearWise") {
+    if (!turningOn) { if (next.size > 1) next.delete(m); return next; }
+    return new Set<PLMode>(["yearWise"]);
+  }
+  next.delete("yearWise");
+  if (turningOn) {
+    next.add(m);
+    if (m === "tagArea") { next.delete("ccGroup"); next.delete("costCenter"); }
+    if (m === "ccGroup" || m === "costCenter") next.delete("tagArea");
+  } else {
+    if (next.size === 1) return next; // keep at least one selected
+    next.delete(m);
+  }
+  return next;
+}
 
 // P&L — Income less cost of sales, less expenses. trial_balance() is
 // unchanged and still the one verified source; report_pl_monthly() (424)
@@ -193,7 +243,7 @@ export default function ProfitLossView() {
   const [drawingsCm, setDrawingsCm] = useState(0);
   const [drawingsYtd, setDrawingsYtd] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [plMode, setPlMode] = useState<PLMode>("ccGroup");
+  const [plModes, setPlModes] = useState<Set<PLMode>>(() => new Set<PLMode>(["ccGroup"]));
 
   const ranges = monthRanges(ym);
   const from = ranges[0]?.from ?? `${ym.year}-01-01`;
@@ -271,17 +321,26 @@ export default function ProfitLossView() {
   const ccCostRows: CostRow[] = ccRows.map((r) => ({ name: r.cost_centre, group: r.cost_center_group, sales: Number(r.sales || 0), cogs: Number(r.cogs || 0), expense: Number(r.expense || 0), monthly: r.monthly ?? [] }));
   const tagCostRows: CostRow[] = tagRows.map((r: any) => ({ name: r.tag_area, group: r.tag_area_group, sales: Number(r.sales || 0), cogs: Number(r.cogs || 0), expense: Number(r.expense || 0), monthly: r.monthly ?? [] }));
 
-  const plGroups: DataGroup[] | null =
-    plMode === "ccGroup" ? buildCostingGroups(ccCostRows, "group")
-      : plMode === "costCenter" ? buildCostingGroups(ccCostRows, "leaf")
-        : plMode === "tagArea" ? buildCostingGroups(tagCostRows, "leaf")
-          : null;
-  const plFlatRows =
-    plMode === "monthWise" ? monthly.map((m) => ({ label: m.month_label, ...plValues(Number(m.revenue || 0), Number(m.cogs || 0), Number(m.expense || 0)) }))
-      : plMode === "yearWise" ? [
-        { label: "This Period", ...plValues(cur.totInc, cur.totCost, cur.totExp) },
-        { label: "Same Period Last Year", ...plValues(py.totInc, py.totCost, py.totExp) },
-      ] : null;
+  const hasYear = plModes.has("yearWise");
+  const hasTag = plModes.has("tagArea");
+  const hasGroup = plModes.has("ccGroup");
+  const hasLeaf = plModes.has("costCenter");
+  const withMonth = plModes.has("monthWise");
+
+  let plGroups: DataGroup[] | null = null;
+  let plFlatRows: any[] | null = null;
+  if (hasYear) {
+    plFlatRows = [
+      { label: "This Period", ...plValues(cur.totInc, cur.totCost, cur.totExp) },
+      { label: "Same Period Last Year", ...plValues(py.totInc, py.totCost, py.totExp) },
+    ];
+  } else if (hasTag) {
+    plGroups = buildCostingGroups(tagCostRows, { hasGroup: true, hasLeaf: true, withMonth });
+  } else if (hasGroup || hasLeaf) {
+    plGroups = buildCostingGroups(ccCostRows, { hasGroup, hasLeaf, withMonth });
+  } else {
+    plFlatRows = monthly.map((m) => ({ label: m.month_label, ...plValues(Number(m.revenue || 0), Number(m.cogs || 0), Number(m.expense || 0)) }));
+  }
 
   return (
     <div className="space-y-4">
@@ -309,46 +368,45 @@ export default function ProfitLossView() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_2.6fr]">
-        <div>
-          <SectionHeader title="Cost Center Profit & Loss" />
-          <div className="card overflow-x-auto p-0 text-sm">
-            <table className="report-grid w-full">
-              <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-                <tr><th className="px-3 py-2 text-left"><span className="col-resize">Cost Center</span></th><th className="px-3 py-2 text-right"><span className="col-resize">P&amp;L</span></th></tr>
-              </thead>
-              <tbody>
-                {ccGroupNetRows.map((r, i) => (
-                  <tr key={r.name} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
-                    <td className="px-3 py-1.5">{r.name}</td>
-                    <td className={`px-3 py-1.5 text-right tabular-nums ${r.net < 0 ? "font-medium text-red-600" : ""}`}>{money(r.net)}</td>
-                  </tr>
-                ))}
-                {ccGroupNetRows.length === 0 && <tr><td colSpan={2} className="px-3 py-6 text-center text-slate-400">No activity.</td></tr>}
-              </tbody>
-              {ccGroupNetRows.length > 0 && (
-                <tfoot><tr className="bg-slate-50 font-semibold">
-                  <td className="px-3 py-1.5">Total</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{money(ccGroupNetTotal)}</td>
-                </tr></tfoot>
-              )}
-            </table>
-          </div>
+        <div className="overflow-hidden rounded-lg border border-slate-200 shadow-card">
+          <div className="bg-brand-700 px-3 py-2 text-sm font-bold text-white">Cost Center Profit &amp; Loss</div>
+          <table className="report-grid w-full text-sm">
+            <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+              <tr><th className="px-3 py-2 text-left"><span className="col-resize">Cost Center</span></th><th className="px-3 py-2 text-right"><span className="col-resize">P&amp;L</span></th></tr>
+            </thead>
+            <tbody>
+              {ccGroupNetRows.map((r, i) => (
+                <tr key={r.name} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
+                  <td className="px-3 py-1.5">{r.name}</td>
+                  <td className={`px-3 py-1.5 text-right tabular-nums ${r.net < 0 ? "font-medium text-red-600" : ""}`}>{money(r.net)}</td>
+                </tr>
+              ))}
+              {ccGroupNetRows.length === 0 && <tr><td colSpan={2} className="px-3 py-6 text-center text-slate-400">No activity.</td></tr>}
+            </tbody>
+            {ccGroupNetRows.length > 0 && (
+              <tfoot><tr className="bg-slate-50 font-semibold">
+                <td className="px-3 py-1.5">Total</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{money(ccGroupNetTotal)}</td>
+              </tr></tfoot>
+            )}
+          </table>
         </div>
 
         <div>
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <SectionHeader title="Profit & Loss Summary" />
-            <div className="flex flex-wrap items-center gap-2 print:hidden">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">P&amp;L Filteration</span>
-              <div className="flex gap-1">
+          <div className="overflow-hidden rounded-lg border border-slate-200 shadow-card">
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-brand-700 px-3 py-2 text-sm font-bold text-white">
+              <span>Profit &amp; Loss Summary</span>
+              <div className="flex flex-wrap items-center gap-2 print:hidden">
                 {PL_MODES.map((m) => (
-                  <button key={m.key} onClick={() => setPlMode(m.key)}
-                    className={`rounded-full px-3 py-1 text-sm ${plMode === m.key ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>{m.label}</button>
+                  <button key={m.key} onClick={() => setPlModes((s) => toggleMode(s, m.key))}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${plModes.has(m.key) ? "bg-white text-brand-700" : "bg-brand-600 text-white/80 hover:bg-brand-500"}`}>
+                    {m.label}
+                  </button>
                 ))}
               </div>
             </div>
+            <DataTable bare cols={PL_COLS} {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
           </div>
-          <DataTable cols={PL_COLS} {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
           <p className="mt-1 text-right text-xs text-slate-400">
             <Link href="/accounting/cost-centre-costing" className="text-brand hover:underline">Full Cost Centre Costing report →</Link>
           </p>

@@ -39,7 +39,7 @@ export interface DataGroup {
  * the report to wire to its RPC — this component never re-fetches on its own.
  */
 export default function DataTable({
-  cols, rows, groups, empty, rowClass, page, pageSize, totalCount, onPageChange,
+  cols, rows, groups, empty, rowClass, page, pageSize, totalCount, onPageChange, bare,
 }: {
   cols: Col[];
   rows?: any[];
@@ -47,6 +47,10 @@ export default function DataTable({
   empty: string;
   rowClass?: (row: any) => string;
   page?: number; pageSize?: number; totalCount?: number; onPageChange?: (page: number) => void;
+  // Skip the outer .card border/shadow — for a caller that draws its own
+  // merged card around a dark-green header and this table (P&L Summary),
+  // so the header sits flush on top of the grid instead of two separate boxes.
+  bare?: boolean;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -90,7 +94,7 @@ export default function DataTable({
 
   return (
     <div>
-      <div className="card overflow-x-auto p-0 text-sm">
+      <div className={bare ? "overflow-x-auto text-sm" : "card overflow-x-auto p-0 text-sm"}>
         <table className="report-grid w-full border-collapse">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>{visibleCols.map((c) => (
@@ -162,44 +166,58 @@ function GroupedBody({ cols, groups, empty, collapsed, onToggle }: {
   if (groups.length === 0) {
     return <tbody><tr><td colSpan={cols.length} className="border border-slate-200 px-3 py-8 text-center text-slate-400">{empty}</td></tr></tbody>;
   }
-  return <tbody>{groups.map((g) => <GroupRows key={g.key} cols={cols} g={g} depth={0} collapsed={collapsed} onToggle={onToggle} />)}</tbody>;
+  return <tbody>{groups.map((g, i) => <GroupRows key={g.key} cols={cols} g={g} depth={0} idx={i} collapsed={collapsed} onToggle={onToggle} />)}</tbody>;
 }
 
 // One group, rendered at its own depth — and, when it has subgroups, each of
 // those again, one level deeper. A Cost Centre Group's row is the same shape
 // as a Cost Centre's; only the indent and what happens on expand differ.
-function GroupRows({ cols, g, depth, collapsed, onToggle }: {
-  cols: Col[]; g: DataGroup; depth: number; collapsed: Set<string>; onToggle: (key: string) => void;
+function GroupRows({ cols, g, depth, idx, collapsed, onToggle }: {
+  cols: Col[]; g: DataGroup; depth: number; idx: number; collapsed: Set<string>; onToggle: (key: string) => void;
 }) {
-  const open = !collapsed.has(g.key);
+  // A group with nothing beneath it (no subgroups, an empty rows array) gets
+  // no chevron and no click handler — expanding it would show nothing, so
+  // don't offer to. A P&L Filteration mode with Month wise switched off is
+  // exactly this: the group's own header row already carries its totals via
+  // `values`, and there is no month drill to reveal under it.
+  const hasChildren = !!(g.subgroups && g.subgroups.length) || (!g.subgroups && g.rows && g.rows.length > 0);
+  const open = hasChildren && !collapsed.has(g.key);
   const indent = depth * 16 + 12;
+  // Zebra by sibling position, not by depth — a static per-depth shade meant
+  // every top-level group row read the same flat grey as its neighbours;
+  // this is the same alternating-by-index convention every flat table uses.
+  const zebra = idx % 2 === 1 ? "bg-slate-50/70" : "";
   return (
     <Fragment>
-      <tr className={`cursor-pointer font-semibold ${depth === 0 ? "bg-slate-50" : "bg-slate-50/60"}`} onClick={() => onToggle(g.key)}>
+      <tr className={`font-semibold ${zebra} ${hasChildren ? "cursor-pointer" : ""}`} onClick={hasChildren ? () => onToggle(g.key) : undefined}>
         {g.values ? (
           <>
             <td className="border border-slate-200 py-2" style={{ paddingLeft: indent }}>
-              <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
+              {hasChildren && <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>}
               {g.label}{g.meta}
             </td>
             {cols.slice(1).map((c) => <Cell key={c.key} col={c} row={g.values!} />)}
           </>
         ) : (
           <td colSpan={cols.length} className="border border-slate-200 py-2" style={{ paddingLeft: indent }}>
-            <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
+            {hasChildren && <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>}
             {g.label}{g.meta}
           </td>
         )}
       </tr>
-      {open && g.subgroups && g.subgroups.map((sg) => (
-        <GroupRows key={sg.key} cols={cols} g={sg} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} />
+      {open && g.subgroups && g.subgroups.map((sg, si) => (
+        <GroupRows key={sg.key} cols={cols} g={sg} depth={depth + 1} idx={si} collapsed={collapsed} onToggle={onToggle} />
       ))}
       {open && !g.subgroups && g.rows.map((r, i) => (
         <tr key={`${g.key}-${i}`} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
           {cols.map((c, ci) => <Cell key={c.key} col={c} row={r} indent={ci === 0 ? indent + 16 : undefined} />)}
         </tr>
       ))}
-      {open && !g.subgroups && g.subtotal && (
+      {/* A values-bearing group's own header row already IS the subtotal —
+          a footer repeating the same figures under it, once expanded, is a
+          duplicate, not a summary. Only a plain label-only heading (no
+          `values`) still needs this line to show a total for what's below it. */}
+      {open && !g.subgroups && g.subtotal && !g.values && (
         <tr key={`${g.key}-sub`} className="bg-slate-50/60 font-medium">
           {cols.map((c, i) => (
             <td key={c.key} className={`border border-slate-200 px-3 py-1.5 ${isNumeric(c) ? "text-right tabular-nums" : ""}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>

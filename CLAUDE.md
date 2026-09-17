@@ -551,6 +551,22 @@ ask: does selecting two of these ever mean something a user would want to
 see at once? If yes, multi-select; if the options describe mutually
 exclusive states of the same thing, leave it a single choice.
 
+**A pivot dimension can still be multi-select if the dimensions are
+levels of the SAME hierarchy rather than alternate ones.** P&L Filteration's
+CC Group / Cost Center / Month wise looked like the exclusive-pivot case
+above and was built as one at first — wrong, because CC Group and Month
+wise are two levels of one drill (Group -> Month) a user genuinely wants
+together, not two different things to view instead of each other. The
+working split: CC Group and Cost Center pick the row hierarchy (Group only,
+leaf only, or Group -> leaf, toggled independently) and Month wise is
+additive on top of whichever of those is active; Year wise (a flat
+This-Period-vs-Last-Year comparison) and Tag Area (an alternate SOURCE to
+Cost Centre, not another level of it) are the two genuinely exclusive
+choices in the same button row, so picking either clears the others per the
+same "keep at least one selected" rule. A mixed row like this needs the
+mutual-exclusion worked out per option, not applied as "pivot dimension,
+therefore single-select" to the whole row.
+
 ## A report's month column reads "Aug-26", never the RPC's raw "2026-08"
 
 Every monthly breakdown in the schema returns its key as `to_char(d,
@@ -583,6 +599,23 @@ shape read off `acct_tag_areas` / `journal_lines.tag_area` instead — no
 `sales_target` there (tag areas don't carry one), everything else identical,
 built so P&L's "Tag Area" filtration mode is the same `buildCostingGroups()`
 call as "Cost Center", just a different source array.
+
+**A group row with `values` needs no separate Subtotal row, and a group with
+nothing to expand into needs no chevron.** The first cut of `values` still
+rendered the old label-only group's trailing `subtotal` row underneath it —
+a duplicate of the figures the header row itself now carries, and exactly
+the "sub total should not show as total already showing in row" bug a user
+caught on P&L's Cost Center grouping. `GroupRows` in `DataTable.tsx` now
+skips `g.subtotal` whenever `g.values` is set (a caller can still stop
+passing `subtotal` once it sets `values`, but the render guard means it
+doesn't matter if one is left behind). The same render also only offers the
+▾/▸ toggle and `onClick` when a group actually has `subgroups` or a
+non-empty `rows` — a group whose only children would be a month drill that
+isn't switched on has nothing to reveal, so it isn't drawn as if it does.
+Group header rows also zebra by sibling index now (`bg-slate-50/70` on
+every second row, at each depth) instead of one flat shade per depth —
+before this, "Trading", "Umrah Package" and "Transport" all read the same
+grey and didn't visually separate the way a flat table's own rows do.
 
 ## A cost centre's target is one number per month, not one number
 
