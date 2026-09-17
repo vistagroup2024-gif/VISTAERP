@@ -3,8 +3,13 @@ import Link from "next/link";
 import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
+import SectionHeader from "@/components/reports/SectionHeader";
 import { COMPANY_ID } from "@/lib/format";
 import { sar } from "../../lib";
+
+// A ledger balance in the accounting sense — signed Debit/Credit, not just a
+// number — the same "Dr"/"Cr" suffix the old software's own report carried.
+const drCr = (n: number) => `${sar(Math.abs(n))} ${n >= 0 ? "Dr" : "Cr"}`;
 
 export const dynamic = "force-dynamic";
 
@@ -61,10 +66,9 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
     const m = monthlyById.get(r.customer_id);
     monthlyById.delete(r.customer_id);
     return {
-      id: r.customer_id, name: r.name ?? "—", phone: r.phone ?? "—",
-      cars: Number(r.cars || 0), value: Number(r.value || 0),
+      id: r.customer_id, name: r.name ?? "—", cars: Number(r.cars || 0),
       due: Number(r.due || 0), overdue: Number(r.overdue || 0), total_due: Number(r.total_due || 0),
-      collected: Number(r.collected || 0), balance: Number(r.balance || 0),
+      balance: Number(r.balance || 0),
       due_cur: Number(m?.due_cur || 0), due_last: Number(m?.due_last || 0), due_l2: Number(m?.due_l2 || 0),
       due_l3: Number(m?.due_l3 || 0), due_prev: Number(m?.due_prev || 0),
       rcpt_cur: Number(m?.rcpt_cur || 0), rcpt_last: Number(m?.rcpt_last || 0), rcpt_l2: Number(m?.rcpt_l2 || 0), rcpt_l3: Number(m?.rcpt_l3 || 0),
@@ -75,8 +79,8 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
     // monthwise row (which doesn't filter status) — carry those in too, so
     // this merged view never drops activity the Monthly Balance tab shows.
     .concat(Array.from(monthlyById.values()).map((m: any) => ({
-      id: m.customer_id, name: m.name ?? "—", phone: m.phone ?? "—",
-      cars: 0, value: 0, due: 0, overdue: 0, total_due: 0, collected: 0, balance: 0,
+      id: m.customer_id, name: m.name ?? "—", cars: 0,
+      due: 0, overdue: 0, total_due: 0, balance: 0,
       due_cur: Number(m.due_cur || 0), due_last: Number(m.due_last || 0), due_l2: Number(m.due_l2 || 0),
       due_l3: Number(m.due_l3 || 0), due_prev: Number(m.due_prev || 0),
       rcpt_cur: Number(m.rcpt_cur || 0), rcpt_last: Number(m.rcpt_last || 0), rcpt_l2: Number(m.rcpt_l2 || 0), rcpt_l3: Number(m.rcpt_l3 || 0),
@@ -86,84 +90,74 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
       [r.due_cur, r.due_last, r.due_l2, r.due_l3, r.due_prev, r.rcpt_cur, r.rcpt_last, r.rcpt_l2, r.rcpt_l3].some((v) => Math.abs(v) > 0.005));
 
   const sum = (k: string) => rows.reduce((s, r) => s + Number((r as any)[k] || 0), 0);
-  const th2 = "sticky left-0 z-10 bg-brand-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-brand-800";
-  const td2 = "sticky left-0 z-10 bg-white px-3 py-2";
-  const td2Foot = "sticky left-0 z-10 bg-slate-50 px-3 py-2";
+  const totalCars = rows.reduce((s, r) => s + r.cars, 0);
 
   return (
-    <div className="card overflow-x-auto p-0">
-      <table className="report-grid w-full min-w-[1900px] text-sm">
-        <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-          <tr>
-            <th className={th2} rowSpan={2}>Customer</th>
-            <th className="px-4 py-2.5 text-left" rowSpan={2}>Mobile</th>
-            <th className="px-4 py-2.5 text-right" rowSpan={2}>Cars</th>
-            <th className="px-4 py-2.5 text-right" rowSpan={2}>Contract Value</th>
-            <th className="px-4 py-2.5 text-right" rowSpan={2}>Ledger Balance</th>
-            <th className="px-4 py-2.5 text-right" rowSpan={2}>Due</th>
-            <th className="px-4 py-2.5 text-right" rowSpan={2}>Overdue</th>
-            <th className="px-4 py-2.5 text-right" rowSpan={2}>Total Due</th>
-            <th className="px-4 py-2.5 text-right" rowSpan={2}>Collected</th>
-            <th className="px-4 py-2.5 text-center border-l border-slate-300" colSpan={5}>Monthly Due</th>
-            <th className="px-4 py-2.5 text-center border-l border-slate-300" colSpan={4}>Monthly Receipts</th>
-          </tr>
-          <tr>
-            <th className="px-4 py-2.5 text-right border-l border-slate-300">This Month</th>
-            <th className="px-4 py-2.5 text-right">Last Month</th>
-            <th className="px-4 py-2.5 text-right">2 Months Ago</th>
-            <th className="px-4 py-2.5 text-right">3 Months Ago</th>
-            <th className="px-4 py-2.5 text-right">Previous</th>
-            <th className="px-4 py-2.5 text-right border-l border-slate-300">This Month</th>
-            <th className="px-4 py-2.5 text-right">Last Month</th>
-            <th className="px-4 py-2.5 text-right">2 Months Ago</th>
-            <th className="px-4 py-2.5 text-right">3 Months Ago</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-t border-slate-100">
-              <td className={td2}><Link href={`/car-sales/customers/${r.id}`} className="text-brand hover:underline">{r.name}</Link></td>
-              <td className="td">{r.phone}</td>
-              <td className="td text-right">{r.cars}</td>
-              <td className="td text-right tabular-nums">{sar(r.value)}</td>
-              <td className="td text-right tabular-nums font-medium">{sar(r.balance)}</td>
-              <td className="td text-right tabular-nums">{r.due > 0 ? <span className="text-amber-700">{sar(r.due)}</span> : "—"}</td>
-              <td className="td text-right tabular-nums">{r.overdue > 0 ? <span className="text-red-600">{sar(r.overdue)}</span> : "—"}</td>
-              <td className="td text-right tabular-nums font-medium">{sar(r.total_due)}</td>
-              <td className="td text-right tabular-nums">{sar(r.collected)}</td>
-              <td className="td text-right tabular-nums border-l border-slate-100">{sar(r.due_cur)}</td>
-              <td className="td text-right tabular-nums">{sar(r.due_last)}</td>
-              <td className="td text-right tabular-nums">{sar(r.due_l2)}</td>
-              <td className="td text-right tabular-nums">{sar(r.due_l3)}</td>
-              <td className="td text-right tabular-nums text-red-600">{sar(r.due_prev)}</td>
-              <td className="td text-right tabular-nums text-green-700 border-l border-slate-100">{sar(r.rcpt_cur)}</td>
-              <td className="td text-right tabular-nums text-green-700">{sar(r.rcpt_last)}</td>
-              <td className="td text-right tabular-nums text-green-700">{sar(r.rcpt_l2)}</td>
-              <td className="td text-right tabular-nums text-green-700">{sar(r.rcpt_l3)}</td>
+    <div>
+      <SectionHeader title={`Customer Due Ageing Summary — Total Cars: ${totalCars}`} />
+      <div className="card overflow-x-auto p-0">
+        <table className="report-grid w-full min-w-[1500px] text-sm">
+          <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+            <tr>
+              <th className="px-4 py-2.5 text-left" rowSpan={2}>Name</th>
+              <th className="px-4 py-2.5 text-right" rowSpan={2}>Led. Bal</th>
+              <th className="px-4 py-2.5 text-right" rowSpan={2}>Due</th>
+              <th className="px-4 py-2.5 text-right" rowSpan={2}>Overdue</th>
+              <th className="px-4 py-2.5 text-right" rowSpan={2}>Total</th>
+              <th className="px-4 py-2.5 text-center border-l border-slate-300" colSpan={5}>Monthly Due</th>
+              <th className="px-4 py-2.5 text-center border-l border-slate-300" colSpan={4}>Monthly Receipts</th>
             </tr>
-          ))}
-          {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={18}>No outstanding balances or recent activity.</td></tr>}
-        </tbody>
-        {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
-          <td className={td2Foot}>Total ({rows.length})</td>
-          <td className="td" colSpan={2} />
-          <td className="td text-right tabular-nums">{sar(sum("value"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("balance"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("due"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("overdue"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("total_due"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("collected"))}</td>
-          <td className="td text-right tabular-nums border-l border-slate-100">{sar(sum("due_cur"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("due_last"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("due_l2"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("due_l3"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("due_prev"))}</td>
-          <td className="td text-right tabular-nums border-l border-slate-100">{sar(sum("rcpt_cur"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("rcpt_last"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("rcpt_l2"))}</td>
-          <td className="td text-right tabular-nums">{sar(sum("rcpt_l3"))}</td>
-        </tr></tfoot>}
-      </table>
+            <tr>
+              <th className="px-4 py-2.5 text-right border-l border-slate-300">Current Month Due</th>
+              <th className="px-4 py-2.5 text-right">Last Month Due</th>
+              <th className="px-4 py-2.5 text-right">2nd Last Month Due</th>
+              <th className="px-4 py-2.5 text-right">3rd Last Month Due</th>
+              <th className="px-4 py-2.5 text-right">All Previous Dues</th>
+              <th className="px-4 py-2.5 text-right border-l border-slate-300">Current Month Rec</th>
+              <th className="px-4 py-2.5 text-right">Last Month Rec</th>
+              <th className="px-4 py-2.5 text-right">2nd Last Month Rec</th>
+              <th className="px-4 py-2.5 text-right">3rd Last Month Rec</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t border-slate-100">
+                <td className="td"><Link href={`/car-sales/customers/${r.id}`} className="text-brand hover:underline">{r.name}</Link></td>
+                <td className="td text-right tabular-nums font-medium">{drCr(r.balance)}</td>
+                <td className="td text-right tabular-nums">{r.due > 0 ? <span className="text-amber-700">{sar(r.due)}</span> : "—"}</td>
+                <td className="td text-right tabular-nums">{r.overdue > 0 ? <span className="text-red-600">{sar(r.overdue)}</span> : "—"}</td>
+                <td className="td text-right tabular-nums font-medium">{sar(r.total_due)}</td>
+                <td className="td text-right tabular-nums border-l border-slate-100">{sar(r.due_cur)}</td>
+                <td className="td text-right tabular-nums">{sar(r.due_last)}</td>
+                <td className="td text-right tabular-nums">{sar(r.due_l2)}</td>
+                <td className="td text-right tabular-nums">{sar(r.due_l3)}</td>
+                <td className="td text-right tabular-nums text-red-600">{sar(r.due_prev)}</td>
+                <td className="td text-right tabular-nums text-green-700 border-l border-slate-100">{sar(r.rcpt_cur)}</td>
+                <td className="td text-right tabular-nums text-green-700">{sar(r.rcpt_last)}</td>
+                <td className="td text-right tabular-nums text-green-700">{sar(r.rcpt_l2)}</td>
+                <td className="td text-right tabular-nums text-green-700">{sar(r.rcpt_l3)}</td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={14}>No outstanding balances or recent activity.</td></tr>}
+          </tbody>
+          {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
+            <td className="td">Total ({rows.length})</td>
+            <td className="td text-right tabular-nums">{drCr(sum("balance"))}</td>
+            <td className="td text-right tabular-nums">{sar(sum("due"))}</td>
+            <td className="td text-right tabular-nums">{sar(sum("overdue"))}</td>
+            <td className="td text-right tabular-nums">{sar(sum("total_due"))}</td>
+            <td className="td text-right tabular-nums border-l border-slate-100">{sar(sum("due_cur"))}</td>
+            <td className="td text-right tabular-nums">{sar(sum("due_last"))}</td>
+            <td className="td text-right tabular-nums">{sar(sum("due_l2"))}</td>
+            <td className="td text-right tabular-nums">{sar(sum("due_l3"))}</td>
+            <td className="td text-right tabular-nums">{sar(sum("due_prev"))}</td>
+            <td className="td text-right tabular-nums border-l border-slate-100">{sar(sum("rcpt_cur"))}</td>
+            <td className="td text-right tabular-nums">{sar(sum("rcpt_last"))}</td>
+            <td className="td text-right tabular-nums">{sar(sum("rcpt_l2"))}</td>
+            <td className="td text-right tabular-nums">{sar(sum("rcpt_l3"))}</td>
+          </tr></tfoot>}
+        </table>
+      </div>
     </div>
   );
 }
