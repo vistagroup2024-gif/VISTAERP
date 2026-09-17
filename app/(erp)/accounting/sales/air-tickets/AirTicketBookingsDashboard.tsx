@@ -23,17 +23,18 @@ const STATUS_TONE: Record<Booking["status"], string> = {
   cancelled: "bg-slate-200 text-slate-500",
 };
 
-const TABS = ["held", "issued", "expired", "cancelled", "all"] as const;
-type Tab = typeof TABS[number];
+const STATUSES = ["held", "issued", "expired", "cancelled"] as const;
 
 // The airline holds a fare for a few hours or days and releases it on its own
 // if nobody issues it — this is the worklist that lets staff catch that
-// before it happens, not after. Held is the default tab because it's the one
-// that needs a human decision; everything else is already settled.
+// before it happens, not after. Held is selected by default because it's the
+// one that needs a human decision; everything else is already settled.
+// Statuses are independently toggleable (all four on = the old "All" tab)
+// rather than exclusive tabs, so e.g. Held + Expired can be reviewed together.
 export default function AirTicketBookingsDashboard({ canCreate }: { canCreate: boolean }) {
   const supabase = createClient();
   const [rows, setRows] = useState<Booking[]>([]);
-  const [tab, setTab] = useState<Tab>("held");
+  const [selected, setSelected] = useState<Set<Booking["status"]>>(new Set<Booking["status"]>(["held"]));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,10 +52,18 @@ export default function AirTicketBookingsDashboard({ canCreate }: { canCreate: b
   }, [rows]);
 
   const shown = useMemo(() => {
-    const list = tab === "all" ? rows : rows.filter((r) => r.status === tab);
+    const list = rows.filter((r) => selected.has(r.status));
     // Soonest-expiring held booking first — that is the one to act on.
     return [...list].sort((a, b) => (a.hours_left ?? Infinity) - (b.hours_left ?? Infinity));
-  }, [rows, tab]);
+  }, [rows, selected]);
+
+  function toggle(s: Booking["status"]) {
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(s) && next.size > 1) next.delete(s); else next.add(s);
+      return next;
+    });
+  }
 
   return (
     <div>
@@ -62,10 +71,10 @@ export default function AirTicketBookingsDashboard({ canCreate }: { canCreate: b
         action={canCreate ? { href: "/accounting/sales/air-tickets?id=new", label: "New Booking" } : undefined} />
 
       <div className="mb-4 flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`rounded-full px-3 py-1 text-sm ${tab === t ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-            {t === "all" ? "All" : STATUS_LABEL[t]}{t !== "all" && ` (${counts[t]})`}
+        {STATUSES.map((s) => (
+          <button key={s} onClick={() => toggle(s)}
+            className={`rounded-full px-3 py-1 text-sm ${selected.has(s) ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+            {STATUS_LABEL[s]} ({counts[s]})
           </button>
         ))}
       </div>
@@ -104,7 +113,8 @@ export default function AirTicketBookingsDashboard({ canCreate }: { canCreate: b
             ))}
             {!loading && shown.length === 0 && (
               <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={5}>
-                {tab === "held" ? "No holds waiting on a decision." : `No ${tab === "all" ? "" : STATUS_LABEL[tab as Booking["status"]].toLowerCase() + " "}bookings.`}
+                {selected.size === 1 && selected.has("held") ? "No holds waiting on a decision."
+                  : `No ${Array.from(selected).map((s) => STATUS_LABEL[s].toLowerCase()).join(" / ")} bookings.`}
               </td></tr>
             )}
           </tbody>

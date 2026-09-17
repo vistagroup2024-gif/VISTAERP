@@ -473,6 +473,36 @@ header now too — asked for separately, once the report screens had already
 moved, so the two never drift back apart into "a colourful dashboard and a
 plain report" the way `ReportKpi`'s own doc comment already warned against.
 
+## A report filter is multi-select unless the options are mutually exclusive
+
+Sales Report's own Value/Qty toggle used to be a single-select radio (pick
+one) even though both are just independent columns that can be shown at
+once — the same shape as Purchase/Sales Orders Report's Pending/History/All
+three-tab split (All was only ever "both of the other two, so give it its
+own button") and the Air Ticket Bookings worklist's five exclusive status
+tabs (Held/Issued/Expired/Cancelled/All, when a user reviewing Held often
+wants Expired alongside it). None of those are a real either/or.
+
+**The test**: if the options are independent criteria whose selections can
+be shown together — extra columns, a wider status filter, anything a plain
+union of "show me A, or B, or both" answers — it's multi-select, a toggled
+button group over a `Set`, styled `bg-brand text-white` on / `bg-slate-100
+text-slate-600` off (`TransactionsFilters.tsx`'s `types: Set<string>` is the
+original of this shape; `LedgerReport.tsx`'s `columns: ColKey[]` column
+picker is the same idea for optional columns). Keep at least one option
+selected — a toggle that would empty the set re-adds itself instead of
+turning off, the way Purchase/Sales Orders Report's status toggle does.
+
+**Single-select stays single-select where the options are not additive**: a
+pivot dimension (CC Group vs Cost Centre vs Customer vs Product — the row
+grouping, not a column that can be turned on beside another), a date window
+(7/30/60 days — nested, not combinable), a calculation mode that changes
+what's computed rather than what's shown, or a tab that swaps the whole
+screen's layout (Ageing vs Monthly on Car Sales Outstanding). If unsure,
+ask: does selecting two of these ever mean something a user would want to
+see at once? If yes, multi-select; if the options describe mutually
+exclusive states of the same thing, leave it a single choice.
+
 ## A cost centre's target is one number per month, not one number
 
 `acct_cost_centers.sales_target` was a single flat figure per cost centre,
