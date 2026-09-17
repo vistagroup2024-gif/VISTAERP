@@ -1,18 +1,59 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID, dateStr } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import ReportKpi from "@/components/reports/ReportKpi";
+import SectionHeader from "@/components/reports/SectionHeader";
 import DataTable, { type DataGroup } from "@/components/reports/DataTable";
 import DonutChart from "@/components/reports/charts/DonutChart";
 import AgingRows from "./AgingRows";
 import { defaultYearMonths, asOfFromYearMonths, type YearMonths } from "@/lib/reports/period";
 
 const money = (n: number) => n ? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) : "";
+
+// The at-a-glance pair — every account with a real balance, split by
+// direction only (no group, no ageing), so "who do I owe, who owes me" is
+// answered by the first grid on the page, before the detailed ones below.
+function QuickList({ title, rows }: { title: string; rows: { account_id: string; name: string; kind: "customer" | "supplier"; amount: number }[] }) {
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  return (
+    <div>
+      <SectionHeader title={title} />
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <tr><th className="px-3 py-2 text-left">Name</th><th className="px-3 py-2 text-left">Type</th><th className="px-3 py-2 text-right">Amount</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.account_id} className="border-t border-slate-100">
+                <td className="px-3 py-1.5"><Link href={`/accounting/customers/${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
+                <td className="px-3 py-1.5">
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${r.kind === "customer" ? "bg-brand-100 text-brand-700" : "bg-amber-100 text-amber-700"}`}>
+                    {r.kind === "customer" ? "Customer" : "Supplier"}
+                  </span>
+                </td>
+                <td className="px-3 py-1.5 text-right font-medium tabular-nums">{money(r.amount)}</td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td className="px-3 py-4 text-center text-slate-400" colSpan={3}>None.</td></tr>}
+          </tbody>
+          {rows.length > 0 && (
+            <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+              <td className="px-3 py-2" colSpan={2}>Total ({rows.length})</td>
+              <td className="px-3 py-2 text-right tabular-nums">{money(total)}</td>
+            </tr></tfoot>
+          )}
+        </table>
+      </div>
+    </div>
+  );
+}
 
 type Row = {
   account_id: string; name: string; phone: string | null; kind: "customer" | "supplier";
@@ -120,6 +161,16 @@ export default function AgingView() {
   const mainRows = withGroup.filter((r) => !r.isCarCustomer);
   const carRows = withGroup.filter((r) => r.isCarCustomer);
 
+  // Quick-glance Receivable / Payable — every account with a balance
+  // (car customers included), split purely by direction via the same
+  // realSigned() sign the Debit/Credit columns already use.
+  const receivableRows = withGroup.filter((r) => realSigned(r) > 0)
+    .sort((a, b) => realSigned(b) - realSigned(a))
+    .map((r) => ({ account_id: r.account_id, name: r.name, kind: r.kind, amount: realSigned(r) }));
+  const payableRows = withGroup.filter((r) => realSigned(r) < 0)
+    .sort((a, b) => realSigned(a) - realSigned(b))
+    .map((r) => ({ account_id: r.account_id, name: r.name, kind: r.kind, amount: -realSigned(r) }));
+
   const buildGroups = (list: typeof mainRows): DataGroup[] => {
     const m = new Map<string, typeof mainRows>();
     for (const r of list) m.set(r.group, [...(m.get(r.group) ?? []), r]);
@@ -188,38 +239,35 @@ export default function AgingView() {
         <p className="text-sm text-slate-400">Loading…</p>
       ) : (
         <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <QuickList title="Receivable — Who Owes Us" rows={receivableRows} />
+            <QuickList title="Payable — Who We Owe" rows={payableRows} />
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
             <div>
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">Account Receivable and Payable</h2>
+              <SectionHeader title="Account Receivable and Payable" subtitle="Grouped the same way the chart of accounts groups them — click a group to expand." />
               <DataTable cols={groupCols} groups={mainGroups} empty="Nothing outstanding." />
             </div>
             <div className="card">
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">By Group</h2>
+              <SectionHeader title="By Group" />
               <DonutChart data={chartData} nameKey="name" valueKey="value" height={260} />
             </div>
           </div>
 
-          {carGroups.length > 0 && (
-            <div>
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">Account Receivables — Vista Car Customers</h2>
-              <DataTable cols={groupCols} groups={carGroups} empty="No car customer balances." />
-            </div>
-          )}
-
-          {ltGroups.length > 0 && (
-            <div>
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">Account Receivable / Payable (Long Term)</h2>
-              <DataTable cols={groupCols} groups={ltGroups} empty="No long-term balances." />
-            </div>
-          )}
+          <div>
+            <SectionHeader title="Account Receivables — Vista Car Customers" />
+            <DataTable cols={groupCols} groups={carGroups} empty="No car customer balances." />
+          </div>
 
           <div>
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">Ageing Detail — as at {dateStr(asOf)}</h2>
-            <p className="mb-2 text-xs text-slate-400">
-              Due is billed, arrived, and its month has not ended; Overdue is billed and its month has ended; Total Due is the two
-              added. The 0–30 / 31–60 / … columns are NOT overdue — they are what is not yet due but will come due within that many
-              days, so a schedule of installments due next month reads as real numbers here instead of zeros.
-            </p>
+            <SectionHeader title="Account Receivable / Payable (Long Term)" subtitle="Fixed Assets, Drawing and Long Term Liabilities balances." />
+            <DataTable cols={groupCols} groups={ltGroups} empty="No long-term balances." />
+          </div>
+
+          <div>
+            <SectionHeader title={`Ageing Detail — as at ${dateStr(asOf)}`}
+              subtitle="Due is billed, arrived, and its month has not ended; Overdue is billed and its month has ended; Total Due is the two added. The 0–30 / 31–60 / … columns are NOT overdue — they are what is not yet due but will come due within that many days." />
             <div className="card overflow-x-auto p-0">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">

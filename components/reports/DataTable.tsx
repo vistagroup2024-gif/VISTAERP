@@ -23,11 +23,13 @@ export interface DataGroup {
  * The generic result grid every report page renders instead of its own
  * `<table>` — successor to StockReport's inline Grid, generalised to also
  * take the Ledger's per-account BLOCK shape (`groups`) instead of only a flat
- * row list. Client-side sort and search-within-results run against whatever
- * was fetched (a report's own filters already bounded that at the RPC), so
- * they never re-query; `page`/`onPageChange` are there for a report whose
- * result itself can run long, and are left to the report to wire to its RPC
- * — this component never re-fetches on its own.
+ * row list. Client-side sort runs against whatever was fetched (a report's
+ * own filters already bounded that at the RPC), so it never re-queries;
+ * filtering is the column HEADER (click to sort) rather than a separate
+ * search box — there is no search-within-results box or a Columns toggle
+ * any more, a `hideByDefault` column just stays hidden. `page`/`onPageChange`
+ * are there for a report whose result itself can run long, and are left to
+ * the report to wire to its RPC — this component never re-fetches on its own.
  */
 export default function DataTable({
   cols, rows, groups, empty, rowClass, page, pageSize, totalCount, onPageChange,
@@ -40,23 +42,14 @@ export default function DataTable({
   page?: number; pageSize?: number; totalCount?: number; onPageChange?: (page: number) => void;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
-  const [q, setQ] = useState("");
-  const [hidden, setHidden] = useState<Set<string>>(() => new Set(cols.filter((c) => c.hideByDefault).map((c) => c.key)));
-  const [colMenuOpen, setColMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  const visibleCols = useMemo(() => cols.filter((c) => !hidden.has(c.key)), [cols, hidden]);
+  const visibleCols = useMemo(() => cols.filter((c) => !c.hideByDefault), [cols]);
   const isFlat = !groups;
-
-  const matches = (row: any) => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return true;
-    return cols.some((c) => String(row[c.key] ?? "").toLowerCase().includes(needle));
-  };
 
   const flatRows = useMemo(() => {
     if (!rows) return [];
-    let out = rows.filter(matches);
+    let out = rows;
     if (sort) {
       const { key, dir } = sort;
       out = [...out].sort((a, b) => {
@@ -68,21 +61,7 @@ export default function DataTable({
       });
     }
     return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, q, sort]);
-
-  const filterGroup = (g: DataGroup): DataGroup => g.subgroups
-    ? { ...g, subgroups: g.subgroups.map(filterGroup) }
-    : { ...g, rows: g.rows.filter(matches) };
-  const keepGroup = (g: DataGroup): boolean => g.subgroups
-    ? g.subgroups.some(keepGroup)
-    : g.rows.length > 0 || !q.trim();
-
-  const filteredGroups = useMemo(() => {
-    if (!groups) return [];
-    return groups.map(filterGroup).filter(keepGroup);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups, q]);
+  }, [rows, sort]);
 
   const totals = useMemo(() => {
     const t: Record<string, number> = {};
@@ -101,7 +80,7 @@ export default function DataTable({
   }
 
   const countRows = (g: DataGroup): number => g.subgroups ? g.subgroups.reduce((s, sg) => s + countRows(sg), 0) : g.rows.length;
-  const rowCount = isFlat ? flatRows.length : filteredGroups.reduce((s, g) => s + countRows(g), 0);
+  const rowCount = isFlat ? flatRows.length : (groups ?? []).reduce((s, g) => s + countRows(g), 0);
   const showPager = typeof totalCount === "number" && typeof pageSize === "number" && typeof page === "number" && onPageChange;
 
   return (
@@ -111,27 +90,6 @@ export default function DataTable({
           {rowCount} row{rowCount === 1 ? "" : "s"}
           {typeof totalCount === "number" && totalCount !== rowCount ? ` of ${totalCount}` : ""}
         </p>
-        <div className="flex items-center gap-2">
-          <input className="input w-44 py-1 text-sm" placeholder="Search results…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <div className="relative">
-            <button className="btn-outline text-sm" onClick={() => setColMenuOpen((v) => !v)}>Columns</button>
-            {colMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setColMenuOpen(false)} />
-                <div className="absolute right-0 z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg">
-                  {cols.map((c) => (
-                    <label key={c.key} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-slate-50">
-                      <input type="checkbox" checked={!hidden.has(c.key)} onChange={() => setHidden((h) => {
-                        const n = new Set(h); n.has(c.key) ? n.delete(c.key) : n.add(c.key); return n;
-                      })} />
-                      {c.label}
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
       </div>
 
       <div className="card overflow-x-auto p-0 text-sm">
@@ -148,7 +106,7 @@ export default function DataTable({
             <FlatBody cols={visibleCols} rows={flatRows} empty={empty} rowClass={rowClass}
               hasTotals={hasTotals} totals={totals} />
           ) : (
-            <GroupedBody cols={visibleCols} groups={filteredGroups} empty={empty}
+            <GroupedBody cols={visibleCols} groups={groups ?? []} empty={empty}
               collapsed={collapsed} onToggle={(k) => setCollapsed((c) => {
                 const n = new Set(c); n.has(k) ? n.delete(k) : n.add(k); return n;
               })} />
