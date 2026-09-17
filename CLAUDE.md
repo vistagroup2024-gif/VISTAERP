@@ -468,9 +468,10 @@ new report by default, don't re-derive it:**
   unchanged, on purpose: this file's whole "no unnecessary text" and
   "spreadsheet grid" push is about report screens, not the entire UI.
 
-This does **not** reach `/dashboard`'s own cards (`DashboardCard.tsx`) —
-that screen wasn't part of the request that produced this convention, and
-its cards keep the lighter tinted header they've always had.
+`/dashboard`'s own cards (`DashboardCard.tsx`) carry the same dark-green
+header now too — asked for separately, once the report screens had already
+moved, so the two never drift back apart into "a colourful dashboard and a
+plain report" the way `ReportKpi`'s own doc comment already warned against.
 
 ## `revoke ... from anon` is not a gate; `revoke ... from public` is
 

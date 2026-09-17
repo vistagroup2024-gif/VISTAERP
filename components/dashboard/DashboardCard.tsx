@@ -248,13 +248,13 @@ export default function DashboardCard({ def, metrics }: { def: CardDef; metrics:
   const list = cells(def.key, metrics);
   const body = (
     <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-pop">
-      <header className="flex items-start justify-between gap-2 border-b border-brand-100 bg-brand-100/50 px-3 py-1.5">
+      <header className="flex items-start justify-between gap-2 bg-brand-700 px-3 py-1.5">
         <div className="flex min-w-0 items-center gap-1.5">
-          <Icon name={def.icon} size={14} className="shrink-0 text-brand-400" />
-          <h3 className="line-clamp-2 break-words text-[14px] font-bold leading-snug text-brand-700">{def.label}</h3>
+          <Icon name={def.icon} size={14} className="shrink-0 text-brand-200" />
+          <h3 className="line-clamp-2 break-words text-[14px] font-bold leading-snug text-white">{def.label}</h3>
         </div>
         {def.href && (
-          <span className="shrink-0 text-brand-400 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>›</span>
+          <span className="shrink-0 text-brand-200 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>›</span>
         )}
       </header>
       <div className={`grid flex-1 ${colsFor(list.length)} gap-px overflow-hidden bg-slate-100`}>
