@@ -473,6 +473,32 @@ header now too — asked for separately, once the report screens had already
 moved, so the two never drift back apart into "a colourful dashboard and a
 plain report" the way `ReportKpi`'s own doc comment already warned against.
 
+Two more additions to the same standing convention:
+
+- **Zebra rows, but never a CSS rule.** `DataTable`'s two row renderers
+  (`FlatBody`, `GroupedBody`'s plain rows) alternate `bg-slate-50/70` on odd
+  indices, and any hand-rolled `report-grid` table does the same by hand,
+  keyed off its own `.map((r, i) => …)` index. This is deliberately NOT a
+  `tbody tr:nth-child(even)` rule: a row's own state color — `bg-red-50/50`
+  for a low-stock or short row, a Due/Overdue amber or red text — is set
+  directly on that row or cell and has to keep winning, and a compound
+  `.report-grid tbody tr:nth-child(even)` selector would out-specificity a
+  plain utility class and fight it. Index-based JS stripe has no
+  specificity to win.
+- **A column the viewer can drag narrower or wider.** `.col-resize`
+  (`app/globals.css`) wraps a `<th>`'s own label — never the `<th>` itself,
+  since CSS `resize` needs a block box with real overflow handling, and a
+  table cell's own box won't cooperate — and `DataTable`'s header cells use
+  it already. A hand-rolled report table wraps its own header text the same
+  way as it's touched.
+
+Both are rolled out to `DataTable` (which covers most reports) and to the
+hand-rolled tables this file's own recent work touched (Car Customer
+Ageing Summary, A/R & A/P's QuickList and Ageing Detail grids) — not yet
+every hand-rolled table in the ERP. Apply the same two patterns to any
+other hand-rolled report table the next time it's opened, rather than
+re-deriving a different approach.
+
 ## A report filter is multi-select unless the options are mutually exclusive
 
 Sales Report's own Value/Qty toggle used to be a single-select radio (pick

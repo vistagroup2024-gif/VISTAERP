@@ -31,11 +31,15 @@ function QuickList({ title, rows }: { title: string; rows: { account_id: string;
       <div className="card min-h-[420px] max-h-[640px] overflow-y-auto overflow-x-auto p-0">
         <table className="report-grid w-full text-sm">
           <thead className="sticky top-0 bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-            <tr><th className="px-3 py-2.5 text-left">Name</th><th className="px-3 py-2.5 text-left">Type</th><th className="px-3 py-2.5 text-right">Amount</th></tr>
+            <tr>
+              <th className="px-3 py-2.5 text-left"><span className="col-resize">Name</span></th>
+              <th className="px-3 py-2.5 text-left"><span className="col-resize">Type</span></th>
+              <th className="px-3 py-2.5 text-right"><span className="col-resize">Amount</span></th>
+            </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.account_id}>
+            {rows.map((r, i) => (
+              <tr key={r.account_id} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
                 <td className="px-3 py-2"><Link href={`/accounting/customers/${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
                 <td className="px-3 py-2">
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${r.kind === "customer" ? "bg-brand-100 text-brand-700" : "bg-amber-100 text-amber-700"}`}>
@@ -312,17 +316,17 @@ function AgingDetailGrid({ title, rows }: { title: string; rows: Row[] }) {
         <table className="report-grid w-full text-sm">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
-              <th className="px-3 py-2 text-left">Name</th>
-              <th className="px-3 py-2 text-left">Type</th>
-              <th className="px-3 py-2 text-right">Due</th>
-              <th className="px-3 py-2 text-right">Overdue</th>
-              <th className="px-3 py-2 text-right">Total Due</th>
-              <th className="px-3 py-2 text-right">Due in 0–30d</th>
-              <th className="px-3 py-2 text-right">31–60d</th>
-              <th className="px-3 py-2 text-right">61–90d</th>
-              <th className="px-3 py-2 text-right">91–180d</th>
-              <th className="px-3 py-2 text-right">180d+</th>
-              <th className="px-3 py-2 text-right">Ledger Balance</th>
+              <th className="px-3 py-2 text-left"><span className="col-resize">Name</span></th>
+              <th className="px-3 py-2 text-left"><span className="col-resize">Type</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Due</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Overdue</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Total Due</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Due in 0–30d</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">31–60d</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">61–90d</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">91–180d</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">180d+</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Ledger Balance</span></th>
             </tr>
           </thead>
           <tbody>

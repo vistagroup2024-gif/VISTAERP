@@ -91,6 +91,24 @@ tbody tr:hover > .td { @apply bg-slate-50/60; }
 /* Zebra + hover for data tables that opt in via .table-rows on <tbody>. */
 .table-rows tr { @apply border-t border-slate-100 transition-colors hover:bg-slate-50/70; }
 
+/* A report column the viewer can drag narrower/wider by hand — wrap a <th>'s
+   own label content in this (never the <th> itself: `resize` needs a block
+   box with defined overflow, and a table cell's own box doesn't cooperate).
+   Deliberately not a global nth-child zebra rule for .report-grid: a report
+   row's own state color (a red overdue flag, a low-stock highlight) is set
+   directly on that row/cell and must always win, so DataTable and every
+   report table stripe explicitly in JS (alternating by row index) instead of
+   a CSS rule a state color would have to out-specificity. */
+.col-resize {
+  display: block;
+  resize: horizontal;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 3rem;
+  max-width: 32rem;
+}
+
 /* ── Badges ──────────────────────────────────────────────────────────────── */
 .badge {
   @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;

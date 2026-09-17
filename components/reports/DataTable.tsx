@@ -94,9 +94,11 @@ export default function DataTable({
         <table className="w-full border-collapse">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>{visibleCols.map((c) => (
-              <th key={c.key} onClick={() => toggleSort(c)}
-                className={`border border-slate-200 px-3 py-2 ${isNumeric(c) ? "text-right" : "text-left"} ${c.sortable === false ? "" : "cursor-pointer select-none hover:text-brand-900"}`}>
-                {c.label}{sort?.key === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
+              <th key={c.key}
+                className={`border border-slate-200 px-3 py-2 ${isNumeric(c) ? "text-right" : "text-left"}`}>
+                <span onClick={() => toggleSort(c)} className={`col-resize ${c.sortable === false ? "" : "cursor-pointer select-none hover:text-brand-900"}`}>
+                  {c.label}{sort?.key === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
+                </span>
               </th>
             ))}</tr>
           </thead>
@@ -129,11 +131,14 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals }: {
   return (
     <>
       <tbody>
-        {rows.map((r, i) => (
-          <tr key={i} className={(rowClass ? rowClass(r) : (r.low || r.short) ? "bg-red-50/50" : "")}>
-            {cols.map((c) => <Cell key={c.key} col={c} row={r} />)}
-          </tr>
-        ))}
+        {rows.map((r, i) => {
+          const state = rowClass ? rowClass(r) : (r.low || r.short) ? "bg-red-50/50" : "";
+          return (
+            <tr key={i} className={state || (i % 2 === 1 ? "bg-slate-50/70" : "")}>
+              {cols.map((c) => <Cell key={c.key} col={c} row={r} />)}
+            </tr>
+          );
+        })}
         {rows.length === 0 && (
           <tr><td colSpan={cols.length} className="border border-slate-200 px-3 py-8 text-center text-slate-400">{empty}</td></tr>
         )}
@@ -190,7 +195,7 @@ function GroupRows({ cols, g, depth, collapsed, onToggle }: {
         <GroupRows key={sg.key} cols={cols} g={sg} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} />
       ))}
       {open && !g.subgroups && g.rows.map((r, i) => (
-        <tr key={`${g.key}-${i}`}>
+        <tr key={`${g.key}-${i}`} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
           {cols.map((c, ci) => <Cell key={c.key} col={c} row={r} indent={ci === 0 ? indent + 16 : undefined} />)}
         </tr>
       ))}
