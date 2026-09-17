@@ -4,6 +4,7 @@ import { COMPANY_ID, dateStr } from "@/lib/format";
 import { todaySA, yearSA } from "@/lib/saudiTime";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
+import SectionHeader from "@/components/reports/SectionHeader";
 
 export const dynamic = "force-dynamic";
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -70,7 +71,7 @@ export default async function CustomerReportPage({ params }: { params: { id: str
       {row && (
         <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
               <tr><th className="px-3 py-2 text-left">Coming due</th><th className="px-3 py-2 text-right">0-30d</th>
                 <th className="px-3 py-2 text-right">31-60d</th><th className="px-3 py-2 text-right">61-90d</th>
                 <th className="px-3 py-2 text-right">91-180d</th><th className="px-3 py-2 text-right">180d+</th></tr>
@@ -91,10 +92,10 @@ export default async function CustomerReportPage({ params }: { params: { id: str
          bill-wise-adjustment popup uses, so this list and what a Receipt/
          Payment can adjust against never disagree. */}
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Open Bills</h2>
+        <SectionHeader title="Open Bills" />
         <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
               <tr><th className="px-3 py-2 text-left">Bill No</th><th className="px-3 py-2 text-left">Bill Date</th>
                 <th className="px-3 py-2 text-left">Due Date</th><th className="px-3 py-2 text-right">Amount</th>
                 <th className="px-3 py-2 text-right">Adjusted</th><th className="px-3 py-2 text-right">Balance</th></tr>
@@ -121,10 +122,10 @@ export default async function CustomerReportPage({ params }: { params: { id: str
          tab already uses, generalised off the ledger for any receivable/
          payable account. */}
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthwise Receivables &amp; Receipts</h2>
+        <SectionHeader title="Monthwise Receivables &amp; Receipts" />
         <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
               <tr><th className="px-3 py-2 text-left"> </th><th className="px-3 py-2 text-right">This Month</th>
                 <th className="px-3 py-2 text-right">Last Month</th><th className="px-3 py-2 text-right">2 Months Ago</th>
                 <th className="px-3 py-2 text-right">3 Months Ago</th><th className="px-3 py-2 text-right">Older</th></tr>
@@ -152,10 +153,10 @@ export default async function CustomerReportPage({ params }: { params: { id: str
       </div>
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Recent Transactions (this year)</h2>
+        <SectionHeader title="Recent Transactions (this year)" />
         <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
               <tr><th className="px-3 py-2 text-left">Voucher No</th><th className="px-3 py-2 text-left">Date</th>
                 <th className="px-3 py-2 text-right">Debit</th><th className="px-3 py-2 text-right">Credit</th>
                 <th className="px-3 py-2 text-left">Remarks</th></tr>

@@ -11,6 +11,7 @@ import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable, { type DataGroup } from "@/components/reports/DataTable";
 import ReportKpi from "@/components/reports/ReportKpi";
+import SectionHeader from "@/components/reports/SectionHeader";
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -188,14 +189,14 @@ export default function SalesReportView() {
 
       {s.monthly.length > 1 && (
         <div className="card">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly Trend</h2>
+          <SectionHeader title="Monthly Trend" />
           <TrendChart data={monthlyRows} xKey="month" series={[{ key: "amount", label: "Sales" }]} />
         </div>
       )}
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Cost Centre Group → Cost Centre — Target, Current Year vs Previous Year</h2>
-        <p className="mb-2 text-xs text-slate-400">Click a group to expand it into its own cost centres. Previous Year is the same selected months, one year back.</p>
+        <SectionHeader title="Cost Centre Group → Cost Centre — Target, Current Year vs Previous Year"
+          subtitle="Previous Year is the same selected months, one year back." />
         <DataTable
           cols={[
             { key: "name", label: "Cost Centre", href: (r: any) => `/accounting/transactions?cc=${encodeURIComponent(r.name)}&from=${ym.year}-01-01&to=${ym.year}-12-31` },
@@ -211,10 +212,10 @@ export default function SalesReportView() {
 
       {monthKeys.length > 1 && pivotByCc.size > 0 && (
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Cost Centre × Month</h2>
+          <SectionHeader title="Cost Centre × Month" />
           <div className="card overflow-x-auto p-0 text-sm">
             <table className="w-full">
-              <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
                 <tr>
                   <th className="px-3 py-2 text-left">Cost Centre</th>
                   {monthKeys.map((mk) => <th key={mk} className="px-3 py-2 text-right">{MONTH_NAMES[Number(mk.slice(5, 7)) - 1]}</th>)}
@@ -252,7 +253,7 @@ export default function SalesReportView() {
       )}
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly</h2>
+        <SectionHeader title="Monthly" />
         <DataTable
           cols={[
             { key: "month_label", label: "Month" },
@@ -265,7 +266,7 @@ export default function SalesReportView() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">By Customer</h2>
+          <SectionHeader title="By Customer" />
           <DataTable
             cols={[
               { key: "name", label: "Customer", href: (r: any) => r.account_id ? `/accounting/customers/${r.account_id}` : null },
@@ -276,7 +277,7 @@ export default function SalesReportView() {
             rows={customerRows} empty="No sales in this period." />
         </div>
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">By Product / Vehicle / Service</h2>
+          <SectionHeader title="By Product / Vehicle / Service" />
           <DataTable
             cols={[
               { key: "name", label: "Product / Vehicle / Service" },

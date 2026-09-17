@@ -9,6 +9,7 @@ import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import ReportKpi from "@/components/reports/ReportKpi";
+import SectionHeader from "@/components/reports/SectionHeader";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable from "@/components/reports/DataTable";
 import { defaultYearMonths, monthRanges, type YearMonths } from "@/lib/reports/period";
@@ -147,7 +148,7 @@ export default function ProfitLossView() {
 
       {monthly.length > 1 && (
         <div className="card">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly P&L Trend{loading ? " (loading…)" : ""}</h2>
+          <SectionHeader title={`Monthly P&L Trend${loading ? " (loading…)" : ""}`} />
           <TrendChart data={monthly} xKey="month" series={[{ key: "revenue", label: "Revenue" }, { key: "net_profit", label: "Net Profit" }]} />
         </div>
       )}
@@ -168,7 +169,7 @@ export default function ProfitLossView() {
       )}
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly P&L</h2>
+        <SectionHeader title="Monthly P&L" />
         <DataTable
           cols={[
             { key: "month", label: "Month" },
@@ -184,7 +185,7 @@ export default function ProfitLossView() {
 
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">Cost Centre P&L</h2>
+          <SectionHeader title="Cost Centre P&L" />
           <Link href="/accounting/cost-centre-costing" className="text-sm text-brand hover:underline">Full Cost Centre Costing report →</Link>
         </div>
         <DataTable

@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import ReportKpi from "@/components/reports/ReportKpi";
+import SectionHeader from "@/components/reports/SectionHeader";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable from "@/components/reports/DataTable";
 import { defaultYearMonths, monthRanges, type YearMonths } from "@/lib/reports/period";
@@ -89,19 +90,19 @@ export default function PurchaseVsSaleView() {
 
       {combinedMonthly.length > 1 && (
         <div className="card">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly Comparison{loading ? " (loading…)" : ""}</h2>
+          <SectionHeader title={`Monthly Comparison${loading ? " (loading…)" : ""}`} />
           <TrendChart data={combinedMonthly} xKey="month" series={[{ key: "sale", label: "Sale" }, { key: "purchase", label: "Purchase" }]} />
         </div>
       )}
       {combinedCc.length > 0 && (
         <div className="card">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">By Cost Centre</h2>
+          <SectionHeader title="By Cost Centre" />
           <TrendChart data={combinedCc} xKey="name" series={[{ key: "sale", label: "Sale" }, { key: "purchase", label: "Purchase" }]} />
         </div>
       )}
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly</h2>
+        <SectionHeader title="Monthly" />
         <DataTable
           cols={[
             { key: "month", label: "Month" },
@@ -112,7 +113,7 @@ export default function PurchaseVsSaleView() {
       </div>
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">By Product</h2>
+        <SectionHeader title="By Product" />
         <DataTable
           cols={[
             { key: "name", label: "Product / Vehicle / Service" },

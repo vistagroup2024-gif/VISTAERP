@@ -8,6 +8,7 @@ import { todaySA, monthStartSA } from "@/lib/saudiTime";
 import { COMPANY_ID } from "@/lib/format";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable from "@/components/reports/DataTable";
+import SectionHeader from "@/components/reports/SectionHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,9 @@ function Table({ title, cols, rows }: { title: string; cols: string[]; rows: any
     <div className="card overflow-x-auto p-0">
       <div className="border-b border-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">{title}</div>
       <table className="w-full text-sm">
-        <thead className="bg-slate-50"><tr>{cols.map((c) => <th key={c} className="th">{c}</th>)}</tr></thead>
+        <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+          <tr>{cols.map((c) => <th key={c} className="px-4 py-2.5 text-left">{c}</th>)}</tr>
+        </thead>
         <tbody>
           {rows.map((r, i) => <tr key={i} className="border-t border-slate-100">{r.map((c, j) => <td key={j} className="td">{c}</td>)}</tr>)}
           {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={cols.length}>No data.</td></tr>}
@@ -77,7 +80,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { fr
 
       {extra.monthly?.length > 1 && (
         <div className="card mb-4">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly Revenue Trend</h2>
+          <SectionHeader title="Monthly Revenue Trend" />
           <TrendChart data={extra.monthly} xKey="month" series={[{ key: "revenue", label: "Revenue" }]} />
         </div>
       )}
@@ -94,7 +97,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { fr
       </div>
 
       <div className="mt-4">
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Trip Detail</h2>
+        <SectionHeader title="Trip Detail" />
         <DataTable
           cols={[
             // Reuses the exact drilldown target TripAlerts already links a

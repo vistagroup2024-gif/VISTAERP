@@ -79,25 +79,16 @@ export default function DataTable({
     });
   }
 
-  const countRows = (g: DataGroup): number => g.subgroups ? g.subgroups.reduce((s, sg) => s + countRows(sg), 0) : g.rows.length;
-  const rowCount = isFlat ? flatRows.length : (groups ?? []).reduce((s, g) => s + countRows(g), 0);
   const showPager = typeof totalCount === "number" && typeof pageSize === "number" && typeof page === "number" && onPageChange;
 
   return (
     <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <p className="text-sm text-slate-500">
-          {rowCount} row{rowCount === 1 ? "" : "s"}
-          {typeof totalCount === "number" && totalCount !== rowCount ? ` of ${totalCount}` : ""}
-        </p>
-      </div>
-
       <div className="card overflow-x-auto p-0 text-sm">
         <table className="w-full">
-          <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
             <tr>{visibleCols.map((c) => (
               <th key={c.key} onClick={() => toggleSort(c)}
-                className={`px-3 py-2 ${isNumeric(c) ? "text-right" : "text-left"} ${c.sortable === false ? "" : "cursor-pointer select-none hover:text-slate-600"}`}>
+                className={`px-3 py-2 ${isNumeric(c) ? "text-right" : "text-left"} ${c.sortable === false ? "" : "cursor-pointer select-none hover:text-white"}`}>
                 {c.label}{sort?.key === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
               </th>
             ))}</tr>

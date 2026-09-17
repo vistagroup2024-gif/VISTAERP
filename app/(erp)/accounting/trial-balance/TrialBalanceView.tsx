@@ -54,7 +54,7 @@ export default function TrialBalanceView() {
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
             <tr>
               <th className="px-3 py-2 text-left">Account</th>
               <th className="px-3 py-2 text-right">Opening Dr</th>

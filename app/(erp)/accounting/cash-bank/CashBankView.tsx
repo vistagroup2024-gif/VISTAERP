@@ -10,6 +10,7 @@ import DataTable, { type DataGroup } from "@/components/reports/DataTable";
 import DonutChart from "@/components/reports/charts/DonutChart";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import ReportKpi from "@/components/reports/ReportKpi";
+import SectionHeader from "@/components/reports/SectionHeader";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import { defaultYearMonths, asOfFromYearMonths, type YearMonths } from "@/lib/reports/period";
 import { downloadCsv } from "@/lib/reports/export";
@@ -95,11 +96,11 @@ export default function CashBankView() {
           </div>
           <div className="space-y-4">
             <div className="card">
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">Balance by Type</h2>
+              <SectionHeader title="Balance by Type" />
               <TrendChart data={byType} xKey="type" series={[{ key: "amount", label: "Balance" }]} height={160} />
             </div>
             <div className="card">
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">Share of Total</h2>
+              <SectionHeader title="Share of Total" />
               <DonutChart data={chartData} nameKey="name" valueKey="value" height={240} />
             </div>
           </div>

@@ -26,7 +26,7 @@ function QuickList({ title, rows }: { title: string; rows: { account_id: string;
       <SectionHeader title={title} />
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
             <tr><th className="px-3 py-2 text-left">Name</th><th className="px-3 py-2 text-left">Type</th><th className="px-3 py-2 text-right">Amount</th></tr>
           </thead>
           <tbody>
@@ -179,7 +179,6 @@ export default function AgingView() {
       const credit = grows.reduce((s, r) => s + Math.max(0, -realSigned(r)), 0);
       return {
         key: group, label: group,
-        meta: <span className="ml-2 font-normal text-slate-500">— debit {money(debit)}, credit {money(credit)}</span>,
         rows: grows.sort((a, b) => Math.abs(realSigned(b)) - Math.abs(realSigned(a))).map((r) => ({
           account_id: r.account_id, name: r.name,
           debit: Math.max(0, realSigned(r)), credit: Math.max(0, -realSigned(r)),
@@ -203,7 +202,6 @@ export default function AgingView() {
       const credit = grows.reduce((s, r) => s + Math.max(0, -Number(r.closing_net)), 0);
       return {
         key: group, label: group,
-        meta: <span className="ml-2 font-normal text-slate-500">— debit {money(debit)}, credit {money(credit)}</span>,
         rows: grows.sort((a, b) => Math.abs(Number(b.closing_net)) - Math.abs(Number(a.closing_net))).map((r) => ({
           account_id: r.id, name: r.name,
           debit: Math.max(0, Number(r.closing_net)), credit: Math.max(0, -Number(r.closing_net)),
@@ -246,7 +244,7 @@ export default function AgingView() {
 
           <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
             <div>
-              <SectionHeader title="Account Receivable and Payable" subtitle="Grouped the same way the chart of accounts groups them — click a group to expand." />
+              <SectionHeader title="Account Receivable and Payable" />
               <DataTable cols={groupCols} groups={mainGroups} empty="Nothing outstanding." />
             </div>
             <div className="card">
@@ -270,7 +268,7 @@ export default function AgingView() {
               subtitle="Due is billed, arrived, and its month has not ended; Overdue is billed and its month has ended; Total Due is the two added. The 0–30 / 31–60 / … columns are NOT overdue — they are what is not yet due but will come due within that many days." />
             <div className="card overflow-x-auto p-0">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
                   <tr>
                     <th className="px-3 py-2 text-left">Name</th>
                     <th className="px-3 py-2 text-left">Type</th>
@@ -283,7 +281,7 @@ export default function AgingView() {
                     <th className="px-3 py-2 text-right">91–180d</th>
                     <th className="px-3 py-2 text-right">180d+</th>
                     <th className="px-3 py-2 text-right">Ledger Balance</th>
-                    <th className="sticky right-0 bg-slate-50 px-3 py-2 print:hidden" />
+                    <th className="sticky right-0 bg-slate-700 px-3 py-2 print:hidden" />
                   </tr>
                 </thead>
                 <tbody>

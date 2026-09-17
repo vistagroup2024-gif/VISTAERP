@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import ReportKpi from "@/components/reports/ReportKpi";
+import SectionHeader from "@/components/reports/SectionHeader";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable from "@/components/reports/DataTable";
 import { defaultYearMonths, monthRanges, type YearMonths } from "@/lib/reports/period";
@@ -60,14 +61,14 @@ export default function PurchaseReportView() {
 
       {p.monthly.length > 1 && (
         <div className="card">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly Trend{loading ? " (loading…)" : ""}</h2>
+          <SectionHeader title={`Monthly Trend${loading ? " (loading…)" : ""}`} />
           <TrendChart data={p.monthly} xKey="month" series={[{ key: "amount", label: "Purchases" }]} />
         </div>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">By Supplier</h2>
+          <SectionHeader title="By Supplier" />
           <DataTable
             cols={[
               { key: "name", label: "Supplier", href: (r: any) => r.account_id ? `/accounting/ledger?account=${r.account_id}&from=${from}&to=${to}` : null },
@@ -77,7 +78,7 @@ export default function PurchaseReportView() {
             rows={p.by_supplier} empty="No purchases in this period." />
         </div>
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">By Product</h2>
+          <SectionHeader title="By Product" />
           <DataTable
             cols={[{ key: "name", label: "Product" }, { key: "qty", label: "Qty", kind: "qty" }, { key: "amount", label: "Amount", kind: "money", total: true }]}
             rows={p.by_product} empty="No product-level purchases in this period." />
@@ -85,7 +86,7 @@ export default function PurchaseReportView() {
       </div>
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">By Cost Centre</h2>
+        <SectionHeader title="By Cost Centre" />
         <DataTable
           cols={[
             { key: "name", label: "Cost Centre", href: (r: any) => r.name && r.name !== "Unassigned" ? `/accounting/transactions?cc=${encodeURIComponent(r.name)}&type=purchase_voucher&from=${from}&to=${to}` : null },

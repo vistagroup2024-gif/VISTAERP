@@ -9,6 +9,7 @@ import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable, { type DataGroup } from "@/components/reports/DataTable";
 import ReportKpi from "@/components/reports/ReportKpi";
+import SectionHeader from "@/components/reports/SectionHeader";
 
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -139,16 +140,14 @@ export default function CostCentreCostingView() {
 
       {monthly.length > 1 && (
         <div className="card">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Monthly Sales Trend</h2>
+          <SectionHeader title="Monthly Sales Trend" />
           <TrendChart data={monthly} xKey="month" series={[{ key: "amount", label: "Sales" }]} />
         </div>
       )}
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">
-          Cost Centre Group → Cost Centre → Month — {periodLabel(ym)}{loading ? " (loading…)" : ""}
-        </h2>
-        <p className="mb-2 text-xs text-slate-400">Click a group, then a cost centre, to expand into its monthly Revenue / COGS / Gross Profit / Expense / Net Profit.</p>
+        <SectionHeader title={`Cost Centre Group → Cost Centre → Month — ${periodLabel(ym)}${loading ? " (loading…)" : ""}`}
+          subtitle="Expands into monthly Revenue / COGS / Gross Profit / Expense / Net Profit." />
         <DataTable
           cols={[
             { key: "row_label", label: "Cost Centre / Month" },
