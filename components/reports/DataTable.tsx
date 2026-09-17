@@ -91,7 +91,7 @@ export default function DataTable({
   return (
     <div>
       <div className="card overflow-x-auto p-0 text-sm">
-        <table className="w-full border-collapse">
+        <table className="report-grid w-full border-collapse">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>{visibleCols.map((c) => (
               <th key={c.key}

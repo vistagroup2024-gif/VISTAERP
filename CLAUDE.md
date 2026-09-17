@@ -485,12 +485,23 @@ Two more additions to the same standing convention:
   `.report-grid tbody tr:nth-child(even)` selector would out-specificity a
   plain utility class and fight it. Index-based JS stripe has no
   specificity to win.
-- **A column the viewer can drag narrower or wider.** `.col-resize`
-  (`app/globals.css`) wraps a `<th>`'s own label — never the `<th>` itself,
-  since CSS `resize` needs a block box with real overflow handling, and a
-  table cell's own box won't cooperate — and `DataTable`'s header cells use
-  it already. A hand-rolled report table wraps its own header text the same
-  way as it's touched.
+- **A column the viewer can drag narrower or wider — from the border, not
+  an icon.** The first cut used CSS `resize: horizontal` on the header
+  label, and it was wrong: the browser draws its own small grip icon in one
+  corner of the cell, and only that corner is the actual drag hotspot —
+  not "grab the line between two columns" the way a spreadsheet works.
+  `ColumnResizer` (`components/reports/ColumnResizer.tsx`) replaced it: a
+  client component mounted once in the ERP shell (`app/(erp)/layout.tsx`,
+  inside the embed branch every tab's iframe actually renders), it finds
+  every `table.report-grid thead th` on the page — MutationObserver-driven,
+  since most reports render their table only after an async fetch, well
+  after mount — and attaches a real, invisible drag strip over each leaf
+  column's right border (a colSpan group-header cell is skipped; there's no
+  single border to grab). `DataTable`'s own `<table>` carries the
+  `report-grid` class for exactly this reason, so it's reached the same
+  way as every hand-rolled one. `.col-resize` (`app/globals.css`) is now
+  styling only — wraps a `<th>`'s label in a single-line ellipsis — and
+  every report's header already wraps its label in it, unchanged.
 
 Both are rolled out ERP-wide now: `DataTable` (which covers most reports)
 and every hand-rolled `report-grid` table — Car Customer Ageing Summary,
@@ -503,7 +514,7 @@ hand-rolled report table follows the same two patterns from the start
 rather than re-deriving a different approach.
 
 Car Customer Balances' Monthly Due / Monthly Receipts headers use a third
-variant, `.col-resize-wrap` — same resize handle, but the label wraps onto
+variant, `.col-resize-wrap` — same drag handle, but the label wraps onto
 two lines instead of truncating, so a long header ("2nd Last Month Due")
 over a narrow numeric column can sit narrower without an ellipsis eating
 it. Use `.col-resize-wrap` only where a header's own text is unusually

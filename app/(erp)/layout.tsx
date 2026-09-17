@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { AccessProvider } from "@/components/AccessProvider";
 import TabShell from "@/components/shell/TabShell";
 import EmbedBridge from "@/components/shell/EmbedBridge";
+import ColumnResizer from "@/components/reports/ColumnResizer";
 import { getSessionUser, getStaffAccess } from "@/lib/staffSession";
 
 export default async function ErpLayout({
@@ -38,6 +39,7 @@ export default async function ErpLayout({
     return (
       <AccessProvider value={{ isAdmin: access.isAdmin, docRights: access.docRights }}>
         <Suspense fallback={null}><EmbedBridge tabId={h.get("x-erp-tab") ?? ""} /></Suspense>
+        <ColumnResizer />
         {/* No Back/Home row here any more — both live once in the shell's own
             tab strip (Back beside the pinned Home tab) instead of once per
             tab, which put two Home buttons on screen at the same time.
