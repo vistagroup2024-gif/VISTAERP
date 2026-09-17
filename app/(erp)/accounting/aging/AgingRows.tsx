@@ -11,7 +11,8 @@ const money = (n: number) => n ? new Intl.NumberFormat("en-US", { minimumFractio
 
 type Row = {
   account_id: string; name: string; phone: string | null; kind: "customer" | "supplier";
-  total: number; not_due: number; b0: number; b1: number; b2: number; b3: number; b4: number; ledger_balance: number;
+  total: number; due: number; overdue: number; total_due: number;
+  f0: number; f1: number; f2: number; f3: number; f4: number; ledger_balance: number;
 };
 type Bill = { id: string; doc_no: string; doc_date: string; due_date: string | null; amount: number; outstanding: number; status: string };
 
@@ -19,8 +20,7 @@ type Bill = { id: string; doc_no: string; doc_date: string; due_date: string | n
 // voucher's own bill-wise-adjustment popup reads), just never surfaced on a
 // report before. Invoice/Bill No, Amount, Adjusted, Balance, Due Date, per
 // open bill, without a new RPC. Customer and supplier rows are interleaved
-// now (no more tabs) — each row carries its own `kind`, read instead of a
-// single page-level prop.
+// (no tabs) — each row carries its own `kind`.
 export default function AgingRows({ rows }: { rows: Row[] }) {
   const [open, setOpen] = useState<string | null>(null);
   const [bills, setBills] = useState<Record<string, Bill[]>>({});
@@ -57,13 +57,14 @@ export default function AgingRows({ rows }: { rows: Row[] }) {
                   {r.kind === "customer" ? "Customer" : "Supplier"}
                 </span>
               </td>
-              <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{money(Number(r.total))}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums text-slate-400">{money(Number(r.not_due))}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b0))}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b1))}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b2))}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b3))}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums text-red-600">{money(Number(r.b4))}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.due))}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-red-600">{money(Number(r.overdue))}</td>
+              <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{money(Number(r.total_due))}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.f0))}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.f1))}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.f2))}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.f3))}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.f4))}</td>
               <td className={`px-3 py-1.5 text-right tabular-nums font-medium ${Math.abs(Number(r.ledger_balance) - Number(r.total)) > 0.5 ? "text-amber-700" : ""}`}
                 title={Math.abs(Number(r.ledger_balance) - Number(r.total)) > 0.5 ? "Differs from the billed total — a receipt or payment was saved on account, not adjusted against a bill." : undefined}>
                 {money(Number(r.ledger_balance))}
@@ -75,7 +76,7 @@ export default function AgingRows({ rows }: { rows: Row[] }) {
             </tr>
             {isOpen && (
               <tr className="border-t border-slate-100 bg-slate-50/60">
-                <td colSpan={11} className="px-3 py-2">
+                <td colSpan={12} className="px-3 py-2">
                   {busy && !bills[r.account_id] ? (
                     <p className="text-xs text-slate-400">Loading bills…</p>
                   ) : rowBills.length === 0 ? (

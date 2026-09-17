@@ -61,9 +61,9 @@ export default async function CustomerReportPage({ params }: { params: { id: str
       </PageHeader>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Billed Total" value={money(row?.total)} />
-        <Kpi label="Not Due" value={money(row?.not_due)} />
-        <Kpi label="Overdue" value={money(Number(row?.total || 0) - Number(row?.not_due || 0))} tone="text-red-600" />
+        <Kpi label="Due" value={money(row?.due)} />
+        <Kpi label="Overdue" value={money(row?.overdue)} tone="text-red-600" />
+        <Kpi label="Total Due" value={money(row?.total_due)} />
         <Kpi label="Ledger Balance" value={money(row?.ledger_balance)} />
       </div>
 
@@ -71,19 +71,17 @@ export default async function CustomerReportPage({ params }: { params: { id: str
         <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              <tr><th className="px-3 py-2 text-left">Ageing</th><th className="px-3 py-2 text-right">Not Due</th>
-                <th className="px-3 py-2 text-right">0-30</th><th className="px-3 py-2 text-right">31-60</th>
-                <th className="px-3 py-2 text-right">61-90</th><th className="px-3 py-2 text-right">91-180</th>
-                <th className="px-3 py-2 text-right">180+</th></tr>
+              <tr><th className="px-3 py-2 text-left">Coming due</th><th className="px-3 py-2 text-right">0-30d</th>
+                <th className="px-3 py-2 text-right">31-60d</th><th className="px-3 py-2 text-right">61-90d</th>
+                <th className="px-3 py-2 text-right">91-180d</th><th className="px-3 py-2 text-right">180d+</th></tr>
             </thead>
             <tbody><tr className="border-t border-slate-100">
               <td className="px-3 py-2 font-medium">Amount</td>
-              <td className="px-3 py-2 text-right tabular-nums">{money(row.not_due)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{money(row.b0)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{money(row.b1)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{money(row.b2)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{money(row.b3)}</td>
-              <td className="px-3 py-2 text-right tabular-nums text-red-600">{money(row.b4)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{money(row.f0)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{money(row.f1)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{money(row.f2)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{money(row.f3)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{money(row.f4)}</td>
             </tr></tbody>
           </table>
         </div>
