@@ -36,7 +36,7 @@ export default async function OutstandingReport({ searchParams }: { searchParams
 
   return (
     <div>
-      <PageHeader title="Car Customer Balances" subtitle="Everything a car customer owes — instalments, the invoice advance and the monthly service charge, the same as the dashboard's Car Customer Balances card.">
+      <PageHeader title="Car Customer Balances">
         <PrintButton />
       </PageHeader>
       <div className="mb-4 flex gap-2 print:hidden">
@@ -86,14 +86,14 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
       [r.due_cur, r.due_last, r.due_l2, r.due_l3, r.due_prev, r.rcpt_cur, r.rcpt_last, r.rcpt_l2, r.rcpt_l3].some((v) => Math.abs(v) > 0.005));
 
   const sum = (k: string) => rows.reduce((s, r) => s + Number((r as any)[k] || 0), 0);
-  const th2 = "sticky left-0 z-10 bg-slate-700 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-200";
+  const th2 = "sticky left-0 z-10 bg-brand-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-brand-800";
   const td2 = "sticky left-0 z-10 bg-white px-3 py-2";
   const td2Foot = "sticky left-0 z-10 bg-slate-50 px-3 py-2";
 
   return (
     <div className="card overflow-x-auto p-0">
-      <table className="w-full min-w-[1900px] text-sm">
-        <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+      <table className="report-grid w-full min-w-[1900px] text-sm">
+        <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
           <tr>
             <th className={th2} rowSpan={2}>Customer</th>
             <th className="px-4 py-2.5 text-left" rowSpan={2}>Mobile</th>
@@ -104,16 +104,16 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
             <th className="px-4 py-2.5 text-right" rowSpan={2}>Overdue</th>
             <th className="px-4 py-2.5 text-right" rowSpan={2}>Total Due</th>
             <th className="px-4 py-2.5 text-right" rowSpan={2}>Collected</th>
-            <th className="px-4 py-2.5 text-center border-l border-slate-600" colSpan={5}>Monthly Due</th>
-            <th className="px-4 py-2.5 text-center border-l border-slate-600" colSpan={4}>Monthly Receipts</th>
+            <th className="px-4 py-2.5 text-center border-l border-slate-300" colSpan={5}>Monthly Due</th>
+            <th className="px-4 py-2.5 text-center border-l border-slate-300" colSpan={4}>Monthly Receipts</th>
           </tr>
           <tr>
-            <th className="px-4 py-2.5 text-right border-l border-slate-600">This Month</th>
+            <th className="px-4 py-2.5 text-right border-l border-slate-300">This Month</th>
             <th className="px-4 py-2.5 text-right">Last Month</th>
             <th className="px-4 py-2.5 text-right">2 Months Ago</th>
             <th className="px-4 py-2.5 text-right">3 Months Ago</th>
             <th className="px-4 py-2.5 text-right">Previous</th>
-            <th className="px-4 py-2.5 text-right border-l border-slate-600">This Month</th>
+            <th className="px-4 py-2.5 text-right border-l border-slate-300">This Month</th>
             <th className="px-4 py-2.5 text-right">Last Month</th>
             <th className="px-4 py-2.5 text-right">2 Months Ago</th>
             <th className="px-4 py-2.5 text-right">3 Months Ago</th>
@@ -179,8 +179,8 @@ async function MonthlyBalance(supabase: ReturnType<typeof createClient>) {
 
   return (
     <div className="card overflow-x-auto p-0">
-      <table className="w-full min-w-[1100px] text-sm">
-        <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+      <table className="report-grid w-full min-w-[1100px] text-sm">
+        <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
           <tr>
             <th className="px-4 py-2.5 text-left" rowSpan={2}>Customer</th>
             <th className="px-4 py-2.5 text-center" colSpan={5}>Due</th>

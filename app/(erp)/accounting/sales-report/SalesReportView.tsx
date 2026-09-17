@@ -165,7 +165,7 @@ export default function SalesReportView() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Sales Report" subtitle="Every sale the business made — Sales Invoice, the service invoices, and the Car Invoice — for the chosen period.">
+      <PageHeader title="Sales Report">
         <PeriodDropdown value={ym} onChange={setYm} />
         <PrintButton />
       </PageHeader>
@@ -195,8 +195,7 @@ export default function SalesReportView() {
       )}
 
       <div>
-        <SectionHeader title="Cost Centre Group → Cost Centre — Target, Current Year vs Previous Year"
-          subtitle="Previous Year is the same selected months, one year back." />
+        <SectionHeader title="Cost Centre Group → Cost Centre — Target, Current Year vs Previous Year" />
         <DataTable
           cols={[
             { key: "name", label: "Cost Centre", href: (r: any) => `/accounting/transactions?cc=${encodeURIComponent(r.name)}&from=${ym.year}-01-01&to=${ym.year}-12-31` },
@@ -214,8 +213,8 @@ export default function SalesReportView() {
         <div>
           <SectionHeader title="Cost Centre × Month" />
           <div className="card overflow-x-auto p-0 text-sm">
-            <table className="w-full">
-              <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+            <table className="report-grid w-full">
+              <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
                 <tr>
                   <th className="px-3 py-2 text-left">Cost Centre</th>
                   {monthKeys.map((mk) => <th key={mk} className="px-3 py-2 text-right">{MONTH_NAMES[Number(mk.slice(5, 7)) - 1]}</th>)}

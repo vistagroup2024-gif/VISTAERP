@@ -33,8 +33,8 @@ export default async function ServiceChargeReport() {
     <div>
       <PageHeader title="Monthly Service Charges — by Vehicle"><PrintButton /></PageHeader>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[860px]">
-          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr>
+        <table className="report-grid w-full min-w-[860px]">
+          <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
             <th className="px-4 py-2.5 text-left">Vehicle</th><th className="px-4 py-2.5 text-left">Customer</th><th className="px-4 py-2.5 text-left">Ownership</th><th className="px-4 py-2.5 text-right">Months</th>
             <th className="px-4 py-2.5 text-right">Charged</th><th className="px-4 py-2.5 text-right">Paid</th><th className="px-4 py-2.5 text-right">Outstanding</th><th className="px-4 py-2.5 text-right">Overdue</th>
           </tr></thead>

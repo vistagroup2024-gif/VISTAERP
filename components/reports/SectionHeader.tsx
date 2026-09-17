@@ -1,12 +1,11 @@
-/** A report's own section title — the same tinted-pill look ReportKpi and
- *  the dashboard's cards already use, so a page with several grids reads
- *  apart at a glance instead of every section heading being the same flat
- *  grey text. */
-export default function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+/** A report's own section title — a solid brand-green bar, deliberately
+ *  darker than the light tint the grid header below it uses, so the two
+ *  never compete and the section always reads as the more prominent of the
+ *  two. Title only, on purpose: a report explains itself through its
+ *  numbers and column labels, not a paragraph above them — don't add a
+ *  subtitle prop back for report copy explaining how a figure works. */
+export default function SectionHeader({ title }: { title: string }) {
   return (
-    <div className="mb-2">
-      <h2 className="inline-block rounded-md bg-brand-100/70 px-2.5 py-1 text-sm font-bold text-brand-700">{title}</h2>
-      {subtitle && <p className="mt-1 text-xs text-slate-400">{subtitle}</p>}
-    </div>
+    <h2 className="mb-2 rounded-md bg-brand-700 px-3 py-2 text-sm font-bold text-white">{title}</h2>
   );
 }

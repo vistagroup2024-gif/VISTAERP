@@ -8,8 +8,7 @@ export default async function StockLedgerPage() {
   await guardStaffPage("accounting.view");
   return (
     <div>
-      <PageHeader title="Stock Ledger"
-        subtitle="Every receipt and issue per item, with a running quantity and value balance." />
+      <PageHeader title="Stock Ledger" />
       <StockLedger />
     </div>
   );

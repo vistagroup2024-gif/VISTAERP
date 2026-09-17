@@ -433,6 +433,45 @@ without `dashboard.view` would be sent to their landing, forwarded back to
 `dashboard_metrics()` for the money and trade cards, `dashboard_module_metrics()`
 for the ones absorbed from the module dashboards (Umrah, transport, hotels).
 
+## A report explains itself through its numbers, not a paragraph above them
+
+Every report screen (`components/reports/*`, and the same shapes hand-rolled
+before `DataTable` existed) follows one visual system, established after a
+round of user feedback found the ERP's report screens carrying dashboard-card
+prose and mismatched greys. **This is the standing convention — apply it to a
+new report by default, don't re-derive it:**
+
+- **No subtitle.** `PageHeader`'s `subtitle` and the old `SectionHeader`
+  `subtitle` prop both carried "Grouped the same way the chart of accounts
+  groups them," "Due is billed, arrived, and its month has not ended…" — a
+  paragraph explaining how the report works, sitting above a grid whose own
+  column headers already say that. `SectionHeader` no longer even takes a
+  subtitle prop — title only. A `PageHeader` that needs a date range states it
+  in the **title** (`Trial Balance — 01-01-2026 to 30-06-2026`), the way
+  Ageing Detail's own title already did. The one thing `PageHeader.subtitle`
+  is still for is literal identifying data a title can't hold — a customer's
+  phone/email on their detail page, a document's own number — never prose
+  about method.
+- **Dark green up top, light green for the grid.** `SectionHeader` and
+  `ReportKpi`'s header strip are both solid `bg-brand-700` with white text —
+  the same green family as the rest of the ERP's brand color, deliberately
+  darker than the grid beneath them. `DataTable`'s `<thead>` (and every
+  hand-rolled report table's) is `bg-brand-50 text-brand-800` — light, so the
+  two never compete and the eye reads top-to-bottom: section title, KPI row,
+  then the grid. Neither is slate/grey any more.
+- **Grid lines.** A report table reads as a spreadsheet: `border-collapse`
+  with `border border-slate-200` on every cell — `DataTable` carries this
+  directly, and any other report's own `<table>` gets there with one class,
+  `report-grid` (`app/globals.css`), rather than bordering every cell by
+  hand. This is a report-only convention — the shared `.th`/`.td` classes
+  most other grids in the ERP use (voucher lines, master lists) are
+  unchanged, on purpose: this file's whole "no unnecessary text" and
+  "spreadsheet grid" push is about report screens, not the entire UI.
+
+This does **not** reach `/dashboard`'s own cards (`DashboardCard.tsx`) —
+that screen wasn't part of the request that produced this convention, and
+its cards keep the lighter tinted header they've always had.
+
 ## `revoke ... from anon` is not a gate; `revoke ... from public` is
 
 Postgres grants EXECUTE to **PUBLIC** on every new function, and `anon` is a

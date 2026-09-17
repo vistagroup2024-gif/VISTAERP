@@ -8,7 +8,7 @@ export default async function StockQueryPage() {
   await guardStaffPage("accounting.view");
   return (
     <div>
-      <PageHeader title="Query" subtitle="Everything known about one stock item: rates, balances and recent movements." />
+      <PageHeader title="Query" />
       <StockQuery />
     </div>
   );

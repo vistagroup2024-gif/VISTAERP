@@ -24,27 +24,27 @@ function QuickList({ title, rows }: { title: string; rows: { account_id: string;
   return (
     <div>
       <SectionHeader title={title} />
-      <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
-            <tr><th className="px-3 py-2 text-left">Name</th><th className="px-3 py-2 text-left">Type</th><th className="px-3 py-2 text-right">Amount</th></tr>
+      <div className="card max-h-[560px] overflow-y-auto overflow-x-auto p-0">
+        <table className="report-grid w-full text-sm">
+          <thead className="sticky top-0 bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+            <tr><th className="px-3 py-2.5 text-left">Name</th><th className="px-3 py-2.5 text-left">Type</th><th className="px-3 py-2.5 text-right">Amount</th></tr>
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.account_id} className="border-t border-slate-100">
-                <td className="px-3 py-1.5"><Link href={`/accounting/customers/${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
-                <td className="px-3 py-1.5">
+              <tr key={r.account_id}>
+                <td className="px-3 py-2"><Link href={`/accounting/customers/${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
+                <td className="px-3 py-2">
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${r.kind === "customer" ? "bg-brand-100 text-brand-700" : "bg-amber-100 text-amber-700"}`}>
                     {r.kind === "customer" ? "Customer" : "Supplier"}
                   </span>
                 </td>
-                <td className="px-3 py-1.5 text-right font-medium tabular-nums">{money(r.amount)}</td>
+                <td className="px-3 py-2 text-right font-medium tabular-nums">{money(r.amount)}</td>
               </tr>
             ))}
             {rows.length === 0 && <tr><td className="px-3 py-4 text-center text-slate-400" colSpan={3}>None.</td></tr>}
           </tbody>
           {rows.length > 0 && (
-            <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+            <tfoot><tr className="sticky bottom-0 bg-slate-50 font-semibold">
               <td className="px-3 py-2" colSpan={2}>Total ({rows.length})</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(total)}</td>
             </tr></tfoot>
@@ -220,9 +220,12 @@ export default function AgingView() {
   const chartData = mainGroups.map((g) => ({ name: g.label, value: Number(g.subtotal!.debit) + Number(g.subtotal!.credit) }))
     .concat(carGroups.length ? [{ name: "Vista Car Customers", value: carRows.reduce((s, r) => s + Math.abs(Number(r.ledger_balance)), 0) }] : []);
 
+  const carTotal = carRows.reduce((s, r) => s + Math.abs(Number(r.ledger_balance)), 0);
+  const ltChartData = ltGroups.map((g) => ({ name: g.label, value: Number(g.subtotal!.debit) + Number(g.subtotal!.credit) }));
+
   return (
     <div className="space-y-4">
-      <PageHeader title="A/R & A/P Balance" subtitle="Every receivable and payable account with a real ledger balance, grouped the same way the chart of accounts groups them.">
+      <PageHeader title="A/R & A/P Balance">
         <PeriodDropdown value={ym} onChange={setYm} />
         <PrintButton />
       </PageHeader>
@@ -253,22 +256,36 @@ export default function AgingView() {
             </div>
           </div>
 
-          <div>
-            <SectionHeader title="Account Receivables — Vista Car Customers" />
-            <DataTable cols={groupCols} groups={carGroups} empty="No car customer balances." />
+          <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
+            <div>
+              <SectionHeader title="Account Receivables — Vista Car Customers" />
+              <DataTable cols={groupCols} groups={carGroups} empty="No car customer balances." />
+            </div>
+            <div className="card">
+              <SectionHeader title="Car Customers Summary" />
+              <div className="grid grid-cols-2 gap-3">
+                <ReportKpi label="Customers" value={String(carRows.length)} icon="users" />
+                <ReportKpi label="Balance" value={money(carTotal)} icon="wallet" />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
+            <div>
+              <SectionHeader title="Account Receivable / Payable (Long Term)" />
+              <DataTable cols={groupCols} groups={ltGroups} empty="No long-term balances." />
+            </div>
+            <div className="card">
+              <SectionHeader title="By Category" />
+              <DonutChart data={ltChartData} nameKey="name" valueKey="value" height={260} />
+            </div>
           </div>
 
           <div>
-            <SectionHeader title="Account Receivable / Payable (Long Term)" subtitle="Fixed Assets, Drawing and Long Term Liabilities balances." />
-            <DataTable cols={groupCols} groups={ltGroups} empty="No long-term balances." />
-          </div>
-
-          <div>
-            <SectionHeader title={`Ageing Detail — as at ${dateStr(asOf)}`}
-              subtitle="Due is billed, arrived, and its month has not ended; Overdue is billed and its month has ended; Total Due is the two added. The 0–30 / 31–60 / … columns are NOT overdue — they are what is not yet due but will come due within that many days." />
+            <SectionHeader title={`Ageing Detail — as at ${dateStr(asOf)}`} />
             <div className="card overflow-x-auto p-0">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+              <table className="report-grid w-full text-sm">
+                <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
                   <tr>
                     <th className="px-3 py-2 text-left">Name</th>
                     <th className="px-3 py-2 text-left">Type</th>
@@ -281,7 +298,7 @@ export default function AgingView() {
                     <th className="px-3 py-2 text-right">91–180d</th>
                     <th className="px-3 py-2 text-right">180d+</th>
                     <th className="px-3 py-2 text-right">Ledger Balance</th>
-                    <th className="sticky right-0 bg-slate-700 px-3 py-2 print:hidden" />
+                    <th className="sticky right-0 bg-brand-50 px-3 py-2 print:hidden" />
                   </tr>
                 </thead>
                 <tbody>
@@ -290,7 +307,7 @@ export default function AgingView() {
                 </tbody>
                 {rows.length > 0 && (
                   <tfoot>
-                    <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+                    <tr className="bg-slate-50 font-semibold">
                       <td className="px-3 py-2" colSpan={2}>Total</td>
                       <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.due), 0))}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.overdue), 0))}</td>

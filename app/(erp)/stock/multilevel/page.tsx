@@ -8,8 +8,7 @@ export default async function MultiLevelMovementPage() {
   await guardStaffPage("accounting.view");
   return (
     <div>
-      <PageHeader title="Multi-level Stock Movement Report"
-        subtitle="The stock statement drawn on the product-group tree — every group totals what sits beneath it." />
+      <PageHeader title="Multi-level Stock Movement Report" />
       <MultiLevelMovement />
     </div>
   );

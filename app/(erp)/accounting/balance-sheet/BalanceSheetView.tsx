@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, dateStr } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
@@ -59,7 +59,7 @@ export default function BalanceSheetView() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Balance Sheet" subtitle={`As at ${asOf}.`}>
+      <PageHeader title={`Balance Sheet — as at ${dateStr(asOf)}`}>
         <PeriodDropdown value={ym} onChange={setYm} />
         <PrintButton />
       </PageHeader>

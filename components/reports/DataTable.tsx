@@ -84,11 +84,11 @@ export default function DataTable({
   return (
     <div>
       <div className="card overflow-x-auto p-0 text-sm">
-        <table className="w-full">
-          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+        <table className="w-full border-collapse">
+          <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>{visibleCols.map((c) => (
               <th key={c.key} onClick={() => toggleSort(c)}
-                className={`px-3 py-2 ${isNumeric(c) ? "text-right" : "text-left"} ${c.sortable === false ? "" : "cursor-pointer select-none hover:text-white"}`}>
+                className={`border border-slate-200 px-3 py-2 ${isNumeric(c) ? "text-right" : "text-left"} ${c.sortable === false ? "" : "cursor-pointer select-none hover:text-brand-900"}`}>
                 {c.label}{sort?.key === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
               </th>
             ))}</tr>
@@ -123,18 +123,18 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals }: {
     <>
       <tbody>
         {rows.map((r, i) => (
-          <tr key={i} className={`border-t border-slate-100 ${(rowClass ? rowClass(r) : (r.low || r.short) ? "bg-red-50/50" : "")}`}>
+          <tr key={i} className={(rowClass ? rowClass(r) : (r.low || r.short) ? "bg-red-50/50" : "")}>
             {cols.map((c) => <Cell key={c.key} col={c} row={r} />)}
           </tr>
         ))}
         {rows.length === 0 && (
-          <tr><td colSpan={cols.length} className="px-3 py-8 text-center text-slate-400">{empty}</td></tr>
+          <tr><td colSpan={cols.length} className="border border-slate-200 px-3 py-8 text-center text-slate-400">{empty}</td></tr>
         )}
       </tbody>
       {rows.length > 0 && hasTotals && (
-        <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+        <tfoot><tr className="bg-slate-50 font-semibold">
           {cols.map((c, i) => (
-            <td key={c.key} className={`px-3 py-2 ${isNumeric(c) ? "text-right tabular-nums" : ""}`}>
+            <td key={c.key} className={`border border-slate-200 px-3 py-2 ${isNumeric(c) ? "text-right tabular-nums" : ""}`}>
               {c.total ? cellText(c, totals[c.key]) : i === 0 ? "Total" : ""}
             </td>
           ))}
@@ -148,7 +148,7 @@ function GroupedBody({ cols, groups, empty, collapsed, onToggle }: {
   cols: Col[]; groups: DataGroup[]; empty: string; collapsed: Set<string>; onToggle: (key: string) => void;
 }) {
   if (groups.length === 0) {
-    return <tbody><tr><td colSpan={cols.length} className="px-3 py-8 text-center text-slate-400">{empty}</td></tr></tbody>;
+    return <tbody><tr><td colSpan={cols.length} className="border border-slate-200 px-3 py-8 text-center text-slate-400">{empty}</td></tr></tbody>;
   }
   return <tbody>{groups.map((g) => <GroupRows key={g.key} cols={cols} g={g} depth={0} collapsed={collapsed} onToggle={onToggle} />)}</tbody>;
 }
@@ -163,8 +163,8 @@ function GroupRows({ cols, g, depth, collapsed, onToggle }: {
   const indent = depth * 16 + 12;
   return (
     <Fragment>
-      <tr className={`cursor-pointer border-t-2 border-slate-200 font-semibold ${depth === 0 ? "bg-slate-50" : "bg-slate-50/60"}`} onClick={() => onToggle(g.key)}>
-        <td colSpan={cols.length} className="py-2" style={{ paddingLeft: indent }}>
+      <tr className={`cursor-pointer font-semibold ${depth === 0 ? "bg-slate-50" : "bg-slate-50/60"}`} onClick={() => onToggle(g.key)}>
+        <td colSpan={cols.length} className="border border-slate-200 py-2" style={{ paddingLeft: indent }}>
           <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
           {g.label}{g.meta}
         </td>
@@ -173,14 +173,14 @@ function GroupRows({ cols, g, depth, collapsed, onToggle }: {
         <GroupRows key={sg.key} cols={cols} g={sg} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} />
       ))}
       {open && !g.subgroups && g.rows.map((r, i) => (
-        <tr key={`${g.key}-${i}`} className="border-t border-slate-100">
+        <tr key={`${g.key}-${i}`}>
           {cols.map((c, ci) => <Cell key={c.key} col={c} row={r} indent={ci === 0 ? indent + 16 : undefined} />)}
         </tr>
       ))}
       {open && !g.subgroups && g.subtotal && (
-        <tr key={`${g.key}-sub`} className="border-t border-slate-200 bg-slate-50/60 font-medium">
+        <tr key={`${g.key}-sub`} className="bg-slate-50/60 font-medium">
           {cols.map((c, i) => (
-            <td key={c.key} className={`px-3 py-1.5 ${isNumeric(c) ? "text-right tabular-nums" : ""}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>
+            <td key={c.key} className={`border border-slate-200 px-3 py-1.5 ${isNumeric(c) ? "text-right tabular-nums" : ""}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>
               {c.total && g.subtotal![c.key] !== undefined ? cellText(c, g.subtotal![c.key]) : i === 0 ? "Subtotal" : ""}
             </td>
           ))}
@@ -195,12 +195,12 @@ function Cell({ col, row, indent }: { col: Col; row: any; indent?: number }) {
   const style = indent !== undefined ? { paddingLeft: indent } : undefined;
   if (col.kind === "class") {
     const tone = v === "A" ? "bg-green-100 text-green-700" : v === "B" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600";
-    return <td className="px-3 py-2 text-right" style={style}><span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${tone}`}>{v}</span></td>;
+    return <td className="border border-slate-200 px-3 py-2 text-right" style={style}><span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${tone}`}>{v}</span></td>;
   }
   const text = cellText(col, v);
   const href = col.href?.(row);
   return (
-    <td className={`px-3 py-2 ${isNumeric(col) ? "text-right tabular-nums" : ""}`} style={style}>
+    <td className={`border border-slate-200 px-3 py-2 ${isNumeric(col) ? "text-right tabular-nums" : ""}`} style={style}>
       {href ? <Link href={href} className="text-brand hover:underline">{text}</Link> : text}
     </td>
   );

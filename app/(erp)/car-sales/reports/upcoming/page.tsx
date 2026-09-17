@@ -38,8 +38,8 @@ export default async function UpcomingReport({ searchParams }: { searchParams: {
         {[7, 30, 60].map((d) => <Link key={d} href={`/car-sales/reports/upcoming?days=${d}`} className={`rounded-full px-3 py-1 ${win === d ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>Next {d} days</Link>)}
       </div>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[720px]">
-          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr>
+        <table className="report-grid w-full min-w-[720px]">
+          <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
             <th className="px-4 py-2.5 text-left">Due Date</th><th className="px-4 py-2.5 text-left">Contract</th><th className="px-4 py-2.5 text-left">Customer</th><th className="px-4 py-2.5 text-left">Contact</th>
             <th className="px-4 py-2.5 text-right">Inst #</th><th className="px-4 py-2.5 text-right">Amount</th>
           </tr></thead>

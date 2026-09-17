@@ -58,7 +58,7 @@ export default function AirTicketBookingsDashboard({ canCreate }: { canCreate: b
 
   return (
     <div>
-      <PageHeader title="Air Ticket Bookings" subtitle="A hold on a fare, from the moment it's created to issue, expiry or cancellation."
+      <PageHeader title="Air Ticket Bookings"
         action={canCreate ? { href: "/accounting/sales/air-tickets?id=new", label: "New Booking" } : undefined} />
 
       <div className="mb-4 flex flex-wrap gap-2">

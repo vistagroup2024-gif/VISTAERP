@@ -32,7 +32,7 @@ export default async function PurchaseOrdersReportPage({ searchParams }: { searc
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Purchase Orders Report" subtitle="Every Purchase Order, pending or history — received value from the Purchase Vouchers actually raised against it.">
+      <PageHeader title="Purchase Orders Report">
         <PrintButton />
       </PageHeader>
       <div className="flex gap-2 print:hidden">

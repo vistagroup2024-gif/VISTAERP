@@ -77,6 +77,17 @@ tbody tr:hover > .td { @apply bg-slate-50/60; }
   z-index: 20;
   background-color: rgb(248 250 252);
 }
+
+/* A report's own grid — visible border lines on every cell, like a
+   spreadsheet, instead of the bottom-border-only row rule most of the ERP
+   uses. Add to a report's `<table>` (DataTable carries the same borders
+   directly, since it renders its own cells). */
+.report-grid {
+  @apply border-collapse;
+}
+.report-grid th, .report-grid td {
+  @apply border border-slate-200;
+}
 /* Zebra + hover for data tables that opt in via .table-rows on <tbody>. */
 .table-rows tr { @apply border-t border-slate-100 transition-colors hover:bg-slate-50/70; }
 

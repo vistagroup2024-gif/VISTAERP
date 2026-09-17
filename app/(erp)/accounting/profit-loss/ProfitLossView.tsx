@@ -129,7 +129,7 @@ export default function ProfitLossView() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Profit & Loss" subtitle="Income less cost of sales, less expenses, for the chosen period — compared against last month and the same period last year.">
+      <PageHeader title="Profit & Loss">
         <PeriodDropdown value={ym} onChange={setYm} />
         <PrintButton />
       </PageHeader>

@@ -44,7 +44,7 @@ export default async function AdvanceVsReceiptPage({ searchParams }: { searchPar
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Sale Order · Advance vs Receipt" subtitle="Sale Orders with an agreed advance, split by whether that advance has fully come in — expand a row for the receipt(s) behind it.">
+      <PageHeader title="Sale Order · Advance vs Receipt">
         <PrintButton />
       </PageHeader>
       <form className="card flex flex-wrap items-end gap-3 print:hidden" method="get">

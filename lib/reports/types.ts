@@ -50,7 +50,10 @@ export const NEED_ARG: Record<Need, string> = {
 export interface ReportCfg {
   key: string;
   title: string;
-  subtitle: string;
+  /** Deliberately optional — a report screen explains itself through its
+   *  title and columns, not a paragraph above them. Don't add one back for
+   *  report copy explaining how a figure works. */
+  subtitle?: string;
   rpc: string;
   params: Need[];
   /** Overrides NEED_ARG for a Need this RPC's own signature names differently

@@ -70,8 +70,8 @@ export default async function CustomerReportPage({ params }: { params: { id: str
 
       {row && (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+          <table className="report-grid w-full text-sm">
+            <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
               <tr><th className="px-3 py-2 text-left">Coming due</th><th className="px-3 py-2 text-right">0-30d</th>
                 <th className="px-3 py-2 text-right">31-60d</th><th className="px-3 py-2 text-right">61-90d</th>
                 <th className="px-3 py-2 text-right">91-180d</th><th className="px-3 py-2 text-right">180d+</th></tr>
@@ -94,8 +94,8 @@ export default async function CustomerReportPage({ params }: { params: { id: str
       <div>
         <SectionHeader title="Open Bills" />
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+          <table className="report-grid w-full text-sm">
+            <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
               <tr><th className="px-3 py-2 text-left">Bill No</th><th className="px-3 py-2 text-left">Bill Date</th>
                 <th className="px-3 py-2 text-left">Due Date</th><th className="px-3 py-2 text-right">Amount</th>
                 <th className="px-3 py-2 text-right">Adjusted</th><th className="px-3 py-2 text-right">Balance</th></tr>
@@ -124,8 +124,8 @@ export default async function CustomerReportPage({ params }: { params: { id: str
       <div>
         <SectionHeader title="Monthwise Receivables &amp; Receipts" />
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+          <table className="report-grid w-full text-sm">
+            <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
               <tr><th className="px-3 py-2 text-left"> </th><th className="px-3 py-2 text-right">This Month</th>
                 <th className="px-3 py-2 text-right">Last Month</th><th className="px-3 py-2 text-right">2 Months Ago</th>
                 <th className="px-3 py-2 text-right">3 Months Ago</th><th className="px-3 py-2 text-right">Older</th></tr>
@@ -155,8 +155,8 @@ export default async function CustomerReportPage({ params }: { params: { id: str
       <div>
         <SectionHeader title="Recent Transactions (this year)" />
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+          <table className="report-grid w-full text-sm">
+            <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
               <tr><th className="px-3 py-2 text-left">Voucher No</th><th className="px-3 py-2 text-left">Date</th>
                 <th className="px-3 py-2 text-right">Debit</th><th className="px-3 py-2 text-right">Credit</th>
                 <th className="px-3 py-2 text-left">Remarks</th></tr>

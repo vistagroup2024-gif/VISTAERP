@@ -6,7 +6,6 @@ import type { ReportCfg } from "./types";
 export const ACCOUNTING_REPORTS: Record<string, ReportCfg> = {
   cash_bank: {
     key: "cash_bank", title: "Cash & Bank",
-    subtitle: "Balance of every cash and bank account, as at a date. Grouped the same way the chart of accounts groups them.",
     rpc: "report_cash_bank",
     params: ["asof", "account", "costCenter"],
     fixedArgs: { p_company: COMPANY_ID },

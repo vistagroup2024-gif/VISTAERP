@@ -82,7 +82,7 @@ export default function AgingRows({ rows }: { rows: Row[] }) {
                   ) : rowBills.length === 0 ? (
                     <p className="text-xs text-slate-400">No open bills — the balance above comes from the ledger, not from an adjustable bill.</p>
                   ) : (
-                    <table className="w-full text-xs">
+                    <table className="report-grid w-full text-xs">
                       <thead className="text-slate-400"><tr>
                         <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Bill No</th>
                         <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Bill Date</th>

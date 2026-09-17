@@ -36,7 +36,7 @@ export default async function CarDeliveryReport({ searchParams }: { searchParams
 
   return (
     <div>
-      <PageHeader title="Car Delivery Report" subtitle="Sold vehicles and their delivery status, with the invoice that sold them."><PrintButton /></PageHeader>
+      <PageHeader title="Car Delivery Report"><PrintButton /></PageHeader>
       <form className="card mb-4 flex flex-wrap items-end gap-3 print:hidden" method="get">
         <div><label className="label">Invoice Date From</label><input type="date" name="from" defaultValue={from} className="input" /></div>
         <div><label className="label">Invoice Date To</label><input type="date" name="to" defaultValue={to} className="input" /></div>
@@ -50,8 +50,8 @@ export default async function CarDeliveryReport({ searchParams }: { searchParams
         <Kpi label="Delivery %" value={`${pct.toFixed(1)}%`} />
       </div>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[900px]">
-          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr>
+        <table className="report-grid w-full min-w-[900px]">
+          <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
             <th className="px-4 py-2.5 text-left">Vehicle</th><th className="px-4 py-2.5 text-left">Cost Centre</th><th className="px-4 py-2.5 text-left">Customer</th>
             <th className="px-4 py-2.5 text-left">Tag Area</th><th className="px-4 py-2.5 text-left">Invoice No</th><th className="px-4 py-2.5 text-left">Invoice Date</th>
             <th className="px-4 py-2.5 text-right">Invoice Amount</th><th className="px-4 py-2.5 text-left">Status</th>

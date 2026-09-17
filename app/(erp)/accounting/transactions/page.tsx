@@ -79,7 +79,7 @@ export default async function TransactionsReportPage({ searchParams }: { searchP
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Transactions Report" subtitle="Every posted voucher line for the period, with account, debit/credit, currency and cost centre.">
+      <PageHeader title="Transactions Report">
         <PrintButton />
       </PageHeader>
       <TransactionsFilters account={accountIds} cc={costCentres} type={txnTypes} />

@@ -123,7 +123,7 @@ export default function CostCentreCostingView() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Cost Centre Costing" subtitle="Each cost centre's own target, sales, cost of sales, gross profit and expense — by group, and by month.">
+      <PageHeader title="Cost Centre Costing">
         <PeriodDropdown value={ym} onChange={setYm} />
         <PrintButton />
       </PageHeader>
@@ -146,8 +146,7 @@ export default function CostCentreCostingView() {
       )}
 
       <div>
-        <SectionHeader title={`Cost Centre Group → Cost Centre → Month — ${periodLabel(ym)}${loading ? " (loading…)" : ""}`}
-          subtitle="Expands into monthly Revenue / COGS / Gross Profit / Expense / Net Profit." />
+        <SectionHeader title={`Cost Centre Group → Cost Centre → Month — ${periodLabel(ym)}${loading ? " (loading…)" : ""}`} />
         <DataTable
           cols={[
             { key: "row_label", label: "Cost Centre / Month" },

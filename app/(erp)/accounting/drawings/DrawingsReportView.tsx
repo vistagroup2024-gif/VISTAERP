@@ -45,7 +45,7 @@ export default function DrawingsReportView() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Drawings Report" subtitle="Owner drawings by account, for the chosen period.">
+      <PageHeader title="Drawings Report">
         <PeriodDropdown value={ym} onChange={setYm} />
         <PrintButton />
       </PageHeader>

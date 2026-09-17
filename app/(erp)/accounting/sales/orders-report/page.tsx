@@ -34,7 +34,7 @@ export default async function SalesOrdersReportPage({ searchParams }: { searchPa
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Sales Orders Report" subtitle="Every Sale Order, pending or history — advance and received match the dashboard's own figures.">
+      <PageHeader title="Sales Orders Report">
         <PrintButton />
       </PageHeader>
       <div className="flex gap-2 print:hidden">

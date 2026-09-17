@@ -21,10 +21,9 @@ export default async function HistoryPage() {
   return (
     <div>
       <PageHeader title="Inventory History" />
-      <p className="mb-4 text-sm text-slate-500">Every consumption booked against a BRN, newest first.</p>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[720px]">
-          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+        <table className="report-grid w-full min-w-[720px]">
+          <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
               <th className="px-4 py-2.5 text-left">Booked</th>
               <th className="px-4 py-2.5 text-left">BRN</th>

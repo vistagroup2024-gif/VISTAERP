@@ -76,7 +76,7 @@ export default function PurchaseVsSaleView() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Purchase vs Sale" subtitle="What was bought against what was sold — same document-level definitions the dashboard card uses.">
+      <PageHeader title="Purchase vs Sale">
         <PeriodDropdown value={ym} onChange={setYm} />
         <PrintButton />
       </PageHeader>

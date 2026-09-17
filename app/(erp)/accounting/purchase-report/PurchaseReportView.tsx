@@ -47,7 +47,7 @@ export default function PurchaseReportView() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Purchase Report" subtitle="Every posted Purchase Voucher for the chosen period, by supplier, product and cost centre.">
+      <PageHeader title="Purchase Report">
         <PeriodDropdown value={ym} onChange={setYm} />
         <PrintButton />
       </PageHeader>

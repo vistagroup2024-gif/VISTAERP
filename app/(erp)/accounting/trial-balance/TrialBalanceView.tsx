@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, dateStr } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
@@ -42,7 +42,7 @@ export default function TrialBalanceView() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Trial Balance" subtitle={`Opening, period movement and closing for every account, ${from} to ${to}.`}>
+      <PageHeader title={`Trial Balance — ${dateStr(from)} to ${dateStr(to)}`}>
         <PeriodDropdown value={ym} onChange={setYm} />
         <PrintButton />
       </PageHeader>
@@ -53,8 +53,8 @@ export default function TrialBalanceView() {
       </div>
 
       <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+        <table className="report-grid w-full text-sm">
+          <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
               <th className="px-3 py-2 text-left">Account</th>
               <th className="px-3 py-2 text-right">Opening Dr</th>
