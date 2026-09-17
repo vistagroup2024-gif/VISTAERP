@@ -492,12 +492,23 @@ Two more additions to the same standing convention:
   it already. A hand-rolled report table wraps its own header text the same
   way as it's touched.
 
-Both are rolled out to `DataTable` (which covers most reports) and to the
-hand-rolled tables this file's own recent work touched (Car Customer
-Ageing Summary, A/R & A/P's QuickList and Ageing Detail grids) — not yet
-every hand-rolled table in the ERP. Apply the same two patterns to any
-other hand-rolled report table the next time it's opened, rather than
-re-deriving a different approach.
+Both are rolled out ERP-wide now: `DataTable` (which covers most reports)
+and every hand-rolled `report-grid` table — Car Customer Ageing Summary,
+A/R & A/P's QuickList and Ageing Detail grids, Trial Balance, Sales
+Report's Monthwise pivot, P&L's Cost Center Profit & Loss panel, Advance
+vs Receipt, both Orders Report tables (and their nested line-item tables),
+the customer detail ledger, Transport Reports' shared table helper, the
+Visa Ledger, and the Car Sales / Inventory / Hotels report screens. A new
+hand-rolled report table follows the same two patterns from the start
+rather than re-deriving a different approach.
+
+Car Customer Balances' Monthly Due / Monthly Receipts headers use a third
+variant, `.col-resize-wrap` — same resize handle, but the label wraps onto
+two lines instead of truncating, so a long header ("2nd Last Month Due")
+over a narrow numeric column can sit narrower without an ellipsis eating
+it. Use `.col-resize-wrap` only where a header's own text is unusually
+long relative to what's below it; a short label (Name, Date, Amount)
+always gets plain `.col-resize`.
 
 ## A report filter is multi-select unless the options are mutually exclusive
 
