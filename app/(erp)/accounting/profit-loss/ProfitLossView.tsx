@@ -44,13 +44,14 @@ function summarize(rs: any[]) {
 
 // Last Month / Current Month / Year to Date — three fixed calendar windows,
 // each Net Profit less Drawings less Actual Net, so the owner sees where
-// things stand right now without touching the period filter above.
+// things stand right now without touching the period filter above. Same
+// dark-green-header-over-light-body shape as every other report card now.
 function PeriodBox({ title, net, drawings }: { title: string; net: number; drawings: number }) {
   const actNet = net - drawings;
   return (
-    <div className="card">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</p>
-      <div className="grid grid-cols-3 gap-2 text-center">
+    <div className="card overflow-hidden p-0">
+      <div className="bg-brand-700 px-3 py-2 text-xs font-bold uppercase tracking-wide text-white">{title}</div>
+      <div className="grid grid-cols-3 gap-2 p-3 text-center">
         <div><p className="text-xs text-slate-400">Net</p><p className={`font-bold tabular-nums ${net >= 0 ? "text-slate-800" : "text-red-700"}`}>{money(net)}</p></div>
         <div><p className="text-xs text-slate-400">Drawing</p><p className="font-bold tabular-nums text-slate-800">{money(drawings)}</p></div>
         <div><p className="text-xs text-slate-400">Act. Net</p><p className={`font-bold tabular-nums ${actNet >= 0 ? "text-green-700" : "text-red-700"}`}>{money(actNet)}</p></div>
@@ -59,24 +60,23 @@ function PeriodBox({ title, net, drawings }: { title: string; net: number; drawi
   );
 }
 
-function Section({ title, sectionRows, total, from, to }: { title: string; sectionRows: any[]; total: number; from: string; to: string }) {
-  return (
-    <div className="card overflow-x-auto p-0">
-      <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 font-semibold text-slate-700">{title}</div>
-      <table className="w-full text-sm">
-        <tbody>
-          {sectionRows.map((r) => (
-            <tr key={r.id} className="border-b border-slate-50">
-              <td className="px-4 py-1.5"><Link href={`/accounting/ledger?account=${r.id}&from=${from}&to=${to}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
-              <td className="px-4 py-1.5 text-right tabular-nums">{money(r.amt)}</td>
-            </tr>
-          ))}
-          {sectionRows.length === 0 && <tr><td className="px-4 py-3 text-slate-400">None</td><td /></tr>}
-        </tbody>
-        <tfoot><tr className="border-t-2 border-slate-200 font-semibold"><td className="px-4 py-2">Total {title}</td><td className="px-4 py-2 text-right tabular-nums">{money(total)}</td></tr></tfoot>
-      </table>
+// Revenue / Gross / Expenses / Net as one bar each, scaled against Revenue —
+// the headline shape, not the account-by-account listing this page used to
+// carry. The full account breakdown is one click away on the report that
+// already owns it (Expenses -> Targets & Budget's Expense Budget tab), so
+// it isn't duplicated here.
+function ElementBar({ label, value, basis, tone, href }: { label: string; value: number; basis: number; tone: string; href?: string }) {
+  const width = basis !== 0 ? Math.max(2, Math.min(100, (Math.abs(value) / Math.abs(basis)) * 100)) : 0;
+  const row = (
+    <div className="flex items-center gap-3 px-1 py-1.5">
+      <span className="w-32 shrink-0 text-xs text-slate-500">{label}</span>
+      <div className="h-3 flex-1 rounded-full bg-slate-100">
+        <div className={`h-3 rounded-full ${tone}`} style={{ width: `${width}%` }} />
+      </div>
+      <span className="w-28 shrink-0 text-right text-xs font-semibold tabular-nums text-slate-700">{money(value)}</span>
     </div>
   );
+  return href ? <Link href={href} className="block hover:bg-slate-50">{row}</Link> : row;
 }
 
 const EMPTY_ARR: any[] = [];
@@ -195,27 +195,21 @@ export default function ProfitLossView() {
         <ReportKpi label="Actual Net" value={money(actualNet)} icon="wallet" tone={actualNet >= 0 ? "pos" : "neg"} />
       </div>
 
-      {monthly.length > 1 && (
+      <div className="grid gap-3 lg:grid-cols-2">
         <div className="card">
-          <SectionHeader title={`Monthly P&L Trend${loading ? " (loading…)" : ""}`} />
-          <TrendChart data={monthly} xKey="month" series={[{ key: "revenue", label: "Revenue" }, { key: "net_profit", label: "Net Profit" }]} />
+          <SectionHeader title="Profit & Loss Elements" />
+          <ElementBar label="Revenue (P&L)" value={cur.totInc} basis={cur.totInc} tone="bg-brand-600" />
+          <ElementBar label="Gross (P&L)" value={cur.gross} basis={cur.totInc} tone="bg-brand-400" />
+          <ElementBar label="Expenses (P&L)" value={cur.totExp} basis={cur.totInc} tone="bg-amber-500" href="/accounting/targets?tab=exp" />
+          <ElementBar label="Net (P&L)" value={cur.net} basis={cur.totInc} tone={cur.net >= 0 ? "bg-emerald-600" : "bg-red-600"} />
         </div>
-      )}
-
-      <Section title="Income" sectionRows={cur.income} total={cur.totInc} from={from} to={to} />
-      <Section title="Cost of Sales" sectionRows={cur.costs} total={cur.totCost} from={from} to={to} />
-      <div className={`card flex items-center justify-between font-semibold ${cur.gross >= 0 ? "text-slate-800" : "text-red-700"}`}>
-        <span>Gross {cur.gross >= 0 ? "Profit" : "Loss"}</span><span className="tabular-nums">{money(Math.abs(cur.gross))}</span>
+        {monthly.length > 1 && (
+          <div className="card">
+            <SectionHeader title={`Monthwise Net Profit${loading ? " (loading…)" : ""}`} />
+            <TrendChart data={monthly} xKey="month" series={[{ key: "net_profit", label: "Net Profit" }]} />
+          </div>
+        )}
       </div>
-      <Section title="Expenses" sectionRows={cur.expense} total={cur.totExp} from={from} to={to} />
-      <div className={`card flex items-center justify-between text-lg font-bold ${cur.net >= 0 ? "text-green-700" : "text-red-700"}`}>
-        <span>Net {cur.net >= 0 ? "Profit" : "Loss"}</span><span className="tabular-nums">{money(Math.abs(cur.net))}</span>
-      </div>
-      {drawings !== 0 && (
-        <div className="card flex items-center justify-between text-sm">
-          <span className="text-slate-600">Less: Drawings</span><span className="tabular-nums text-slate-700">({money(drawings)})</span>
-        </div>
-      )}
 
       <div>
         <SectionHeader title="Monthly P&L" />
