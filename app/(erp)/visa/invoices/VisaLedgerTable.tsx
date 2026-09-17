@@ -59,14 +59,14 @@ export default function VisaLedgerTable({ rows, isAdmin }: { rows: VisaLedgerRow
       <div className="overflow-x-auto">
         <table className="report-grid w-full text-sm">
           <thead><tr className="bg-brand-50 text-left text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-            <th className="px-4 py-2.5">Date</th><th className="px-4 py-2.5">Company</th><th className="px-4 py-2.5">Customer</th>
-            <th className="px-4 py-2.5">Name</th><th className="px-4 py-2.5">Group No</th><th className="px-4 py-2.5">Visa Type</th>
-            <th className="px-4 py-2.5 text-right">Nights</th><th className="px-4 py-2.5 text-right">Pax</th><th className="px-4 py-2.5">Invoice</th>
+            <th className="px-4 py-2.5"><span className="col-resize">Date</span></th><th className="px-4 py-2.5"><span className="col-resize">Company</span></th><th className="px-4 py-2.5"><span className="col-resize">Customer</span></th>
+            <th className="px-4 py-2.5"><span className="col-resize">Name</span></th><th className="px-4 py-2.5"><span className="col-resize">Group No</span></th><th className="px-4 py-2.5"><span className="col-resize">Visa Type</span></th>
+            <th className="px-4 py-2.5 text-right"><span className="col-resize">Nights</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Pax</span></th><th className="px-4 py-2.5"><span className="col-resize">Invoice</span></th>
             <th className="px-4 py-2.5 no-print"></th>
           </tr></thead>
           <tbody>
-            {filtered.map((r) => (
-              <tr key={r.group_id} className="border-b border-slate-50 align-middle">
+            {filtered.map((r, i) => (
+              <tr key={r.group_id} className={`border-b border-slate-50 align-middle ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="td whitespace-nowrap">{dateStr(r.visa_date)}</td>
                 <td className="td">{r.company ?? "—"}</td>
                 <td className="td">{r.customer ?? "—"}</td>
