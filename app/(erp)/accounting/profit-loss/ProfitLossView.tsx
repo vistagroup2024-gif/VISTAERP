@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
-import { todaySA } from "@/lib/saudiTime";
+import { todaySA, yearSA, monthStartSA } from "@/lib/saudiTime";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import ReportKpi from "@/components/reports/ReportKpi";
 import SectionHeader from "@/components/reports/SectionHeader";
 import TrendChart from "@/components/reports/charts/TrendChart";
+import DonutChart from "@/components/reports/charts/DonutChart";
 import DataTable from "@/components/reports/DataTable";
 import { defaultYearMonths, monthRanges, type YearMonths } from "@/lib/reports/period";
 
@@ -39,6 +40,23 @@ function summarize(rs: any[]) {
   const gross = totInc - totCost;
   const net = gross - totExp;
   return { income, costs, expense, totInc, totCost, totExp, gross, net };
+}
+
+// Last Month / Current Month / Year to Date — three fixed calendar windows,
+// each Net Profit less Drawings less Actual Net, so the owner sees where
+// things stand right now without touching the period filter above.
+function PeriodBox({ title, net, drawings }: { title: string; net: number; drawings: number }) {
+  const actNet = net - drawings;
+  return (
+    <div className="card">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</p>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div><p className="text-xs text-slate-400">Net</p><p className={`font-bold tabular-nums ${net >= 0 ? "text-slate-800" : "text-red-700"}`}>{money(net)}</p></div>
+        <div><p className="text-xs text-slate-400">Drawing</p><p className="font-bold tabular-nums text-slate-800">{money(drawings)}</p></div>
+        <div><p className="text-xs text-slate-400">Act. Net</p><p className={`font-bold tabular-nums ${actNet >= 0 ? "text-green-700" : "text-red-700"}`}>{money(actNet)}</p></div>
+      </div>
+    </div>
+  );
 }
 
 function Section({ title, sectionRows, total, from, to }: { title: string; sectionRows: any[]; total: number; from: string; to: string }) {
@@ -84,6 +102,15 @@ export default function ProfitLossView() {
   const [monthlyRaw, setMonthlyRaw] = useState<any[]>(EMPTY_ARR);
   const [ccData, setCcData] = useState<any[]>(EMPTY_ARR);
   const [drawings, setDrawings] = useState(0);
+  // Last Month / Current Month / Year to Date — three FIXED calendar windows
+  // shown alongside whatever period the filter is set to, not a second
+  // reading of it: "current month" here is always this actual month, "year
+  // to date" always 1 Jan to today, regardless of what ym/from/to resolve to.
+  const [cmRows, setCmRows] = useState<any[]>(EMPTY_ARR);
+  const [ytdRows, setYtdRows] = useState<any[]>(EMPTY_ARR);
+  const [drawingsLm, setDrawingsLm] = useState(0);
+  const [drawingsCm, setDrawingsCm] = useState(0);
+  const [drawingsYtd, setDrawingsYtd] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const ranges = monthRanges(ym);
@@ -95,21 +122,35 @@ export default function ProfitLossView() {
     setLoading(true);
     const [lmFrom, lmTo] = lastMonthRange();
     const pyFrom = shiftYear(from, -1), pyTo = shiftYear(to, -1);
+    const cmFrom = monthStartSA(), cmTo = todaySA();
+    const ytdFrom = `${yearSA()}-01-01`, ytdTo = todaySA();
+    const drawTotal = (d: any) => (d as any)?.total ? Number((d as any).total) : 0;
     Promise.all([
       sb.rpc("trial_balance", { p_company: COMPANY_ID, p_from: from, p_to: to }),
       sb.rpc("trial_balance", { p_company: COMPANY_ID, p_from: lmFrom, p_to: lmTo }),
       sb.rpc("trial_balance", { p_company: COMPANY_ID, p_from: pyFrom, p_to: pyTo }),
+      sb.rpc("trial_balance", { p_company: COMPANY_ID, p_from: cmFrom, p_to: cmTo }),
+      sb.rpc("trial_balance", { p_company: COMPANY_ID, p_from: ytdFrom, p_to: ytdTo }),
       sb.rpc("report_pl_monthly", { p_company: COMPANY_ID, p_from: from, p_to: to }),
       sb.rpc("report_cost_centre_costing", { p_from: from, p_to: to }),
       sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: from, p_to: to }),
-    ]).then(([{ data }, { data: lmData }, { data: pyData }, { data: monthlyData }, { data: ccD }, { data: drawingsData }]) => {
+      sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: lmFrom, p_to: lmTo }),
+      sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: cmFrom, p_to: cmTo }),
+      sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: ytdFrom, p_to: ytdTo }),
+    ]).then(([{ data }, { data: lmData }, { data: pyData }, { data: cmData }, { data: ytdData }, { data: monthlyData }, { data: ccD },
+      { data: drawingsData }, { data: drawLmData }, { data: drawCmData }, { data: drawYtdData }]) => {
       if (!live) return;
       setRows((data as any[]) ?? []);
       setLmRows((lmData as any[]) ?? []);
       setPyRows((pyData as any[]) ?? []);
+      setCmRows((cmData as any[]) ?? []);
+      setYtdRows((ytdData as any[]) ?? []);
       setMonthlyRaw((monthlyData as any[]) ?? []);
       setCcData((ccD as any[]) ?? []);
-      setDrawings((drawingsData as any)?.total ? Number((drawingsData as any).total) : 0);
+      setDrawings(drawTotal(drawingsData));
+      setDrawingsLm(drawTotal(drawLmData));
+      setDrawingsCm(drawTotal(drawCmData));
+      setDrawingsYtd(drawTotal(drawYtdData));
       setLoading(false);
     });
     return () => { live = false; };
@@ -118,6 +159,8 @@ export default function ProfitLossView() {
   const cur = summarize(rows);
   const lm = summarize(lmRows);
   const py = summarize(pyRows);
+  const cm = summarize(cmRows);
+  const ytd = summarize(ytdRows);
   const grossMargin = cur.totInc !== 0 ? (cur.gross / cur.totInc) * 100 : 0;
   const netMargin = cur.totInc !== 0 ? (cur.net / cur.totInc) * 100 : 0;
   const netChangeMonth = lm.net !== 0 ? ((cur.net - lm.net) / Math.abs(lm.net)) * 100 : null;
@@ -133,6 +176,12 @@ export default function ProfitLossView() {
         <PeriodDropdown value={ym} onChange={setYm} />
         <PrintButton />
       </PageHeader>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <PeriodBox title="Last Month" net={lm.net} drawings={drawingsLm} />
+        <PeriodBox title="Current Month" net={cm.net} drawings={drawingsCm} />
+        <PeriodBox title="Year to Date" net={ytd.net} drawings={drawingsYtd} />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         <ReportKpi label="Revenue" value={money(cur.totInc)} icon="sales" tone="info" />
@@ -200,6 +249,13 @@ export default function ProfitLossView() {
           ]}
           rows={ccRows} empty="No cost centre activity in this period." />
       </div>
+
+      {ccRows.length > 0 && (
+        <div className="card">
+          <SectionHeader title="Cost Centre Comparison" />
+          <DonutChart data={ccRows} nameKey="cost_centre" valueKey="net_profit" height={260} />
+        </div>
+      )}
     </div>
   );
 }

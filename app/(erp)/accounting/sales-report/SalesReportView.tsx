@@ -9,6 +9,7 @@ import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import TrendChart from "@/components/reports/charts/TrendChart";
+import DonutChart from "@/components/reports/charts/DonutChart";
 import DataTable, { type DataGroup } from "@/components/reports/DataTable";
 import ReportKpi from "@/components/reports/ReportKpi";
 import SectionHeader from "@/components/reports/SectionHeader";
@@ -16,8 +17,30 @@ import SectionHeader from "@/components/reports/SectionHeader";
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const EMPTY = { total: 0, txns: 0, monthly: [] as any[], by_cost_centre: [] as any[], by_cc_month: [] as any[], by_customer: [] as any[], by_product: [] as any[] };
+const EMPTY = {
+  total: 0, txns: 0, monthly: [] as any[], by_cost_centre: [] as any[], by_cc_month: [] as any[],
+  by_customer: [] as any[], by_customer_month: [] as any[], by_product: [] as any[], by_product_month: [] as any[],
+};
 type SalesData = typeof EMPTY;
+
+// Name x month -> {amount, qty} for whichever dimension (CC Group, Cost
+// Centre, Customer, Product) the Monthwise Sales pivot is on — Value/Qty are
+// both carried per cell so the toggle just picks which one to display,
+// rather than re-fetching or re-deriving anything.
+type MonthCell = { amount: number; qty: number };
+type PivotRow = { key: string; label: string; cells: Record<string, MonthCell>; total: MonthCell };
+function buildPivot(items: { name: string; month: string; amount: number; qty: number }[]): PivotRow[] {
+  const map = new Map<string, PivotRow>();
+  for (const it of items) {
+    let row = map.get(it.name);
+    if (!row) { row = { key: it.name, label: it.name, cells: {}, total: { amount: 0, qty: 0 } }; map.set(it.name, row); }
+    const cell = row.cells[it.month] ?? { amount: 0, qty: 0 };
+    cell.amount += it.amount; cell.qty += it.qty;
+    row.cells[it.month] = cell;
+    row.total.amount += it.amount; row.total.qty += it.qty;
+  }
+  return Array.from(map.values());
+}
 
 // Selecting non-contiguous months (Jan + Mar, say) can't be expressed as one
 // p_from/p_to range, so monthRanges() splits it into the fewest contiguous
@@ -43,6 +66,8 @@ function mergeSales(parts: SalesData[]): SalesData {
     txns: parts.reduce((s, p) => s + Number(p.txns || 0), 0),
     monthly: parts.flatMap((p) => p.monthly ?? []),
     by_cc_month: parts.flatMap((p) => p.by_cc_month ?? []),
+    by_customer_month: parts.flatMap((p) => p.by_customer_month ?? []),
+    by_product_month: parts.flatMap((p) => p.by_product_month ?? []),
     by_cost_centre: mergeByKey(parts.map((p) => p.by_cost_centre), (r) => r.name, ["amount", "txns"]),
     by_customer: mergeByKey(parts.map((p) => p.by_customer), (r) => r.account_id ?? r.name, ["amount", "txns"]),
     by_product: mergeByKey(parts.map((p) => p.by_product), (r) => r.name, ["amount", "qty"]),
@@ -75,6 +100,8 @@ export default function SalesReportView() {
   const [prevMonth, setPrevMonth] = useState<SalesData>(EMPTY);
   const [targets, setTargets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pivotDim, setPivotDim] = useState<"ccGroup" | "costCentre" | "customer" | "product">("costCentre");
+  const [pivotMode, setPivotMode] = useState<"value" | "qty">("value");
 
   useEffect(() => {
     let live = true;
@@ -143,16 +170,35 @@ export default function SalesReportView() {
     };
   }).sort((a, b) => (b.subtotal!.current_year ?? 0) - (a.subtotal!.current_year ?? 0));
 
-  // Cost Centre x Month pivot — the months actually selected, as columns;
-  // cost centres as rows, grouped the same way the hierarchy above is.
+  // Monthwise Sales pivot — the months actually selected, as columns; rows
+  // are whichever dimension is picked (CC Group, Cost Centre, Customer,
+  // Product). CC Group is by_cc_month rolled up one level (the field is
+  // already on every row); Cost Centre, Customer and Product each read
+  // their own *_month array directly — no new calculation, the same
+  // finer-grouping-of-an-existing-total shape 431's by_cc_month set.
   const selectedMonths = Array.from(new Set(ym.months)).sort((a, b) => a - b);
   const monthKeys = selectedMonths.map((m) => `${ym.year}-${String(m).padStart(2, "0")}`);
-  const pivotByCc = new Map<string, Record<string, number>>();
-  for (const r of s.by_cc_month) {
-    const row = pivotByCc.get(r.cost_center) ?? {};
-    row[r.month] = Number(r.amount || 0);
-    pivotByCc.set(r.cost_center, row);
-  }
+
+  const ccGroupMonthly = useMemo(() => {
+    const m = new Map<string, { name: string; month: string; amount: number; qty: number }>();
+    for (const r of s.by_cc_month) {
+      const key = `${r.cost_center_group}::${r.month}`;
+      const existing = m.get(key) ?? { name: r.cost_center_group, month: r.month, amount: 0, qty: 0 };
+      existing.amount += Number(r.amount || 0); existing.qty += Number(r.txns || 0);
+      m.set(key, existing);
+    }
+    return Array.from(m.values());
+  }, [s.by_cc_month]);
+  const costCentreMonthly = s.by_cc_month.map((r: any) => ({ name: r.cost_center, month: r.month, amount: Number(r.amount || 0), qty: Number(r.txns || 0) }));
+  const customerMonthly = s.by_customer_month.map((r: any) => ({ name: r.name, month: r.month, amount: Number(r.amount || 0), qty: Number(r.txns || 0) }));
+  const productMonthly = s.by_product_month.map((r: any) => ({ name: r.name, month: r.month, amount: Number(r.amount || 0), qty: Number(r.qty || 0) }));
+  const pivotSource = pivotDim === "ccGroup" ? ccGroupMonthly : pivotDim === "costCentre" ? costCentreMonthly : pivotDim === "customer" ? customerMonthly : productMonthly;
+  const pivotRows = buildPivot(pivotSource).sort((a, b) => b.total.amount - a.total.amount);
+  const pivotQtyLabel = pivotDim === "product" ? "Qty" : "Txns";
+
+  // Cost Centre Group share of total — the same ccGroups rollup the nested
+  // table already built, read for its totals rather than recomputed.
+  const ccGroupChartData = ccGroups.map((g) => ({ name: g.label, amount: Number(g.subtotal!.current_year) }));
 
   const monthlyRows = s.monthly.map((m: any) => {
     const [, mm] = m.month.split("-");
@@ -194,6 +240,19 @@ export default function SalesReportView() {
         </div>
       )}
 
+      {ccGroupChartData.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="card">
+            <SectionHeader title="Cost Centre Group Share" />
+            <DonutChart data={ccGroupChartData} nameKey="name" valueKey="amount" height={260} />
+          </div>
+          <div className="card">
+            <SectionHeader title="Cost Centre Group wise Sales" />
+            <TrendChart data={ccGroupChartData} xKey="name" series={[{ key: "amount", label: "Sales" }]} height={260} />
+          </div>
+        </div>
+      )}
+
       <div>
         <SectionHeader title="Cost Centre Group → Cost Centre — Target, Current Year vs Previous Year" />
         <DataTable
@@ -209,43 +268,63 @@ export default function SalesReportView() {
           groups={ccGroups} empty="No sales in this period." />
       </div>
 
-      {monthKeys.length > 1 && pivotByCc.size > 0 && (
+      {monthKeys.length > 1 && (
         <div>
-          <SectionHeader title="Cost Centre × Month" />
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <SectionHeader title="Monthwise Sales" />
+            <div className="flex flex-wrap items-center gap-3 print:hidden">
+              <div className="flex gap-1">
+                {([["ccGroup", "CC Group"], ["costCentre", "Cost Centre"], ["customer", "Customer"], ["product", "Product"]] as const).map(([k, l]) => (
+                  <button key={k} onClick={() => setPivotDim(k)}
+                    className={`rounded-full px-3 py-1 text-sm ${pivotDim === k ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>{l}</button>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                {([["value", "Value"], ["qty", pivotQtyLabel]] as const).map(([k, l]) => (
+                  <button key={k} onClick={() => setPivotMode(k)}
+                    className={`rounded-full px-3 py-1 text-sm ${pivotMode === k ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>{l}</button>
+                ))}
+              </div>
+            </div>
+          </div>
           <div className="card overflow-x-auto p-0 text-sm">
             <table className="report-grid w-full">
               <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
                 <tr>
-                  <th className="px-3 py-2 text-left">Cost Centre</th>
+                  <th className="px-3 py-2 text-left">{pivotDim === "ccGroup" ? "CC Group" : pivotDim === "costCentre" ? "Cost Centre" : pivotDim === "customer" ? "Customer" : "Product"}</th>
                   {monthKeys.map((mk) => <th key={mk} className="px-3 py-2 text-right">{MONTH_NAMES[Number(mk.slice(5, 7)) - 1]}</th>)}
                   <th className="px-3 py-2 text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
-                {Array.from(pivotByCc.entries()).sort((a, b) => {
-                  const ta = Object.values(a[1]).reduce((s, v) => s + v, 0), tb = Object.values(b[1]).reduce((s, v) => s + v, 0);
-                  return tb - ta;
-                }).map(([cc, row]) => {
-                  const rowTotal = monthKeys.reduce((s, mk) => s + (row[mk] || 0), 0);
-                  return (
-                    <tr key={cc} className="border-t border-slate-100">
-                      <td className="px-3 py-1.5">{cc}</td>
-                      {monthKeys.map((mk) => <td key={mk} className="px-3 py-1.5 text-right tabular-nums">{row[mk] ? money(row[mk]) : "—"}</td>)}
-                      <td className="px-3 py-1.5 text-right font-medium tabular-nums">{money(rowTotal)}</td>
-                    </tr>
-                  );
-                })}
+                {pivotRows.map((row) => (
+                  <tr key={row.key}>
+                    <td className="px-3 py-1.5">{row.label}</td>
+                    {monthKeys.map((mk) => {
+                      const v = pivotMode === "value" ? row.cells[mk]?.amount : row.cells[mk]?.qty;
+                      return <td key={mk} className="px-3 py-1.5 text-right tabular-nums">{v ? (pivotMode === "value" ? money(v) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(v)) : "—"}</td>;
+                    })}
+                    <td className="px-3 py-1.5 text-right font-medium tabular-nums">
+                      {pivotMode === "value" ? money(row.total.amount) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(row.total.qty)}
+                    </td>
+                  </tr>
+                ))}
+                {pivotRows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={monthKeys.length + 2}>No sales in this period.</td></tr>}
               </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
-                  <td className="px-3 py-1.5">Total</td>
-                  {monthKeys.map((mk) => {
-                    const colTotal = Array.from(pivotByCc.values()).reduce((s, row) => s + (row[mk] || 0), 0);
-                    return <td key={mk} className="px-3 py-1.5 text-right tabular-nums">{money(colTotal)}</td>;
-                  })}
-                  <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(s.total))}</td>
-                </tr>
-              </tfoot>
+              {pivotRows.length > 0 && (
+                <tfoot>
+                  <tr className="bg-slate-50 font-semibold">
+                    <td className="px-3 py-1.5">Total</td>
+                    {monthKeys.map((mk) => {
+                      const colTotal = pivotRows.reduce((s, r) => s + (pivotMode === "value" ? (r.cells[mk]?.amount ?? 0) : (r.cells[mk]?.qty ?? 0)), 0);
+                      return <td key={mk} className="px-3 py-1.5 text-right tabular-nums">{pivotMode === "value" ? money(colTotal) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(colTotal)}</td>;
+                    })}
+                    <td className="px-3 py-1.5 text-right tabular-nums">
+                      {pivotMode === "value" ? money(Number(s.total)) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(pivotRows.reduce((s, r) => s + r.total.qty, 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </div>

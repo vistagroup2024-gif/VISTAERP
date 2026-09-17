@@ -15,6 +15,10 @@ import AgingRows from "./AgingRows";
 import { defaultYearMonths, asOfFromYearMonths, type YearMonths } from "@/lib/reports/period";
 
 const money = (n: number) => n ? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) : "";
+// money() blanks a zero on purpose for a Debit/Credit table cell (the other
+// side already carries the figure) — a KPI tile has no "other side", so a
+// real zero needs to read as 0.00, not go blank as if nothing loaded.
+const kpiMoney = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
 // The at-a-glance pair — every account with a real balance, split by
 // direction only (no group, no ageing), so "who do I owe, who owes me" is
@@ -24,7 +28,7 @@ function QuickList({ title, rows }: { title: string; rows: { account_id: string;
   return (
     <div>
       <SectionHeader title={title} />
-      <div className="card max-h-[560px] overflow-y-auto overflow-x-auto p-0">
+      <div className="card min-h-[420px] max-h-[640px] overflow-y-auto overflow-x-auto p-0">
         <table className="report-grid w-full text-sm">
           <thead className="sticky top-0 bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr><th className="px-3 py-2.5 text-left">Name</th><th className="px-3 py-2.5 text-left">Type</th><th className="px-3 py-2.5 text-right">Amount</th></tr>
@@ -152,7 +156,7 @@ export default function AgingView() {
   const debitTotal = rows ? rows.reduce((s, r) => s + Math.max(0, realSigned(r)), 0) : null;
   const creditTotal = rows ? rows.reduce((s, r) => s + Math.max(0, -realSigned(r)), 0) : null;
   const balance = debitTotal !== null && creditTotal !== null ? debitTotal - creditTotal : null;
-  const show = (n: number | null) => (n === null ? "—" : money(n));
+  const show = (n: number | null) => (n === null ? "—" : kpiMoney(n));
 
   // Every account with a real balance, split into the main Group -> Account
   // hierarchy and its own separate Vista Car Customers panel.
@@ -265,7 +269,7 @@ export default function AgingView() {
               <SectionHeader title="Car Customers Summary" />
               <div className="grid grid-cols-2 gap-3">
                 <ReportKpi label="Customers" value={String(carRows.length)} icon="users" />
-                <ReportKpi label="Balance" value={money(carTotal)} icon="wallet" />
+                <ReportKpi label="Balance" value={kpiMoney(carTotal)} icon="wallet" />
               </div>
             </div>
           </div>
