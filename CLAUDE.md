@@ -473,6 +473,39 @@ header now too — asked for separately, once the report screens had already
 moved, so the two never drift back apart into "a colourful dashboard and a
 plain report" the way `ReportKpi`'s own doc comment already warned against.
 
+## A cost centre's target is one number per month, not one number
+
+`acct_cost_centers.sales_target` was a single flat figure per cost centre,
+and it was wrong: "every cost center has different targets also every month
+has different targets, some months target can be zero some months target
+will be high some low, so target are costcenter wise and monthwise" (the
+owner, checking the old software's numbers against this ERP's). A September
+target of 979,750 and an eight-completed-month total of 7,414,000 can't both
+come from one annual figure divided evenly — the old software held a real,
+independent number per cost centre per calendar month, and this ERP now
+does too.
+
+`acct_cost_center_monthly_targets` (company_id, cost_center_id, year, month,
+target) is that table, edited on the Cost Center Targets tab of
+Accounting → Targets & Budget (a Year selector, cost centres as rows,
+Jan–Dec as editable columns, save on blur — the same shape the Expense
+Budget tab next to it already used). `report_cost_center_targets()` and
+`report_cost_centre_costing()` both sum it over whichever months fall in
+their `[from, to]`, instead of reading the flat column — they have to agree,
+or it's the two-screens-disagree trap this file keeps flagging. `report_sales()`
+carries the same sum per cost-centre-group-and-month as `by_cc_month_target`,
+so the Sales Report's own "Sales vs Target of Completed Months" table reads
+it without a second RPC call.
+
+**Nothing was migrated from the old flat field.** Every cost centre's
+`sales_target` was 0 at the time this was built, so nothing was lost — but
+even if it hadn't been, prorating one flat number across twelve unequal
+months would be inventing a distribution the business never actually held.
+A month with nothing entered in the new table reads as target 0, exactly as
+"some months target can be zero" says it should. The old flat field is still
+on the record (the Cost Centers master's own "extra" field editor still
+writes it) but no report reads it any more — it's inert, not deleted.
+
 ## `revoke ... from anon` is not a gate; `revoke ... from public` is
 
 Postgres grants EXECUTE to **PUBLIC** on every new function, and `anon` is a

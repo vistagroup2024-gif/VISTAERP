@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { todaySA, monthStartSA } from "@/lib/saudiTime";
@@ -19,6 +19,7 @@ const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Se
 
 const EMPTY = {
   total: 0, txns: 0, monthly: [] as any[], by_cost_centre: [] as any[], by_cc_month: [] as any[],
+  by_cc_month_target: [] as any[],
   by_customer: [] as any[], by_customer_month: [] as any[], by_product: [] as any[], by_product_month: [] as any[],
 };
 type SalesData = typeof EMPTY;
@@ -66,10 +67,11 @@ function mergeSales(parts: SalesData[]): SalesData {
     txns: parts.reduce((s, p) => s + Number(p.txns || 0), 0),
     monthly: parts.flatMap((p) => p.monthly ?? []),
     by_cc_month: parts.flatMap((p) => p.by_cc_month ?? []),
+    by_cc_month_target: parts.flatMap((p) => p.by_cc_month_target ?? []),
     by_customer_month: parts.flatMap((p) => p.by_customer_month ?? []),
     by_product_month: parts.flatMap((p) => p.by_product_month ?? []),
-    by_cost_centre: mergeByKey(parts.map((p) => p.by_cost_centre), (r) => r.name, ["amount", "txns"]),
-    by_customer: mergeByKey(parts.map((p) => p.by_customer), (r) => r.account_id ?? r.name, ["amount", "txns"]),
+    by_cost_centre: mergeByKey(parts.map((p) => p.by_cost_centre), (r) => r.name, ["amount", "txns", "qty"]),
+    by_customer: mergeByKey(parts.map((p) => p.by_customer), (r) => r.account_id ?? r.name, ["amount", "txns", "qty"]),
     by_product: mergeByKey(parts.map((p) => p.by_product), (r) => r.name, ["amount", "qty"]),
   };
 }
@@ -101,7 +103,10 @@ export default function SalesReportView() {
   const [targets, setTargets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [pivotDim, setPivotDim] = useState<"ccGroup" | "costCentre" | "customer" | "product">("costCentre");
-  const [pivotMode, setPivotMode] = useState<"value" | "qty">("value");
+  // Both can be on at once — "if we want to see qty + value so both should
+  // come" — at least one stays on so the grid is never empty.
+  const [showValue, setShowValue] = useState(true);
+  const [showQty, setShowQty] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -170,6 +175,16 @@ export default function SalesReportView() {
     };
   }).sort((a, b) => (b.subtotal!.current_year ?? 0) - (a.subtotal!.current_year ?? 0));
 
+  // Flat, always-visible Cost Centre Group -> LY vs CY — the old software's
+  // own "Cost Center Group wise Sales" table. ccGroups already carries both
+  // figures per group (it's the same subtotal the nested table below uses);
+  // this is just that same rollup shown on its own, without expanding into
+  // the per-cost-centre rows to see it.
+  const lyVsCyGroups = ccGroups.map((g) => ({
+    name: g.label, ly: g.subtotal!.previous_year, cy: g.subtotal!.current_year,
+    growth: g.subtotal!.previous_year ? ((g.subtotal!.current_year - g.subtotal!.previous_year) / Math.abs(g.subtotal!.previous_year)) * 100 : null,
+  }));
+
   // Monthwise Sales pivot — the months actually selected, as columns; rows
   // are whichever dimension is picked (CC Group, Cost Centre, Customer,
   // Product). CC Group is by_cc_month rolled up one level (the field is
@@ -184,17 +199,45 @@ export default function SalesReportView() {
     for (const r of s.by_cc_month) {
       const key = `${r.cost_center_group}::${r.month}`;
       const existing = m.get(key) ?? { name: r.cost_center_group, month: r.month, amount: 0, qty: 0 };
-      existing.amount += Number(r.amount || 0); existing.qty += Number(r.txns || 0);
+      existing.amount += Number(r.amount || 0); existing.qty += Number(r.qty || 0);
       m.set(key, existing);
     }
     return Array.from(m.values());
   }, [s.by_cc_month]);
-  const costCentreMonthly = s.by_cc_month.map((r: any) => ({ name: r.cost_center, month: r.month, amount: Number(r.amount || 0), qty: Number(r.txns || 0) }));
-  const customerMonthly = s.by_customer_month.map((r: any) => ({ name: r.name, month: r.month, amount: Number(r.amount || 0), qty: Number(r.txns || 0) }));
+  const costCentreMonthly = s.by_cc_month.map((r: any) => ({ name: r.cost_center, month: r.month, amount: Number(r.amount || 0), qty: Number(r.qty || 0) }));
+  const customerMonthly = s.by_customer_month.map((r: any) => ({ name: r.name, month: r.month, amount: Number(r.amount || 0), qty: Number(r.qty || 0) }));
   const productMonthly = s.by_product_month.map((r: any) => ({ name: r.name, month: r.month, amount: Number(r.amount || 0), qty: Number(r.qty || 0) }));
   const pivotSource = pivotDim === "ccGroup" ? ccGroupMonthly : pivotDim === "costCentre" ? costCentreMonthly : pivotDim === "customer" ? customerMonthly : productMonthly;
   const pivotRows = buildPivot(pivotSource).sort((a, b) => b.total.amount - a.total.amount);
-  const pivotQtyLabel = pivotDim === "product" ? "Qty" : "Txns";
+
+  // Sales vs Target of Completed Months — the old software's own table,
+  // scoped to months that have actually ended (a month "in progress" isn't
+  // measured against its target yet). ccGroupMonthly already has sales per
+  // group per month; by_cc_month_target (436) is its target twin. A month is
+  // "completed" once the NEXT month has started — comparing wall-clock
+  // Riyadh "today" against it, never the selected period's own end date.
+  const isMonthCompleted = (monthKey: string) => {
+    const [y, m] = monthKey.split("-").map(Number);
+    const nextStart = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+    return nextStart <= todaySA();
+  };
+  const completedMonthKeys = monthKeys.filter(isMonthCompleted);
+  const ccGroupMonthTargetMap = new Map<string, number>();
+  for (const r of s.by_cc_month_target) {
+    const key = `${r.cost_center_group}::${r.month}`;
+    ccGroupMonthTargetMap.set(key, (ccGroupMonthTargetMap.get(key) ?? 0) + Number(r.target || 0));
+  }
+  const ccGroupMonthSalesMap = new Map<string, number>();
+  for (const r of ccGroupMonthly) ccGroupMonthSalesMap.set(`${r.name}::${r.month}`, r.amount);
+  const completedGroupNames = Array.from(new Set([...ccGroupMonthly.map((r) => r.name), ...s.by_cc_month_target.map((r: any) => r.cost_center_group)]));
+  const salesVsTargetCompleted = completedGroupNames.map((group) => {
+    let sales = 0, target = 0;
+    for (const mk of completedMonthKeys) {
+      sales += ccGroupMonthSalesMap.get(`${group}::${mk}`) ?? 0;
+      target += ccGroupMonthTargetMap.get(`${group}::${mk}`) ?? 0;
+    }
+    return { name: group, target, sales, achieved: target > 0 ? (sales / target) * 100 : null };
+  }).filter((r) => r.sales !== 0 || r.target !== 0).sort((a, b) => b.sales - a.sales);
 
   // Cost Centre Group share of total — the same ccGroups rollup the nested
   // table already built, read for its totals rather than recomputed.
@@ -253,6 +296,34 @@ export default function SalesReportView() {
         </div>
       )}
 
+      {lyVsCyGroups.length > 0 && (
+        <div>
+          <SectionHeader title="Cost Centre Group wise Sales — LY vs CY" />
+          <DataTable
+            cols={[
+              { key: "name", label: "Cost Centre Group" },
+              { key: "ly", label: "LY Sales", kind: "money", total: true },
+              { key: "cy", label: "CY Sales", kind: "money", total: true },
+              { key: "growth", label: "Growth %", kind: "pct" },
+            ]}
+            rows={lyVsCyGroups} empty="No sales in this period." />
+        </div>
+      )}
+
+      {completedMonthKeys.length > 0 && salesVsTargetCompleted.length > 0 && (
+        <div>
+          <SectionHeader title={`Sales vs Target of Completed Months — ${completedMonthKeys.map((mk) => MONTH_NAMES[Number(mk.slice(5, 7)) - 1]).join(", ")}`} />
+          <DataTable
+            cols={[
+              { key: "name", label: "Cost Centre Group" },
+              { key: "target", label: "Target", kind: "money", total: true },
+              { key: "sales", label: "Sales", kind: "money", total: true },
+              { key: "achieved", label: "% Achieved", kind: "pct" },
+            ]}
+            rows={salesVsTargetCompleted} empty="No completed months in this period." />
+        </div>
+      )}
+
       <div>
         <SectionHeader title="Cost Centre Group → Cost Centre — Target, Current Year vs Previous Year" />
         <DataTable
@@ -280,10 +351,10 @@ export default function SalesReportView() {
                 ))}
               </div>
               <div className="flex gap-1">
-                {([["value", "Value"], ["qty", pivotQtyLabel]] as const).map(([k, l]) => (
-                  <button key={k} onClick={() => setPivotMode(k)}
-                    className={`rounded-full px-3 py-1 text-sm ${pivotMode === k ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>{l}</button>
-                ))}
+                <button onClick={() => setShowValue((v) => showQty ? !v : true)}
+                  className={`rounded-full px-3 py-1 text-sm ${showValue ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>Value</button>
+                <button onClick={() => setShowQty((v) => showValue ? !v : true)}
+                  className={`rounded-full px-3 py-1 text-sm ${showQty ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>Qty</button>
               </div>
             </div>
           </div>
@@ -291,37 +362,53 @@ export default function SalesReportView() {
             <table className="report-grid w-full">
               <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
                 <tr>
-                  <th className="px-3 py-2 text-left">{pivotDim === "ccGroup" ? "CC Group" : pivotDim === "costCentre" ? "Cost Centre" : pivotDim === "customer" ? "Customer" : "Product"}</th>
-                  {monthKeys.map((mk) => <th key={mk} className="px-3 py-2 text-right">{MONTH_NAMES[Number(mk.slice(5, 7)) - 1]}</th>)}
-                  <th className="px-3 py-2 text-right">Total</th>
+                  <th className="px-3 py-2 text-left" rowSpan={2}>{pivotDim === "ccGroup" ? "CC Group" : pivotDim === "costCentre" ? "Cost Centre" : pivotDim === "customer" ? "Customer" : "Product"}</th>
+                  {monthKeys.map((mk) => <th key={mk} className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}>{MONTH_NAMES[Number(mk.slice(5, 7)) - 1]}</th>)}
+                  <th className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}>Total</th>
+                </tr>
+                <tr>
+                  {monthKeys.map((mk) => (
+                    <Fragment key={mk}>
+                      {showValue && <th className="px-2 py-1 text-right font-normal">Value</th>}
+                      {showQty && <th className="px-2 py-1 text-right font-normal">Qty</th>}
+                    </Fragment>
+                  ))}
+                  {showValue && <th className="px-2 py-1 text-right font-normal">Value</th>}
+                  {showQty && <th className="px-2 py-1 text-right font-normal">Qty</th>}
                 </tr>
               </thead>
               <tbody>
                 {pivotRows.map((row) => (
                   <tr key={row.key}>
                     <td className="px-3 py-1.5">{row.label}</td>
-                    {monthKeys.map((mk) => {
-                      const v = pivotMode === "value" ? row.cells[mk]?.amount : row.cells[mk]?.qty;
-                      return <td key={mk} className="px-3 py-1.5 text-right tabular-nums">{v ? (pivotMode === "value" ? money(v) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(v)) : "—"}</td>;
-                    })}
-                    <td className="px-3 py-1.5 text-right font-medium tabular-nums">
-                      {pivotMode === "value" ? money(row.total.amount) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(row.total.qty)}
-                    </td>
+                    {monthKeys.map((mk) => (
+                      <Fragment key={mk}>
+                        {showValue && <td className="px-2 py-1.5 text-right tabular-nums">{row.cells[mk]?.amount ? money(row.cells[mk].amount) : "—"}</td>}
+                        {showQty && <td className="px-2 py-1.5 text-right tabular-nums">{row.cells[mk]?.qty ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(row.cells[mk].qty) : "—"}</td>}
+                      </Fragment>
+                    ))}
+                    {showValue && <td className="px-2 py-1.5 text-right font-medium tabular-nums">{money(row.total.amount)}</td>}
+                    {showQty && <td className="px-2 py-1.5 text-right font-medium tabular-nums">{new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(row.total.qty)}</td>}
                   </tr>
                 ))}
-                {pivotRows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={monthKeys.length + 2}>No sales in this period.</td></tr>}
+                {pivotRows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={monthKeys.length * ((showValue ? 1 : 0) + (showQty ? 1 : 0)) + 1 + (showValue ? 1 : 0) + (showQty ? 1 : 0)}>No sales in this period.</td></tr>}
               </tbody>
               {pivotRows.length > 0 && (
                 <tfoot>
                   <tr className="bg-slate-50 font-semibold">
                     <td className="px-3 py-1.5">Total</td>
                     {monthKeys.map((mk) => {
-                      const colTotal = pivotRows.reduce((s, r) => s + (pivotMode === "value" ? (r.cells[mk]?.amount ?? 0) : (r.cells[mk]?.qty ?? 0)), 0);
-                      return <td key={mk} className="px-3 py-1.5 text-right tabular-nums">{pivotMode === "value" ? money(colTotal) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(colTotal)}</td>;
+                      const colValueTotal = pivotRows.reduce((s, r) => s + (r.cells[mk]?.amount ?? 0), 0);
+                      const colQtyTotal = pivotRows.reduce((s, r) => s + (r.cells[mk]?.qty ?? 0), 0);
+                      return (
+                        <Fragment key={mk}>
+                          {showValue && <td className="px-2 py-1.5 text-right tabular-nums">{money(colValueTotal)}</td>}
+                          {showQty && <td className="px-2 py-1.5 text-right tabular-nums">{new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(colQtyTotal)}</td>}
+                        </Fragment>
+                      );
                     })}
-                    <td className="px-3 py-1.5 text-right tabular-nums">
-                      {pivotMode === "value" ? money(Number(s.total)) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(pivotRows.reduce((s, r) => s + r.total.qty, 0))}
-                    </td>
+                    {showValue && <td className="px-2 py-1.5 text-right tabular-nums">{money(Number(s.total))}</td>}
+                    {showQty && <td className="px-2 py-1.5 text-right tabular-nums">{new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(pivotRows.reduce((s, r) => s + r.total.qty, 0))}</td>}
                   </tr>
                 </tfoot>
               )}

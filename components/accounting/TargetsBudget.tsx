@@ -16,6 +16,8 @@ const today = todaySA();
 type Row = { label: string; group?: string; target: number; actual: number; py: number; variance: number; href?: string | null };
 type Budget = { account_id: string; code: string; name: string; budget: number; actual: number; variance: number };
 type Monthly = { month: string; amount: number }[];
+type TargetGridRow = { id: string; name: string; group: string; months: Record<number, number> };
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 function shiftYear(d: string, delta: number): string {
@@ -42,6 +44,9 @@ export default function TargetsBudget() {
   const [monthly, setMonthly] = useState<Monthly>([]);
   const [exp, setExp] = useState<Budget[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [targetYear, setTargetYear] = useState(thisYear);
+  const [targetGrid, setTargetGrid] = useState<TargetGridRow[]>([]);
+  const [targetDraft, setTargetDraft] = useState<Record<string, string>>({});
   const [expAnalysis, setExpAnalysis] = useState<Analysis>(EMPTY_ANALYSIS);
   const [expCurMonth, setExpCurMonth] = useState(0);
   const [expYtd, setExpYtd] = useState(0);
@@ -65,6 +70,38 @@ export default function TargetsBudget() {
       py: pyByLabel.get(r.cost_center) ?? 0, variance: r.variance,
       href: `/accounting/transactions?cc=${encodeURIComponent(r.cost_center)}&from=${from}&to=${to}`,
     })));
+  }
+  // The monthly targets themselves — the real data the owner asked for
+  // ("target are costcenter wise and monthwise"), separate from the
+  // Target/Actual/Achievement table above it, which is read-only and driven
+  // by the from/to filter. This grid is always a full calendar year, since a
+  // target is set per month, not per arbitrary range.
+  async function loadTargetGrid() {
+    const [{ data: ccs }, { data: groups }, { data: targets }] = await Promise.all([
+      supabase.from("acct_cost_centers").select("id, name, parent_id").eq("company_id", COMPANY_ID).eq("is_group", false).order("name"),
+      supabase.from("acct_cost_centers").select("id, name").eq("company_id", COMPANY_ID).eq("is_group", true),
+      supabase.from("acct_cost_center_monthly_targets").select("cost_center_id, month, target").eq("company_id", COMPANY_ID).eq("year", targetYear),
+    ]);
+    const groupById = new Map(((groups as any[]) ?? []).map((g) => [g.id, g.name]));
+    const byCc = new Map<string, Record<number, number>>();
+    for (const t of (targets as any[]) ?? []) {
+      const m = byCc.get(t.cost_center_id) ?? {};
+      m[t.month] = Number(t.target);
+      byCc.set(t.cost_center_id, m);
+    }
+    setTargetGrid(((ccs as any[]) ?? []).map((c) => ({
+      id: c.id, name: c.name, group: groupById.get(c.parent_id) ?? c.name, months: byCc.get(c.id) ?? {},
+    })));
+    setTargetDraft({});
+  }
+  async function saveTarget(ccId: string, month: number) {
+    const key = `${ccId}-${month}`;
+    const v = targetDraft[key];
+    if (v === undefined) return;
+    await supabase.from("acct_cost_center_monthly_targets").upsert(
+      { company_id: COMPANY_ID, cost_center_id: ccId, year: targetYear, month, target: Number(v) || 0 },
+      { onConflict: "company_id,cost_center_id,year,month" });
+    loadTargetGrid();
   }
   async function loadCust() {
     const pyFrom = shiftYear(from, -1), pyTo = shiftYear(to, -1);
@@ -97,6 +134,11 @@ export default function TargetsBudget() {
     if (tab === "exp") loadExp();
     /* eslint-disable-next-line */
   }, [tab, from, to, year]);
+
+  useEffect(() => {
+    if (tab === "cc") loadTargetGrid();
+    /* eslint-disable-next-line */
+  }, [tab, targetYear]);
 
   async function saveBudget(b: Budget) {
     const v = draft[b.account_id];
@@ -151,6 +193,52 @@ export default function TargetsBudget() {
           </div>
         );
       })()}
+
+      {tab === "cc" && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h3 className="text-sm font-semibold text-slate-700">Monthly Targets — editable</h3>
+            <div><label className="label">Year</label><input type="number" className="input w-28" value={targetYear} onChange={(e) => setTargetYear(Number(e.target.value) || thisYear)} /></div>
+          </div>
+          <div className="card overflow-x-auto p-0 text-sm">
+            <table className="report-grid w-full">
+              <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+                <tr>
+                  <th className="px-3 py-2 text-left">Group</th>
+                  <th className="px-3 py-2 text-left">Cost Center</th>
+                  {MONTHS.map((m) => <th key={m} className="px-2 py-2 text-right">{m}</th>)}
+                  <th className="px-3 py-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {targetGrid.map((r) => {
+                  const total = MONTHS.reduce((s, _, i) => s + (Number(targetDraft[`${r.id}-${i + 1}`] ?? r.months[i + 1] ?? 0)), 0);
+                  return (
+                    <tr key={r.id}>
+                      <td className="px-3 py-1.5 text-slate-400">{r.group}</td>
+                      <td className="px-3 py-1.5">{r.name}</td>
+                      {MONTHS.map((_, i) => {
+                        const month = i + 1;
+                        const key = `${r.id}-${month}`;
+                        return (
+                          <td key={month} className="px-1 py-1 text-right">
+                            <input className="input w-20 text-right tabular-nums" inputMode="decimal"
+                              value={targetDraft[key] ?? String(Number(r.months[month] ?? 0))}
+                              onChange={(e) => setTargetDraft((d) => ({ ...d, [key]: e.target.value }))}
+                              onBlur={() => saveTarget(r.id, month)} />
+                          </td>
+                        );
+                      })}
+                      <td className="px-3 py-1.5 text-right font-medium tabular-nums">{money(total)}</td>
+                    </tr>
+                  );
+                })}
+                {targetGrid.length === 0 && <tr><td colSpan={15} className="px-3 py-6 text-center text-slate-400">No cost centres.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {tab === "exp" && (
         <div className="space-y-3">
