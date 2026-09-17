@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import AccountPickTree, { type PickNode } from "@/components/accounting/AccountPickTree";
 import CostCenterPickTree from "@/components/reports/pickers/CostCenterPickTree";
+import PeriodDropdown from "@/components/reports/PeriodDropdown";
+import { defaultYearMonths, monthRanges, type YearMonths } from "@/lib/reports/period";
 
 const TXN_TYPES = [
   { value: "gl_receipt", label: "Receipt" },
@@ -21,12 +23,11 @@ const TXN_TYPES = [
 // existing From/To fields already were) rather than a client-fetched
 // engine, so the KPI row and the table can never show two different
 // filtered states: one server render answers both from the same query.
-export default function TransactionsFilters({ from, to, account, cc, type }: {
-  from: string; to: string; account: string[]; cc: string[]; type: string[];
+export default function TransactionsFilters({ account, cc, type }: {
+  account: string[]; cc: string[]; type: string[];
 }) {
   const router = useRouter();
-  const [f, setF] = useState(from);
-  const [t, setT] = useState(to);
+  const [ym, setYm] = useState<YearMonths>(defaultYearMonths);
   const [acctIds, setAcctIds] = useState<Set<string>>(new Set(account));
   const [ccIds, setCcIds] = useState<Set<string>>(new Set());
   const [ccNames, setCcNames] = useState<Map<string, string>>(new Map());
@@ -48,8 +49,11 @@ export default function TransactionsFilters({ from, to, account, cc, type }: {
 
   function run() {
     const p = new URLSearchParams();
-    if (f) p.set("from", f);
-    if (t) p.set("to", t);
+    const ranges = monthRanges(ym);
+    const f = ranges[0]?.from ?? `${ym.year}-01-01`;
+    const t = ranges[ranges.length - 1]?.to ?? `${ym.year}-12-31`;
+    p.set("from", f);
+    p.set("to", t);
     if (acctIds.size) p.set("account", Array.from(acctIds).join(","));
     if (ccIds.size) p.set("cc", Array.from(ccIds).map((id) => ccNames.get(id)).filter(Boolean).join(","));
     if (types.size) p.set("type", Array.from(types).join(","));
@@ -58,8 +62,7 @@ export default function TransactionsFilters({ from, to, account, cc, type }: {
 
   return (
     <div className="card mb-4 flex flex-wrap items-end gap-3 print:hidden">
-      <div><label className="label">From</label><input type="date" className="input" value={f} onChange={(e) => setF(e.target.value)} /></div>
-      <div><label className="label">To</label><input type="date" className="input" value={t} onChange={(e) => setT(e.target.value)} /></div>
+      <div><label className="label">Period</label><PeriodDropdown value={ym} onChange={setYm} /></div>
       <div><label className="label">Account</label>
         <button onClick={() => setOpenPicker("account")} className="btn-outline h-[38px]">
           {acctIds.size === 0 ? "All accounts" : `${acctIds.size} selected`}

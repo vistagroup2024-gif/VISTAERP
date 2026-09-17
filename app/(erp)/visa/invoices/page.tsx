@@ -34,8 +34,10 @@ export default async function VisaInvoicesPage({ searchParams }: { searchParams:
 
   return (
     <div className="max-w-[1400px]">
-      <PageHeader title="Visa Invoices"><PrintButton /></PageHeader>
-      <VisaLedgerRange from={from} to={to} rows={rows} />
+      <PageHeader title="Visa Invoices">
+        <VisaLedgerRange from={from} to={to} rows={rows} />
+        <PrintButton />
+      </PageHeader>
       {error && <div className="card text-red-600">{error.message}</div>}
 
       <div className="no-print mb-3 flex flex-wrap items-center gap-3 text-sm">

@@ -2,11 +2,25 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import PeriodDropdown from "@/components/reports/PeriodDropdown";
+import { defaultYearMonths, monthRanges, type YearMonths } from "@/lib/reports/period";
 
+// The period control sits in the title row now (PageHeader's children),
+// beside Print — no separate From/To row of its own. Applying navigates
+// via router.push the same way the old Apply button did (this page's data
+// fetch, fare rounding and admin check all stay server-side, untouched);
+// only the control choosing from/to changed.
 export default function LedgerRange({ from, to, rows }: { from: string; to: string; rows: any[] }) {
   const router = useRouter();
-  const [f, setF] = useState(from);
-  const [t, setT] = useState(to);
+  const [ym, setYm] = useState<YearMonths>(defaultYearMonths);
+
+  function apply(next: YearMonths) {
+    setYm(next);
+    const ranges = monthRanges(next);
+    const f = ranges[0]?.from ?? `${next.year}-01-01`;
+    const t = ranges[ranges.length - 1]?.to ?? `${next.year}-12-31`;
+    router.push(`/transport/reports/ledger?from=${f}&to=${t}`);
+  }
 
   function exportCsv() {
     const head = ["Trip Date", "Supplier", "Customer", "Haji Name", "Booking Car", "Driver", "Route", "Trip Fare", "Supplier Amount", "Cash Received", "Invoice Created"];
@@ -28,11 +42,9 @@ export default function LedgerRange({ from, to, rows }: { from: string; to: stri
   }
 
   return (
-    <div className="no-print mb-4 flex flex-wrap items-end gap-2">
-      <div><label className="label">From</label><input type="date" className="input" value={f} onChange={(e) => setF(e.target.value)} /></div>
-      <div><label className="label">To</label><input type="date" className="input" value={t} onChange={(e) => setT(e.target.value)} /></div>
-      <button className="btn text-sm" onClick={() => router.push(`/transport/reports/ledger?from=${f}&to=${t}`)}>Apply</button>
+    <>
+      <PeriodDropdown value={ym} onChange={apply} />
       <button className="btn-outline text-sm" onClick={exportCsv} disabled={!rows.length}>⬇ Export CSV</button>
-    </div>
+    </>
   );
 }

@@ -57,8 +57,10 @@ export default async function TransportLedgerPage({ searchParams }: { searchPara
 
   return (
     <div className="max-w-[1400px]">
-      <PageHeader title="Transport Trip Ledger"><PrintButton /></PageHeader>
-      <LedgerRange from={from} to={to} rows={rows} />
+      <PageHeader title="Transport Trip Ledger">
+        <LedgerRange from={from} to={to} rows={rows} />
+        <PrintButton />
+      </PageHeader>
       {error && <div className="card text-red-600">{error.message}</div>}
 
       <div className="no-print mb-3 flex flex-wrap items-center gap-3 text-sm">

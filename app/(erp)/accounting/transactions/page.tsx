@@ -4,20 +4,12 @@ import { todaySA, monthStartSA } from "@/lib/saudiTime";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import DataTable from "@/components/reports/DataTable";
+import ReportKpi from "@/components/reports/ReportKpi";
 import TransactionsExport from "./TransactionsExport";
 import TransactionsFilters from "./TransactionsFilters";
 
 export const dynamic = "force-dynamic";
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
-
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div className="card">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-1 text-xl font-bold ${tone ?? "text-slate-800"}`}>{value}</p>
-    </div>
-  );
-}
 
 const SOURCE_LABEL: Record<string, string> = {
   gl_receipt: "Receipt", gl_payment: "Payment", purchase_voucher: "Purchase",
@@ -90,15 +82,15 @@ export default async function TransactionsReportPage({ searchParams }: { searchP
       <PageHeader title="Transactions Report" subtitle="Every posted voucher line for the period, with account, debit/credit, currency and cost centre.">
         <PrintButton />
       </PageHeader>
-      <TransactionsFilters from={from} to={to} account={accountIds} cc={costCentres} type={txnTypes} />
+      <TransactionsFilters account={accountIds} cc={costCentres} type={txnTypes} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-        <Kpi label="Receipts" value={money(receipts)} tone="text-green-700" />
-        <Kpi label="Payments" value={money(payments)} tone="text-red-600" />
-        <Kpi label="Net Difference" value={money(receipts - payments)} />
-        <Kpi label="Purchases" value={money(purchases)} />
-        <Kpi label="Sales" value={money(sales)} />
-        <Kpi label="Journal Vouchers" value={money(journal)} />
+        <ReportKpi label="Receipts" value={money(receipts)} icon="receipt" tone="pos" />
+        <ReportKpi label="Payments" value={money(payments)} icon="receipt" tone="neg" />
+        <ReportKpi label="Net Difference" value={money(receipts - payments)} icon="wallet" />
+        <ReportKpi label="Purchases" value={money(purchases)} icon="purchase" />
+        <ReportKpi label="Sales" value={money(sales)} icon="sales" />
+        <ReportKpi label="Journal Vouchers" value={money(journal)} icon="accounting" />
       </div>
 
       <div className="flex justify-end print:hidden">
