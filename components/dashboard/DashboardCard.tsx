@@ -225,17 +225,23 @@ function cells(key: CardKey, m: any): Cell[] {
   }
 }
 
-// Every cell sits on a 6-wide base grid rather than a fixed 2/3-column
-// count, so a row always divides evenly whatever the cell count is — 2 cells
-// are two halves, 3 are three thirds, 4 are two rows of two, and 5 (the one
-// count that doesn't factor into 6) is a row of three thirds over a row of
-// two halves. Nothing is ever left with an empty, unbalanced cell.
-function spanFor(count: number, index: number): string {
-  if (count <= 1) return "col-span-6";
-  if (count === 2 || count === 4) return "col-span-3";
-  if (count === 3 || count === 6) return "col-span-2";
-  if (count === 5) return index < 3 ? "col-span-2" : "col-span-3";
-  return "col-span-2"; // uncovered counts (7+): a plain three-per-row grid
+// One row, always — never a second row of cells. A card's own internal grid
+// has exactly as many columns as it has metrics, so nothing wraps under
+// anything else.
+function colsFor(count: number): string {
+  if (count <= 2) return "grid-cols-2";
+  if (count === 3) return "grid-cols-3";
+  if (count === 4) return "grid-cols-4";
+  if (count === 5) return "grid-cols-5";
+  return "grid-cols-6";
+}
+
+// A 4- or 5-metric card gets more WIDTH from the dashboard's own outer grid
+// instead of a second row — the card stays one row tall and its cells stay a
+// normal size instead of being squeezed to fit. A 2- or 3-metric card keeps
+// the base column width it already had.
+export function cardSpan(def: CardDef, metrics: any): "col-span-1" | "col-span-2" {
+  return cells(def.key, metrics).length >= 4 ? "col-span-2" : "col-span-1";
 }
 
 export default function DashboardCard({ def, metrics }: { def: CardDef; metrics: any }) {
@@ -251,9 +257,9 @@ export default function DashboardCard({ def, metrics }: { def: CardDef; metrics:
           <span className="shrink-0 text-brand-400 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>›</span>
         )}
       </header>
-      <div className="grid flex-1 grid-cols-6 gap-px overflow-hidden bg-slate-100">
-        {list.map((c, i) => (
-          <div key={c.label} className={`flex flex-col items-center justify-center bg-white px-2 py-1.5 text-center ${spanFor(list.length, i)}`}>
+      <div className={`grid flex-1 ${colsFor(list.length)} gap-px overflow-hidden bg-slate-100`}>
+        {list.map((c) => (
+          <div key={c.label} className="flex flex-col items-center justify-center bg-white px-2 py-1.5 text-center">
             {/* Two lines, never an ellipsis — a label cut to "YEAR TO DA…"
                forces a guess; wrapping it costs a few px of height instead.
                min-h reserves that second line's space on every cell so a

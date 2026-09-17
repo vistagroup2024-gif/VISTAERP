@@ -2,10 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { dateStr } from "@/lib/format";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import Icon from "@/components/ui/Icon";
-import DashboardCard from "@/components/dashboard/DashboardCard";
+import DashboardCard, { cardSpan } from "@/components/dashboard/DashboardCard";
+import ReportQuickLinks from "@/components/dashboard/ReportQuickLinks";
 import TripAlerts from "@/components/transport/TripAlerts";
 import { TRIP_ALERT_PERMS } from "@/lib/tripAlerts";
 import { visibleCards, type CardAccess, type CardKey } from "@/lib/dashboardCards";
+import { reportCategories } from "@/lib/reportQuickLinks";
 import { getStaffAccess, staffCan, staffLanding, getSessionUser } from "@/lib/staffSession";
 import { redirect } from "next/navigation";
 import { todaySA, monthStartSA } from "@/lib/saudiTime";
@@ -37,6 +39,10 @@ export default async function Dashboard() {
   // The trip alerts go to whoever runs operations, whatever cards they hold —
   // an alert nobody who can act on it sees is not an alert.
   const tripAlerts = TRIP_ALERT_PERMS.some((k) => staffCan(access, k));
+  // Quick-access report shortcuts, same visibility rule as everywhere else:
+  // a category only shows for someone who could already reach it from the
+  // sidebar or the dashboard's own cards.
+  const reportCats = reportCategories().filter((c) => staffCan(access, c.perm));
 
   // Two calls cover every card — the money and trade figures, and the ones the
   // module dashboards used to carry — so they go out together rather than one
@@ -79,6 +85,8 @@ export default async function Dashboard() {
 
       {tripAlerts && <TripAlerts canAct />}
 
+      <ReportQuickLinks categories={reportCats} />
+
       {noCompany && (
         <div className="flex items-start gap-2 rounded-md border border-warning-soft bg-warning-soft/50 px-4 py-3 text-sm text-warning-fg">
           <Icon name="bell" size={16} className="mt-0.5 shrink-0" />
@@ -94,12 +102,15 @@ export default async function Dashboard() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          {cards.map((def) => (
-            <DashboardCard key={def.key}
-              def={hrefOverride[def.key] ? { ...def, href: hrefOverride[def.key] } : def}
-              metrics={m} />
-          ))}
+        <div className="grid grid-flow-row-dense grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          {cards.map((def) => {
+            const withHref = hrefOverride[def.key] ? { ...def, href: hrefOverride[def.key] } : def;
+            return (
+              <div key={def.key} className={cardSpan(def, m)}>
+                <DashboardCard def={withHref} metrics={m} />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
