@@ -18,6 +18,40 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
   );
 }
 
+// Name + Amount only — the old software's own two columns, one table per
+// balance direction instead of one list mixing both (see the split above).
+function NameAmountTable({ title, rows, total, negative }: {
+  title: string; rows: any[]; total: number; negative?: boolean;
+}) {
+  return (
+    <div>
+      <h2 className="mb-2 text-sm font-semibold text-slate-700">{title}</h2>
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <tr><th className="px-3 py-2 text-left">Name</th><th className="px-3 py-2 text-right">Amount</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.account_id} className="border-t border-slate-100">
+                <td className="px-3 py-1.5"><Link href={`/accounting/customers/${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{money(negative ? Math.abs(Number(r.ledger_balance)) : Number(r.ledger_balance))}</td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td className="px-3 py-4 text-center text-slate-400" colSpan={2}>None.</td></tr>}
+          </tbody>
+          {rows.length > 0 && (
+            <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+              <td className="px-3 py-2">Total ({rows.length})</td>
+              <td className="px-3 py-2 text-right tabular-nums">{money(total)}</td>
+            </tr></tfoot>
+          )}
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // A/R & A/P — the dashboard card's detail screen. `total`/`not_due`/`b0..b4`
 // are what is BILLED, aged by due date (from open_items — the only place a
 // due date lives); `ledger_balance` is what the party's account actually owes
@@ -32,6 +66,17 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
   const rows = (data ?? []) as any[];
   const sum = (k: string) => rows.reduce((s, r) => s + Number(r[k] || 0), 0);
   const overdue = sum("total") - sum("not_due");
+
+  // ledger_balance is already signed so a positive number is money genuinely
+  // owed IN THIS TAB'S OWN DIRECTION (ar_ap_aging(), migration 408) — a
+  // customer showing negative is in CREDIT (we owe them back), a supplier
+  // showing negative means we've overpaid them. The old software's single
+  // Name/Debit/Credit list mixed both directions in one column, credit rows
+  // and debit rows interleaved; splitting on that same sign into two lists
+  // (Debit Balance, Credit Balance — same names the old report used) instead
+  // reads the two apart without a second calculation.
+  const debitRows = rows.filter((r) => Number(r.ledger_balance) > 0.005).sort((a, b) => Number(b.ledger_balance) - Number(a.ledger_balance));
+  const creditRows = rows.filter((r) => Number(r.ledger_balance) < -0.005).sort((a, b) => Number(a.ledger_balance) - Number(b.ledger_balance));
 
   return (
     <div className="space-y-4">
@@ -51,6 +96,11 @@ export default async function AgingPage({ searchParams }: { searchParams: { kind
         <Kpi label="Not Due" value={money(sum("not_due"))} />
         <Kpi label="Overdue" value={money(overdue)} tone={overdue > 0 ? "text-red-600" : "text-green-700"} />
         <Kpi label="Ledger Balance" value={money(sum("ledger_balance"))} />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <NameAmountTable title="Debit Balance" rows={debitRows} total={debitRows.reduce((s, r) => s + Number(r.ledger_balance), 0)} />
+        <NameAmountTable title="Credit Balance" rows={creditRows} total={creditRows.reduce((s, r) => s + Math.abs(Number(r.ledger_balance)), 0)} negative />
       </div>
 
       <div className="card overflow-x-auto p-0">
