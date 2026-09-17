@@ -67,6 +67,13 @@ export interface ReportCfg {
    *  its own rows and subtotal — vs "flat", one row per record. Drives which
    *  DataTable rendering path is used. Default "flat". */
   shape?: "flat" | "grouped";
+  /** When set, this report's period comes from the header's PeriodDropdown
+   *  (Year+Months) instead of its own asof/from/to box in the filter bar —
+   *  "asof" resolves to one date (asOfFromYearMonths), "range" to the
+   *  bounding {from,to} of the months picked (monthRanges()'s first..last).
+   *  A report with no real period concept (Virtual Stock, Reorder — "what
+   *  is true right now", no date to pick) leaves this unset. */
+  period?: "asof" | "range";
   cols: Col[];
   empty: string;
 }

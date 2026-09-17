@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { ACCOUNTING_REPORTS } from "@/lib/reports/accounting";
-import ReportFilterBar, { defaultReportFilters, type Filters } from "@/components/reports/ReportFilters";
+import PageHeader from "@/components/PageHeader";
+import PrintButton from "@/components/PrintButton";
 import DataTable, { type DataGroup } from "@/components/reports/DataTable";
 import DonutChart from "@/components/reports/charts/DonutChart";
 import TrendChart from "@/components/reports/charts/TrendChart";
@@ -27,11 +28,12 @@ const sumGroup = (groups: DataGroup[], key: string, field: string) =>
 // duplicating whichever of Debit/Credit was filled, and a Share column
 // repeating that same split per row now shown once, as the chart).
 //
-// There is no standalone "As at" date box any more — this is an as-at
-// report, so the ERP-wide Year+Months period control (PeriodDropdown)
-// resolves to a single date via asOfFromYearMonths() (the last day of the
-// latest month picked, capped at today) instead of keeping its own separate
-// picker.
+// No filter box at all: not the old "As at" date, and not Account/Cost
+// Centre/Run report either — this report always shows every cash and bank
+// account, so there was nothing for those two to actually narrow. The
+// PeriodDropdown, in the title row, is the one control this report needs:
+// an as-at report reads it as a single date via asOfFromYearMonths() (the
+// last day of the latest month picked, capped at today).
 //
 // A zero-balance account (opened, never moved, or since cleared) is dropped
 // from both the table and the chart — dropping it is presentation only,
@@ -39,26 +41,19 @@ const sumGroup = (groups: DataGroup[], key: string, field: string) =>
 export default function CashBankView() {
   const supabase = useMemo(() => createClient(), []);
   const [ym, setYm] = useState<YearMonths>(defaultYearMonths);
-  const [filters, setFilters] = useState<Filters>(defaultReportFilters);
   const [groups, setGroups] = useState<DataGroup[] | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const asOf = asOfFromYearMonths(ym);
 
   const run = useCallback(async () => {
-    setBusy(true);
-    const { data } = await supabase.rpc("report_cash_bank", {
-      p_company: COMPANY_ID, p_as_of: asOf,
-      p_account_ids: filters.account, p_cost_center_ids: filters.costCenter,
-    });
-    setBusy(false);
+    const { data } = await supabase.rpc("report_cash_bank", { p_company: COMPANY_ID, p_as_of: asOf });
     const raw = ((data as DataGroup[]) ?? []).map((g) => ({
       ...g, rows: g.rows.filter((r: any) => Math.abs(r.debit_balance) > 0.005 || Math.abs(r.credit_balance) > 0.005),
     })).filter((g) => g.rows.length > 0);
     setGroups(raw);
-  }, [supabase, asOf, filters.account, filters.costCenter]);
+  }, [supabase, asOf]);
 
-  useEffect(() => { run(); }, [asOf, filters.account, filters.costCenter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { run(); }, [run]);
 
   const cash = groups ? sumGroup(groups, "cash_driver", "balance") + sumGroup(groups, "cash_other", "balance") : null;
   const bank = groups ? sumGroup(groups, "bank", "balance") : null;
@@ -76,10 +71,10 @@ export default function CashBankView() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
-        <ReportFilterBar needs={["account", "costCenter"]} value={filters} onChange={setFilters} onRun={run} busy={busy} />
+      <PageHeader title={CFG.title} subtitle={CFG.subtitle}>
         <PeriodDropdown value={ym} onChange={setYm} />
-      </div>
+        <PrintButton />
+      </PageHeader>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <ReportKpi label="Bank" value={show(bank)} icon="accounting" />

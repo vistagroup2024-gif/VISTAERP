@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
 import { todaySA, monthStartSA } from "@/lib/saudiTime";
 import { defaultYearMonths, monthRanges, periodLabel, type YearMonths } from "@/lib/reports/period";
-import YearMonthsPicker from "@/components/reports/YearMonthsPicker";
+import PageHeader from "@/components/PageHeader";
+import PrintButton from "@/components/PrintButton";
+import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable, { type DataGroup } from "@/components/reports/DataTable";
 import ReportKpi from "@/components/reports/ReportKpi";
@@ -162,7 +164,10 @@ export default function SalesReportView() {
 
   return (
     <div className="space-y-4">
-      <YearMonthsPicker value={ym} onChange={setYm} />
+      <PageHeader title="Sales Report" subtitle="Every sale the business made — Sales Invoice, the service invoices, and the Car Invoice — for the chosen period.">
+        <PeriodDropdown value={ym} onChange={setYm} />
+        <PrintButton />
+      </PageHeader>
 
       <div>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Summary — {periodLabel(ym)}{loading ? " (loading…)" : ""}</h2>

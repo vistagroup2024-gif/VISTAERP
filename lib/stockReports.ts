@@ -37,7 +37,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
   opening: {
     key: "opening", title: "Opening Stocks Register",
     subtitle: "Quantity, rate and value held immediately before the chosen date.",
-    rpc: "stock_opening_register", params: ["asof", "items", "warehouse"],
+    rpc: "stock_opening_register", params: ["asof", "items", "warehouse"], period: "asof",
     cols: [ITEM, UOM, WH,
       { key: "qty", label: "Qty", kind: "qty", total: true },
       { key: "rate", label: "Rate", kind: "money" },
@@ -47,7 +47,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
   statement: {
     key: "statement", title: "Stock Statement",
     subtitle: "Opening, receipts, issues and closing for every item in the period.",
-    rpc: "stock_statement", params: ["from", "to", "items", "warehouse", "movedOnly"],
+    rpc: "stock_statement", params: ["from", "to", "items", "warehouse", "movedOnly"], period: "range",
     cols: [ITEM, UOM,
       { key: "opening_qty", label: "Opening Qty", kind: "qty", total: true },
       { key: "opening_value", label: "Opening Value", kind: "money", total: true },
@@ -62,7 +62,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
   movement: {
     key: "movement", title: "Stock Movement",
     subtitle: "Every stock voucher in the period, receipt and issue side by side.",
-    rpc: "stock_movement_report", params: ["from", "to", "items", "warehouse"],
+    rpc: "stock_movement_report", params: ["from", "to", "items", "warehouse"], period: "range",
     cols: [{ key: "date", label: "Date", kind: "date" },
       { key: "doc_no", label: "Voucher No" },
       { key: "doc_type", label: "Type" },
@@ -89,7 +89,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
   valuation: {
     key: "valuation", title: "Stock Valuation",
     subtitle: "Quantity, average cost and value held, with each item's share of the total.",
-    rpc: "stock_valuation_report", params: ["asof", "warehouse", "items"],
+    rpc: "stock_valuation_report", params: ["asof", "warehouse", "items"], period: "asof",
     cols: [ITEM_LINKED, UOM, WH,
       { key: "qty", label: "Qty", kind: "qty", total: true },
       { key: "avg_cost", label: "Avg Cost", kind: "money" },
@@ -100,7 +100,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
   abc: {
     key: "abc", title: "ABC Analysis",
     subtitle: "Items ranked by consumption value: A is the top 80% of value, B the next 15%, C the rest.",
-    rpc: "stock_abc_analysis", params: ["from", "to", "warehouse"],
+    rpc: "stock_abc_analysis", params: ["from", "to", "warehouse"], period: "range",
     cols: [{ key: "rank", label: "#", kind: "int" }, ITEM, UOM,
       { key: "qty", label: "Consumed Qty", kind: "qty", total: true },
       { key: "value", label: "Consumed Value", kind: "money", total: true },
@@ -112,7 +112,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
   ageing: {
     key: "ageing", title: "Ageing Analysis",
     subtitle: "How long the stock on hand has been sitting, oldest receipts consumed first.",
-    rpc: "stock_ageing_analysis", params: ["asof", "warehouse", "items"],
+    rpc: "stock_ageing_analysis", params: ["asof", "warehouse", "items"], period: "asof",
     cols: [ITEM_LINKED, UOM,
       { key: "qty", label: "On Hand", kind: "qty", total: true },
       { key: "d0_30", label: "0–30 d", kind: "qty", total: true },
@@ -138,7 +138,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
   fast: {
     key: "fast", title: "Fast Moving Items",
     subtitle: "The items that left the warehouse most in the period.",
-    rpc: "stock_moving_items", params: ["from", "to", "mode", "limit", "warehouse"], mode: "fast",
+    rpc: "stock_moving_items", params: ["from", "to", "mode", "limit", "warehouse"], mode: "fast", period: "range",
     cols: [ITEM, UOM,
       { key: "out_qty", label: "Issued Qty", kind: "qty", total: true },
       { key: "out_value", label: "Issued Value", kind: "money", total: true },
@@ -151,7 +151,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
   slow: {
     key: "slow", title: "Slow Moving Items",
     subtitle: "The items that moved least — dead stock rises to the top.",
-    rpc: "stock_moving_items", params: ["from", "to", "mode", "limit", "warehouse"], mode: "slow",
+    rpc: "stock_moving_items", params: ["from", "to", "mode", "limit", "warehouse"], mode: "slow", period: "range",
     cols: [ITEM, UOM,
       { key: "out_qty", label: "Issued Qty", kind: "qty", total: true },
       { key: "out_value", label: "Issued Value", kind: "money", total: true },
@@ -164,7 +164,7 @@ export const STOCK_REPORTS: Record<string, StockReportCfg> = {
   peaklow: {
     key: "peaklow", title: "Peak / Low Balances",
     subtitle: "The highest and lowest quantity each item reached in the period, and when.",
-    rpc: "stock_peak_low_balances", params: ["from", "to", "items", "warehouse"],
+    rpc: "stock_peak_low_balances", params: ["from", "to", "items", "warehouse"], period: "range",
     cols: [ITEM, UOM,
       { key: "opening", label: "Opening", kind: "qty" },
       { key: "peak", label: "Peak Qty", kind: "qty" },

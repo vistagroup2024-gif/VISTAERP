@@ -11,6 +11,7 @@ import DataTable, { type DataGroup } from "./DataTable";
 import PrintButton from "@/components/PrintButton";
 import type { MultiOption } from "@/components/ui/MultiSearchSelect";
 import type { Need } from "@/lib/reports/types";
+import { asOfFromYearMonths, monthRanges, type YearMonths } from "@/lib/reports/period";
 
 /**
  * The thin registry-driven wrapper every report page renders — successor to
@@ -26,7 +27,7 @@ import type { Need } from "@/lib/reports/types";
  * user's ticked ids back to names before the RPC is called, fetching the
  * id→name map itself only when a report actually needs it.
  */
-export default function ReportRunner({ registry, report, options, onData, initialFilters }: {
+export default function ReportRunner({ registry, report, options, onData, initialFilters, periodValue }: {
   registry: Record<string, ReportCfg>;
   report: string;
   options?: Partial<Record<Need, MultiOption[]>>;
@@ -39,6 +40,13 @@ export default function ReportRunner({ registry, report, options, onData, initia
    *  scoped, instead of opening the report empty and making the owner pick
    *  the same item again by hand. Only read once, on mount. */
   initialFilters?: Partial<Filters>;
+  /** The header's PeriodDropdown value, for a report whose `cfg.period` is
+   *  set — read instead of filters.asof/from/to for that report's period
+   *  arg(s), and excluded from the filter bar so the date box doesn't also
+   *  show there. The page rendering the header owns this state; ReportRunner
+   *  never renders the dropdown itself (it sits in the title row, above
+   *  where this component starts). */
+  periodValue?: YearMonths;
 }) {
   const cfg = registry[report];
   const supabase = useMemo(() => createClient(), []);
@@ -70,9 +78,16 @@ export default function ReportRunner({ registry, report, options, onData, initia
     if (!cfg) return;
     setBusy(true); setErr(null);
     const args: Record<string, any> = { ...cfg.fixedArgs };
+    // A report's period, when it has one, comes from the header's
+    // PeriodDropdown rather than filters.asof/from/to — resolved here so
+    // the RPC call is unchanged, only where its date(s) come from.
+    const range = cfg.period === "range" && periodValue ? monthRanges(periodValue) : null;
     for (const p of cfg.params) {
       const key = cfg.argMap?.[p] ?? NEED_ARG[p];
       if (p === "mode") { args[key] = cfg.mode; continue; }
+      if (cfg.period === "asof" && p === "asof" && periodValue) { args[key] = asOfFromYearMonths(periodValue); continue; }
+      if (range && p === "from") { args[key] = range[0]?.from ?? filters.from; continue; }
+      if (range && p === "to") { args[key] = range[range.length - 1]?.to ?? filters.to; continue; }
       if (p === "costCenterName") { args[key] = filters.costCenter?.map((id) => ccNames.get(id)).filter(Boolean) ?? null; continue; }
       if (p === "tagAreaName") { args[key] = filters.tagArea?.map((id) => taNames.get(id)).filter(Boolean) ?? null; continue; }
       // "…Group" needs share the same picker/storage as their singular form
@@ -84,7 +99,7 @@ export default function ReportRunner({ registry, report, options, onData, initia
     setBusy(false);
     if (error) { setErr(error.message); setRows([]); return; }
     setRows((data as any[]) ?? []);
-  }, [cfg, supabase, filters, ccNames, taNames]);
+  }, [cfg, supabase, filters, ccNames, taNames, periodValue]);
 
   // Auto-run on mount whenever every one of the report's params already has a
   // real, sensible default — from/to/asof/month/year all do (today, current
@@ -102,8 +117,11 @@ export default function ReportRunner({ registry, report, options, onData, initia
     // yet", so it does not hold back auto-run the way an empty one does.
     const stillUnpicked = (p: string) => ["items", "product", "party"].includes(p) && !((filters as any)[p]?.length);
     if (cfg && !cfg.params.some(stillUnpicked)) run();
+    // Re-runs on every PeriodDropdown change too, for a report whose period
+    // it drives — the same "no Run button, it just applies" rule every
+    // other period control in the ERP follows.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cfg?.key]);
+  }, [cfg?.key, periodValue?.year, periodValue?.months.join(",")]);
 
   // "grouped" reports' RPC returns the DataGroup[] shape directly (one block
   // per account/entity, its own rows and subtotal) — see lib/reports/types.ts.
@@ -119,10 +137,16 @@ export default function ReportRunner({ registry, report, options, onData, initia
 
   if (!cfg) return <p className="text-sm text-danger-fg">Unknown report &quot;{report}&quot;.</p>;
 
+  // The period param(s) this report's `cfg.period` already draws from the
+  // header's PeriodDropdown are dropped from the filter bar — showing them
+  // there too would be the same date asked twice, in two different controls.
+  const barNeeds = cfg.params.filter((p) =>
+    !(cfg.period === "asof" && p === "asof") && !(cfg.period === "range" && (p === "from" || p === "to")));
+
   return (
     <div>
       <div className="print:hidden">
-        <ReportFilterBar needs={cfg.params} value={filters} onChange={setFilters} onRun={run} busy={busy} options={options} />
+        <ReportFilterBar needs={barNeeds} value={filters} onChange={setFilters} onRun={run} busy={busy} options={options} />
       </div>
       {err && <div className="mb-3 rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}
       {rows === null ? (

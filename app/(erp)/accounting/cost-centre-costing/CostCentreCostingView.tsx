@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { defaultYearMonths, monthRanges, periodLabel, type YearMonths } from "@/lib/reports/period";
-import YearMonthsPicker from "@/components/reports/YearMonthsPicker";
+import PageHeader from "@/components/PageHeader";
+import PrintButton from "@/components/PrintButton";
+import PeriodDropdown from "@/components/reports/PeriodDropdown";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable, { type DataGroup } from "@/components/reports/DataTable";
 import ReportKpi from "@/components/reports/ReportKpi";
@@ -120,7 +122,10 @@ export default function CostCentreCostingView() {
 
   return (
     <div className="space-y-4">
-      <YearMonthsPicker value={ym} onChange={setYm} />
+      <PageHeader title="Cost Centre Costing" subtitle="Each cost centre's own target, sales, cost of sales, gross profit and expense — by group, and by month.">
+        <PeriodDropdown value={ym} onChange={setYm} />
+        <PrintButton />
+      </PageHeader>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <ReportKpi label="Target" value={money(t.target)} icon="trendUp" />
