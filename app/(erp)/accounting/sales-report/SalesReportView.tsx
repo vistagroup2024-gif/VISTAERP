@@ -360,24 +360,24 @@ export default function SalesReportView() {
             <table className="report-grid w-full">
               <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
                 <tr>
-                  <th className="px-3 py-2 text-left" rowSpan={2}>{pivotDim === "ccGroup" ? "CC Group" : pivotDim === "costCentre" ? "Cost Centre" : pivotDim === "customer" ? "Customer" : "Product"}</th>
-                  {monthKeys.map((mk) => <th key={mk} className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}>{monthShort(mk)}</th>)}
-                  <th className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}>Total</th>
+                  <th className="px-3 py-2 text-left" rowSpan={2}><span className="col-resize">{pivotDim === "ccGroup" ? "CC Group" : pivotDim === "costCentre" ? "Cost Centre" : pivotDim === "customer" ? "Customer" : "Product"}</span></th>
+                  {monthKeys.map((mk) => <th key={mk} className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}><span className="col-resize">{monthShort(mk)}</span></th>)}
+                  <th className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}><span className="col-resize">Total</span></th>
                 </tr>
                 <tr>
                   {monthKeys.map((mk) => (
                     <Fragment key={mk}>
-                      {showValue && <th className="px-2 py-1 text-right font-normal">Value</th>}
-                      {showQty && <th className="px-2 py-1 text-right font-normal">Qty</th>}
+                      {showValue && <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Value</span></th>}
+                      {showQty && <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Qty</span></th>}
                     </Fragment>
                   ))}
-                  {showValue && <th className="px-2 py-1 text-right font-normal">Value</th>}
-                  {showQty && <th className="px-2 py-1 text-right font-normal">Qty</th>}
+                  {showValue && <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Value</span></th>}
+                  {showQty && <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Qty</span></th>}
                 </tr>
               </thead>
               <tbody>
-                {pivotRows.map((row) => (
-                  <tr key={row.key}>
+                {pivotRows.map((row, i) => (
+                  <tr key={row.key} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
                     <td className="px-3 py-1.5">{row.label}</td>
                     {monthKeys.map((mk) => (
                       <Fragment key={mk}>

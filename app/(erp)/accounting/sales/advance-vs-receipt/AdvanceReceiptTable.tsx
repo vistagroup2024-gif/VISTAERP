@@ -33,17 +33,17 @@ export default function AdvanceReceiptTable({ title, rows, receipts }: { title: 
         <table className="report-grid w-full min-w-[800px] text-sm">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
             <th className="px-4 py-2.5 w-8" />
-            <th className="px-4 py-2.5 text-left">Order No</th><th className="px-4 py-2.5 text-left">Date</th><th className="px-4 py-2.5 text-left">Customer</th><th className="px-4 py-2.5 text-left">Cost Centre</th>
-            <th className="px-4 py-2.5 text-right">SO Amount</th><th className="px-4 py-2.5 text-right">Advance</th>
-            <th className="px-4 py-2.5 text-right">Received</th><th className="px-4 py-2.5 text-right">Balance</th>
+            <th className="px-4 py-2.5 text-left"><span className="col-resize">Order No</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Date</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Customer</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Cost Centre</span></th>
+            <th className="px-4 py-2.5 text-right"><span className="col-resize">SO Amount</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Advance</span></th>
+            <th className="px-4 py-2.5 text-right"><span className="col-resize">Received</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Balance</span></th>
           </tr></thead>
           <tbody>
-            {rows.map((r) => {
+            {rows.map((r, i) => {
               const rcpts = receiptsByDoc.get(r.doc_id) ?? [];
               const isOpen = open.has(r.doc_id);
               return (
                 <Fragment key={r.doc_id}>
-                  <tr className="border-t border-slate-100">
+                  <tr className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                     <td className="td">
                       {rcpts.length > 0 && (
                         <button onClick={() => toggle(r.doc_id)} className="text-slate-400 hover:text-slate-700" aria-label={isOpen ? "Collapse" : "Expand"}>
@@ -66,13 +66,13 @@ export default function AdvanceReceiptTable({ title, rows, receipts }: { title: 
                       <td colSpan={8} className="px-3 py-2">
                         <table className="report-grid w-full text-xs">
                           <thead className="text-slate-400"><tr>
-                            <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Receipt No</th>
-                            <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Date</th>
-                            <th className="px-2 py-1 text-right font-semibold uppercase tracking-wide">Amount</th>
+                            <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide"><span className="col-resize">Receipt No</span></th>
+                            <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide"><span className="col-resize">Date</span></th>
+                            <th className="px-2 py-1 text-right font-semibold uppercase tracking-wide"><span className="col-resize">Amount</span></th>
                           </tr></thead>
                           <tbody>
-                            {rcpts.map((rc) => (
-                              <tr key={rc.id} className="border-t border-slate-200">
+                            {rcpts.map((rc, ri) => (
+                              <tr key={rc.id} className={`border-t border-slate-200 ${ri % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                                 <td className="px-2 py-1">{rc.receipt_no}</td>
                                 <td className="px-2 py-1">{dateStr(rc.receipt_date)}</td>
                                 <td className="px-2 py-1 text-right tabular-nums">{money(rc.amount)}</td>

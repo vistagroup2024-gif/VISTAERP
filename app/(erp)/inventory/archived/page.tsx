@@ -43,21 +43,21 @@ export default async function ArchivedBrnsPage({ searchParams }: { searchParams:
         <table className="report-grid w-full min-w-[980px]">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
-              <th className="px-4 py-2.5 text-left">Company</th>
-              <th className="px-4 py-2.5 text-left">BRN</th>
-              <th className="px-4 py-2.5 text-left">Hotel</th>
-              <th className="px-4 py-2.5 text-left">Supplier</th>
-              <th className="px-4 py-2.5 text-left">Check-in</th>
-              <th className="px-4 py-2.5 text-left">Check-out</th>
-              <th className="px-4 py-2.5 text-left">Original Beds</th>
-              <th className="px-4 py-2.5 text-left">Beds Consumed</th>
-              <th className="px-4 py-2.5 text-left">Fully Consumed On</th>
-              <th className="px-4 py-2.5 text-left">History</th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Company</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">BRN</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Hotel</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Supplier</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Check-in</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Check-out</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Original Beds</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Beds Consumed</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Fully Consumed On</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">History</span></th>
             </tr>
           </thead>
           <tbody>
-            {archived.map(({ b, peakUsed, fullyOn, history }) => (
-              <tr key={b.id} className="border-t border-slate-100">
+            {archived.map(({ b, peakUsed, fullyOn, history }, i) => (
+              <tr key={b.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="td text-slate-500">{b.group_companies?.name ?? "—"}</td>
                 <td className="td font-mono font-medium">
                   <Link href={`/inventory/brn/${b.id}`} className="text-brand hover:underline">{b.brn}</Link>

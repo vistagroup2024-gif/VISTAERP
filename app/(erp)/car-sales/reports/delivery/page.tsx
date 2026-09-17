@@ -52,13 +52,13 @@ export default async function CarDeliveryReport({ searchParams }: { searchParams
       <div className="card overflow-x-auto p-0">
         <table className="report-grid w-full min-w-[900px]">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
-            <th className="px-4 py-2.5 text-left">Vehicle</th><th className="px-4 py-2.5 text-left">Cost Centre</th><th className="px-4 py-2.5 text-left">Customer</th>
-            <th className="px-4 py-2.5 text-left">Tag Area</th><th className="px-4 py-2.5 text-left">Invoice No</th><th className="px-4 py-2.5 text-left">Invoice Date</th>
-            <th className="px-4 py-2.5 text-right">Invoice Amount</th><th className="px-4 py-2.5 text-left">Status</th>
+            <th className="px-4 py-2.5 text-left"><span className="col-resize">Vehicle</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Cost Centre</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Customer</span></th>
+            <th className="px-4 py-2.5 text-left"><span className="col-resize">Tag Area</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Invoice No</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Invoice Date</span></th>
+            <th className="px-4 py-2.5 text-right"><span className="col-resize">Invoice Amount</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Status</span></th>
           </tr></thead>
           <tbody>
-            {rows.filter((r) => r.status === "sold" || r.status === "delivered").map((r) => (
-              <tr key={r.vehicle_id} className="border-t border-slate-100">
+            {rows.filter((r) => r.status === "sold" || r.status === "delivered").map((r, i) => (
+              <tr key={r.vehicle_id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="td">{vehicleTitle(r)}{r.plate_no ? <span className="ml-1 text-xs text-slate-400">{r.plate_no}</span> : null}</td>
                 <td className="td">{r.cost_centre ?? "—"}</td>
                 <td className="td">{r.customer ?? "—"}</td>

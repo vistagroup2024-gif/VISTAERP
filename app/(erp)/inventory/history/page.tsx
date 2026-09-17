@@ -25,19 +25,19 @@ export default async function HistoryPage() {
         <table className="report-grid w-full min-w-[720px]">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
-              <th className="px-4 py-2.5 text-left">Booked</th>
-              <th className="px-4 py-2.5 text-left">BRN</th>
-              <th className="px-4 py-2.5 text-left">Hotel</th>
-              <th className="px-4 py-2.5 text-left">Reference</th>
-              <th className="px-4 py-2.5 text-left">Stay</th>
-              <th className="px-4 py-2.5 text-right">Beds</th>
-              <th className="px-4 py-2.5 text-right">Bed-Nights</th>
-              <th className="px-4 py-2.5 text-left">Action</th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Booked</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">BRN</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Hotel</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Reference</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Stay</span></th>
+              <th className="px-4 py-2.5 text-right"><span className="col-resize">Beds</span></th>
+              <th className="px-4 py-2.5 text-right"><span className="col-resize">Bed-Nights</span></th>
+              <th className="px-4 py-2.5 text-left"><span className="col-resize">Action</span></th>
             </tr>
           </thead>
           <tbody>
-            {R.map((r: any) => (
-              <tr key={r.id} className="border-t border-slate-100">
+            {R.map((r: any, i) => (
+              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="td text-sm text-slate-400">{dateStr(r.created_at)}</td>
                 <td className="td font-mono">{r.brn_inventory?.brn ?? "—"}</td>
                 <td className="td">{r.brn_inventory?.hotel_name ?? "—"}</td>

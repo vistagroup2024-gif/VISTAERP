@@ -104,7 +104,7 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
     <div>
       <SectionHeader title={`Customer Due Ageing Summary — Total Cars: ${totalCars}`} />
       <div className="card overflow-x-auto p-0">
-        <table className="report-grid w-full min-w-[1550px] text-sm">
+        <table className="report-grid w-full min-w-[1150px] text-sm">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
               <th className="px-4 py-2.5 text-right" rowSpan={2}>Sr #</th>
@@ -117,15 +117,15 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
               <th className={`px-4 py-2.5 text-center border-l border-slate-300 ${RCPT_BG}`} colSpan={4}>Monthly Receipts</th>
             </tr>
             <tr>
-              <th className={`px-4 py-2.5 text-right border-l border-slate-300 ${DUE_BG}`}><span className="col-resize">Current Month Due</span></th>
-              <th className={`px-4 py-2.5 text-right ${DUE_BG}`}><span className="col-resize">Last Month Due</span></th>
-              <th className={`px-4 py-2.5 text-right ${DUE_BG}`}><span className="col-resize">2nd Last Month Due</span></th>
-              <th className={`px-4 py-2.5 text-right ${DUE_BG}`}><span className="col-resize">3rd Last Month Due</span></th>
-              <th className={`px-4 py-2.5 text-right ${DUE_BG}`}><span className="col-resize">All Previous Dues</span></th>
-              <th className={`px-4 py-2.5 text-right border-l border-slate-300 ${RCPT_BG}`}><span className="col-resize">Current Month Rec</span></th>
-              <th className={`px-4 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize">Last Month Rec</span></th>
-              <th className={`px-4 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize">2nd Last Month Rec</span></th>
-              <th className={`px-4 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize">3rd Last Month Rec</span></th>
+              <th className={`px-2 py-2.5 text-right border-l border-slate-300 ${DUE_BG}`}><span className="col-resize-wrap">Current Month Due</span></th>
+              <th className={`px-2 py-2.5 text-right ${DUE_BG}`}><span className="col-resize-wrap">Last Month Due</span></th>
+              <th className={`px-2 py-2.5 text-right ${DUE_BG}`}><span className="col-resize-wrap">2nd Last Month Due</span></th>
+              <th className={`px-2 py-2.5 text-right ${DUE_BG}`}><span className="col-resize-wrap">3rd Last Month Due</span></th>
+              <th className={`px-2 py-2.5 text-right ${DUE_BG}`}><span className="col-resize-wrap">All Previous Dues</span></th>
+              <th className={`px-2 py-2.5 text-right border-l border-slate-300 ${RCPT_BG}`}><span className="col-resize-wrap">Current Month Rec</span></th>
+              <th className={`px-2 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize-wrap">Last Month Rec</span></th>
+              <th className={`px-2 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize-wrap">2nd Last Month Rec</span></th>
+              <th className={`px-2 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize-wrap">3rd Last Month Rec</span></th>
             </tr>
           </thead>
           <tbody>
@@ -184,17 +184,17 @@ async function MonthlyBalance(supabase: ReturnType<typeof createClient>) {
 
   return (
     <div className="card overflow-x-auto p-0">
-      <table className="report-grid w-full min-w-[1100px] text-sm">
+      <table className="report-grid w-full min-w-[900px] text-sm">
         <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
           <tr>
             <th className="px-4 py-2.5 text-left" rowSpan={2}><span className="col-resize">Customer</span></th>
-            <th className={`px-4 py-2.5 text-center ${DUE_BG}`} colSpan={5}>Due</th>
-            <th className={`px-4 py-2.5 text-center ${RCPT_BG}`} colSpan={4}>Receipts</th>
+            <th className={`px-2 py-2.5 text-center ${DUE_BG}`} colSpan={5}>Due</th>
+            <th className={`px-2 py-2.5 text-center ${RCPT_BG}`} colSpan={4}>Receipts</th>
           </tr>
           <tr>
-            {MONTHS.map((m) => <th key={`d${m}`} className={`px-4 py-2.5 text-right ${DUE_BG}`}><span className="col-resize">{m}</span></th>)}
-            <th className={`px-4 py-2.5 text-right ${DUE_BG}`}><span className="col-resize">Previous</span></th>
-            {MONTHS.map((m) => <th key={`r${m}`} className={`px-4 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize">{m}</span></th>)}
+            {MONTHS.map((m) => <th key={`d${m}`} className={`px-2 py-2.5 text-right ${DUE_BG}`}><span className="col-resize-wrap">{m}</span></th>)}
+            <th className={`px-2 py-2.5 text-right ${DUE_BG}`}><span className="col-resize-wrap">Previous</span></th>
+            {MONTHS.map((m) => <th key={`r${m}`} className={`px-2 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize-wrap">{m}</span></th>)}
           </tr>
         </thead>
         <tbody>

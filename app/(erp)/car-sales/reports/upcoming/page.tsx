@@ -40,12 +40,12 @@ export default async function UpcomingReport({ searchParams }: { searchParams: {
       <div className="card overflow-x-auto p-0">
         <table className="report-grid w-full min-w-[720px]">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
-            <th className="px-4 py-2.5 text-left">Due Date</th><th className="px-4 py-2.5 text-left">Contract</th><th className="px-4 py-2.5 text-left">Customer</th><th className="px-4 py-2.5 text-left">Contact</th>
-            <th className="px-4 py-2.5 text-right">Inst #</th><th className="px-4 py-2.5 text-right">Amount</th>
+            <th className="px-4 py-2.5 text-left"><span className="col-resize">Due Date</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Contract</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Customer</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Contact</span></th>
+            <th className="px-4 py-2.5 text-right"><span className="col-resize">Inst #</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Amount</span></th>
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={i} className="border-t border-slate-100">
+              <tr key={i} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="td">{dateStr(r.due)}</td>
                 <td className="td"><Link href={`/car-sales/contracts/${r.id}`} className="text-brand hover:underline">{r.contract_no}</Link></td>
                 <td className="td">{r.customer}</td><td className="td">{r.phone}</td>

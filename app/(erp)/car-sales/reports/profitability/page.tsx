@@ -35,13 +35,13 @@ export default async function ProfitabilityReport() {
       <div className="card overflow-x-auto p-0">
         <table className="report-grid w-full min-w-[980px]">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
-            <th className="px-4 py-2.5 text-left">Contract</th><th className="px-4 py-2.5 text-left">Vehicle</th>
-            <th className="px-4 py-2.5 text-right">Cost</th><th className="px-4 py-2.5 text-right">Sale</th><th className="px-4 py-2.5 text-right">Gross</th>
-            <th className="px-4 py-2.5 text-right">Commission</th><th className="px-4 py-2.5 text-right">Net</th><th className="px-4 py-2.5 text-right">Collected</th><th className="px-4 py-2.5 text-right">Outstanding</th>
+            <th className="px-4 py-2.5 text-left"><span className="col-resize">Contract</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Vehicle</span></th>
+            <th className="px-4 py-2.5 text-right"><span className="col-resize">Cost</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Sale</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Gross</span></th>
+            <th className="px-4 py-2.5 text-right"><span className="col-resize">Commission</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Net</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Collected</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Outstanding</span></th>
           </tr></thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t border-slate-100">
+            {rows.map((r, i) => (
+              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="td"><Link href={`/car-sales/contracts/${r.id}`} className="text-brand hover:underline">{r.contract_no}</Link></td>
                 <td className="td">{r.vehicle}</td>
                 <td className="td text-right tabular-nums">{sar(r.cost)}</td>

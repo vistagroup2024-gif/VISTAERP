@@ -32,12 +32,12 @@ export default async function HotelReportsPage() {
       <div className="card overflow-x-auto p-0">
         <table className="report-grid w-full min-w-[600px]">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
-            <th className="px-4 py-2.5 text-left">{keyLabel}</th><th className="px-4 py-2.5 text-left">Bookings</th><th className="px-4 py-2.5 text-left">Sales</th>
-            {canProfit && <th className="px-4 py-2.5 text-left">Purchase</th>}{canProfit && <th className="px-4 py-2.5 text-left">Profit</th>}
+            <th className="px-4 py-2.5 text-left"><span className="col-resize">{keyLabel}</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Bookings</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Sales</span></th>
+            {canProfit && <th className="px-4 py-2.5 text-left"><span className="col-resize">Purchase</span></th>}{canProfit && <th className="px-4 py-2.5 text-left"><span className="col-resize">Profit</span></th>}
           </tr></thead>
           <tbody>
-            {Array.from(map.entries()).map(([k, v]) => (
-              <tr key={k} className="border-t border-slate-100">
+            {Array.from(map.entries()).map(([k, v], i) => (
+              <tr key={k} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="td font-medium capitalize">{k}</td>
                 <td className="td">{v.count}</td>
                 <td className="td">{money(v.sales, "SAR")}</td>

@@ -56,18 +56,18 @@ export default function TrialBalanceView() {
         <table className="report-grid w-full text-sm">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
-              <th className="px-3 py-2 text-left">Account</th>
-              <th className="px-3 py-2 text-right">Opening Dr</th>
-              <th className="px-3 py-2 text-right">Opening Cr</th>
-              <th className="px-3 py-2 text-right">Period Dr</th>
-              <th className="px-3 py-2 text-right">Period Cr</th>
-              <th className="px-3 py-2 text-right">Closing Dr</th>
-              <th className="px-3 py-2 text-right">Closing Cr</th>
+              <th className="px-3 py-2 text-left"><span className="col-resize">Account</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Opening Dr</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Opening Cr</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Period Dr</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Period Cr</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Closing Dr</span></th>
+              <th className="px-3 py-2 text-right"><span className="col-resize">Closing Cr</span></th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t border-slate-100">
+            {rows.map((r, i) => (
+              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="px-3 py-1.5"><Link href={`/accounting/ledger?account=${r.id}&from=${from}&to=${to}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{Number(r.opening_debit) ? money(Number(r.opening_debit)) : ""}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{Number(r.opening_credit) ? money(Number(r.opening_credit)) : ""}</td>

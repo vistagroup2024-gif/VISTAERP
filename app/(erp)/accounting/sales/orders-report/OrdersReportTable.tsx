@@ -32,18 +32,18 @@ export default function OrdersReportTable({ rows, lines }: { rows: Row[]; lines:
       <table className="report-grid w-full min-w-[1080px] text-sm">
         <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
           <th className="px-4 py-2.5 w-8" />
-          <th className="px-4 py-2.5 text-left">Order No</th><th className="px-4 py-2.5 text-left">Date</th><th className="px-4 py-2.5 text-left">Delivery</th><th className="px-4 py-2.5 text-left">Terms</th><th className="px-4 py-2.5 text-left">Due Date</th>
-          <th className="px-4 py-2.5 text-left">Customer</th><th className="px-4 py-2.5 text-left">Cost Centre</th>
-          <th className="px-4 py-2.5 text-right">Amount</th><th className="px-4 py-2.5 text-right">Advance</th>
-          <th className="px-4 py-2.5 text-right">Received</th><th className="px-4 py-2.5 text-right">Balance</th><th className="px-4 py-2.5 text-left">Status</th>
+          <th className="px-4 py-2.5 text-left"><span className="col-resize">Order No</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Date</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Delivery</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Terms</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Due Date</span></th>
+          <th className="px-4 py-2.5 text-left"><span className="col-resize">Customer</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Cost Centre</span></th>
+          <th className="px-4 py-2.5 text-right"><span className="col-resize">Amount</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Advance</span></th>
+          <th className="px-4 py-2.5 text-right"><span className="col-resize">Received</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Balance</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Status</span></th>
         </tr></thead>
         <tbody>
-          {rows.map((r) => {
+          {rows.map((r, i) => {
             const rowLines = linesByDoc.get(r.doc_id) ?? [];
             const isOpen = open.has(r.doc_id);
             return (
               <Fragment key={r.doc_id}>
-                <tr className="border-t border-slate-100">
+                <tr className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                   <td className="td">
                     {rowLines.length > 0 && (
                       <button onClick={() => toggle(r.doc_id)} className="text-slate-400 hover:text-slate-700" aria-label={isOpen ? "Collapse" : "Expand"}>
@@ -70,15 +70,15 @@ export default function OrdersReportTable({ rows, lines }: { rows: Row[]; lines:
                     <td colSpan={12} className="px-3 py-2">
                       <table className="report-grid w-full text-xs">
                         <thead className="text-slate-400"><tr>
-                          <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Product</th>
-                          <th className="px-2 py-1 text-right font-semibold uppercase tracking-wide">Order Qty</th>
-                          <th className="px-2 py-1 text-right font-semibold uppercase tracking-wide">Stock</th>
-                          <th className="px-2 py-1 text-right font-semibold uppercase tracking-wide">Rate</th>
-                          <th className="px-2 py-1 text-right font-semibold uppercase tracking-wide">Amount</th>
+                          <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide"><span className="col-resize">Product</span></th>
+                          <th className="px-2 py-1 text-right font-semibold uppercase tracking-wide"><span className="col-resize">Order Qty</span></th>
+                          <th className="px-2 py-1 text-right font-semibold uppercase tracking-wide"><span className="col-resize">Stock</span></th>
+                          <th className="px-2 py-1 text-right font-semibold uppercase tracking-wide"><span className="col-resize">Rate</span></th>
+                          <th className="px-2 py-1 text-right font-semibold uppercase tracking-wide"><span className="col-resize">Amount</span></th>
                         </tr></thead>
                         <tbody>
                           {rowLines.map((l, i) => (
-                            <tr key={i} className="border-t border-slate-200">
+                            <tr key={i} className={`border-t border-slate-200 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                               <td className="px-2 py-1">{l.product}</td>
                               <td className="px-2 py-1 text-right tabular-nums">{qty(l.qty)}</td>
                               <td className="px-2 py-1 text-right tabular-nums">{qty(l.stock)}</td>

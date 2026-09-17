@@ -35,12 +35,12 @@ export default async function ServiceChargeReport() {
       <div className="card overflow-x-auto p-0">
         <table className="report-grid w-full min-w-[860px]">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
-            <th className="px-4 py-2.5 text-left">Vehicle</th><th className="px-4 py-2.5 text-left">Customer</th><th className="px-4 py-2.5 text-left">Ownership</th><th className="px-4 py-2.5 text-right">Months</th>
-            <th className="px-4 py-2.5 text-right">Charged</th><th className="px-4 py-2.5 text-right">Paid</th><th className="px-4 py-2.5 text-right">Outstanding</th><th className="px-4 py-2.5 text-right">Overdue</th>
+            <th className="px-4 py-2.5 text-left"><span className="col-resize">Vehicle</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Customer</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Ownership</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Months</span></th>
+            <th className="px-4 py-2.5 text-right"><span className="col-resize">Charged</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Paid</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Outstanding</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Overdue</span></th>
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={i} className="border-t border-slate-100">
+              <tr key={i} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="td"><Link href={`/car-sales/vehicles/${r.vehicle.id}`} className="text-brand hover:underline">{vehicleTitle(r.vehicle)}</Link><div className="text-xs text-slate-400">{r.vehicle.plate_no ?? ""}</div></td>
                 <td className="td">{r.customer}</td>
                 <td className="td">{OWNERSHIP_LABEL[r.vehicle.ownership] ?? r.vehicle.ownership}</td>

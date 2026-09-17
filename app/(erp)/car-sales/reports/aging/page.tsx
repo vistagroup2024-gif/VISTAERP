@@ -32,13 +32,13 @@ export default async function AgingReport() {
       <div className="card overflow-x-auto p-0">
         <table className="report-grid w-full min-w-[820px]">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
-            <th className="px-4 py-2.5 text-left">Contract</th><th className="px-4 py-2.5 text-left">Customer</th>
-            <th className="px-4 py-2.5 text-right">Current</th><th className="px-4 py-2.5 text-right">1-30</th><th className="px-4 py-2.5 text-right">31-60</th>
-            <th className="px-4 py-2.5 text-right">61-90</th><th className="px-4 py-2.5 text-right">90+</th><th className="px-4 py-2.5 text-right">Total</th>
+            <th className="px-4 py-2.5 text-left"><span className="col-resize">Contract</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Customer</span></th>
+            <th className="px-4 py-2.5 text-right"><span className="col-resize">Current</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">1-30</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">31-60</span></th>
+            <th className="px-4 py-2.5 text-right"><span className="col-resize">61-90</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">90+</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Total</span></th>
           </tr></thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t border-slate-100">
+            {rows.map((r, i) => (
+              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="td"><Link href={`/car-sales/contracts/${r.id}`} className="text-brand hover:underline">{r.contract_no}</Link></td>
                 <td className="td">{r.customer}</td>
                 <td className="td text-right tabular-nums">{sar(r.current)}</td>

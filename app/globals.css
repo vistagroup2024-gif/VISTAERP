@@ -108,6 +108,18 @@ tbody tr:hover > .td { @apply bg-slate-50/60; }
   min-width: 3rem;
   max-width: 32rem;
 }
+/* Same drag-to-resize affordance, but the label WRAPS onto a second line
+   instead of truncating — for a header whose own text is the long part (a
+   "Current Month Due" over a plain number column), so the column itself can
+   sit narrower and more of a wide report fits on screen without scrolling. */
+.col-resize-wrap {
+  display: block;
+  resize: horizontal;
+  overflow: hidden;
+  white-space: normal;
+  min-width: 3.5rem;
+  max-width: 32rem;
+}
 
 /* ── Badges ──────────────────────────────────────────────────────────────── */
 .badge {

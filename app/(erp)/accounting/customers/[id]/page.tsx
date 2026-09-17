@@ -72,9 +72,9 @@ export default async function CustomerReportPage({ params }: { params: { id: str
         <div className="card overflow-x-auto p-0">
           <table className="report-grid w-full text-sm">
             <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-              <tr><th className="px-3 py-2 text-left">Coming due</th><th className="px-3 py-2 text-right">0-30d</th>
-                <th className="px-3 py-2 text-right">31-60d</th><th className="px-3 py-2 text-right">61-90d</th>
-                <th className="px-3 py-2 text-right">91-180d</th><th className="px-3 py-2 text-right">180d+</th></tr>
+              <tr><th className="px-3 py-2 text-left"><span className="col-resize">Coming due</span></th><th className="px-3 py-2 text-right"><span className="col-resize">0-30d</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">31-60d</span></th><th className="px-3 py-2 text-right"><span className="col-resize">61-90d</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">91-180d</span></th><th className="px-3 py-2 text-right"><span className="col-resize">180d+</span></th></tr>
             </thead>
             <tbody><tr className="border-t border-slate-100">
               <td className="px-3 py-2 font-medium">Amount</td>
@@ -96,13 +96,13 @@ export default async function CustomerReportPage({ params }: { params: { id: str
         <div className="card overflow-x-auto p-0">
           <table className="report-grid w-full text-sm">
             <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-              <tr><th className="px-3 py-2 text-left">Bill No</th><th className="px-3 py-2 text-left">Bill Date</th>
-                <th className="px-3 py-2 text-left">Due Date</th><th className="px-3 py-2 text-right">Amount</th>
-                <th className="px-3 py-2 text-right">Adjusted</th><th className="px-3 py-2 text-right">Balance</th></tr>
+              <tr><th className="px-3 py-2 text-left"><span className="col-resize">Bill No</span></th><th className="px-3 py-2 text-left"><span className="col-resize">Bill Date</span></th>
+                <th className="px-3 py-2 text-left"><span className="col-resize">Due Date</span></th><th className="px-3 py-2 text-right"><span className="col-resize">Amount</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">Adjusted</span></th><th className="px-3 py-2 text-right"><span className="col-resize">Balance</span></th></tr>
             </thead>
             <tbody>
-              {bills.map((b: any) => (
-                <tr key={b.id} className="border-t border-slate-100">
+              {bills.map((b: any, i: number) => (
+                <tr key={b.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                   <td className="px-3 py-1.5">{b.doc_no}</td>
                   <td className="px-3 py-1.5">{dateStr(b.doc_date)}</td>
                   <td className="px-3 py-1.5">{b.due_date ? dateStr(b.due_date) : "—"}</td>
@@ -126,9 +126,9 @@ export default async function CustomerReportPage({ params }: { params: { id: str
         <div className="card overflow-x-auto p-0">
           <table className="report-grid w-full text-sm">
             <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-              <tr><th className="px-3 py-2 text-left"> </th><th className="px-3 py-2 text-right">This Month</th>
-                <th className="px-3 py-2 text-right">Last Month</th><th className="px-3 py-2 text-right">2 Months Ago</th>
-                <th className="px-3 py-2 text-right">3 Months Ago</th><th className="px-3 py-2 text-right">Older</th></tr>
+              <tr><th className="px-3 py-2 text-left"> </th><th className="px-3 py-2 text-right"><span className="col-resize">This Month</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">Last Month</span></th><th className="px-3 py-2 text-right"><span className="col-resize-wrap">2 Months Ago</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize-wrap">3 Months Ago</span></th><th className="px-3 py-2 text-right"><span className="col-resize">Older</span></th></tr>
             </thead>
             <tbody>
               <tr className="border-t border-slate-100">
@@ -157,13 +157,13 @@ export default async function CustomerReportPage({ params }: { params: { id: str
         <div className="card overflow-x-auto p-0">
           <table className="report-grid w-full text-sm">
             <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-              <tr><th className="px-3 py-2 text-left">Voucher No</th><th className="px-3 py-2 text-left">Date</th>
-                <th className="px-3 py-2 text-right">Debit</th><th className="px-3 py-2 text-right">Credit</th>
-                <th className="px-3 py-2 text-left">Remarks</th></tr>
+              <tr><th className="px-3 py-2 text-left"><span className="col-resize">Voucher No</span></th><th className="px-3 py-2 text-left"><span className="col-resize">Date</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">Debit</span></th><th className="px-3 py-2 text-right"><span className="col-resize">Credit</span></th>
+                <th className="px-3 py-2 text-left"><span className="col-resize">Remarks</span></th></tr>
             </thead>
             <tbody>
-              {txns.map((t: any) => (
-                <tr key={`${t.entry_id}-${t.voucher_no}`} className="border-t border-slate-100">
+              {txns.map((t: any, i: number) => (
+                <tr key={`${t.entry_id}-${t.voucher_no}`} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                   <td className="px-3 py-1.5">{t.voucher_no}</td>
                   <td className="px-3 py-1.5">{dateStr(t.date)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{money(t.debit)}</td>

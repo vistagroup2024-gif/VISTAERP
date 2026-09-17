@@ -314,11 +314,11 @@ export default function ProfitLossView() {
           <div className="card overflow-x-auto p-0 text-sm">
             <table className="report-grid w-full">
               <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-                <tr><th className="px-3 py-2 text-left">Cost Center</th><th className="px-3 py-2 text-right">P&amp;L</th></tr>
+                <tr><th className="px-3 py-2 text-left"><span className="col-resize">Cost Center</span></th><th className="px-3 py-2 text-right"><span className="col-resize">P&amp;L</span></th></tr>
               </thead>
               <tbody>
-                {ccGroupNetRows.map((r) => (
-                  <tr key={r.name}>
+                {ccGroupNetRows.map((r, i) => (
+                  <tr key={r.name} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
                     <td className="px-3 py-1.5">{r.name}</td>
                     <td className={`px-3 py-1.5 text-right tabular-nums ${r.net < 0 ? "font-medium text-red-600" : ""}`}>{money(r.net)}</td>
                   </tr>
