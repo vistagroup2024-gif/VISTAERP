@@ -81,10 +81,18 @@ export default function ReportRunner({ registry, report, options, onData }: {
     setRows((data as any[]) ?? []);
   }, [cfg, supabase, filters, ccNames, taNames]);
 
-  // A report with no date/period/tree choice has nothing to configure — run
-  // once on mount, exactly like StockReport already does.
+  // Auto-run on mount whenever every one of the report's params already has a
+  // real, sensible default — from/to/asof/month/year all do (today, current
+  // year — see defaultReportFilters()), and so does an optional multi-select
+  // filter like account/costCenter/tagArea (empty = "all", already a valid
+  // report). The owner should see the current period's picture the moment
+  // the screen opens, not after pressing "Run report" on values that were
+  // already filled in. Only "items", "product" and "party" stay excluded:
+  // each names ONE specific thing the report is about, with no default that
+  // means anything (an empty items/product/party filter is not "the whole
+  // company's stock/ledger", it is "nothing chosen yet").
   useEffect(() => {
-    if (cfg && !cfg.params.some((p) => ["from", "to", "asof", "month", "year", "items", "product", "account", "party"].includes(p))) run();
+    if (cfg && !cfg.params.some((p) => ["items", "product", "party"].includes(p))) run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg?.key]);
 

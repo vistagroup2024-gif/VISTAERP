@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import { COMPANY_ID } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 
@@ -27,7 +28,10 @@ export default async function BalanceSheetPage({ searchParams }: { searchParams:
     <div className="card overflow-x-auto p-0">
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 font-semibold text-slate-700">{title}</div>
       <table className="w-full text-sm"><tbody>
-        {rows.map((r) => (<tr key={r.id} className="border-b border-slate-50"><td className="px-4 py-1.5">{r.name}</td><td className="px-4 py-1.5 text-right tabular-nums">{money(r.amt)}</td></tr>))}
+        {rows.map((r) => (<tr key={r.id} className="border-b border-slate-50">
+          <td className="px-4 py-1.5"><Link href={`/accounting/ledger?account=${r.id}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
+          <td className="px-4 py-1.5 text-right tabular-nums">{money(r.amt)}</td>
+        </tr>))}
         {extra && <tr className="border-b border-slate-50"><td className="px-4 py-1.5 italic text-slate-600">{extra.name}</td><td className="px-4 py-1.5 text-right tabular-nums">{money(extra.amt)}</td></tr>}
       </tbody></table>
     </div>

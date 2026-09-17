@@ -97,7 +97,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: { fr
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Trip Detail</h2>
         <DataTable
           cols={[
-            { key: "customer", label: "Customer" },
+            // Reuses the exact drilldown target TripAlerts already links a
+            // trip to (operations board, that trip's day) — there is no
+            // standalone trip-detail page/URL in the ERP, so this is the
+            // real, existing screen a trip is actually looked at from.
+            { key: "customer", label: "Customer", href: (row) => row.trip_date ? `/transport/operations?date=${row.trip_date}` : null },
             { key: "contact", label: "WhatsApp / Contact" },
             { key: "trip_date", label: "Travel Date", kind: "date" },
             { key: "route", label: "Route" },
