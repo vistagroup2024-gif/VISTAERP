@@ -34,10 +34,10 @@ export default async function ProfitabilityReport() {
       <PageHeader title="Vehicle Profitability"><PrintButton /></PageHeader>
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[980px]">
-          <thead className="bg-slate-50"><tr>
-            <th className="th">Contract</th><th className="th">Vehicle</th>
-            <th className="th text-right">Cost</th><th className="th text-right">Sale</th><th className="th text-right">Gross</th>
-            <th className="th text-right">Commission</th><th className="th text-right">Net</th><th className="th text-right">Collected</th><th className="th text-right">Outstanding</th>
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr>
+            <th className="px-4 py-2.5 text-left">Contract</th><th className="px-4 py-2.5 text-left">Vehicle</th>
+            <th className="px-4 py-2.5 text-right">Cost</th><th className="px-4 py-2.5 text-right">Sale</th><th className="px-4 py-2.5 text-right">Gross</th>
+            <th className="px-4 py-2.5 text-right">Commission</th><th className="px-4 py-2.5 text-right">Net</th><th className="px-4 py-2.5 text-right">Collected</th><th className="px-4 py-2.5 text-right">Outstanding</th>
           </tr></thead>
           <tbody>
             {rows.map((r) => (

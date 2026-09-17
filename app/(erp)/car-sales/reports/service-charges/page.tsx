@@ -34,9 +34,9 @@ export default async function ServiceChargeReport() {
       <PageHeader title="Monthly Service Charges — by Vehicle"><PrintButton /></PageHeader>
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[860px]">
-          <thead className="bg-slate-50"><tr>
-            <th className="th">Vehicle</th><th className="th">Customer</th><th className="th">Ownership</th><th className="th text-right">Months</th>
-            <th className="th text-right">Charged</th><th className="th text-right">Paid</th><th className="th text-right">Outstanding</th><th className="th text-right">Overdue</th>
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr>
+            <th className="px-4 py-2.5 text-left">Vehicle</th><th className="px-4 py-2.5 text-left">Customer</th><th className="px-4 py-2.5 text-left">Ownership</th><th className="px-4 py-2.5 text-right">Months</th>
+            <th className="px-4 py-2.5 text-right">Charged</th><th className="px-4 py-2.5 text-right">Paid</th><th className="px-4 py-2.5 text-right">Outstanding</th><th className="px-4 py-2.5 text-right">Overdue</th>
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (

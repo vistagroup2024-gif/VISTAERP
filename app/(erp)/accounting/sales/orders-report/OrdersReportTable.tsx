@@ -30,12 +30,12 @@ export default function OrdersReportTable({ rows, lines }: { rows: Row[]; lines:
   return (
     <div className="card overflow-x-auto p-0">
       <table className="w-full min-w-[1080px] text-sm">
-        <thead className="bg-slate-50"><tr>
-          <th className="th w-8" />
-          <th className="th">Order No</th><th className="th">Date</th><th className="th">Delivery</th><th className="th">Terms</th><th className="th">Due Date</th>
-          <th className="th">Customer</th><th className="th">Cost Centre</th>
-          <th className="th text-right">Amount</th><th className="th text-right">Advance</th>
-          <th className="th text-right">Received</th><th className="th text-right">Balance</th><th className="th">Status</th>
+        <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr>
+          <th className="px-4 py-2.5 w-8" />
+          <th className="px-4 py-2.5 text-left">Order No</th><th className="px-4 py-2.5 text-left">Date</th><th className="px-4 py-2.5 text-left">Delivery</th><th className="px-4 py-2.5 text-left">Terms</th><th className="px-4 py-2.5 text-left">Due Date</th>
+          <th className="px-4 py-2.5 text-left">Customer</th><th className="px-4 py-2.5 text-left">Cost Centre</th>
+          <th className="px-4 py-2.5 text-right">Amount</th><th className="px-4 py-2.5 text-right">Advance</th>
+          <th className="px-4 py-2.5 text-right">Received</th><th className="px-4 py-2.5 text-right">Balance</th><th className="px-4 py-2.5 text-left">Status</th>
         </tr></thead>
         <tbody>
           {rows.map((r) => {

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { guardStaffPage, staffCan } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
+import SectionHeader from "@/components/reports/SectionHeader";
 import { money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -27,12 +28,12 @@ export default async function HotelReportsPage() {
 
   const Section = ({ title, map, keyLabel }: { title: string; map: Map<string, any>; keyLabel: string }) => (
     <div>
-      <h2 className="mb-2 font-semibold text-slate-700">{title}</h2>
+      <SectionHeader title={title} />
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[600px]">
-          <thead className="bg-slate-50"><tr>
-            <th className="th">{keyLabel}</th><th className="th">Bookings</th><th className="th">Sales</th>
-            {canProfit && <th className="th">Purchase</th>}{canProfit && <th className="th">Profit</th>}
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr>
+            <th className="px-4 py-2.5 text-left">{keyLabel}</th><th className="px-4 py-2.5 text-left">Bookings</th><th className="px-4 py-2.5 text-left">Sales</th>
+            {canProfit && <th className="px-4 py-2.5 text-left">Purchase</th>}{canProfit && <th className="px-4 py-2.5 text-left">Profit</th>}
           </tr></thead>
           <tbody>
             {Array.from(map.entries()).map(([k, v]) => (

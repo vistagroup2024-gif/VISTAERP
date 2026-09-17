@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
+import SectionHeader from "@/components/reports/SectionHeader";
 import { sar } from "../lib";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export default async function CarAccountingPage() {
       <PageHeader title="Car Sales — Accounting" />
 
       <section className="card space-y-2">
-        <h2 className="font-semibold text-slate-700">Posted automatically</h2>
+        <SectionHeader title="Posted automatically" />
         <p className="text-sm text-slate-500">
           Every car-sales event posts its own balanced double entry the moment it happens — nothing to run by hand.
           It uses the dedicated car accounts: Installment Receivable 1150, Vehicle Inventory 1160, Service Charge
@@ -53,11 +54,11 @@ export default async function CarAccountingPage() {
 
       <section className="card overflow-x-auto p-0">
         <div className="flex items-center justify-between px-4 pt-4">
-          <h2 className="font-semibold text-slate-700">Posted Journals</h2>
+          <SectionHeader title="Posted Journals" />
           <Link href="/accounting/journal" className="text-sm text-brand hover:underline">Open General Journal →</Link>
         </div>
         <table className="mt-2 w-full">
-          <thead className="bg-slate-50"><tr><th className="th">Type</th><th className="th text-right">Entries</th><th className="th text-right">Debit Total</th></tr></thead>
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr><th className="px-4 py-2.5 text-left">Type</th><th className="px-4 py-2.5 text-right">Entries</th><th className="px-4 py-2.5 text-right">Debit Total</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.source} className="border-t border-slate-100">

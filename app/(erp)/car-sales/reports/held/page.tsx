@@ -31,9 +31,9 @@ export default async function HeldReport() {
       <PageHeader title="Vehicles Held by Vista"><PrintButton /></PageHeader>
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[900px]">
-          <thead className="bg-slate-50"><tr>
-            <th className="th">Vehicle</th><th className="th">Customer</th><th className="th">Contract</th><th className="th">Held Date</th>
-            <th className="th">Reason</th><th className="th text-right">Outstanding</th><th className="th text-right">Overdue</th><th className="th">Next Due</th>
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr>
+            <th className="px-4 py-2.5 text-left">Vehicle</th><th className="px-4 py-2.5 text-left">Customer</th><th className="px-4 py-2.5 text-left">Contract</th><th className="px-4 py-2.5 text-left">Held Date</th>
+            <th className="px-4 py-2.5 text-left">Reason</th><th className="px-4 py-2.5 text-right">Outstanding</th><th className="px-4 py-2.5 text-right">Overdue</th><th className="px-4 py-2.5 text-left">Next Due</th>
           </tr></thead>
           <tbody>
             {rows.map((r) => (

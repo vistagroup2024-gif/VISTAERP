@@ -31,10 +31,10 @@ export default async function AgingReport() {
       <PageHeader title="Installment Aging"><PrintButton /></PageHeader>
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[820px]">
-          <thead className="bg-slate-50"><tr>
-            <th className="th">Contract</th><th className="th">Customer</th>
-            <th className="th text-right">Current</th><th className="th text-right">1-30</th><th className="th text-right">31-60</th>
-            <th className="th text-right">61-90</th><th className="th text-right">90+</th><th className="th text-right">Total</th>
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr>
+            <th className="px-4 py-2.5 text-left">Contract</th><th className="px-4 py-2.5 text-left">Customer</th>
+            <th className="px-4 py-2.5 text-right">Current</th><th className="px-4 py-2.5 text-right">1-30</th><th className="px-4 py-2.5 text-right">31-60</th>
+            <th className="px-4 py-2.5 text-right">61-90</th><th className="px-4 py-2.5 text-right">90+</th><th className="px-4 py-2.5 text-right">Total</th>
           </tr></thead>
           <tbody>
             {rows.map((r) => (

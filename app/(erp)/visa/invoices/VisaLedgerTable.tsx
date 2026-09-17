@@ -58,11 +58,11 @@ export default function VisaLedgerTable({ rows, isAdmin }: { rows: VisaLedgerRow
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
-            <th className="th">Date</th><th className="th">Company</th><th className="th">Customer</th>
-            <th className="th">Name</th><th className="th">Group No</th><th className="th">Visa Type</th>
-            <th className="th text-right">Nights</th><th className="th text-right">Pax</th><th className="th">Invoice</th>
-            <th className="th no-print"></th>
+          <thead><tr className="bg-slate-700 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+            <th className="px-4 py-2.5">Date</th><th className="px-4 py-2.5">Company</th><th className="px-4 py-2.5">Customer</th>
+            <th className="px-4 py-2.5">Name</th><th className="px-4 py-2.5">Group No</th><th className="px-4 py-2.5">Visa Type</th>
+            <th className="px-4 py-2.5 text-right">Nights</th><th className="px-4 py-2.5 text-right">Pax</th><th className="px-4 py-2.5">Invoice</th>
+            <th className="px-4 py-2.5 no-print"></th>
           </tr></thead>
           <tbody>
             {filtered.map((r) => (

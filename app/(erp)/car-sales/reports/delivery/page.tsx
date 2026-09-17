@@ -51,10 +51,10 @@ export default async function CarDeliveryReport({ searchParams }: { searchParams
       </div>
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[900px]">
-          <thead className="bg-slate-50"><tr>
-            <th className="th">Vehicle</th><th className="th">Cost Centre</th><th className="th">Customer</th>
-            <th className="th">Tag Area</th><th className="th">Invoice No</th><th className="th">Invoice Date</th>
-            <th className="th text-right">Invoice Amount</th><th className="th">Status</th>
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200"><tr>
+            <th className="px-4 py-2.5 text-left">Vehicle</th><th className="px-4 py-2.5 text-left">Cost Centre</th><th className="px-4 py-2.5 text-left">Customer</th>
+            <th className="px-4 py-2.5 text-left">Tag Area</th><th className="px-4 py-2.5 text-left">Invoice No</th><th className="px-4 py-2.5 text-left">Invoice Date</th>
+            <th className="px-4 py-2.5 text-right">Invoice Amount</th><th className="px-4 py-2.5 text-left">Status</th>
           </tr></thead>
           <tbody>
             {rows.filter((r) => r.status === "sold" || r.status === "delivered").map((r) => (

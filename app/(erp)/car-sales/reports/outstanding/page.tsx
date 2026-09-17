@@ -86,37 +86,37 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
       [r.due_cur, r.due_last, r.due_l2, r.due_l3, r.due_prev, r.rcpt_cur, r.rcpt_last, r.rcpt_l2, r.rcpt_l3].some((v) => Math.abs(v) > 0.005));
 
   const sum = (k: string) => rows.reduce((s, r) => s + Number((r as any)[k] || 0), 0);
-  const th2 = "sticky left-0 z-10 bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500";
+  const th2 = "sticky left-0 z-10 bg-slate-700 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-200";
   const td2 = "sticky left-0 z-10 bg-white px-3 py-2";
   const td2Foot = "sticky left-0 z-10 bg-slate-50 px-3 py-2";
 
   return (
     <div className="card overflow-x-auto p-0">
       <table className="w-full min-w-[1900px] text-sm">
-        <thead className="bg-slate-50">
+        <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
           <tr>
             <th className={th2} rowSpan={2}>Customer</th>
-            <th className="th" rowSpan={2}>Mobile</th>
-            <th className="th text-right" rowSpan={2}>Cars</th>
-            <th className="th text-right" rowSpan={2}>Contract Value</th>
-            <th className="th text-right" rowSpan={2}>Ledger Balance</th>
-            <th className="th text-right" rowSpan={2}>Due</th>
-            <th className="th text-right" rowSpan={2}>Overdue</th>
-            <th className="th text-right" rowSpan={2}>Total Due</th>
-            <th className="th text-right" rowSpan={2}>Collected</th>
-            <th className="th text-center border-l border-slate-200" colSpan={5}>Monthly Due</th>
-            <th className="th text-center border-l border-slate-200" colSpan={4}>Monthly Receipts</th>
+            <th className="px-4 py-2.5 text-left" rowSpan={2}>Mobile</th>
+            <th className="px-4 py-2.5 text-right" rowSpan={2}>Cars</th>
+            <th className="px-4 py-2.5 text-right" rowSpan={2}>Contract Value</th>
+            <th className="px-4 py-2.5 text-right" rowSpan={2}>Ledger Balance</th>
+            <th className="px-4 py-2.5 text-right" rowSpan={2}>Due</th>
+            <th className="px-4 py-2.5 text-right" rowSpan={2}>Overdue</th>
+            <th className="px-4 py-2.5 text-right" rowSpan={2}>Total Due</th>
+            <th className="px-4 py-2.5 text-right" rowSpan={2}>Collected</th>
+            <th className="px-4 py-2.5 text-center border-l border-slate-600" colSpan={5}>Monthly Due</th>
+            <th className="px-4 py-2.5 text-center border-l border-slate-600" colSpan={4}>Monthly Receipts</th>
           </tr>
           <tr>
-            <th className="th text-right border-l border-slate-200">This Month</th>
-            <th className="th text-right">Last Month</th>
-            <th className="th text-right">2 Months Ago</th>
-            <th className="th text-right">3 Months Ago</th>
-            <th className="th text-right">Previous</th>
-            <th className="th text-right border-l border-slate-200">This Month</th>
-            <th className="th text-right">Last Month</th>
-            <th className="th text-right">2 Months Ago</th>
-            <th className="th text-right">3 Months Ago</th>
+            <th className="px-4 py-2.5 text-right border-l border-slate-600">This Month</th>
+            <th className="px-4 py-2.5 text-right">Last Month</th>
+            <th className="px-4 py-2.5 text-right">2 Months Ago</th>
+            <th className="px-4 py-2.5 text-right">3 Months Ago</th>
+            <th className="px-4 py-2.5 text-right">Previous</th>
+            <th className="px-4 py-2.5 text-right border-l border-slate-600">This Month</th>
+            <th className="px-4 py-2.5 text-right">Last Month</th>
+            <th className="px-4 py-2.5 text-right">2 Months Ago</th>
+            <th className="px-4 py-2.5 text-right">3 Months Ago</th>
           </tr>
         </thead>
         <tbody>
@@ -180,16 +180,16 @@ async function MonthlyBalance(supabase: ReturnType<typeof createClient>) {
   return (
     <div className="card overflow-x-auto p-0">
       <table className="w-full min-w-[1100px] text-sm">
-        <thead className="bg-slate-50">
+        <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
           <tr>
-            <th className="th" rowSpan={2}>Customer</th>
-            <th className="th text-center" colSpan={5}>Due</th>
-            <th className="th text-center" colSpan={4}>Receipts</th>
+            <th className="px-4 py-2.5 text-left" rowSpan={2}>Customer</th>
+            <th className="px-4 py-2.5 text-center" colSpan={5}>Due</th>
+            <th className="px-4 py-2.5 text-center" colSpan={4}>Receipts</th>
           </tr>
           <tr>
-            {MONTHS.map((m) => <th key={`d${m}`} className="th text-right">{m}</th>)}
-            <th className="th text-right">Previous</th>
-            {MONTHS.map((m) => <th key={`r${m}`} className="th text-right">{m}</th>)}
+            {MONTHS.map((m) => <th key={`d${m}`} className="px-4 py-2.5 text-right">{m}</th>)}
+            <th className="px-4 py-2.5 text-right">Previous</th>
+            {MONTHS.map((m) => <th key={`r${m}`} className="px-4 py-2.5 text-right">{m}</th>)}
           </tr>
         </thead>
         <tbody>

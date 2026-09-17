@@ -44,18 +44,18 @@ export default async function ArchivedBrnsPage({ searchParams }: { searchParams:
       </p>
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[980px]">
-          <thead className="bg-slate-50">
+          <thead className="bg-slate-700 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
             <tr>
-              <th className="th">Company</th>
-              <th className="th">BRN</th>
-              <th className="th">Hotel</th>
-              <th className="th">Supplier</th>
-              <th className="th">Check-in</th>
-              <th className="th">Check-out</th>
-              <th className="th">Original Beds</th>
-              <th className="th">Beds Consumed</th>
-              <th className="th">Fully Consumed On</th>
-              <th className="th">History</th>
+              <th className="px-4 py-2.5 text-left">Company</th>
+              <th className="px-4 py-2.5 text-left">BRN</th>
+              <th className="px-4 py-2.5 text-left">Hotel</th>
+              <th className="px-4 py-2.5 text-left">Supplier</th>
+              <th className="px-4 py-2.5 text-left">Check-in</th>
+              <th className="px-4 py-2.5 text-left">Check-out</th>
+              <th className="px-4 py-2.5 text-left">Original Beds</th>
+              <th className="px-4 py-2.5 text-left">Beds Consumed</th>
+              <th className="px-4 py-2.5 text-left">Fully Consumed On</th>
+              <th className="px-4 py-2.5 text-left">History</th>
             </tr>
           </thead>
           <tbody>
