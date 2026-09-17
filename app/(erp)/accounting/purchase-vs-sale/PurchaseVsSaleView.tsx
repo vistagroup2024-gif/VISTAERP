@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, monthShort } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
@@ -52,7 +52,7 @@ export default function PurchaseVsSaleView() {
 
   const months = Array.from(new Set([...p.monthly.map((m: any) => m.month), ...s.monthly.map((m: any) => m.month)])).sort();
   const combinedMonthly = months.map((m) => ({
-    month: m,
+    month: monthShort(m),
     purchase: p.monthly.find((x: any) => x.month === m)?.amount ?? 0,
     sale: s.monthly.find((x: any) => x.month === m)?.amount ?? 0,
   }));

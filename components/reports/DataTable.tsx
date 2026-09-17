@@ -10,12 +10,19 @@ export interface DataGroup {
   label: string;
   meta?: React.ReactNode;   // opening balance, a subtitle — drawn beside the label
   rows: any[];
-  subtotal?: Record<string, number>;   // pre-computed by the caller (e.g. Ledger's own opening/closing)
+  subtotal?: Record<string, number | null>;   // pre-computed by the caller (e.g. Ledger's own opening/closing)
   // A second nesting level — Cost Centre Group -> Cost Centre, say. When set,
   // `rows`/`subtotal` on THIS group are ignored in favour of each subgroup's
   // own (a group with subgroups is a heading, not a row of figures itself);
   // every existing caller that never sets this is unaffected.
   subgroups?: DataGroup[];
+  // When set, the group's own header row renders real cells for every column
+  // after the first (via the same `cellText`/kind formatting a data row
+  // gets) instead of collapsing to one colSpan cell holding just the label —
+  // a group that IS a P&L row in its own right (its own Revenue/COGS/Net),
+  // not only a heading over the rows beneath it. A caller that never sets
+  // this keeps the label-only heading row, unchanged.
+  values?: Record<string, any>;
   indent?: number;   // internal — how deep this group is nested, set by the renderer
 }
 
@@ -164,10 +171,20 @@ function GroupRows({ cols, g, depth, collapsed, onToggle }: {
   return (
     <Fragment>
       <tr className={`cursor-pointer font-semibold ${depth === 0 ? "bg-slate-50" : "bg-slate-50/60"}`} onClick={() => onToggle(g.key)}>
-        <td colSpan={cols.length} className="border border-slate-200 py-2" style={{ paddingLeft: indent }}>
-          <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
-          {g.label}{g.meta}
-        </td>
+        {g.values ? (
+          <>
+            <td className="border border-slate-200 py-2" style={{ paddingLeft: indent }}>
+              <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
+              {g.label}{g.meta}
+            </td>
+            {cols.slice(1).map((c) => <Cell key={c.key} col={c} row={g.values!} />)}
+          </>
+        ) : (
+          <td colSpan={cols.length} className="border border-slate-200 py-2" style={{ paddingLeft: indent }}>
+            <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
+            {g.label}{g.meta}
+          </td>
+        )}
       </tr>
       {open && g.subgroups && g.subgroups.map((sg) => (
         <GroupRows key={sg.key} cols={cols} g={sg} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} />

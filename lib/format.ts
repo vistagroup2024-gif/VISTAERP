@@ -59,6 +59,17 @@ const saHm = new Intl.DateTimeFormat("en-GB", {
   timeZone: SA_TZ, hour: "2-digit", minute: "2-digit", hour12: false,
 });
 
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// A bare "YYYY-MM" month key -> "Aug-26" — the one short form every report's
+// month column, chart axis and pivot header uses, instead of the raw RPC key.
+export function monthShort(ym: string | null | undefined): string {
+  if (!ym) return "—";
+  const [y, m] = String(ym).split("-").map(Number);
+  if (!y || !(m >= 1 && m <= 12)) return String(ym);
+  return `${MONTH_SHORT[m - 1]}-${String(y).slice(2)}`;
+}
+
 export function fmtTime12(t?: string | null): string {
   if (!t) return "";
   const s = String(t);

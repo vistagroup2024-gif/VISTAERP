@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, monthShort } from "@/lib/format";
 import { todaySA, yearSA, monthStartSA } from "@/lib/saudiTime";
 import TrendChart from "@/components/reports/charts/TrendChart";
 
@@ -186,7 +186,7 @@ export default function TargetsBudget() {
             {monthly.length > 1 && (
               <div className="card">
                 <h3 className="mb-2 text-sm font-semibold text-slate-700">Monthly Sales Trend</h3>
-                <TrendChart data={monthly} xKey="month" series={[{ key: "amount", label: "Sales" }]} />
+                <TrendChart data={monthly.map((m) => ({ ...m, month: monthShort(m.month) }))} xKey="month" series={[{ key: "amount", label: "Sales" }]} />
               </div>
             )}
             <TargetTable head={tab === "cc" ? "Cost Center" : "Customer"} rows={rows} showGroup={tab === "cc"} />
@@ -206,7 +206,7 @@ export default function TargetsBudget() {
                 <tr>
                   <th className="px-3 py-2 text-left">Group</th>
                   <th className="px-3 py-2 text-left">Cost Center</th>
-                  {MONTHS.map((m) => <th key={m} className="px-2 py-2 text-right">{m}</th>)}
+                  {MONTHS.map((m) => <th key={m} className="px-2 py-2 text-right">{m}-{String(targetYear).slice(-2)}</th>)}
                   <th className="px-3 py-2 text-right">Total</th>
                 </tr>
               </thead>
@@ -271,7 +271,7 @@ export default function TargetsBudget() {
           {expAnalysis.monthly.length > 1 && (
             <div className="card">
               <h3 className="mb-2 text-sm font-semibold text-slate-700">Monthly Expense</h3>
-              <TrendChart data={expAnalysis.monthly} xKey="month" series={[{ key: "amount", label: "Expense" }]} />
+              <TrendChart data={expAnalysis.monthly.map((m) => ({ ...m, month: monthShort(m.month) }))} xKey="month" series={[{ key: "amount", label: "Expense" }]} />
             </div>
           )}
 

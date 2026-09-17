@@ -4,8 +4,6 @@ import { Fragment, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID, dateStr } from "@/lib/format";
-import WhatsAppButton from "@/components/WhatsAppButton";
-import { waMsg } from "@/lib/waMessages";
 
 const money = (n: number) => n ? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) : "";
 
@@ -69,14 +67,10 @@ export default function AgingRows({ rows }: { rows: Row[] }) {
                 title={Math.abs(Number(r.ledger_balance) - Number(r.total)) > 0.5 ? "Differs from the billed total — a receipt or payment was saved on account, not adjusted against a bill." : undefined}>
                 {money(Number(r.ledger_balance))}
               </td>
-              <td className="sticky right-0 bg-white px-3 py-1.5 text-right shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)] print:hidden">
-                {r.kind === "customer" && <WhatsAppButton phone={r.phone} label="Remind"
-                  message={waMsg.paymentReminder({ name: r.name, amount: Number(r.total), currency: "SAR" })} />}
-              </td>
             </tr>
             {isOpen && (
               <tr className="border-t border-slate-100 bg-slate-50/60">
-                <td colSpan={12} className="px-3 py-2">
+                <td colSpan={11} className="px-3 py-2">
                   {busy && !bills[r.account_id] ? (
                     <p className="text-xs text-slate-400">Loading bills…</p>
                   ) : rowBills.length === 0 ? (

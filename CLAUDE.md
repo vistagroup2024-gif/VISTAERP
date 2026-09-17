@@ -503,6 +503,39 @@ ask: does selecting two of these ever mean something a user would want to
 see at once? If yes, multi-select; if the options describe mutually
 exclusive states of the same thing, leave it a single choice.
 
+## A report's month column reads "Aug-26", never the RPC's raw "2026-08"
+
+Every monthly breakdown in the schema returns its key as `to_char(d,
+'YYYY-MM')` — that's a sort key, not a label, and was leaking straight onto
+screen (a chart axis, a pivot header, a table's own Month column) across
+Sales Report, P&L, Cost Centre Costing, Purchase Report, Drawings,
+Purchase vs Sale and Transport Reports. `monthShort()` (`lib/format.ts`) is
+the one formatter — "Aug-26" — every one of those now calls before a month
+value reaches JSX; a new report does the same rather than rendering the raw
+key or inventing its own format.
+
+## `DataGroup.values` — a group row that is itself a P&L line
+
+`DataTable`'s grouped rows used to only ever collapse to a label (`Cost
+Centre Group ▸`, with actual figures appearing only once you expanded into
+its rows) — right for Sales Report's CC-Group-to-Cost-Centre table, wrong
+for a screen like P&L's own Profit & Loss Summary, where the group row IS a
+Revenue/COGS/Gross/Net figure in its own right and expanding it only drills
+into the SAME figure by month. `values?: Record<string, any>` on
+`DataGroup` is the difference: set it and the group's header row renders a
+real, `cellText`-formatted cell per column instead of one colSpan label —
+at any depth, so a `subgroups` entry (a cost centre under its group) can
+carry `values` too, giving a real Group → Cost Centre → Month P&L without a
+second table component. A caller that never sets it keeps the plain
+label-only heading, unchanged — this is additive, not a redesign of every
+existing grouped table.
+
+`report_tag_area_costing()` (437) is `report_cost_centre_costing()`'s exact
+shape read off `acct_tag_areas` / `journal_lines.tag_area` instead — no
+`sales_target` there (tag areas don't carry one), everything else identical,
+built so P&L's "Tag Area" filtration mode is the same `buildCostingGroups()`
+call as "Cost Center", just a different source array.
+
 ## A cost centre's target is one number per month, not one number
 
 `acct_cost_centers.sales_target` was a single flat figure per cost centre,

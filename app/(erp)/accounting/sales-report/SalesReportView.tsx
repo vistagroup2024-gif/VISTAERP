@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, monthShort } from "@/lib/format";
 import { todaySA, monthStartSA } from "@/lib/saudiTime";
 import { defaultYearMonths, monthRanges, periodLabel, type YearMonths } from "@/lib/reports/period";
 import PageHeader from "@/components/PageHeader";
@@ -15,7 +15,6 @@ import ReportKpi from "@/components/reports/ReportKpi";
 import SectionHeader from "@/components/reports/SectionHeader";
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const EMPTY = {
   total: 0, txns: 0, monthly: [] as any[], by_cost_centre: [] as any[], by_cc_month: [] as any[],
@@ -182,7 +181,7 @@ export default function SalesReportView() {
   // the per-cost-centre rows to see it.
   const lyVsCyGroups = ccGroups.map((g) => ({
     name: g.label, ly: g.subtotal!.previous_year, cy: g.subtotal!.current_year,
-    growth: g.subtotal!.previous_year ? ((g.subtotal!.current_year - g.subtotal!.previous_year) / Math.abs(g.subtotal!.previous_year)) * 100 : null,
+    growth: g.subtotal!.previous_year ? ((Number(g.subtotal!.current_year) - Number(g.subtotal!.previous_year)) / Math.abs(Number(g.subtotal!.previous_year))) * 100 : null,
   }));
 
   // Monthwise Sales pivot — the months actually selected, as columns; rows
@@ -243,10 +242,9 @@ export default function SalesReportView() {
   // table already built, read for its totals rather than recomputed.
   const ccGroupChartData = ccGroups.map((g) => ({ name: g.label, amount: Number(g.subtotal!.current_year) }));
 
-  const monthlyRows = s.monthly.map((m: any) => {
-    const [, mm] = m.month.split("-");
-    return { month: m.month, month_label: `${MONTH_NAMES[Number(mm) - 1]} ${m.month.slice(0, 4)}`, txns: m.txns, amount: m.amount, average: m.txns > 0 ? Number(m.amount) / m.txns : 0 };
-  }).sort((a: any, b: any) => a.month.localeCompare(b.month));
+  const monthlyRows = s.monthly.map((m: any) => ({
+    month: m.month, month_label: monthShort(m.month), txns: m.txns, amount: m.amount, average: m.txns > 0 ? Number(m.amount) / m.txns : 0,
+  })).sort((a: any, b: any) => a.month.localeCompare(b.month));
 
   const customerRows = s.by_customer.map((r: any) => ({
     ...r, contribution: Number(s.total) !== 0 ? (Number(r.amount) / Number(s.total)) * 100 : 0,
@@ -279,7 +277,7 @@ export default function SalesReportView() {
       {s.monthly.length > 1 && (
         <div className="card">
           <SectionHeader title="Monthly Trend" />
-          <TrendChart data={monthlyRows} xKey="month" series={[{ key: "amount", label: "Sales" }]} />
+          <TrendChart data={monthlyRows} xKey="month_label" series={[{ key: "amount", label: "Sales" }]} />
         </div>
       )}
 
@@ -312,7 +310,7 @@ export default function SalesReportView() {
 
       {completedMonthKeys.length > 0 && salesVsTargetCompleted.length > 0 && (
         <div>
-          <SectionHeader title={`Sales vs Target of Completed Months — ${completedMonthKeys.map((mk) => MONTH_NAMES[Number(mk.slice(5, 7)) - 1]).join(", ")}`} />
+          <SectionHeader title={`Sales vs Target of Completed Months — ${completedMonthKeys.map((mk) => monthShort(mk)).join(", ")}`} />
           <DataTable
             cols={[
               { key: "name", label: "Cost Centre Group" },
@@ -363,7 +361,7 @@ export default function SalesReportView() {
               <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
                 <tr>
                   <th className="px-3 py-2 text-left" rowSpan={2}>{pivotDim === "ccGroup" ? "CC Group" : pivotDim === "costCentre" ? "Cost Centre" : pivotDim === "customer" ? "Customer" : "Product"}</th>
-                  {monthKeys.map((mk) => <th key={mk} className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}>{MONTH_NAMES[Number(mk.slice(5, 7)) - 1]}</th>)}
+                  {monthKeys.map((mk) => <th key={mk} className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}>{monthShort(mk)}</th>)}
                   <th className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}>Total</th>
                 </tr>
                 <tr>

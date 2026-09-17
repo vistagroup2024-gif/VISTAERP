@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, monthShort } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import PeriodDropdown from "@/components/reports/PeriodDropdown";
@@ -59,7 +59,7 @@ export default function DrawingsReportView() {
       {d.monthly.length > 1 && (
         <div className="card">
           <SectionHeader title={`Monthly Trend${loading ? " (loading…)" : ""}`} />
-          <TrendChart data={d.monthly} xKey="month" series={[{ key: "amount", label: "Drawings" }]} />
+          <TrendChart data={d.monthly.map((m: any) => ({ ...m, month: monthShort(m.month) }))} xKey="month" series={[{ key: "amount", label: "Drawings" }]} />
         </div>
       )}
 

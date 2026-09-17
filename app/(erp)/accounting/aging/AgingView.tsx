@@ -227,6 +227,14 @@ export default function AgingView() {
   const carTotal = carRows.reduce((s, r) => s + Math.abs(Number(r.ledger_balance)), 0);
   const ltChartData = ltGroups.map((g) => ({ name: g.label, value: Number(g.subtotal!.debit) + Number(g.subtotal!.credit) }));
 
+  // Ageing Detail split by real direction (the same realSigned() sign the
+  // Receivable/Payable QuickLists already use above) rather than one mixed
+  // grid a reader has to work out for themselves row by row — a Payable row
+  // in this grid is genuinely payable, not just a "supplier" that happens to
+  // carry a receivable balance today (or the reverse for a customer in credit).
+  const receivableDetailRows = (rows ?? []).filter((r) => realSigned(r) > 0.005);
+  const payableDetailRows = (rows ?? []).filter((r) => realSigned(r) < -0.005);
+
   return (
     <div className="space-y-4">
       <PageHeader title="A/R & A/P Balance">
@@ -285,52 +293,60 @@ export default function AgingView() {
             </div>
           </div>
 
-          <div>
-            <SectionHeader title={`Ageing Detail — as at ${dateStr(asOf)}`} />
-            <div className="card overflow-x-auto p-0">
-              <table className="report-grid w-full text-sm">
-                <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Name</th>
-                    <th className="px-3 py-2 text-left">Type</th>
-                    <th className="px-3 py-2 text-right">Due</th>
-                    <th className="px-3 py-2 text-right">Overdue</th>
-                    <th className="px-3 py-2 text-right">Total Due</th>
-                    <th className="px-3 py-2 text-right">Due in 0–30d</th>
-                    <th className="px-3 py-2 text-right">31–60d</th>
-                    <th className="px-3 py-2 text-right">61–90d</th>
-                    <th className="px-3 py-2 text-right">91–180d</th>
-                    <th className="px-3 py-2 text-right">180d+</th>
-                    <th className="px-3 py-2 text-right">Ledger Balance</th>
-                    <th className="sticky right-0 bg-brand-50 px-3 py-2 print:hidden" />
-                  </tr>
-                </thead>
-                <tbody>
-                  <AgingRows rows={rows} />
-                  {rows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={12}>Nothing outstanding.</td></tr>}
-                </tbody>
-                {rows.length > 0 && (
-                  <tfoot>
-                    <tr className="bg-slate-50 font-semibold">
-                      <td className="px-3 py-2" colSpan={2}>Total</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.due), 0))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.overdue), 0))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.total_due), 0))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.f0), 0))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.f1), 0))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.f2), 0))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.f3), 0))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.f4), 0))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.ledger_balance), 0))}</td>
-                      <td className="sticky right-0 bg-slate-50 print:hidden" />
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-          </div>
+          <AgingDetailGrid title={`Ageing Detail — Receivable — as at ${dateStr(asOf)}`} rows={receivableDetailRows} />
+          <AgingDetailGrid title={`Ageing Detail — Payable — as at ${dateStr(asOf)}`} rows={payableDetailRows} />
         </>
       )}
+    </div>
+  );
+}
+
+// Same 11-column shape the combined grid used, just scoped to one direction
+// (Receivable or Payable) so a reader never has to work out which a row is —
+// the grid it's in already says so.
+function AgingDetailGrid({ title, rows }: { title: string; rows: Row[] }) {
+  return (
+    <div>
+      <SectionHeader title={title} />
+      <div className="card overflow-x-auto p-0">
+        <table className="report-grid w-full text-sm">
+          <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+            <tr>
+              <th className="px-3 py-2 text-left">Name</th>
+              <th className="px-3 py-2 text-left">Type</th>
+              <th className="px-3 py-2 text-right">Due</th>
+              <th className="px-3 py-2 text-right">Overdue</th>
+              <th className="px-3 py-2 text-right">Total Due</th>
+              <th className="px-3 py-2 text-right">Due in 0–30d</th>
+              <th className="px-3 py-2 text-right">31–60d</th>
+              <th className="px-3 py-2 text-right">61–90d</th>
+              <th className="px-3 py-2 text-right">91–180d</th>
+              <th className="px-3 py-2 text-right">180d+</th>
+              <th className="px-3 py-2 text-right">Ledger Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <AgingRows rows={rows} />
+            {rows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={11}>Nothing outstanding.</td></tr>}
+          </tbody>
+          {rows.length > 0 && (
+            <tfoot>
+              <tr className="bg-slate-50 font-semibold">
+                <td className="px-3 py-2" colSpan={2}>Total</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.due), 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.overdue), 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.total_due), 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.f0), 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.f1), 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.f2), 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.f3), 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.f4), 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.ledger_balance), 0))}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
     </div>
   );
 }

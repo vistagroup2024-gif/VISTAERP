@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, monthShort } from "@/lib/format";
 import { todaySA, yearSA, monthStartSA } from "@/lib/saudiTime";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
@@ -12,7 +12,7 @@ import ReportKpi from "@/components/reports/ReportKpi";
 import SectionHeader from "@/components/reports/SectionHeader";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DonutChart from "@/components/reports/charts/DonutChart";
-import DataTable from "@/components/reports/DataTable";
+import DataTable, { type DataGroup } from "@/components/reports/DataTable";
 import { defaultYearMonths, monthRanges, type YearMonths } from "@/lib/reports/period";
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -81,14 +81,94 @@ function ElementBar({ label, value, basis, tone, href }: { label: string; value:
 
 const EMPTY_ARR: any[] = [];
 
+// One P&L row shape shared by every filtration mode below — a plain object
+// carrying whichever of these a mode has (a flat month/year row has no
+// group/costCentre id to drill further into; a costing row does).
+type CostRow = { name: string; group: string; sales: number; cogs: number; expense: number; monthly: { month: string; sales: number; cogs: number; expense: number }[] };
+
+function plValues(sales: number, cogs: number, expense: number) {
+  const gross = sales - cogs, net = gross - expense;
+  return {
+    revenue: sales, cogs, gross_profit: gross,
+    gp_pct: sales !== 0 ? (gross / sales) * 100 : null,
+    expense, net_profit: net,
+    per_pct: sales !== 0 ? (net / sales) * 100 : null,
+  };
+}
+
+// Group -> leaf -> Month, built once from either report_cost_centre_costing()
+// or report_tag_area_costing() — same shape, same treatment, just a
+// different source. `depth` "group" collapses straight to the group's own
+// monthly breakdown (skipping the leaf level); "leaf" keeps Group -> leaf,
+// each leaf expandable into its own months.
+function buildCostingGroups(rows: CostRow[], depth: "group" | "leaf"): DataGroup[] {
+  const byGroup = new Map<string, CostRow[]>();
+  for (const r of rows) {
+    const arr = byGroup.get(r.group) ?? [];
+    arr.push(r);
+    byGroup.set(r.group, arr);
+  }
+  const monthRows = (monthly: CostRow["monthly"]) =>
+    [...monthly].sort((a, b) => a.month.localeCompare(b.month)).map((m) => ({
+      label: monthShort(m.month), ...plValues(Number(m.sales || 0), Number(m.cogs || 0), Number(m.expense || 0)),
+    }));
+
+  const groups: DataGroup[] = Array.from(byGroup.entries()).map(([group, leaves]) => {
+    const gSales = leaves.reduce((s, r) => s + r.sales, 0);
+    const gCogs = leaves.reduce((s, r) => s + r.cogs, 0);
+    const gExpense = leaves.reduce((s, r) => s + r.expense, 0);
+    const gValues = plValues(gSales, gCogs, gExpense);
+
+    if (depth === "group") {
+      const merged = new Map<string, { month: string; sales: number; cogs: number; expense: number }>();
+      for (const r of leaves) for (const m of r.monthly) {
+        const e = merged.get(m.month) ?? { month: m.month, sales: 0, cogs: 0, expense: 0 };
+        e.sales += Number(m.sales || 0); e.cogs += Number(m.cogs || 0); e.expense += Number(m.expense || 0);
+        merged.set(m.month, e);
+      }
+      return { key: group, label: group, values: gValues, rows: monthRows(Array.from(merged.values())), subtotal: gValues };
+    }
+
+    leaves.sort((a, b) => b.sales - a.sales);
+    return {
+      key: group, label: group, values: gValues, rows: [],
+      subgroups: leaves.map((r) => ({
+        key: `${group}::${r.name}`, label: r.name,
+        values: plValues(r.sales, r.cogs, r.expense),
+        rows: monthRows(r.monthly), subtotal: plValues(r.sales, r.cogs, r.expense),
+      })),
+    };
+  });
+  return groups.sort((a, b) => Number(b.values!.revenue) - Number(a.values!.revenue));
+}
+
+const PL_COLS = [
+  { key: "label", label: "Cost Centre / Group / Month" },
+  { key: "revenue", label: "Revenue", kind: "money" as const, total: true },
+  { key: "cogs", label: "COGS", kind: "money" as const, total: true },
+  { key: "gross_profit", label: "Gross", kind: "money" as const, total: true },
+  { key: "gp_pct", label: "GRS %", kind: "pct" as const },
+  { key: "expense", label: "Expenses", kind: "money" as const, total: true },
+  { key: "net_profit", label: "Net", kind: "money" as const, total: true },
+  { key: "per_pct", label: "PER %", kind: "pct" as const },
+];
+
+type PLMode = "ccGroup" | "costCenter" | "monthWise" | "yearWise" | "tagArea";
+const PL_MODES: { key: PLMode; label: string }[] = [
+  { key: "ccGroup", label: "CC Group" }, { key: "costCenter", label: "Cost Center" },
+  { key: "monthWise", label: "Month wise" }, { key: "yearWise", label: "Year wise" }, { key: "tagArea", label: "Tag Area" },
+];
+
 // P&L — Income less cost of sales, less expenses. trial_balance() is
 // unchanged and still the one verified source; report_pl_monthly() (424)
 // applies the exact same income/COGS/expense classification this page's own
 // summarize() already used, just grouped by month in one query.
-// report_cost_centre_costing() (417) supplies the Cost Centre P&L /
-// comparison section unchanged; report_drawings() (416) supplies Drawings,
-// so Actual Net (what is left after owner drawings) is not a new
-// calculation, just Net Profit less a figure already reported elsewhere.
+// report_cost_centre_costing() (417) and report_tag_area_costing() (437)
+// supply the Profit & Loss Summary's Group -> leaf -> Month drill, one RPC
+// call each, reused across every filtration mode rather than refetched per
+// mode; report_drawings() (416) supplies Drawings, so Actual Net (what is
+// left after owner drawings) is not a new calculation, just Net Profit less
+// a figure already reported elsewhere.
 // Year+Months replaces the old From/To form; only the bounding {from,to}
 // of the months picked is sent to every RPC (each takes one p_from/p_to
 // pair, same as before) — last-month and same-period-last-year comparisons
@@ -101,6 +181,7 @@ export default function ProfitLossView() {
   const [pyRows, setPyRows] = useState<any[]>(EMPTY_ARR);
   const [monthlyRaw, setMonthlyRaw] = useState<any[]>(EMPTY_ARR);
   const [ccData, setCcData] = useState<any[]>(EMPTY_ARR);
+  const [tagData, setTagData] = useState<any[]>(EMPTY_ARR);
   const [drawings, setDrawings] = useState(0);
   // Last Month / Current Month / Year to Date — three FIXED calendar windows
   // shown alongside whatever period the filter is set to, not a second
@@ -112,6 +193,7 @@ export default function ProfitLossView() {
   const [drawingsCm, setDrawingsCm] = useState(0);
   const [drawingsYtd, setDrawingsYtd] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [plMode, setPlMode] = useState<PLMode>("ccGroup");
 
   const ranges = monthRanges(ym);
   const from = ranges[0]?.from ?? `${ym.year}-01-01`;
@@ -133,11 +215,12 @@ export default function ProfitLossView() {
       sb.rpc("trial_balance", { p_company: COMPANY_ID, p_from: ytdFrom, p_to: ytdTo }),
       sb.rpc("report_pl_monthly", { p_company: COMPANY_ID, p_from: from, p_to: to }),
       sb.rpc("report_cost_centre_costing", { p_from: from, p_to: to }),
+      sb.rpc("report_tag_area_costing", { p_from: from, p_to: to }),
       sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: from, p_to: to }),
       sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: lmFrom, p_to: lmTo }),
       sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: cmFrom, p_to: cmTo }),
       sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: ytdFrom, p_to: ytdTo }),
-    ]).then(([{ data }, { data: lmData }, { data: pyData }, { data: cmData }, { data: ytdData }, { data: monthlyData }, { data: ccD },
+    ]).then(([{ data }, { data: lmData }, { data: pyData }, { data: cmData }, { data: ytdData }, { data: monthlyData }, { data: ccD }, { data: tagD },
       { data: drawingsData }, { data: drawLmData }, { data: drawCmData }, { data: drawYtdData }]) => {
       if (!live) return;
       setRows((data as any[]) ?? []);
@@ -147,6 +230,7 @@ export default function ProfitLossView() {
       setYtdRows((ytdData as any[]) ?? []);
       setMonthlyRaw((monthlyData as any[]) ?? []);
       setCcData((ccD as any[]) ?? []);
+      setTagData((tagD as any[]) ?? []);
       setDrawings(drawTotal(drawingsData));
       setDrawingsLm(drawTotal(drawLmData));
       setDrawingsCm(drawTotal(drawCmData));
@@ -167,8 +251,37 @@ export default function ProfitLossView() {
   const netChangeYear = py.net !== 0 ? ((cur.net - py.net) / Math.abs(py.net)) * 100 : null;
   const actualNet = cur.net - drawings;
 
-  const monthly = monthlyRaw.map((m) => ({ ...m, gp_pct: Number(m.revenue) !== 0 ? (Number(m.gross_profit) / Number(m.revenue)) * 100 : 0 }));
+  const monthly = monthlyRaw.map((m) => ({
+    ...m, month_label: monthShort(m.month),
+    gp_pct: Number(m.revenue) !== 0 ? (Number(m.gross_profit) / Number(m.revenue)) * 100 : 0,
+  }));
   const ccRows = ccData.filter((r) => r.sales || r.cogs || r.expense || r.target);
+  const tagRows = tagData.filter((r: any) => r.sales || r.cogs || r.expense);
+
+  // Cost Center Profit & Loss (left panel) — one figure per Cost Centre
+  // Group, red if negative, off the same ccRows the Summary panel's CC
+  // Group mode aggregates — not a second calculation.
+  const groupNet = new Map<string, number>();
+  for (const r of ccRows) groupNet.set(r.cost_center_group, (groupNet.get(r.cost_center_group) ?? 0) + Number(r.net_profit || 0));
+  const ccGroupNetRows = Array.from(groupNet.entries()).map(([name, net]) => ({ name, net })).sort((a, b) => b.net - a.net);
+  const ccGroupNetTotal = ccGroupNetRows.reduce((s, r) => s + r.net, 0);
+
+  // Profit & Loss Summary (right panel) — one dataset per filtration mode,
+  // built off data already fetched above; switching modes never refetches.
+  const ccCostRows: CostRow[] = ccRows.map((r) => ({ name: r.cost_centre, group: r.cost_center_group, sales: Number(r.sales || 0), cogs: Number(r.cogs || 0), expense: Number(r.expense || 0), monthly: r.monthly ?? [] }));
+  const tagCostRows: CostRow[] = tagRows.map((r: any) => ({ name: r.tag_area, group: r.tag_area_group, sales: Number(r.sales || 0), cogs: Number(r.cogs || 0), expense: Number(r.expense || 0), monthly: r.monthly ?? [] }));
+
+  const plGroups: DataGroup[] | null =
+    plMode === "ccGroup" ? buildCostingGroups(ccCostRows, "group")
+      : plMode === "costCenter" ? buildCostingGroups(ccCostRows, "leaf")
+        : plMode === "tagArea" ? buildCostingGroups(tagCostRows, "leaf")
+          : null;
+  const plFlatRows =
+    plMode === "monthWise" ? monthly.map((m) => ({ label: m.month_label, ...plValues(Number(m.revenue || 0), Number(m.cogs || 0), Number(m.expense || 0)) }))
+      : plMode === "yearWise" ? [
+        { label: "This Period", ...plValues(cur.totInc, cur.totCost, cur.totExp) },
+        { label: "Same Period Last Year", ...plValues(py.totInc, py.totCost, py.totExp) },
+      ] : null;
 
   return (
     <div className="space-y-4">
@@ -195,7 +308,60 @@ export default function ProfitLossView() {
         <ReportKpi label="Actual Net" value={money(actualNet)} icon="wallet" tone={actualNet >= 0 ? "pos" : "neg"} />
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-[1fr_2.6fr]">
+        <div>
+          <SectionHeader title="Cost Center Profit & Loss" />
+          <div className="card overflow-x-auto p-0 text-sm">
+            <table className="report-grid w-full">
+              <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+                <tr><th className="px-3 py-2 text-left">Cost Center</th><th className="px-3 py-2 text-right">P&amp;L</th></tr>
+              </thead>
+              <tbody>
+                {ccGroupNetRows.map((r) => (
+                  <tr key={r.name}>
+                    <td className="px-3 py-1.5">{r.name}</td>
+                    <td className={`px-3 py-1.5 text-right tabular-nums ${r.net < 0 ? "font-medium text-red-600" : ""}`}>{money(r.net)}</td>
+                  </tr>
+                ))}
+                {ccGroupNetRows.length === 0 && <tr><td colSpan={2} className="px-3 py-6 text-center text-slate-400">No activity.</td></tr>}
+              </tbody>
+              {ccGroupNetRows.length > 0 && (
+                <tfoot><tr className="bg-slate-50 font-semibold">
+                  <td className="px-3 py-1.5">Total</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{money(ccGroupNetTotal)}</td>
+                </tr></tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <SectionHeader title="Profit & Loss Summary" />
+            <div className="flex flex-wrap items-center gap-2 print:hidden">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">P&amp;L Filteration</span>
+              <div className="flex gap-1">
+                {PL_MODES.map((m) => (
+                  <button key={m.key} onClick={() => setPlMode(m.key)}
+                    className={`rounded-full px-3 py-1 text-sm ${plMode === m.key ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>{m.label}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DataTable cols={PL_COLS} {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
+          <p className="mt-1 text-right text-xs text-slate-400">
+            <Link href="/accounting/cost-centre-costing" className="text-brand hover:underline">Full Cost Centre Costing report →</Link>
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        {ccGroupNetRows.length > 0 && (
+          <div className="card">
+            <SectionHeader title="Cost Center Comparison" />
+            <DonutChart data={ccGroupNetRows} nameKey="name" valueKey="net" height={240} />
+          </div>
+        )}
         <div className="card">
           <SectionHeader title="Profit & Loss Elements" />
           <ElementBar label="Revenue (P&L)" value={cur.totInc} basis={cur.totInc} tone="bg-brand-600" />
@@ -206,50 +372,10 @@ export default function ProfitLossView() {
         {monthly.length > 1 && (
           <div className="card">
             <SectionHeader title={`Monthwise Net Profit${loading ? " (loading…)" : ""}`} />
-            <TrendChart data={monthly} xKey="month" series={[{ key: "net_profit", label: "Net Profit" }]} />
+            <TrendChart data={monthly} xKey="month_label" series={[{ key: "net_profit", label: "Net Profit" }]} />
           </div>
         )}
       </div>
-
-      <div>
-        <SectionHeader title="Monthly P&L" />
-        <DataTable
-          cols={[
-            { key: "month", label: "Month" },
-            { key: "revenue", label: "Revenue", kind: "money", total: true },
-            { key: "cogs", label: "COGS", kind: "money", total: true },
-            { key: "gross_profit", label: "Gross Profit", kind: "money", total: true },
-            { key: "gp_pct", label: "GP %", kind: "pct" },
-            { key: "expense", label: "Expense", kind: "money", total: true },
-            { key: "net_profit", label: "Net Profit", kind: "money", total: true },
-          ]}
-          rows={monthly} empty="No activity in this period." />
-      </div>
-
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <SectionHeader title="Cost Centre P&L" />
-          <Link href="/accounting/cost-centre-costing" className="text-sm text-brand hover:underline">Full Cost Centre Costing report →</Link>
-        </div>
-        <DataTable
-          cols={[
-            { key: "cost_centre", label: "Cost Centre" },
-            { key: "sales", label: "Sales", kind: "money", total: true },
-            { key: "cogs", label: "COGS", kind: "money", total: true },
-            { key: "gross_profit", label: "Gross Profit", kind: "money", total: true },
-            { key: "gp_pct", label: "GP %", kind: "pct" },
-            { key: "expense", label: "Expense", kind: "money", total: true },
-            { key: "net_profit", label: "Net Profit", kind: "money", total: true },
-          ]}
-          rows={ccRows} empty="No cost centre activity in this period." />
-      </div>
-
-      {ccRows.length > 0 && (
-        <div className="card">
-          <SectionHeader title="Cost Centre Comparison" />
-          <DonutChart data={ccRows} nameKey="cost_centre" valueKey="net_profit" height={260} />
-        </div>
-      )}
     </div>
   );
 }

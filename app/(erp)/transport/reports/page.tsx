@@ -5,7 +5,7 @@ import Link from "next/link";
 import ReportRange from "./ReportRange";
 import { getStaffAccess, staffCan } from "@/lib/staffSession";
 import { todaySA, monthStartSA } from "@/lib/saudiTime";
-import { COMPANY_ID } from "@/lib/format";
+import { COMPANY_ID, monthShort } from "@/lib/format";
 import TrendChart from "@/components/reports/charts/TrendChart";
 import DataTable from "@/components/reports/DataTable";
 import SectionHeader from "@/components/reports/SectionHeader";
@@ -81,7 +81,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { fr
       {extra.monthly?.length > 1 && (
         <div className="card mb-4">
           <SectionHeader title="Monthly Revenue Trend" />
-          <TrendChart data={extra.monthly} xKey="month" series={[{ key: "revenue", label: "Revenue" }]} />
+          <TrendChart data={extra.monthly.map((m: any) => ({ ...m, month: monthShort(m.month) }))} xKey="month" series={[{ key: "revenue", label: "Revenue" }]} />
         </div>
       )}
 

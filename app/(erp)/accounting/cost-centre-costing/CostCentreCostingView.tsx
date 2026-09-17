@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { monthShort } from "@/lib/format";
 import { defaultYearMonths, monthRanges, periodLabel, type YearMonths } from "@/lib/reports/period";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
@@ -12,7 +13,6 @@ import ReportKpi from "@/components/reports/ReportKpi";
 import SectionHeader from "@/components/reports/SectionHeader";
 
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
-const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 // Non-contiguous month picks (e.g. Jan + Mar) call report_cost_centre_costing
 // once per contiguous run and merge here — the common case (all months, or
@@ -107,7 +107,7 @@ export default function CostCentreCostingView() {
           </span>
         ),
         rows: (r.monthly ?? []).map((m: any) => ({
-          row_label: MONTH_NAMES[Number(m.month.slice(5, 7)) - 1] + " " + m.month.slice(0, 4),
+          row_label: monthShort(m.month),
           sales: m.sales, cogs: m.cogs, gross_profit: m.gross_profit,
           gp_pct: Number(m.sales) !== 0 ? (Number(m.gross_profit) / Number(m.sales)) * 100 : null,
           expense: m.expense, net_profit: m.net_profit,
@@ -141,7 +141,7 @@ export default function CostCentreCostingView() {
       {monthly.length > 1 && (
         <div className="card">
           <SectionHeader title="Monthly Sales Trend" />
-          <TrendChart data={monthly} xKey="month" series={[{ key: "amount", label: "Sales" }]} />
+          <TrendChart data={monthly.map((m) => ({ ...m, month: monthShort(m.month) }))} xKey="month" series={[{ key: "amount", label: "Sales" }]} />
         </div>
       )}
 
