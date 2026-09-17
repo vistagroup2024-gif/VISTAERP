@@ -10,7 +10,7 @@ import { waMsg } from "@/lib/waMessages";
 const money = (n: number) => n ? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) : "";
 
 type Row = {
-  account_id: string; name: string; phone: string | null;
+  account_id: string; name: string; phone: string | null; kind: "customer" | "supplier";
   total: number; not_due: number; b0: number; b1: number; b2: number; b3: number; b4: number; ledger_balance: number;
 };
 type Bill = { id: string; doc_no: string; doc_date: string; due_date: string | null; amount: number; outstanding: number; status: string };
@@ -18,8 +18,10 @@ type Bill = { id: string; doc_no: string; doc_date: string; due_date: string | n
 // Bill-level drill-down — party_outstanding() already exists (it is what the
 // voucher's own bill-wise-adjustment popup reads), just never surfaced on a
 // report before. Invoice/Bill No, Amount, Adjusted, Balance, Due Date, per
-// open bill, without a new RPC.
-export default function AgingRows({ rows, kind }: { rows: Row[]; kind: "customer" | "supplier" }) {
+// open bill, without a new RPC. Customer and supplier rows are interleaved
+// now (no more tabs) — each row carries its own `kind`, read instead of a
+// single page-level prop.
+export default function AgingRows({ rows }: { rows: Row[] }) {
   const [open, setOpen] = useState<string | null>(null);
   const [bills, setBills] = useState<Record<string, Bill[]>>({});
   const [busy, setBusy] = useState(false);
@@ -50,6 +52,11 @@ export default function AgingRows({ rows, kind }: { rows: Row[]; kind: "customer
                 <Link href={`/accounting/customers/${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link>
                 {r.phone ? <span className="ml-2 text-xs text-slate-400">{r.phone}</span> : ""}
               </td>
+              <td className="px-3 py-1.5">
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${r.kind === "customer" ? "bg-brand-100 text-brand-700" : "bg-amber-100 text-amber-700"}`}>
+                  {r.kind === "customer" ? "Customer" : "Supplier"}
+                </span>
+              </td>
               <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{money(Number(r.total))}</td>
               <td className="px-3 py-1.5 text-right tabular-nums text-slate-400">{money(Number(r.not_due))}</td>
               <td className="px-3 py-1.5 text-right tabular-nums">{money(Number(r.b0))}</td>
@@ -62,13 +69,13 @@ export default function AgingRows({ rows, kind }: { rows: Row[]; kind: "customer
                 {money(Number(r.ledger_balance))}
               </td>
               <td className="sticky right-0 bg-white px-3 py-1.5 text-right shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)] print:hidden">
-                {kind === "customer" && <WhatsAppButton phone={r.phone} label="Remind"
+                {r.kind === "customer" && <WhatsAppButton phone={r.phone} label="Remind"
                   message={waMsg.paymentReminder({ name: r.name, amount: Number(r.total), currency: "SAR" })} />}
               </td>
             </tr>
             {isOpen && (
               <tr className="border-t border-slate-100 bg-slate-50/60">
-                <td colSpan={10} className="px-3 py-2">
+                <td colSpan={11} className="px-3 py-2">
                   {busy && !bills[r.account_id] ? (
                     <p className="text-xs text-slate-400">Loading bills…</p>
                   ) : rowBills.length === 0 ? (
