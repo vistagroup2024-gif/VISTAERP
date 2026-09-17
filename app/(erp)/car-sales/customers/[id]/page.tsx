@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
+import SectionHeader from "@/components/reports/SectionHeader";
 import { dateStr } from "@/lib/format";
-import { sar, CONTRACT_STATUS_LABEL, CONTRACT_STATUS_TONE, vehicleTitle } from "../../lib";
-import { todaySA } from "@/lib/saudiTime";
+import { sar, CONTRACT_STATUS_LABEL, CONTRACT_STATUS_TONE } from "../../lib";
+import CustomerReportClient from "./CustomerReportClient";
 
 export const dynamic = "force-dynamic";
 
@@ -13,102 +14,150 @@ function Money({ label, value, tone }: { label: string; value: string; tone?: st
   return <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2"><div className="text-xs uppercase tracking-wide text-slate-500">{label}</div><div className={`text-lg font-bold tabular-nums ${tone ?? ""}`}>{value}</div></div>;
 }
 
+const money = (n: number) => n ? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) : "0.00";
+
+// The Customer Report — car_customer_report() (migration 438) carries
+// everything ledger-true: the account balance, the ageing buckets (the same
+// due/overdue/1-30/30+ shape ar_ap_aging already uses, so this page and that
+// report never disagree on what "due" means), a billed/receipts/balance KPI
+// per invoice type, and every bill this account has raised with what has
+// been adjusted against it. The interactive half (Invoice Type filter, the
+// bill-by-bill drill-down into its own voucher, the monthwise chart) is
+// CustomerReportClient; everything static (profile, cars, ageing summary)
+// stays server-rendered here.
+//
+// One thing the old software's equivalent report carried that has no home
+// here: a "Violation Charges" column. VISTAERP has no violation-charge
+// table or feature under Car Sales (only car_service_charges / its
+// payments) — inventing a column with no data behind it is exactly what
+// this codebase's own rule against fabricated figures warns against, so it
+// is left out rather than faked. If Violation Charges is wanted, it needs
+// its own feature (a table, a posting path) before it can show here.
 export default async function CustomerProfile({ params }: { params: { id: string } }) {
   await guardStaffPage(["carsales.view", "carsales.installments", "carsales.sales"]);
   const supabase = createClient();
-  const today = todaySA();
 
-  const [{ data: cust }, { data: contracts }, { data: receipts }, { data: charges }] = await Promise.all([
-    supabase.from("parties").select("id, name, phone, email, address, tax_number, notes").eq("id", params.id).single(),
-    supabase.from("car_contracts").select("id, contract_no, contract_date, sale_price, net_payable, advance, status, vehicle:vehicle_id(make, model, model_year, plate_no), car_installments(amount, paid_amount, due_date)").eq("customer_id", params.id).order("created_at", { ascending: false }),
-    supabase.from("car_receipts").select("receipt_no, receipt_date, amount, method, contract:contract_id(contract_no)").eq("customer_id", params.id).order("receipt_date", { ascending: false }).limit(200),
-    supabase.from("car_service_charges").select("amount, paid_amount, due_date").eq("customer_id", params.id),
+  const [{ data: report, error }, { data: receipts }] = await Promise.all([
+    supabase.rpc("car_customer_report", { p_customer_id: params.id }),
+    supabase.from("car_receipts").select("receipt_no, receipt_date, amount, contract:contract_id(contract_no)").eq("customer_id", params.id).order("receipt_date", { ascending: false }).limit(50),
   ]);
-  if (!cust) notFound();
+  if (error || !report || !(report as any).profile) notFound();
 
-  const C = (contracts ?? []) as any[];
-  let value = 0, paid = 0, outstanding = 0, overdue = 0;
-  for (const c of C) {
-    if (c.status === "cancelled") continue;
-    const insts = c.car_installments ?? [];
-    const p = insts.reduce((a: number, i: any) => a + Number(i.paid_amount || 0), 0);
-    value += Number(c.net_payable || 0); paid += Number(c.advance || 0) + p;
-    outstanding += Number(c.net_payable || 0) - Number(c.advance || 0) - p;
-    overdue += insts.filter((i: any) => i.due_date < today).reduce((a: number, i: any) => a + Math.max(0, Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
-  }
-  const scOut = (charges ?? []).reduce((a: number, c: any) => a + Math.max(0, Number(c.amount || 0) - Number(c.paid_amount || 0)), 0);
+  const r: any = report;
+  const cust = r.profile;
+  const cars: any[] = r.cars ?? [];
+  const ageing = r.ageing ?? {};
+  const byType: any[] = r.by_type ?? [];
+  const bills: any[] = r.bills ?? [];
+  const monthwise: any[] = r.monthwise ?? [];
+  const ledgerBalance = Number(r.ledger_balance ?? 0);
 
   return (
-    <div className="max-w-5xl space-y-6">
-      <PageHeader title={cust.name} />
+    <div className="max-w-6xl space-y-6">
+      <PageHeader title={cust.name} subtitle={[cust.phone, cust.email].filter(Boolean).join(" · ") || undefined} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card">
           <h2 className="mb-3 font-semibold text-slate-700">Customer</h2>
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
-            <dt className="text-slate-400">Iqama / ID</dt><dd className="font-medium">{cust.tax_number ?? "—"}</dd>
+            <dt className="text-slate-400">Iqama / ID</dt><dd className="font-medium">{cust.iqama_no ?? cust.tax_number ?? "—"}</dd>
             <dt className="text-slate-400">Mobile</dt><dd className="font-medium">{cust.phone ?? "—"}</dd>
             <dt className="text-slate-400">Email</dt><dd className="font-medium">{cust.email ?? "—"}</dd>
             <dt className="text-slate-400">Address</dt><dd className="font-medium">{cust.address ?? "—"}</dd>
+            <dt className="text-slate-400">Credit Days</dt><dd className="font-medium">{cust.credit_days ?? 0}</dd>
           </dl>
         </section>
         <section className="card">
-          <h2 className="mb-3 font-semibold text-slate-700">Financial Summary</h2>
+          <h2 className="mb-3 font-semibold text-slate-700">Ledger Balance</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <Money label="Contract Value" value={sar(value)} />
-            <Money label="Total Paid" value={sar(paid)} tone="text-emerald-700" />
-            <Money label="Outstanding" value={sar(outstanding)} />
-            <Money label="Overdue" value={sar(overdue)} tone="text-red-600" />
-            <Money label="Service Charge Due" value={sar(scOut)} tone="text-amber-700" />
-            <Money label="Cars" value={String(C.length)} />
+            <Money label="Ledger Balance" value={`${money(Math.abs(ledgerBalance))} ${ledgerBalance >= 0 ? "Dr" : "Cr"}`} tone={ledgerBalance > 0 ? "text-red-600" : "text-emerald-700"} />
+            <Money label="Cars" value={String(cars.length)} />
           </div>
         </section>
       </div>
 
-      <section className="card overflow-x-auto p-0">
-        <h2 className="px-4 pt-4 font-semibold text-slate-700">Contracts</h2>
-        <table className="mt-2 w-full min-w-[820px]">
-          <thead className="bg-slate-50"><tr>
-            <th className="th">Contract</th><th className="th">Vehicle</th><th className="th">Date</th>
-            <th className="th text-right">Value</th><th className="th text-right">Outstanding</th><th className="th">Status</th>
-          </tr></thead>
-          <tbody>
-            {C.map((c) => {
-              const p = (c.car_installments ?? []).reduce((a: number, i: any) => a + Number(i.paid_amount || 0), 0);
-              const out = Number(c.net_payable || 0) - Number(c.advance || 0) - p;
-              return (
-                <tr key={c.id} className="border-t border-slate-100">
-                  <td className="td"><Link href={`/car-sales/contracts/${c.id}`} className="text-brand hover:underline">{c.contract_no}</Link></td>
-                  <td className="td">{vehicleTitle(c.vehicle ?? {})}</td>
-                  <td className="td">{dateStr(c.contract_date)}</td>
-                  <td className="td text-right tabular-nums">{sar(c.net_payable)}</td>
-                  <td className="td text-right tabular-nums">{sar(out)}</td>
-                  <td className="td"><span className={`badge ${CONTRACT_STATUS_TONE[c.status] ?? "bg-slate-100"}`}>{CONTRACT_STATUS_LABEL[c.status] ?? c.status}</span></td>
-                </tr>
-              );
-            })}
-            {C.length === 0 && <tr><td className="td text-slate-400" colSpan={6}>No contracts.</td></tr>}
-          </tbody>
-        </table>
+      <section>
+        <SectionHeader title="Ageing Analysis" />
+        <div className="card overflow-x-auto p-0">
+          <table className="report-grid w-full text-sm">
+            <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+              <tr>
+                <th className="px-3 py-2 text-right"><span className="col-resize">Due</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">Overdue</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">30 Days</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">30+ Days</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">Total</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="px-3 py-2 text-right tabular-nums text-amber-700">{money(Number(ageing.due ?? 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-red-600">{money(Number(ageing.overdue ?? 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(Number(ageing.d30 ?? 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(Number(ageing.d30plus ?? 0))}</td>
+                <td className="px-3 py-2 text-right tabular-nums font-bold">{money(Number(ageing.due ?? 0) + Number(ageing.overdue ?? 0))}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      <section className="card overflow-x-auto p-0">
-        <h2 className="px-4 pt-4 font-semibold text-slate-700">Receipts</h2>
-        <table className="mt-2 w-full min-w-[640px]">
-          <thead className="bg-slate-50"><tr>
-            <th className="th">Receipt</th><th className="th">Date</th><th className="th">Contract</th><th className="th">Method</th><th className="th text-right">Amount</th>
-          </tr></thead>
-          <tbody>
-            {(receipts ?? []).map((r: any) => (
-              <tr key={r.receipt_no} className="border-t border-slate-100">
-                <td className="td">{r.receipt_no}</td><td className="td">{dateStr(r.receipt_date)}</td>
-                <td className="td">{r.contract?.contract_no ?? "—"}</td><td className="td capitalize">{r.method}</td>
-                <td className="td text-right tabular-nums">{sar(r.amount)}</td>
+      <section>
+        <SectionHeader title="Cars" />
+        <div className="card overflow-x-auto p-0">
+          <table className="report-grid w-full min-w-[720px] text-sm">
+            <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+              <tr>
+                <th className="px-3 py-2 text-left"><span className="col-resize">Contract</span></th>
+                <th className="px-3 py-2 text-left"><span className="col-resize">Vehicle</span></th>
+                <th className="px-3 py-2 text-left"><span className="col-resize">Date</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">Value</span></th>
+                <th className="px-3 py-2 text-left"><span className="col-resize">Status</span></th>
               </tr>
-            ))}
-            {(receipts ?? []).length === 0 && <tr><td className="td text-slate-400" colSpan={5}>No receipts.</td></tr>}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {cars.map((c, i) => (
+                <tr key={c.id} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
+                  <td className="px-3 py-2"><Link href={`/car-sales/contracts/${c.id}`} className="text-brand hover:underline">{c.contract_no}</Link></td>
+                  <td className="px-3 py-2">{c.vehicle || c.plate_no || "—"}</td>
+                  <td className="px-3 py-2">{dateStr(c.contract_date)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{sar(c.net_payable)}</td>
+                  <td className="px-3 py-2"><span className={`badge ${CONTRACT_STATUS_TONE[c.status] ?? "bg-slate-100"}`}>{CONTRACT_STATUS_LABEL[c.status] ?? c.status}</span></td>
+                </tr>
+              ))}
+              {cars.length === 0 && <tr><td className="px-3 py-8 text-center text-slate-400" colSpan={5}>No cars.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <CustomerReportClient byType={byType} bills={bills} monthwise={monthwise} />
+
+      <section>
+        <SectionHeader title="Recent Receipts" />
+        <div className="card overflow-x-auto p-0">
+          <table className="report-grid w-full min-w-[560px] text-sm">
+            <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+              <tr>
+                <th className="px-3 py-2 text-left"><span className="col-resize">Receipt</span></th>
+                <th className="px-3 py-2 text-left"><span className="col-resize">Date</span></th>
+                <th className="px-3 py-2 text-left"><span className="col-resize">Contract</span></th>
+                <th className="px-3 py-2 text-right"><span className="col-resize">Amount</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {(receipts ?? []).map((rc: any, i: number) => (
+                <tr key={rc.receipt_no} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
+                  <td className="px-3 py-2">{rc.receipt_no}</td>
+                  <td className="px-3 py-2">{dateStr(rc.receipt_date)}</td>
+                  <td className="px-3 py-2">{rc.contract?.contract_no ?? "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{sar(rc.amount)}</td>
+                </tr>
+              ))}
+              {(receipts ?? []).length === 0 && <tr><td className="px-3 py-8 text-center text-slate-400" colSpan={4}>No receipts.</td></tr>}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );

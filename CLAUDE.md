@@ -1296,3 +1296,44 @@ things — `packages`/`package_items` (a pre-priced sales catalogue, 1 row,
 hidden screen) and `transport_packages` (a transport-only fixed vehicle/route
 price list). The Umrah Package module is neither. Keep its tables, RPCs and
 labels clearly apart from both when the build starts.
+
+## A customer's name is a report, not a thin profile card
+
+Clicking a customer's name (Car Customer Balances, and anywhere else a
+customer is named) opens `/car-sales/customers/[id]` — one RPC,
+`car_customer_report()` (438), carrying everything the screen needs: the
+ledger-true balance (`journal_lines`, the same sum `car_customer_balances()`
+already reads — not `car_contracts`/`car_installments` arithmetic, which the
+page used before this and which is exactly the "money questions read the
+ledger" mistake this file keeps flagging elsewhere), an ageing breakdown
+shaped like `ar_ap_aging()`'s own (due / overdue / 1-30 / 30+, so the two
+screens never disagree on what "due" means), a billed/receipts/balance KPI
+row per invoice type (Car Invoice vs Monthly Charges vs anything else billed
+to the account), every bill the account has ever carried with what has been
+adjusted against it (the `allocations` table `apply_billwise_allocations`
+already writes to), and a monthwise due/receipt schedule.
+
+**Invoice Type is a toggle group, not exclusive tabs** — Car Invoice /
+Service Charges / Other are independent slices of the same KPI row and a
+user comparing them wants more than one on screen at once, the same test
+this file's multi-select section already states. A bill's own row expands
+into its real `journal_lines` — the actual voucher, not a re-derived DR/CR
+pair — which is why there is no separate "GL detail" RPC: journal_lines is
+already RLS-scoped the way every restricted read in this ERP is, so reading
+it directly for one `entry_id` is the same access a staff user already has.
+
+**The monthwise schedule is not capped to ±3 months the way
+`car_customer_monthwise()` has to be.** That function caps its window
+because it runs for every customer at once, for a dashboard card — here it
+is one customer, so the RPC runs the real schedule from whatever
+`car_installments`/`car_service_charges`/`car_receipts` actually holds,
+which for a 12-month contract reaches over a year out. This is more
+complete than the old software's equivalent report needed to be, not less.
+
+**Violation Charges has no home and was left out, not faked.** The old
+software's customer report carried a Violation Charges column; VISTAERP has
+no violation-charge table or posting path anywhere under Car Sales, only
+`car_service_charges`. Adding a column with a schema-shaped zero behind it
+is exactly the fabricated-figure trap this file warns against elsewhere —
+it stays out until it is a real feature (a table, a posting routine) rather
+than a column with nothing behind it.
