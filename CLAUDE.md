@@ -1870,6 +1870,17 @@ already make (`report_drawings` for the shifted-back-a-year range) —
 every other period box already had its own drawings call, this was the
 one comparison missing it.
 
+**This turned out to be wrong on the facts, not just conservative — see
+"Drawing now shows on every P&L row" below.** "`report_drawings()` has no
+cost-centre or tag-area breakdown anywhere in the schema" was true of
+that RPC, but not of the underlying data: a Drawing posting's own
+journal line carries a `cost_center`/`tag_area` exactly like any other
+line (a user types one on the Payment voucher, same as any expense line)
+— nobody had asked for it to be read yet, which is a different thing
+from it not existing. Asked directly ("need drawing to be shown in
+pnl"), `report_pl_matrix()` was extended to read it, and the "only on a
+whole-company row" restriction was lifted.
+
 ## A table a caller wants roomier is opt-in, not a change to every report
 
 "a bit height increase" on P&L Summary specifically — not every report —
@@ -2486,33 +2497,41 @@ entered by a user — check the posting routine that produced it first, and
 check what cost centre the business actually wants before picking one to
 fix it with.
 
-## A `type = 'equity'` account never enters P&L's cost-centre breakdown — by accounting design, not a gap to fill
+## Drawing now shows on every P&L row — attributed for real, never folded into Expense
 
 A Drawing posting (`3-02-04 HAMMAD DRAWING`, `type = 'equity'`,
-`subtype = 'Drawing'`) with `cost_center = 'MAIN'` correctly typed and
-saved on its line will never show its amount against "MAIN" — or any
-cost centre — in P&L's Cost Centre / Cost Centre Group view.
-`report_pl_matrix()`'s `sales`/`cogs`/`expense` sums are each filtered to
-`acct_type = 'income'` or `'expense'`; an equity-type line contributes
-nothing to any of the three, no matter what cost centre it carries. The
-group row for "MAIN" still appears in the matrix (the `gl`/`agg` CTEs
-group by cost centre regardless of account type), but reads 0.00 on
-every column — the 2,000 SAR drawing itself is structurally invisible
-there, not lost or mis-filed. This is the same fact "Profit & Loss
-Summary carries Drawing / Actual Net / Act %, but only where they're
-honest" (above) already states for the flat month view — Drawings have
-no cost-centre breakdown ANYWHERE in the schema, on purpose: a drawing is
-an owner's equity withdrawal, not a business expense, so folding it into
-a cost centre's Expenses would overstate what that cost centre actually
-cost to run. The only place a drawing's amount shows at all is the
-whole-company `Drawing` KPI/column — never split by cost centre, cost
-centre group or tag area. If the business genuinely wants drawings
-tracked by cost centre, that is a real, unbuilt feature (a schema
-decision — whether a drawing should even carry one — not a bug in the
-existing report), not something to retrofit into `report_pl_matrix()`
-by relaxing its account-type filter, which would then also start
-counting balance-sheet movements (loans, fixed-asset purchases) as if
-they were operating income or expense.
+`subtype = 'Drawing'`) with `cost_center = 'MAIN'` typed on its line is
+ordinary voucher data entry — the same as typing a cost centre on any
+expense line — so once asked directly ("need drawing to be shown in
+pnl"), the fix was to read it, not to explain why it couldn't be:
+`report_pl_matrix()` (452) sums `debit - credit` for `acct_type = 'equity'
+and subtype = 'Drawing'` into a fourth figure, `drawing`, grouped by the
+exact same `(cost_center, tag_area, month)` `sales`/`cogs`/`expense`
+already use. `ProfitLossView.tsx`'s `plValues()` now always receives a
+real `drawing` number (never `undefined`) and always computes
+`actual_net`/`act_pct` from it, at every depth — CC Group, Cost Center,
+Tag Area Group, Tag Area, the flat month-wise view, Year-wise — so
+Drawing/Actual Net/Act % are permanent columns on `PL_COLS` now, not
+conditionally appended via a since-removed `showDrawingCols`/
+`PL_DRAWING_COLS` split. A cost centre nobody has drawn against reads a
+real, summed 0.00, same as any other figure with no activity — not a
+fabricated placeholder, because the underlying sum is real.
+
+**Still deliberately NOT folded into Expense or Net Profit** — that part
+of the earlier reasoning was right and is unchanged: an owner's drawing
+is not a business expense, so `gross_profit`/`net_profit` are computed
+exactly as before, reading only income/COGS/expense; only the separate
+Drawing/Actual Net/Act % columns read the new figure. **What was wrong**
+was the premise that this data didn't exist — "Drawings has no
+cost-centre breakdown anywhere in the schema" conflated "no report reads
+it" with "the column isn't there." `journal_lines.cost_center` is
+populated on every line uniformly, equity accounts included; the fix was
+three lines in `report_pl_matrix()`'s `agg` CTE, not a schema change.
+The lesson for the next "there's no honest figure to show here" call:
+check whether the COLUMN exists on the underlying rows before concluding
+the DATA doesn't — a fabricated figure and an unread real one look the
+same from the report side, but only one of them is actually a gap to
+leave alone.
 
 ## Depth-0 auto-expand is opt-out for a FIXED group shape, opt-in-to-collapse for a click-order one
 

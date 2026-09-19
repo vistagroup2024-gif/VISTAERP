@@ -92,7 +92,7 @@ const EMPTY_ARR: any[] = [];
 type MatrixRow = {
   cost_center_id: string | null; cost_center: string; cost_center_group: string;
   tag_area_id: string | null; tag_area: string; tag_area_group: string;
-  month: string; sales: number; cogs: number; expense: number;
+  month: string; sales: number; cogs: number; expense: number; drawing: number;
 };
 type PLDim = "ccGroup" | "costCenter" | "tagAreaGroup" | "tagArea";
 type PLLevel = { key: PLDim; label: string; field: (r: MatrixRow) => string };
@@ -112,14 +112,14 @@ function groupByField(rows: MatrixRow[], field: (r: MatrixRow) => string): Map<s
   return m;
 }
 function monthRowsFromMatrix(rs: MatrixRow[]) {
-  const byMonth = new Map<string, { sales: number; cogs: number; expense: number }>();
+  const byMonth = new Map<string, { sales: number; cogs: number; expense: number; drawing: number }>();
   for (const r of rs) {
-    const e = byMonth.get(r.month) ?? { sales: 0, cogs: 0, expense: 0 };
-    e.sales += r.sales; e.cogs += r.cogs; e.expense += r.expense;
+    const e = byMonth.get(r.month) ?? { sales: 0, cogs: 0, expense: 0, drawing: 0 };
+    e.sales += r.sales; e.cogs += r.cogs; e.expense += r.expense; e.drawing += r.drawing;
     byMonth.set(r.month, e);
   }
   return Array.from(byMonth.entries()).sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([month, m]) => ({ label: monthShort(month), ...plValues(m.sales, m.cogs, m.expense) }));
+    .map(([month, m]) => ({ label: monthShort(month), ...plValues(m.sales, m.cogs, m.expense, m.drawing) }));
 }
 // One recursive builder over however many levels are active, in click
 // order — the exact shape buildExpenseLevels() (ExpenseReportView.tsx)
@@ -132,7 +132,8 @@ function buildPLLevels(rows: MatrixRow[], levels: PLLevel[], withMonth: boolean,
   const isLast = depth === levels.length - 1;
   return Array.from(byKey.entries()).map(([key, rs]) => {
     const sales = rs.reduce((s, r) => s + r.sales, 0), cogs = rs.reduce((s, r) => s + r.cogs, 0), expense = rs.reduce((s, r) => s + r.expense, 0);
-    const values = plValues(sales, cogs, expense);
+    const drawing = rs.reduce((s, r) => s + r.drawing, 0);
+    const values = plValues(sales, cogs, expense, drawing);
     return {
       key: `${depth}:${key}`, label: key, values, rows: isLast && withMonth ? monthRowsFromMatrix(rs) : [],
       ...(isLast ? {} : { subgroups: buildPLLevels(rs, levels, withMonth, depth + 1) }),
@@ -140,25 +141,28 @@ function buildPLLevels(rows: MatrixRow[], levels: PLLevel[], withMonth: boolean,
   }).sort((a, b) => Number(b.values!.revenue) - Number(a.values!.revenue));
 }
 
-// `drawing` is only ever passed for a row that represents a whole calendar
-// period for the whole company (a month, or "This Period"/"Same Period Last
-// Year") — Drawings has no cost-centre, tag-area or group breakdown
-// anywhere in the schema (report_drawings() returns a company-wide monthly
-// total, not one split by cost centre), so a CC Group / Cost Center / Tag
-// Area row leaves it undefined rather than showing a "0.00" that would read
-// as a real, checked figure instead of "not attributable here" — the same
-// insufficient_data-over-a-fabricated-zero rule Transport Costing already
-// follows.
-function plValues(sales: number, cogs: number, expense: number, drawing?: number) {
+// Drawing is a REAL per-(cost centre, tag area, month) figure now —
+// report_pl_matrix() (443, extended) reads it off exactly the same
+// cost_center/tag_area a Drawing posting's own line already carries (a
+// Payment against a Drawing account typed with Cost Centre "MAIN" is
+// ordinary data entry, not a special case), the same way sales/cogs/expense
+// are already grouped. So every row — flat month, CC Group, Cost Center,
+// Tag Area, at any depth — gets a real, attributed Drawing/Actual Net/Act %,
+// not a fabricated zero: `drawing` is always a real sum of real lines,
+// simply 0 where nobody has typed a drawing against that grouping.
+// Deliberately NOT folded into Expense: an owner's drawing is not a
+// business expense, so Gross/Net Profit are computed exactly as before —
+// only the separate Drawing/Actual Net/Act % columns read it.
+function plValues(sales: number, cogs: number, expense: number, drawing: number) {
   const gross = sales - cogs, net = gross - expense;
-  const actualNet = drawing !== undefined ? net - drawing : undefined;
+  const actualNet = net - drawing;
   return {
     revenue: sales, cogs, gross_profit: gross,
     gp_pct: sales !== 0 ? (gross / sales) * 100 : null,
     expense, net_profit: net,
     per_pct: sales !== 0 ? (net / sales) * 100 : null,
     drawing, actual_net: actualNet,
-    act_pct: actualNet !== undefined && sales !== 0 ? (actualNet / sales) * 100 : null,
+    act_pct: sales !== 0 ? (actualNet / sales) * 100 : null,
   };
 }
 
@@ -171,14 +175,6 @@ const PL_COLS = [
   { key: "expense", label: "Expenses", kind: "money" as const, total: true },
   { key: "net_profit", label: "Net", kind: "money" as const, total: true },
   { key: "per_pct", label: "PER %", kind: "pct" as const },
-];
-// Drawing / Actual Net / Act % — only meaningful on a row that IS a whole
-// calendar period (a month, or the Year-wise This-Period/Last-Year rows),
-// since Drawings has no cost-centre/tag-area breakdown to show honestly on
-// a CC Group, Cost Center or Tag Area row. Appended to PL_COLS only in
-// those modes (see `plCols` below) rather than always shown with a
-// fabricated-looking "0.00" on every other row.
-const PL_DRAWING_COLS = [
   { key: "drawing", label: "Drawing", kind: "money" as const, total: true },
   { key: "actual_net", label: "Actual Net", kind: "money" as const, total: true },
   { key: "act_pct", label: "Act %", kind: "pct" as const },
@@ -345,15 +341,6 @@ export default function ProfitLossView() {
   const hasYear = yearWise;
   const plLevels = plDimOrder.map((k) => PL_LEVEL_BY_KEY.get(k)!);
 
-  // Drawing / Actual Net / Act % only ever show on a row that IS a whole
-  // calendar period for the whole company — see PL_DRAWING_COLS. That's
-  // exactly the flat month-wise fallback and the Year-wise comparison; a
-  // CC Group / Cost Center / Tag Area row (or its month drill-down, which
-  // is that GROUP's own months, not the company's) has no honest figure to
-  // put there, so those three columns are left off the table entirely
-  // rather than shown with a fabricated-looking "0.00" on every row.
-  const showDrawingCols = hasYear || plDimOrder.length === 0;
-  const plCols = showDrawingCols ? [...PL_COLS, ...PL_DRAWING_COLS] : PL_COLS;
   const drawingsByMonth = new Map(drawingsMonthly.map((r) => [r.month, Number(r.amount || 0)]));
 
   let plGroups: DataGroup[] | null = null;
@@ -462,7 +449,7 @@ export default function ProfitLossView() {
                 combination's children render already open (or the newly
                 outermost level render collapsed) instead of fresh. */}
             <DataTable key={plFilterKey}
-              bare roomy cols={plCols} startCollapsed={plDimOrder.length > 1}
+              bare roomy cols={PL_COLS} startCollapsed={plDimOrder.length > 1}
               {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
           </div>
         </div>
