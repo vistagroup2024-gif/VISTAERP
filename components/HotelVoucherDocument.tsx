@@ -115,14 +115,15 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
         <div className="overflow-hidden rounded-xl border border-slate-200">
           <table className="w-full table-fixed border-collapse text-xs">
             <colgroup>
-              <col style={{ width: isInvoice ? "13%" : "17%" }} />
-              <col style={{ width: isInvoice ? "12%" : "13%" }} />
-              <col style={{ width: isInvoice ? "10%" : "12%" }} />
-              <col style={{ width: isInvoice ? "10%" : "12%" }} />
-              <col style={{ width: isInvoice ? "6%" : "7%" }} />
-              <col style={{ width: isInvoice ? "6%" : "7%" }} />
-              <col style={{ width: isInvoice ? "14%" : (showHcnCol ? "16%" : "32%") }} />
-              {isInvoice ? (<><col style={{ width: "13%" }} /><col style={{ width: "15%" }} /></>) : (showHcnCol && <col style={{ width: "14%" }} />)}
+              <col style={{ width: isInvoice ? "12%" : "16%" }} />
+              <col style={{ width: isInvoice ? "10%" : "11%" }} />
+              <col style={{ width: isInvoice ? "10%" : "11%" }} />
+              <col style={{ width: isInvoice ? "10%" : "11%" }} />
+              <col style={{ width: isInvoice ? "6%" : "6%" }} />
+              <col style={{ width: isInvoice ? "6%" : "6%" }} />
+              <col style={{ width: isInvoice ? "10%" : (showHcnCol ? "12%" : "14%") }} />
+              <col style={{ width: isInvoice ? "12%" : (showHcnCol ? "15%" : "19%") }} />
+              {isInvoice ? (<><col style={{ width: "11%" }} /><col style={{ width: "13%" }} /></>) : (showHcnCol && <col style={{ width: "13%" }} />)}
             </colgroup>
             <thead>
               <tr className="bg-brand text-left text-[10px] font-semibold uppercase tracking-wide text-white" style={exact}>
@@ -132,7 +133,8 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
                 <th className="px-2 py-2">Check Out</th>
                 <th className="px-2 py-2 text-right">Nts</th>
                 <th className="px-2 py-2 text-right">Rms</th>
-                <th className="px-2 py-2">Room Type / Meal</th>
+                <th className="px-2 py-2">Room Type</th>
+                <th className="px-2 py-2">Meal</th>
                 {isInvoice ? (
                   <>
                     <th className="px-2 py-2 text-right">Rate</th>
@@ -152,7 +154,8 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
                   <td className="px-2 py-2">{dateStr(s.check_out)}</td>
                   <td className="px-2 py-2 text-right">{s.nights ?? "—"}</td>
                   <td className="px-2 py-2 text-right">{s.rooms ?? "—"}</td>
-                  <td className="break-words px-2 py-2">{[s.room_summary || s.room_type, s.meal_plan].filter(Boolean).join(" / ") || "—"}</td>
+                  <td className="break-words px-2 py-2">{s.room_summary || s.room_type || "—"}</td>
+                  <td className="break-words px-2 py-2">{s.meal_plan || "—"}</td>
                   {isInvoice ? (
                     <>
                       <td className="break-words px-2 py-2 text-right tabular-nums">{s.sale_rate != null ? fmtMoney(Number(s.sale_rate), s.currency || currency) : "—"}</td>
