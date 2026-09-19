@@ -386,7 +386,7 @@ export default function ProfitLossView() {
             {ccGroupNetRows.length > 0 && (
               <tfoot><tr className="bg-slate-50 font-semibold">
                 <td className="px-3 py-1.5">Total</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{money(ccGroupNetTotal)}</td>
+                <td className={`px-3 py-1.5 text-right tabular-nums ${ccGroupNetTotal < 0 ? "text-red-600" : ""}`}>{money(ccGroupNetTotal)}</td>
               </tr></tfoot>
             )}
           </table>
@@ -407,9 +407,6 @@ export default function ProfitLossView() {
             </div>
             <DataTable bare cols={PL_COLS} {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
           </div>
-          <p className="mt-1 text-right text-xs text-slate-400">
-            <Link href="/accounting/cost-centre-costing" className="text-brand hover:underline">Full Cost Centre Costing report →</Link>
-          </p>
         </div>
       </div>
 

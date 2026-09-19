@@ -5,6 +5,19 @@ import Link from "next/link";
 import type { Col } from "@/lib/reports/types";
 import { cellText, isNumeric } from "@/lib/reports/export";
 
+// A negative money or percentage figure reads red — the same convention
+// every professional accounting product uses (a loss, a negative margin, a
+// shortfall) so it registers at a glance rather than needing the reader to
+// notice the minus sign. Deliberately not qty/int: a negative quantity isn't
+// a "loss" the same way, so this stays scoped to the two kinds that carry
+// profit-and-loss meaning.
+const NEGATIVE_KINDS = new Set(["money", "pct"]);
+function negativeClass(col: Col, v: any): string {
+  if (!col.kind || !NEGATIVE_KINDS.has(col.kind)) return "";
+  const n = Number(v);
+  return !isNaN(n) && n < 0 ? "text-red-600" : "";
+}
+
 export interface DataGroup {
   key: string;
   label: string;
@@ -154,7 +167,7 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals }: {
       {rows.length > 0 && hasTotals && (
         <tfoot><tr className="bg-slate-50 font-semibold">
           {cols.map((c, i) => (
-            <td key={c.key} className={`border border-slate-200 px-3 py-2 ${isNumeric(c) ? "text-right tabular-nums" : ""}`}>
+            <td key={c.key} className={`border border-slate-200 px-3 py-2 ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total ? negativeClass(c, totals[c.key]) : ""}`}>
               {c.total ? cellText(c, totals[c.key]) : i === 0 ? "Total" : ""}
             </td>
           ))}
@@ -224,7 +237,7 @@ function GroupRows({ cols, g, depth, idx, expanded, onToggle }: {
       {open && !g.subgroups && g.subtotal && !g.values && (
         <tr key={`${g.key}-sub`} className="bg-slate-50/60 font-medium">
           {cols.map((c, i) => (
-            <td key={c.key} className={`border border-slate-200 px-3 py-1.5 ${isNumeric(c) ? "text-right tabular-nums" : ""}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>
+            <td key={c.key} className={`border border-slate-200 px-3 py-1.5 ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total && g.subtotal![c.key] !== undefined ? negativeClass(c, g.subtotal![c.key]) : ""}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>
               {c.total && g.subtotal![c.key] !== undefined ? cellText(c, g.subtotal![c.key]) : i === 0 ? "Subtotal" : ""}
             </td>
           ))}
@@ -243,9 +256,10 @@ function Cell({ col, row, indent }: { col: Col; row: any; indent?: number }) {
   }
   const text = cellText(col, v);
   const href = col.href?.(row);
+  const neg = negativeClass(col, v);
   return (
-    <td className={`border border-slate-200 px-3 py-2 ${isNumeric(col) ? "text-right tabular-nums" : ""}`} style={style}>
-      {href ? <Link href={href} className="text-brand hover:underline">{text}</Link> : text}
+    <td className={`border border-slate-200 px-3 py-2 ${isNumeric(col) ? "text-right tabular-nums" : ""} ${neg}`} style={style}>
+      {href ? <Link href={href} className={`hover:underline ${neg || "text-brand"}`}>{text}</Link> : text}
     </td>
   );
 }

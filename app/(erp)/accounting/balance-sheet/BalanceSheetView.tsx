@@ -136,7 +136,7 @@ export default function BalanceSheetView() {
         <div className="overflow-hidden rounded-lg border border-slate-200 shadow-card">
           <div className="bg-brand-700 px-3 py-2 text-sm font-bold text-white">Assets</div>
           <DataTable bare cols={COLS} groups={assetGroups} empty="No asset balances as at this date." />
-          <div className="flex items-center justify-between border-t border-slate-200 bg-brand-50 px-3 py-2 text-sm font-bold text-brand-800">
+          <div className={`flex items-center justify-between border-t border-slate-200 px-3 py-2 text-sm font-bold ${totA < 0 ? "bg-red-50 text-red-700" : "bg-brand-50 text-brand-800"}`}>
             <span>Total Assets</span><span className="tabular-nums">{money(totA)}</span>
           </div>
         </div>
@@ -145,14 +145,14 @@ export default function BalanceSheetView() {
           <div className="overflow-hidden rounded-lg border border-slate-200 shadow-card">
             <div className="bg-brand-700 px-3 py-2 text-sm font-bold text-white">Liabilities</div>
             <DataTable bare cols={COLS} groups={liabGroups} empty="No liability balances as at this date." />
-            <div className="flex items-center justify-between border-t border-slate-200 bg-brand-50 px-3 py-2 text-sm font-bold text-brand-800">
+            <div className={`flex items-center justify-between border-t border-slate-200 px-3 py-2 text-sm font-bold ${totL < 0 ? "bg-red-50 text-red-700" : "bg-brand-50 text-brand-800"}`}>
               <span>Total Liabilities</span><span className="tabular-nums">{money(totL)}</span>
             </div>
           </div>
           <div className="overflow-hidden rounded-lg border border-slate-200 shadow-card">
             <div className="bg-brand-700 px-3 py-2 text-sm font-bold text-white">Equity</div>
             <DataTable bare cols={COLS} groups={equityGroups} empty="No equity balances as at this date." />
-            <div className="flex items-center justify-between border-t border-slate-200 bg-brand-50 px-3 py-2 text-sm font-bold text-brand-800">
+            <div className={`flex items-center justify-between border-t border-slate-200 px-3 py-2 text-sm font-bold ${totE < 0 ? "bg-red-50 text-red-700" : "bg-brand-50 text-brand-800"}`}>
               <span>Total Equity</span><span className="tabular-nums">{money(totE)}</span>
             </div>
           </div>

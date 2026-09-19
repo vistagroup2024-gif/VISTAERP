@@ -1637,3 +1637,49 @@ and the filter-picker trees (`TreePickList.tsx`) — neither is a report
 result a viewer drills INTO, one is an always-browsable master list and
 the other is a selection UI, so "starts open so you can see what's there
 to pick" is the right default for those, not a bug of the same shape.
+
+## A loss reads red — everywhere a figure can be one, not just where someone remembered
+
+`DataTable`'s own `Cell` never coloured a negative number — money and
+percentage columns rendered a loss in the same plain slate text as a
+profit, so a viewer had to actually read the minus sign rather than
+recognise it the way every professional accounting product (and this
+ERP's own `ReportKpi` `tone` prop, already red-on-negative) lets you.
+`negativeClass()` in `DataTable.tsx` is the one place this is decided now:
+a `money` or `pct` column with a negative value renders `text-red-600`,
+in the row cell, the flat-table footer total, and a group's subtotal row
+alike — three call sites, one rule, so a total can't disagree with the
+rows it sums about whether it's a loss. Deliberately scoped to
+`money`/`pct` only — a negative quantity isn't a "loss" the same way, so
+`qty`/`int` stay untouched. Because this lives in `DataTable` itself, it
+reaches every report built on it at once: P&L, Balance Sheet, Cash & Bank,
+Cash Flow, Aging, Cost Centre Costing, Sales Report, every grouped
+Inventory report — a new report gets this for free just by using
+`DataTable`'s `money`/`pct` column kinds, nothing to remember.
+
+Three hand-rolled tables outside `DataTable` had the same gap and were
+fixed individually, since they build their own `<td>`s:
+- P&L's own "Cost Center Profit & Loss" panel already coloured a
+  negative COST CENTRE red per row, but its Total footer didn't — a
+  Total could be a loss while reading in the same black text as a
+  profit two rows up. Fixed to match.
+- Balance Sheet's three total bars (Total Assets / Liabilities / Equity)
+  were always the light brand-green tint. Now `bg-red-50 text-red-700`
+  when negative, the same tone Cash Flow's own section totals already
+  used.
+- Car Sales' Vehicle Profitability report had the opposite problem: its
+  Net column was hard-coded `text-emerald-700` — always green, even for a
+  car sold at a loss — and its Total row had no colour logic at all.
+  Both now read the sign of the actual figure.
+
+**P&L also dropped a stray "Full Cost Centre Costing report →" link**
+under the Profit & Loss Summary panel, left over from before that panel
+had its own CC Group / Cost Center / Month wise filtration — the
+Summary panel already shows everything that report does, in the same
+place, so the link was pointing a reader at a second copy of what they
+were already looking at rather than anywhere new.
+
+The rule for anywhere else a profit-or-loss figure shows up, hand-rolled
+or not: color follows the SIGN of the actual number, never a fixed class
+picked because the figure is "usually positive" — the Vehicle Profitability
+bug is exactly what that shortcut produces.

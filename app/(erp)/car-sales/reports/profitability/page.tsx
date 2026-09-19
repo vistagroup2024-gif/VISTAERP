@@ -48,7 +48,7 @@ export default async function ProfitabilityReport() {
                 <td className="td text-right tabular-nums">{sar(r.sale)}</td>
                 <td className="td text-right tabular-nums">{sar(r.gross)}</td>
                 <td className="td text-right tabular-nums">{sar(r.commission)}</td>
-                <td className="td text-right tabular-nums font-medium text-emerald-700">{sar(r.net)}</td>
+                <td className={`td text-right tabular-nums font-medium ${r.net < 0 ? "text-red-600" : "text-emerald-700"}`}>{sar(r.net)}</td>
                 <td className="td text-right tabular-nums">{sar(r.collected)}</td>
                 <td className="td text-right tabular-nums">{sar(r.outstanding)}</td>
               </tr>
@@ -59,7 +59,7 @@ export default async function ProfitabilityReport() {
             <td className="td" colSpan={2}>Total ({rows.length})</td>
             <td className="td text-right tabular-nums">{sar(t.cost)}</td><td className="td text-right tabular-nums">{sar(t.sale)}</td>
             <td className="td text-right tabular-nums">{sar(t.gross)}</td><td className="td text-right tabular-nums">{sar(t.commission)}</td>
-            <td className="td text-right tabular-nums">{sar(t.net)}</td><td className="td text-right tabular-nums">{sar(t.collected)}</td>
+            <td className={`td text-right tabular-nums ${t.net < 0 ? "text-red-600" : ""}`}>{sar(t.net)}</td><td className="td text-right tabular-nums">{sar(t.collected)}</td>
             <td className="td text-right tabular-nums">{sar(t.outstanding)}</td>
           </tr></tfoot>}
         </table>
