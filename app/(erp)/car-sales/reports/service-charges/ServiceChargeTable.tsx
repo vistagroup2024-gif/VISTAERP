@@ -51,7 +51,7 @@ export default function ServiceChargeTable({ rows }: { rows: Row[] }) {
           </tr></thead>
           <tbody>
             {shown.map((r, i) => (
-              <tr key={r.vehicle.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={r.vehicle.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="td"><Link href={`/car-sales/vehicles/${r.vehicle.id}`} className="text-brand hover:underline">{vehicleTitle(r.vehicle)}</Link><div className="text-xs text-slate-400">{r.vehicle.plate_no ?? ""}</div></td>
                 <td className="td">{r.customer}</td>
                 <td className="td">{OWNERSHIP_LABEL[r.vehicle.ownership] ?? r.vehicle.ownership}</td>

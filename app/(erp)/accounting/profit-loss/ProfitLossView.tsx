@@ -419,7 +419,7 @@ export default function ProfitLossView() {
             </thead>
             <tbody>
               {ccGroupNetRows.map((r, i) => (
-                <tr key={r.name} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
+                <tr key={r.name} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
                   <td className="px-3 py-1.5">{r.name}</td>
                   <td className={`px-3 py-1.5 text-right tabular-nums ${r.net < 0 ? "font-medium text-red-600" : ""}`}>{money(r.net)}</td>
                 </tr>

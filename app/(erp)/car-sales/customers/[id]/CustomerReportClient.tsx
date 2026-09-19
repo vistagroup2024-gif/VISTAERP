@@ -153,7 +153,7 @@ export default function CustomerReportClient({ byType, bills, monthwise }: { byT
                 const key = `${b.entry_id}-${b.doc_no}`;
                 return (
                   <Fragment key={key}>
-                    <tr className={`cursor-pointer ${i % 2 === 1 ? "bg-slate-50/70" : ""}`} onClick={() => setOpenBill(isOpen ? null : key)}>
+                    <tr className={`cursor-pointer ${i % 2 === 1 ? "bg-slate-100/80" : ""}`} onClick={() => setOpenBill(isOpen ? null : key)}>
                       <td className="px-3 py-2">
                         <span className="mr-1.5 inline-block w-3 text-slate-400">{isOpen ? "▾" : "▸"}</span>
                         {b.doc_no}

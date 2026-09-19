@@ -22,159 +22,160 @@ function lastMonthRange(): [string, string] {
   const last = new Date(Date.UTC(py, pm, 0)).getUTCDate();
   return [`${py}-${pad(pm)}-01`, `${py}-${pad(pm)}-${pad(last)}`];
 }
-
-// One shape (name/group/expense/monthly) for all three pivot families — CC
-// Group/Cost Center and Tag Area both already come off report_cost_centre_costing()
-// and report_tag_area_costing() (reading only their `expense`/`monthly[].expense`
-// fields — the P&L-shaped sales/cogs on those rows are ignored here), and
-// Account Group/Account Name off the one genuinely new RPC this report
-// needed, report_expense_by_account(). Converting all three into the same
-// ExpRow shape means one builder produces every dimension's DataGroup[].
-type ExpRow = { name: string; group: string; expense: number; monthly: { month: string; amount: number }[] };
-function ccToExpRows(data: any[]): ExpRow[] {
-  return (data ?? []).map((r) => ({
-    name: r.cost_centre, group: r.cost_center_group, expense: Number(r.expense || 0),
-    monthly: (r.monthly ?? []).map((m: any) => ({ month: m.month, amount: Number(m.expense || 0) })),
-  }));
-}
-function tagToExpRows(data: any[]): ExpRow[] {
-  return (data ?? []).map((r) => ({
-    name: r.tag_area, group: r.tag_area_group, expense: Number(r.expense || 0),
-    monthly: (r.monthly ?? []).map((m: any) => ({ month: m.month, amount: Number(m.expense || 0) })),
-  }));
-}
-function acctToExpRows(data: any[]): ExpRow[] {
-  return (data ?? []).map((r) => ({
-    name: r.name, group: r.account_group, expense: Number(r.expense || 0),
-    monthly: (r.monthly ?? []).map((m: any) => ({ month: m.month, amount: Number(m.amount || 0) })),
-  }));
+function groupByField<T>(rows: T[], field: (r: T) => string): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const r of rows) { const k = field(r); const arr = m.get(k) ?? []; arr.push(r); m.set(k, arr); }
+  return m;
 }
 
-// Expenses Filteration — three mutually exclusive FAMILIES (the same
-// layered-exclusion shape P&L Filteration already established): Account
-// Group/Account Name are two levels of the account hierarchy, CC Group/Cost
-// Center two levels of the cost-centre hierarchy, and Tag Area a third,
-// alternate source — picking a button from a different family clears
-// whichever family was active, picking a second button in the SAME family
-// layers group+leaf together, and at least one button always stays on.
-type ExpMode = "acctGroup" | "acctName" | "ccGroup" | "costCenter" | "tagArea";
-type ExpFamily = "account" | "cc" | "tag";
+// report_expense_matrix() (441) — one row per (cost centre, account, month),
+// carrying BOTH dimensions' ids/names/groups at once. This is what makes
+// "whichever combination you want" possible: CC Group, Cost Center, Account
+// Group and Account Name are four independent, freely-combinable levels of
+// the SAME rows, not four separate per-dimension datasets you pick one of
+// (that was the actual bug in the first cut of this report — CC Group/Cost
+// Center and Account Group/Account Name could only ever be selected as two
+// whole alternate "families", never together).
+type MatrixRow = {
+  cost_center_id: string | null; cost_center: string; cost_center_group: string;
+  account_id: string; account: string; account_group: string;
+  month: string; amount: number;
+};
+type ExpMode = "ccGroup" | "costCenter" | "acctGroup" | "acctName" | "tagArea";
+type Level = { key: ExpMode; label: string; field: (r: MatrixRow) => string };
+// Fixed nesting order when more than one is on: coarse-to-fine within each
+// hierarchy, cost-centre side before account side (an arbitrary but stable
+// choice — picking Cost Center + Account Name nests accounts under their
+// cost centre, not the reverse).
+const MATRIX_LEVELS: Level[] = [
+  { key: "ccGroup", label: "CC Group", field: (r) => r.cost_center_group },
+  { key: "costCenter", label: "Cost Center", field: (r) => r.cost_center },
+  { key: "acctGroup", label: "Account Group", field: (r) => r.account_group },
+  { key: "acctName", label: "Account Name", field: (r) => r.account },
+];
 const EXP_MODES: { key: ExpMode; label: string }[] = [
-  { key: "acctGroup", label: "Account Group" }, { key: "acctName", label: "Account Name" },
-  { key: "ccGroup", label: "CC Group" }, { key: "costCenter", label: "Cost Center" },
+  ...MATRIX_LEVELS.map((l) => ({ key: l.key, label: l.label })),
   { key: "tagArea", label: "Tag Area" },
 ];
-const EXP_FAMILY: Record<ExpMode, ExpFamily> = {
-  acctGroup: "account", acctName: "account", ccGroup: "cc", costCenter: "cc", tagArea: "tag",
-};
+// Tag Area is the one genuinely exclusive option — a line's tag_area is an
+// alternate dimension to both hierarchies above, not a level of either, so
+// it can't nest with them the way they nest with each other. Everything
+// else toggles freely: turning one of the four matrix levels on only ever
+// clears Tag Area, never any of its siblings.
 function toggleExpMode(prev: Set<ExpMode>, m: ExpMode): Set<ExpMode> {
   const next = new Set(prev);
   const turningOn = !next.has(m);
   if (turningOn) {
-    const fam = EXP_FAMILY[m];
-    for (const k of Array.from(next)) if (EXP_FAMILY[k] !== fam) next.delete(k);
-    next.add(m);
+    if (m === "tagArea") { next.clear(); next.add("tagArea"); }
+    else { next.delete("tagArea"); next.add(m); }
   } else if (next.size > 1) {
     next.delete(m);
   }
   return next;
 }
 
-// Group-only / leaf-only / group->leaf, the exact three-branch shape P&L's
-// own buildCostingGroups() already uses — single metric here (`expense`)
-// instead of a whole P&L row, so `values` carries just the one column.
-function buildExpenseGroups(rows: ExpRow[], hasGroup: boolean, hasLeaf: boolean): DataGroup[] {
-  const byGroup = new Map<string, ExpRow[]>();
-  for (const r of rows) { const arr = byGroup.get(r.group) ?? []; arr.push(r); byGroup.set(r.group, arr); }
-  if (hasGroup && !hasLeaf) {
-    return Array.from(byGroup.entries()).map(([group, leaves]) => ({
-      key: group, label: group, rows: [],
-      values: { expense: leaves.reduce((s, r) => s + r.expense, 0) },
-    })).sort((a, b) => Number(b.values!.expense) - Number(a.values!.expense));
-  }
-  if (!hasGroup && hasLeaf) {
-    return rows.map((r) => ({ key: r.name, label: r.name, rows: [], values: { expense: r.expense } }))
-      .sort((a, b) => Number(b.values!.expense) - Number(a.values!.expense));
-  }
-  return Array.from(byGroup.entries()).map(([group, leaves]) => ({
-    key: group, label: group, rows: [],
-    values: { expense: leaves.reduce((s, r) => s + r.expense, 0) },
-    subgroups: [...leaves].sort((a, b) => b.expense - a.expense).map((r) => ({
-      key: `${group}::${r.name}`, label: r.name, rows: [], values: { expense: r.expense },
-    })),
+// Group-only / leaf-only / any N-level combination — one recursive builder
+// instead of P&L's fixed three-branch shape, since up to four levels can
+// now be active at once instead of at most two.
+function buildExpenseLevels(rows: MatrixRow[], levels: Level[], depth = 0): DataGroup[] {
+  if (depth >= levels.length) return [];
+  const byKey = groupByField(rows, levels[depth].field);
+  const isLast = depth === levels.length - 1;
+  return Array.from(byKey.entries()).map(([key, rs]) => ({
+    key: `${depth}:${key}`, label: key, rows: [] as any[],
+    values: { expense: rs.reduce((s, r) => s + r.amount, 0) },
+    ...(isLast ? {} : { subgroups: buildExpenseLevels(rs, levels, depth + 1) }),
   })).sort((a, b) => Number(b.values!.expense) - Number(a.values!.expense));
 }
 
-// Current vs Last Month — merged by name (a name in one period and not the
-// other still gets a row, reading 0 on the side it's missing from), then
-// the same group-only/leaf-only/group->leaf shape as buildExpenseGroups.
-// Variance follows the same "reference minus actual" direction Budget's own
-// Variance already uses (budget - actual, positive = under budget = good =
-// green) — here `last_month - current`, so spending LESS than last month
-// reads positive/green (a genuine improvement for an expense) and spending
-// MORE reads negative/red, never the Sales Report "actual - reference"
+// Current vs Last Month — groups current-period and last-month rows
+// SIMULTANEOUSLY by the same key at each level (rather than building two
+// trees and merging), so a name only in one period still gets a row,
+// reading 0 on the side it's missing from. Variance follows the same
+// "reference minus actual" direction Budget's own Variance already uses
+// (budget - actual, positive = under budget = good = green) — here
+// `last_month - current`, so spending LESS than last month reads
+// positive/green (a genuine improvement for an expense) and spending MORE
+// reads negative/red — never the Sales Report "actual - reference"
 // direction, which would be backwards for a figure where less is better.
-type CmpRow = { name: string; group: string; current: number; last_month: number; variance: number };
-function lastVsCurrent(curRows: ExpRow[], lastRows: ExpRow[]): CmpRow[] {
-  const curMap = new Map(curRows.map((r) => [r.name, r]));
-  const lastMap = new Map(lastRows.map((r) => [r.name, r]));
-  const names = new Set([...Array.from(curMap.keys()), ...Array.from(lastMap.keys())]);
-  return Array.from(names).map((name) => {
-    const cur = curMap.get(name), last = lastMap.get(name);
-    const current = cur?.expense ?? 0, last_month = last?.expense ?? 0;
-    return { name, group: cur?.group ?? last?.group ?? name, current, last_month, variance: last_month - current };
-  }).filter((r) => r.current !== 0 || r.last_month !== 0);
+function buildComparisonLevels(curRows: MatrixRow[], lastRows: MatrixRow[], levels: Level[], depth = 0): DataGroup[] {
+  if (depth >= levels.length) return [];
+  const field = levels[depth].field;
+  const curByKey = groupByField(curRows, field);
+  const lastByKey = groupByField(lastRows, field);
+  const keys = new Set([...Array.from(curByKey.keys()), ...Array.from(lastByKey.keys())]);
+  const isLast = depth === levels.length - 1;
+  return Array.from(keys).map((key) => {
+    const curRs = curByKey.get(key) ?? [], lastRs = lastByKey.get(key) ?? [];
+    const current = curRs.reduce((s, r) => s + r.amount, 0);
+    const last_month = lastRs.reduce((s, r) => s + r.amount, 0);
+    return {
+      key: `${depth}:${key}`, label: key, rows: [] as any[],
+      values: { current, last_month, variance: last_month - current },
+      ...(isLast ? {} : { subgroups: buildComparisonLevels(curRs, lastRs, levels, depth + 1) }),
+    };
+  }).filter((g) => g.values!.current !== 0 || g.values!.last_month !== 0)
+    .sort((a, b) => Number(b.values!.current) - Number(a.values!.current));
 }
-function buildComparisonGroups(rows: CmpRow[], hasGroup: boolean, hasLeaf: boolean): DataGroup[] {
-  const byGroup = new Map<string, CmpRow[]>();
-  for (const r of rows) { const arr = byGroup.get(r.group) ?? []; arr.push(r); byGroup.set(r.group, arr); }
-  const agg = (rs: CmpRow[]) => ({
-    current: rs.reduce((s, r) => s + r.current, 0), last_month: rs.reduce((s, r) => s + r.last_month, 0),
-    variance: rs.reduce((s, r) => s + r.variance, 0),
-  });
-  if (hasGroup && !hasLeaf) {
-    return Array.from(byGroup.entries()).map(([group, leaves]) => ({ key: group, label: group, rows: [], values: agg(leaves) }))
-      .sort((a, b) => Number(b.values!.current) - Number(a.values!.current));
-  }
-  if (!hasGroup && hasLeaf) {
-    return rows.map((r) => ({ key: r.name, label: r.name, rows: [], values: { current: r.current, last_month: r.last_month, variance: r.variance } }))
-      .sort((a, b) => Number(b.values!.current) - Number(a.values!.current));
-  }
-  return Array.from(byGroup.entries()).map(([group, leaves]) => ({
-    key: group, label: group, rows: [], values: agg(leaves),
-    subgroups: [...leaves].sort((a, b) => b.current - a.current).map((r) => ({
-      key: `${group}::${r.name}`, label: r.name, rows: [], values: { current: r.current, last_month: r.last_month, variance: r.variance },
-    })),
-  })).sort((a, b) => Number(b.values!.current) - Number(a.values!.current));
-}
+const CMP_COLS = [
+  { key: "name", label: "Group Name" },
+  { key: "current", label: "Current", kind: "money" as const, total: true },
+  { key: "last_month", label: "Last Month", kind: "money" as const, total: true },
+  { key: "variance", label: "Variance", kind: "money" as const, total: true },
+];
 
-// Monthwise Expenses — the same hand-rolled month-columns pivot Sales
-// Report's own MonthwisePivotTable uses (a two-row month header isn't
-// expressible in DataTable's generic Col system), simplified to one metric
-// per month (Expenses has no Value/Qty split the way Sales does) with a
-// Total column, and starting collapsed like every grouped table now does.
-type PivotRow = { key: string; label: string; cells: Record<string, number>; total: number };
-function buildPivotRows(rows: ExpRow[]): PivotRow[] {
-  return rows.map((r) => {
+// Monthwise Expenses — the same idea as Sales Report's own MonthwisePivotTable
+// (a two-row month header isn't expressible in DataTable's generic Col
+// system), generalised to N levels of nesting instead of one: a node with
+// no children renders flat with no chevron, exactly the shape a single
+// selected dimension already needs.
+type PivotNode = { key: string; label: string; cells: Record<string, number>; total: number; children?: PivotNode[] };
+function buildPivotLevels(rows: MatrixRow[], levels: Level[], depth = 0): PivotNode[] {
+  if (depth >= levels.length) return [];
+  const byKey = groupByField(rows, levels[depth].field);
+  const isLast = depth === levels.length - 1;
+  return Array.from(byKey.entries()).map(([key, rs]) => {
     const cells: Record<string, number> = {};
-    let total = 0;
-    for (const m of r.monthly) { cells[m.month] = m.amount; total += m.amount; }
-    return { key: r.name, label: r.name, cells, total };
+    for (const r of rs) cells[r.month] = (cells[r.month] ?? 0) + r.amount;
+    const total = Object.values(cells).reduce((s, v) => s + v, 0);
+    return {
+      key: `${depth}:${key}`, label: key, cells, total,
+      children: isLast ? undefined : buildPivotLevels(rs, levels, depth + 1),
+    };
   }).sort((a, b) => b.total - a.total);
 }
-function ExpenseMonthwisePivot({ rows, group, monthKeys }: { rows: ExpRow[]; group: string | null; monthKeys: string[] }) {
+function PivotRows({ list, depth, expanded, onToggle, monthKeys }: {
+  list: PivotNode[]; depth: number; expanded: Set<string>; onToggle: (k: string) => void; monthKeys: string[];
+}) {
+  return (
+    <>
+      {list.map((n, i) => {
+        const hasChildren = !!(n.children && n.children.length);
+        const open = hasChildren && expanded.has(n.key);
+        const zebra = i % 2 === 1 ? "bg-slate-100/80" : "";
+        return (
+          <Fragment key={n.key}>
+            <tr className={`${hasChildren ? "cursor-pointer font-semibold" : ""} ${zebra}`} onClick={hasChildren ? () => onToggle(n.key) : undefined}>
+              <td className="border border-slate-200 px-3 py-1.5" style={{ paddingLeft: 12 + depth * 18 }}>
+                {hasChildren && <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>}
+                {n.label}
+              </td>
+              {monthKeys.map((mk) => (
+                <td key={mk} className="border border-slate-200 px-2 py-1.5 text-right tabular-nums">{n.cells[mk] ? money(n.cells[mk]) : "—"}</td>
+              ))}
+              <td className="border border-slate-200 px-2 py-1.5 text-right font-medium tabular-nums">{money(n.total)}</td>
+            </tr>
+            {open && n.children && <PivotRows list={n.children} depth={depth + 1} expanded={expanded} onToggle={onToggle} monthKeys={monthKeys} />}
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
+function ExpenseMonthwisePivot({ nodes, monthKeys }: { nodes: PivotNode[]; monthKeys: string[] }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const byGroup = useMemo(() => {
-    const m = new Map<string, ExpRow[]>();
-    for (const r of rows) { const arr = m.get(r.group) ?? []; arr.push(r); m.set(r.group, arr); }
-    return m;
-  }, [rows]);
-  const groups = group === null
-    ? [{ key: "__flat__", label: null as string | null, rows: buildPivotRows(rows) }]
-    : Array.from(byGroup.entries()).map(([g, rs]) => ({ key: g, label: g, rows: buildPivotRows(rs) }));
   const colCount = monthKeys.length + 2;
   function toggle(k: string) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
-
   return (
     <div className="card overflow-x-auto p-0 text-sm">
       <table className="report-grid w-full">
@@ -186,85 +187,175 @@ function ExpenseMonthwisePivot({ rows, group, monthKeys }: { rows: ExpRow[]; gro
           </tr>
         </thead>
         <tbody>
-          {groups.map((g, gi) => {
-            const isFlat = g.label === null;
-            const open = isFlat || expanded.has(g.key);
-            const grandTotal = g.rows.reduce((s, r) => s + r.total, 0);
-            return (
-              <Fragment key={g.key}>
-                {!isFlat && (
-                  <tr className={`cursor-pointer font-semibold ${gi % 2 === 1 ? "bg-slate-50/70" : ""}`} onClick={() => toggle(g.key)}>
-                    <td colSpan={colCount} className="border border-slate-200 px-3 py-2">
-                      <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
-                      {g.label}
-                      <span className="ml-2 font-normal text-slate-500">— {money(grandTotal)}</span>
-                    </td>
-                  </tr>
-                )}
-                {open && g.rows.map((row, i) => (
-                  <tr key={row.key} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
-                    <td className="px-3 py-1.5" style={{ paddingLeft: isFlat ? 12 : 28 }}>{row.label}</td>
-                    {monthKeys.map((mk) => (
-                      <td key={mk} className="px-2 py-1.5 text-right tabular-nums">{row.cells[mk] ? money(row.cells[mk]) : "—"}</td>
-                    ))}
-                    <td className="px-2 py-1.5 text-right font-medium tabular-nums">{money(row.total)}</td>
-                  </tr>
-                ))}
-                {open && g.rows.length === 0 && (
-                  <tr><td colSpan={colCount} className="px-3 py-4 text-center text-slate-400">No expenses in this period.</td></tr>
-                )}
-              </Fragment>
-            );
-          })}
-          {groups.length === 0 && <tr><td colSpan={colCount} className="px-3 py-6 text-center text-slate-400">No expenses in this period.</td></tr>}
+          {nodes.length > 0
+            ? <PivotRows list={nodes} depth={0} expanded={expanded} onToggle={toggle} monthKeys={monthKeys} />
+            : <tr><td colSpan={colCount} className="px-3 py-6 text-center text-slate-400">No expenses in this period.</td></tr>}
         </tbody>
       </table>
     </div>
   );
 }
 
-const CMP_COLS = [
-  { key: "name", label: "Group Name" },
-  { key: "current", label: "Current", kind: "money" as const, total: true },
-  { key: "last_month", label: "Last Month", kind: "money" as const, total: true },
-  { key: "variance", label: "Variance", kind: "money" as const, total: true },
-];
+// Budget and Expense Report — the one grid this screen was missing
+// entirely: Budget / Expense / Variance side by side for every selected
+// month, at whatever level the same Filteration selection resolves to.
+// Budget is a flat, recurring figure (the same every month, matching
+// acct_expense_budgets_cc's own shape) computed per node by summing
+// exactly the (account, cost centre) PAIRS actually present in that
+// node's own rows — so a node driven only by Account (no cost-centre
+// level active) sums that account's budget across every cost centre, a
+// node driven only by Cost Center sums across every account, and a node
+// at both levels reads the one exact cell — always the same population
+// the node's own Expense figure was summed over, never a mismatched scope.
+type BEOCell = { budget: number; expense: number; variance: number };
+type BEONode = { key: string; label: string; monthly: Record<string, BEOCell>; totals: BEOCell; children?: BEONode[] };
+function budgetForRows(rs: MatrixRow[], budgetCell: Map<string, number>): number {
+  const pairs = new Set<string>();
+  for (const r of rs) if (r.cost_center_id) pairs.add(`${r.account_id}::${r.cost_center_id}`);
+  let sum = 0;
+  for (const p of Array.from(pairs)) sum += budgetCell.get(p) ?? 0;
+  return sum;
+}
+function buildBudgetExpenseLevels(rows: MatrixRow[], levels: Level[], monthKeys: string[], budgetCell: Map<string, number>, depth = 0): BEONode[] {
+  if (depth >= levels.length) return [];
+  const byKey = groupByField(rows, levels[depth].field);
+  const isLast = depth === levels.length - 1;
+  return Array.from(byKey.entries()).map(([key, rs]) => {
+    const monthlyBudget = budgetForRows(rs, budgetCell);
+    const monthly: Record<string, BEOCell> = {};
+    let totalExpense = 0;
+    for (const mk of monthKeys) {
+      const expense = rs.filter((r) => r.month === mk).reduce((s, r) => s + r.amount, 0);
+      monthly[mk] = { budget: monthlyBudget, expense, variance: monthlyBudget - expense };
+      totalExpense += expense;
+    }
+    const totalBudget = monthlyBudget * monthKeys.length;
+    return {
+      key: `${depth}:${key}`, label: key, monthly,
+      totals: { budget: totalBudget, expense: totalExpense, variance: totalBudget - totalExpense },
+      children: isLast ? undefined : buildBudgetExpenseLevels(rs, levels, monthKeys, budgetCell, depth + 1),
+    };
+  }).sort((a, b) => b.totals.expense - a.totals.expense);
+}
+// A negative Variance (over budget) is a solid red cell, not just red text —
+// the old software's own screenshot shows it that way, and it is a heavier
+// signal than the ERP's usual red-text convention on purpose: this is the
+// one figure on the whole page the owner reads as "did we overspend."
+const varClass = (n: number) => n < 0 ? "bg-red-600 text-white font-semibold" : "";
+function BEORows({ list, depth, expanded, onToggle, monthKeys }: {
+  list: BEONode[]; depth: number; expanded: Set<string>; onToggle: (k: string) => void; monthKeys: string[];
+}) {
+  return (
+    <>
+      {list.map((n, i) => {
+        const hasChildren = !!(n.children && n.children.length);
+        const open = hasChildren && expanded.has(n.key);
+        const zebra = i % 2 === 1 ? "bg-slate-100/80" : "";
+        return (
+          <Fragment key={n.key}>
+            <tr className={`${hasChildren ? "cursor-pointer font-semibold" : ""} ${zebra}`} onClick={hasChildren ? () => onToggle(n.key) : undefined}>
+              <td className="border border-slate-200 px-3 py-1.5" style={{ paddingLeft: 12 + depth * 18 }}>
+                {hasChildren && <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>}
+                {n.label}
+              </td>
+              {monthKeys.map((mk) => {
+                const c = n.monthly[mk];
+                return (
+                  <Fragment key={mk}>
+                    <td className="border border-slate-200 px-2 py-1.5 text-right tabular-nums">{money(c.budget)}</td>
+                    <td className="border border-slate-200 px-2 py-1.5 text-right tabular-nums">{money(c.expense)}</td>
+                    <td className={`border border-slate-200 px-2 py-1.5 text-right tabular-nums ${varClass(c.variance)}`}>{money(c.variance)}</td>
+                  </Fragment>
+                );
+              })}
+              <td className="border border-slate-200 px-2 py-1.5 text-right font-medium tabular-nums">{money(n.totals.budget)}</td>
+              <td className="border border-slate-200 px-2 py-1.5 text-right font-medium tabular-nums">{money(n.totals.expense)}</td>
+              <td className={`border border-slate-200 px-2 py-1.5 text-right font-medium tabular-nums ${varClass(n.totals.variance)}`}>{money(n.totals.variance)}</td>
+            </tr>
+            {open && n.children && <BEORows list={n.children} depth={depth + 1} expanded={expanded} onToggle={onToggle} monthKeys={monthKeys} />}
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
+function BudgetExpenseReport({ nodes, monthKeys }: { nodes: BEONode[]; monthKeys: string[] }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  function toggle(k: string) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
+  const colCount = monthKeys.length * 3 + 4;
+  const grand = nodes.reduce((a, n) => ({
+    budget: a.budget + n.totals.budget, expense: a.expense + n.totals.expense, variance: a.variance + n.totals.variance,
+  }), { budget: 0, expense: 0, variance: 0 });
+  const grandMonthly = monthKeys.map((mk) => nodes.reduce((a, n) => ({
+    budget: a.budget + (n.monthly[mk]?.budget ?? 0), expense: a.expense + (n.monthly[mk]?.expense ?? 0), variance: a.variance + (n.monthly[mk]?.variance ?? 0),
+  }), { budget: 0, expense: 0, variance: 0 }));
+
+  return (
+    <div className="card overflow-x-auto p-0 text-sm">
+      <table className="report-grid w-full">
+        <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+          <tr>
+            <th className="px-3 py-2 text-left" rowSpan={2}><span className="col-resize">Name</span></th>
+            {monthKeys.map((mk) => <th key={mk} className="px-2 py-2 text-center" colSpan={3}><span className="col-resize">{monthShort(mk)}</span></th>)}
+            <th className="px-2 py-2 text-center" colSpan={3}><span className="col-resize">Total</span></th>
+          </tr>
+          <tr>
+            {monthKeys.map((mk) => (
+              <Fragment key={mk}>
+                <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Budget</span></th>
+                <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Expense</span></th>
+                <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Variance</span></th>
+              </Fragment>
+            ))}
+            <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Budget</span></th>
+            <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Expense</span></th>
+            <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Variance</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {nodes.length > 0
+            ? <BEORows list={nodes} depth={0} expanded={expanded} onToggle={toggle} monthKeys={monthKeys} />
+            : <tr><td colSpan={colCount} className="px-3 py-6 text-center text-slate-400">No expenses in this period.</td></tr>}
+        </tbody>
+        {nodes.length > 0 && (
+          <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+            <td className="border border-slate-200 px-3 py-1.5">Total</td>
+            {grandMonthly.map((g, i) => (
+              <Fragment key={monthKeys[i]}>
+                <td className="border border-slate-200 px-2 py-1.5 text-right tabular-nums">{money(g.budget)}</td>
+                <td className="border border-slate-200 px-2 py-1.5 text-right tabular-nums">{money(g.expense)}</td>
+                <td className={`border border-slate-200 px-2 py-1.5 text-right tabular-nums ${varClass(g.variance)}`}>{money(g.variance)}</td>
+              </Fragment>
+            ))}
+            <td className="border border-slate-200 px-2 py-1.5 text-right tabular-nums">{money(grand.budget)}</td>
+            <td className="border border-slate-200 px-2 py-1.5 text-right tabular-nums">{money(grand.expense)}</td>
+            <td className={`border border-slate-200 px-2 py-1.5 text-right tabular-nums ${varClass(grand.variance)}`}>{money(grand.variance)}</td>
+          </tr></tfoot>
+        )}
+      </table>
+    </div>
+  );
+}
 
 // Expense Report — the old software's "Expenses Detail" dashboard, rebuilt
 // on this ERP's own report system (dark-green section headers, DataTable's
-// group/values shape, PeriodDropdown, the multi-select-with-layered-
-// exclusion filtration convention P&L already established) rather than
-// copied pixel-for-pixel. report_cost_centre_costing()/report_tag_area_costing()
-// already carry a COGS-excluded `expense` figure per cost centre/tag area —
-// the same definition dashboard_metrics()'s own Expenses card uses — so
-// only the Account Group/Account Name dimension needed a new RPC
-// (report_expense_by_account, 440). The Monthly and Yearly Budgets panel is
-// a genuinely new feature: acct_expense_budgets (249, the existing
-// "Expense Budget" tab on Targets & Budget) has no cost-centre split at
-// all, so acct_expense_budgets_cc (440) is a real, additive, cost-centre-
-// and-account-wise recurring MONTHLY budget (Yearly = Monthly x 12,
-// verified against the old software's own screenshot numbers) — the old
-// tab and its budget are left exactly as they were, a separate, simpler
-// figure that predates this report.
+// group/values shape, PeriodDropdown) rather than copied pixel-for-pixel.
 export default function ExpenseReportView() {
   const sb = useMemo(() => createClient(), []);
   const [ym, setYm] = useState<YearMonths>(defaultYearMonths);
-  const [expMode, setExpMode] = useState<Set<ExpMode>>(() => new Set<ExpMode>(["acctGroup"]));
+  const [expMode, setExpMode] = useState<Set<ExpMode>>(() => new Set<ExpMode>(["acctName"]));
 
   const [monthly, setMonthly] = useState<{ month: string; amount: number }[]>([]);
   const [lastMonthTotal, setLastMonthTotal] = useState(0);
   const [curMonthTotal, setCurMonthTotal] = useState(0);
   const [ytdTotal, setYtdTotal] = useState(0);
 
-  const [ccPeriod, setCcPeriod] = useState<any[]>([]);
+  const [matrixPeriod, setMatrixPeriod] = useState<MatrixRow[]>([]);
+  const [matrixLast, setMatrixLast] = useState<MatrixRow[]>([]);
+  const [matrixCur, setMatrixCur] = useState<MatrixRow[]>([]);
   const [tagPeriod, setTagPeriod] = useState<any[]>([]);
-  const [acctPeriod, setAcctPeriod] = useState<any[]>([]);
-  const [ccLast, setCcLast] = useState<any[]>([]);
-  const [ccCur, setCcCur] = useState<any[]>([]);
   const [tagLast, setTagLast] = useState<any[]>([]);
   const [tagCur, setTagCur] = useState<any[]>([]);
-  const [acctLast, setAcctLast] = useState<any[]>([]);
-  const [acctCur, setAcctCur] = useState<any[]>([]);
 
   const [budgetRows, setBudgetRows] = useState<any[]>([]);
   const [budgetDraft, setBudgetDraft] = useState<Record<string, string>>({});
@@ -291,31 +382,25 @@ export default function ExpenseReportView() {
       sb.rpc("report_expense_analysis", { p_company: COMPANY_ID, p_from: lmFrom, p_to: lmTo }),
       sb.rpc("report_expense_analysis", { p_company: COMPANY_ID, p_from: cmFrom, p_to: today }),
       sb.rpc("report_expense_analysis", { p_company: COMPANY_ID, p_from: ytdFrom, p_to: today }),
-      sb.rpc("report_cost_centre_costing", { p_from: from, p_to: to }),
+      sb.rpc("report_expense_matrix", { p_from: from, p_to: to }),
+      sb.rpc("report_expense_matrix", { p_from: lmFrom, p_to: lmTo }),
+      sb.rpc("report_expense_matrix", { p_from: cmFrom, p_to: today }),
       sb.rpc("report_tag_area_costing", { p_from: from, p_to: to }),
-      sb.rpc("report_expense_by_account", { p_from: from, p_to: to }),
-      sb.rpc("report_cost_centre_costing", { p_from: lmFrom, p_to: lmTo }),
-      sb.rpc("report_cost_centre_costing", { p_from: cmFrom, p_to: today }),
       sb.rpc("report_tag_area_costing", { p_from: lmFrom, p_to: lmTo }),
       sb.rpc("report_tag_area_costing", { p_from: cmFrom, p_to: today }),
-      sb.rpc("report_expense_by_account", { p_from: lmFrom, p_to: lmTo }),
-      sb.rpc("report_expense_by_account", { p_from: cmFrom, p_to: today }),
       sb.rpc("report_expense_budget_cc", { p_year: ym.year }),
-    ]).then(([main, lm, cm, ytd, cc, tag, acct, ccL, ccC, tagL, tagC, acctL, acctC, budget]) => {
+    ]).then(([main, lm, cm, ytd, matP, matL, matC, tag, tagL, tagC, budget]) => {
       if (!live) return;
       setMonthly(((main.data as any)?.monthly as any[]) ?? []);
       setLastMonthTotal(Number((lm.data as any)?.total ?? 0));
       setCurMonthTotal(Number((cm.data as any)?.total ?? 0));
       setYtdTotal(Number((ytd.data as any)?.total ?? 0));
-      setCcPeriod((cc.data as any[]) ?? []);
+      setMatrixPeriod((matP.data as any[]) ?? []);
+      setMatrixLast((matL.data as any[]) ?? []);
+      setMatrixCur((matC.data as any[]) ?? []);
       setTagPeriod((tag.data as any[]) ?? []);
-      setAcctPeriod((acct.data as any[]) ?? []);
-      setCcLast((ccL.data as any[]) ?? []);
-      setCcCur((ccC.data as any[]) ?? []);
       setTagLast((tagL.data as any[]) ?? []);
       setTagCur((tagC.data as any[]) ?? []);
-      setAcctLast((acctL.data as any[]) ?? []);
-      setAcctCur((acctC.data as any[]) ?? []);
       setBudgetRows((budget.data as any[]) ?? []);
       setBudgetDraft({});
       setLoading(false);
@@ -333,62 +418,74 @@ export default function ExpenseReportView() {
     loadBudget();
   }
 
-  const family: ExpFamily = expMode.has("tagArea") ? "tag" : (expMode.has("ccGroup") || expMode.has("costCenter")) ? "cc" : "account";
-  const hasGroup = family === "tag" ? true : family === "account" ? expMode.has("acctGroup") : expMode.has("ccGroup");
-  const hasLeaf = family === "tag" ? true : family === "account" ? expMode.has("acctName") : expMode.has("costCenter");
-
-  const periodRowsByFamily: Record<ExpFamily, ExpRow[]> = {
-    account: acctToExpRows(acctPeriod), cc: ccToExpRows(ccPeriod), tag: tagToExpRows(tagPeriod),
-  };
-  const lastRowsByFamily: Record<ExpFamily, ExpRow[]> = {
-    account: acctToExpRows(acctLast), cc: ccToExpRows(ccLast), tag: tagToExpRows(tagLast),
-  };
-  const curRowsByFamily: Record<ExpFamily, ExpRow[]> = {
-    account: acctToExpRows(acctCur), cc: ccToExpRows(ccCur), tag: tagToExpRows(tagCur),
-  };
-
-  const comparisonRows = lastVsCurrent(curRowsByFamily[family], lastRowsByFamily[family]);
-  const comparisonGroups = buildComparisonGroups(comparisonRows, hasGroup, hasLeaf);
+  const isTag = expMode.has("tagArea");
+  const activeLevels = MATRIX_LEVELS.filter((l) => expMode.has(l.key));
 
   const selectedMonths = Array.from(new Set(ym.months)).sort((a, b) => a - b);
   const monthKeys = selectedMonths.map((m) => `${ym.year}-${pad(m)}`);
-  const pivotRows = periodRowsByFamily[family];
-  const pivotGroup = hasGroup ? (hasLeaf ? "group" : "flat") : (hasLeaf ? null : "flat");
+  const monthKeySet = new Set(monthKeys);
+  // Bounded to exactly the months actually ticked in PeriodDropdown, not
+  // the whole [from,to] span — a non-contiguous pick (Jan + Mar) would
+  // otherwise silently fold February's figure in too, since the RPCs only
+  // take one range.
+  const matrixSelected = useMemo(() => matrixPeriod.filter((r) => monthKeySet.has(r.month)), [matrixPeriod, monthKeys.join(",")]);
 
-  // Cost Center Wise Expenses — a fixed panel, always by cost-centre GROUP
-  // regardless of the Filteration selection, the same "always-there" shape
-  // P&L's own Cost Center Profit & Loss panel keeps beside its own
-  // filterable Summary panel.
-  const ccGroupTotals = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of ccToExpRows(ccPeriod)) m.set(r.group, (m.get(r.group) ?? 0) + r.expense);
-    return Array.from(m.entries()).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount);
-  }, [ccPeriod]);
+  const tagPeriodExpense = (tagPeriod ?? []).reduce((s: number, r: any) => s + Number(r.expense || 0), 0);
 
-  // Monthly Expense Graph — a month reads red when it ran ABOVE the
-  // period's own average expense, not on sign (an expense total is never
-  // negative in the ordinary case) — verified against the old software's
-  // own screenshot: every month it colored red (Mar/Jun/Jul) was genuinely
-  // above that period's average, every green month at or below it.
-  const monthlyChart = monthly.map((m) => ({ ...m, month_label: monthShort(m.month), amount: Number(m.amount || 0) }));
-  const monthlyAvg = monthlyChart.length > 0 ? monthlyChart.reduce((s, m) => s + m.amount, 0) / monthlyChart.length : 0;
-
-  // Budget vs Expenses — bounded to the SAME [from, to] window as the rest
-  // of the page: the budget matrix's own monthly_amount is a flat recurring
-  // figure (period-independent, always shown as Monthly/Yearly), but the
-  // KPI here multiplies it by however many months are actually selected so
-  // it stays comparable to Expense (this period's real actual), rather than
-  // always comparing a full year's budget against a partial period's spend.
+  const budgetCell = useMemo(() => new Map(budgetRows.map((r) => [`${r.account_id}::${r.cost_center_id}`, Number(r.monthly_amount || 0)])), [budgetRows]);
   const totalMonthlyBudget = budgetRows.reduce((s, r) => s + Number(r.monthly_amount || 0), 0);
+
+  // Every panel below reads the SAME matrixSelected/tag rows the KPI totals
+  // are summed from, so "Expense" up top and every grid underneath always
+  // reconcile to the same number — no second, independently-derived total
+  // to drift out of step with what's actually shown.
+  const expenseForPeriod = isTag ? tagPeriodExpense : matrixSelected.reduce((s, r) => s + r.amount, 0);
   const budgetForPeriod = totalMonthlyBudget * selectedMonths.length;
-  const expenseForPeriod = monthlyChart.reduce((s, m) => s + m.amount, 0);
   const varianceForPeriod = budgetForPeriod - expenseForPeriod;
   const usedPct = budgetForPeriod > 0 ? (expenseForPeriod / budgetForPeriod) * 100 : null;
 
-  // Monthly and Yearly Budgets matrix — every postable expense account
-  // against every leaf cost centre (report_expense_budget_cc already
-  // returns the full cross product), pivoted client-side into rows x
-  // columns the same way MonthwisePivotTable pivots months.
+  // Cost Center Wise Expenses — a fixed panel, always CC Group -> Cost
+  // Centre, regardless of the Filteration selection (the same "always
+  // there" shape P&L's own Cost Center Profit & Loss panel keeps beside
+  // its filterable Summary panel) — now with the same expand/collapse a
+  // group in this ERP always gets, so a cost centre group's own leaves are
+  // one click away instead of only ever shown as one rolled-up figure.
+  const ccWiseGroups = useMemo(
+    () => buildExpenseLevels(matrixSelected, [MATRIX_LEVELS[0], MATRIX_LEVELS[1]]),
+    [matrixSelected]
+  );
+
+  // Monthly Expense Graph — a month reads red when it ran ABOVE that
+  // month's own budget (the flat recurring monthly figure, so effectively
+  // a straight reference line), not by sign — an expense total is never
+  // negative in the ordinary case — and not by average either: the old
+  // software's own screenshot colors a month red exactly when its bar
+  // clears its own Budget line, confirmed by checking Mar/Jun/Jul (all
+  // above the flat budget line shown) against Jan/Feb/Apr/May/Aug (all at
+  // or below it) before writing the rule this way.
+  const monthlyChart = monthly.map((m) => ({ ...m, month_label: monthShort(m.month), amount: Number(m.amount || 0), budget: totalMonthlyBudget }));
+
+  const tagRowsFor = (data: any[]) => (data ?? []).map((r: any) => ({ name: r.tag_area, expense: Number(r.expense || 0) }));
+  const tagComparisonGroups: DataGroup[] = (() => {
+    const curMap = new Map(tagRowsFor(tagCur).map((r) => [r.name, r.expense]));
+    const lastMap = new Map(tagRowsFor(tagLast).map((r) => [r.name, r.expense]));
+    const names = new Set([...Array.from(curMap.keys()), ...Array.from(lastMap.keys())]);
+    return Array.from(names).map((name) => {
+      const current = curMap.get(name) ?? 0, last_month = lastMap.get(name) ?? 0;
+      return { key: name, label: name, rows: [], values: { current, last_month, variance: last_month - current } };
+    }).filter((g) => g.values!.current !== 0 || g.values!.last_month !== 0)
+      .sort((a, b) => Number(b.values!.current) - Number(a.values!.current));
+  })();
+  const comparisonGroups = isTag ? tagComparisonGroups : buildComparisonLevels(matrixCur, matrixLast, activeLevels);
+
+  const tagPivotNodes: PivotNode[] = (tagPeriod ?? []).map((r: any) => {
+    const cells: Record<string, number> = {};
+    for (const m of r.monthly ?? []) cells[m.month] = Number(m.expense || 0);
+    return { key: r.tag_area, label: r.tag_area, cells, total: Object.values(cells).reduce((s, v) => s + v, 0) };
+  }).sort((a, b) => b.total - a.total);
+  const pivotNodes = isTag ? tagPivotNodes : buildPivotLevels(matrixSelected, activeLevels);
+  const budgetExpenseNodes = isTag ? [] : buildBudgetExpenseLevels(matrixSelected, activeLevels, monthKeys, budgetCell);
+
   const budgetAccounts = useMemo(() => {
     const m = new Map<string, { id: string; name: string; group: string }>();
     for (const r of budgetRows) if (!m.has(r.account_id)) m.set(r.account_id, { id: r.account_id, name: r.account_name, group: r.account_group });
@@ -399,7 +496,8 @@ export default function ExpenseReportView() {
     for (const r of budgetRows) if (!m.has(r.cost_center_id)) m.set(r.cost_center_id, { id: r.cost_center_id, name: r.cost_center });
     return Array.from(m.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [budgetRows]);
-  const budgetCell = useMemo(() => new Map(budgetRows.map((r) => [`${r.account_id}::${r.cost_center_id}`, Number(r.monthly_amount || 0)])), [budgetRows]);
+
+  const filterKey = Array.from(expMode).sort().join(",");
 
   return (
     <div className="space-y-4">
@@ -420,6 +518,9 @@ export default function ExpenseReportView() {
           <ReportKpi label="Used %" value={usedPct === null ? "No budget set" : `${usedPct.toFixed(1)}%`} icon="trendUp"
             tone={usedPct === null ? undefined : usedPct > 100 ? "neg" : usedPct > 85 ? "warn" : "pos"} />
         </div>
+        <p className="mt-1 text-xs text-slate-400">
+          Expense — {periodTxt} is the same figure the Budget and Expense Report grid below totals to — check it there.
+        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -427,18 +528,25 @@ export default function ExpenseReportView() {
           <SectionHeader title="Cost Center Wise Expenses" />
           <DataTable bare cols={[
             { key: "name", label: "Group Name" },
-            { key: "amount", label: "Amount", kind: "money", total: true },
-          ]} rows={ccGroupTotals} empty="No expenses in this period." />
+            { key: "expense", label: "Amount", kind: "money", total: true },
+          ]} groups={ccWiseGroups} empty="No expenses in this period." />
         </div>
         <div className="card">
           <SectionHeader title="Monthly Expense Graph" />
-          <TrendChart data={monthlyChart} xKey="month_label" series={[{ key: "amount", label: "Expense", redWhen: (v) => v > monthlyAvg }]} />
+          <TrendChart data={monthlyChart} xKey="month_label" series={[
+            { key: "amount", label: "Expense", redWhen: (v) => v > totalMonthlyBudget },
+            { key: "budget", label: "Budget", type: "line" },
+          ]} />
         </div>
       </div>
 
-      {/* Expenses Filteration — Account Group/Account Name and CC Group/Cost
-          Center each layer together within their own family; Tag Area is
-          the exclusive third source. Governs the two panels below. */}
+      {/* Expenses Filteration — CC Group, Cost Center, Account Group and
+          Account Name are all independently toggleable and freely combine
+          in any subset (the actual old-software behavior — the first cut
+          of this report wrongly forced a choice between the cost-centre
+          side and the account side). Tag Area is the one exclusive option:
+          a different dimension entirely, so turning it on clears the other
+          four and turning any of the other four on clears it. */}
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Expenses Filteration</span>
         <div className="flex flex-wrap gap-1">
@@ -451,24 +559,29 @@ export default function ExpenseReportView() {
         </div>
       </div>
 
-      {/* Both tables below are keyed on the active Filteration selection so
-          they remount (and their own expand state resets to collapsed)
-          whenever it changes — the same fix P&L's own mode toggle needed:
-          a group key like "Trading" is a flat row under CC Group alone but
-          gains subgroups once Cost Center is also switched on, so without
-          a fresh remount a key already expanded under the old shape opens
-          pre-expanded under the new one. ExpenseMonthwisePivot needs it for
-          the same reason even though it isn't a DataTable — it keeps its
-          own local `expanded` state, which is exactly as stale otherwise. */}
+      {/* Every table below is keyed on the active Filteration selection so
+          it remounts (and its own expand state resets to collapsed)
+          whenever it changes — a group key like "Trading" can be a flat
+          leaf under Cost Center alone and a group with subgroups the
+          moment Account Name is also switched on, so without a fresh
+          remount a key already expanded under the old shape opens
+          pre-expanded under the new one. */}
       <div>
         <SectionHeader title="Last vs Current Month Comparison" />
-        <DataTable key={Array.from(expMode).sort().join(",")} cols={CMP_COLS} groups={comparisonGroups} empty="No expenses to compare." />
+        <DataTable key={filterKey} cols={CMP_COLS} groups={comparisonGroups} empty="No expenses to compare." />
       </div>
 
       {monthKeys.length > 1 && (
         <div>
           <SectionHeader title="Monthwise Expenses" />
-          <ExpenseMonthwisePivot key={Array.from(expMode).sort().join(",")} rows={pivotRows} group={pivotGroup} monthKeys={monthKeys} />
+          <ExpenseMonthwisePivot key={filterKey} nodes={pivotNodes} monthKeys={monthKeys} />
+        </div>
+      )}
+
+      {!isTag && (
+        <div>
+          <SectionHeader title="Budget and Expense Report" />
+          <BudgetExpenseReport key={filterKey} nodes={budgetExpenseNodes} monthKeys={monthKeys} />
         </div>
       )}
 
@@ -478,49 +591,49 @@ export default function ExpenseReportView() {
           <table className="report-grid w-full">
             <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
               <tr>
-                <th className="px-3 py-2 text-left" rowSpan={2}><span className="col-resize">Account</span></th>
+                <th className="border border-slate-200 px-3 py-2.5 text-left" rowSpan={2}><span className="col-resize">Account</span></th>
                 {budgetCostCentres.map((cc) => (
-                  <th key={cc.id} className="px-2 py-2 text-center" colSpan={2}><span className="col-resize-wrap">{cc.name}</span></th>
+                  <th key={cc.id} className="border border-l-2 border-slate-300 px-2 py-2.5 text-center" colSpan={2}><span className="col-resize-wrap">{cc.name}</span></th>
                 ))}
-                <th className="px-2 py-2 text-center" colSpan={2}><span className="col-resize">Total</span></th>
+                <th className="border border-l-2 border-slate-300 px-2 py-2.5 text-center" colSpan={2}><span className="col-resize">Total</span></th>
               </tr>
               <tr>
                 {budgetCostCentres.map((cc) => (
                   <Fragment key={cc.id}>
-                    <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Monthly</span></th>
-                    <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Yearly</span></th>
+                    <th className="border border-l-2 border-slate-300 px-2 py-1.5 text-right font-normal"><span className="col-resize">Monthly</span></th>
+                    <th className="border border-slate-200 px-2 py-1.5 text-right font-normal"><span className="col-resize">Yearly</span></th>
                   </Fragment>
                 ))}
-                <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Monthly</span></th>
-                <th className="px-2 py-1 text-right font-normal"><span className="col-resize">Yearly</span></th>
+                <th className="border border-l-2 border-slate-300 px-2 py-1.5 text-right font-normal"><span className="col-resize">Monthly</span></th>
+                <th className="border border-slate-200 px-2 py-1.5 text-right font-normal"><span className="col-resize">Yearly</span></th>
               </tr>
             </thead>
             <tbody>
               {budgetAccounts.map((acc, i) => {
                 const rowTotal = budgetCostCentres.reduce((s, cc) => s + (budgetCell.get(`${acc.id}::${cc.id}`) ?? 0), 0);
                 return (
-                  <tr key={acc.id} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
-                    <td className="px-3 py-1.5">
-                      <span className="mr-1 text-slate-400">{acc.group}</span>
-                      {acc.name}
+                  <tr key={acc.id} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
+                    <td className="border border-slate-200 px-3 py-2">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-400">{acc.group}</div>
+                      <div>{acc.name}</div>
                     </td>
                     {budgetCostCentres.map((cc) => {
                       const key = `${acc.id}::${cc.id}`;
                       const val = budgetCell.get(key) ?? 0;
                       return (
                         <Fragment key={cc.id}>
-                          <td className="px-1 py-1 text-right">
-                            <input className="input w-20 text-right tabular-nums" inputMode="decimal"
+                          <td className="border border-l-2 border-slate-300 px-1.5 py-1.5 text-right">
+                            <input className="input w-24 text-right tabular-nums" inputMode="decimal"
                               value={budgetDraft[key] ?? String(val)}
                               onChange={(e) => setBudgetDraft((d) => ({ ...d, [key]: e.target.value }))}
                               onBlur={() => saveBudgetCell(acc.id, cc.id)} />
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{money(val * 12)}</td>
+                          <td className="border border-slate-200 px-2 py-2 text-right tabular-nums text-slate-500">{money(val * 12)}</td>
                         </Fragment>
                       );
                     })}
-                    <td className="px-2 py-1.5 text-right font-medium tabular-nums">{money(rowTotal)}</td>
-                    <td className="px-2 py-1.5 text-right font-medium tabular-nums">{money(rowTotal * 12)}</td>
+                    <td className="border border-l-2 border-slate-300 px-2 py-2 text-right font-medium tabular-nums">{money(rowTotal)}</td>
+                    <td className="border border-slate-200 px-2 py-2 text-right font-medium tabular-nums">{money(rowTotal * 12)}</td>
                   </tr>
                 );
               })}
@@ -530,18 +643,18 @@ export default function ExpenseReportView() {
             </tbody>
             {budgetAccounts.length > 0 && (
               <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
-                <td className="px-3 py-1.5">Total</td>
+                <td className="border border-slate-200 px-3 py-2">Total</td>
                 {budgetCostCentres.map((cc) => {
                   const colTotal = budgetAccounts.reduce((s, acc) => s + (budgetCell.get(`${acc.id}::${cc.id}`) ?? 0), 0);
                   return (
                     <Fragment key={cc.id}>
-                      <td className="px-2 py-1.5 text-right tabular-nums">{money(colTotal)}</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums">{money(colTotal * 12)}</td>
+                      <td className="border border-l-2 border-slate-300 px-2 py-2 text-right tabular-nums">{money(colTotal)}</td>
+                      <td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(colTotal * 12)}</td>
                     </Fragment>
                   );
                 })}
-                <td className="px-2 py-1.5 text-right tabular-nums">{money(totalMonthlyBudget)}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums">{money(totalMonthlyBudget * 12)}</td>
+                <td className="border border-l-2 border-slate-300 px-2 py-2 text-right tabular-nums">{money(totalMonthlyBudget)}</td>
+                <td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(totalMonthlyBudget * 12)}</td>
               </tr></tfoot>
             )}
           </table>

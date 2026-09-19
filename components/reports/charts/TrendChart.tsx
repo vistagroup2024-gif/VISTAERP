@@ -1,6 +1,6 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 // Vista green (brand-600) for the primary series, slate-400 for a reference
 // series (a target/budget line) — the app's own two-tone palette rather than
@@ -16,18 +16,24 @@ export interface TrendSeries {
   // legitimately negative or "too high" in a way worth flagging, but wrong
   // for a figure where one particular bar deserves its own red: a real
   // August loss on P&L's own "Monthwise Net Profit" chart still reading
-  // green, or an expense month that ran well above every other month not
+  // green, or an expense month that ran above that month's own budget not
   // standing out at all. `redWhen` is the one hook for both: a predicate
   // run against each bar's own value, red when it returns true. The caller
   // decides what "red" means for its own series — `(v) => v < 0` for a
-  // loss, `(v) => v > average` for an above-average expense month — this
-  // component stays a dumb renderer either way.
+  // loss, `(v) => v > budgetForThatMonth` for an over-budget expense month —
+  // this component stays a dumb renderer either way.
   redWhen?: (value: number) => boolean;
+  // "line" overlays this series as a reference line across the bars (a
+  // Budget line against Expense bars, say) instead of drawing its own bars —
+  // Recharts' ComposedChart, not a second chart component, so the two share
+  // one x-axis and one set of gridlines.
+  type?: "bar" | "line";
 }
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
 
-/** A monthly (or any categorical x-axis) bar trend — one series needs no
+/** A monthly (or any categorical x-axis) bar trend, one or more series as
+ *  bars and optionally one as a reference line — one series needs no
  *  legend (the title already names it), two or more always show one. */
 export default function TrendChart({ data, xKey, series, height = 240 }: {
   data: Record<string, any>[];
@@ -38,7 +44,7 @@ export default function TrendChart({ data, xKey, series, height = 240 }: {
   if (data.length === 0) return <p className="py-8 text-center text-sm text-slate-400">Nothing to show for this period.</p>;
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+      <ComposedChart data={data} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
         <XAxis dataKey={xKey} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={{ stroke: "#e2e8f0" }} tickLine={false} />
         <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={money} width={56} />
@@ -46,6 +52,9 @@ export default function TrendChart({ data, xKey, series, height = 240 }: {
         {series.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
         {series.map((s, i) => {
           const base = s.color ?? COLORS[i % COLORS.length];
+          if (s.type === "line") {
+            return <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={base} strokeWidth={2} dot={{ r: 3 }} />;
+          }
           return (
             <Bar key={s.key} dataKey={s.key} name={s.label} fill={base} radius={[3, 3, 0, 0]} maxBarSize={36}>
               {s.redWhen && data.map((d, di) => (
@@ -54,7 +63,7 @@ export default function TrendChart({ data, xKey, series, height = 240 }: {
             </Bar>
           );
         })}
-      </BarChart>
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

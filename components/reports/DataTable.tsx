@@ -161,7 +161,7 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals, roomy }: {
         {rows.map((r, i) => {
           const state = rowClass ? rowClass(r) : (r.low || r.short) ? "bg-red-50/50" : "";
           return (
-            <tr key={i} className={state || (i % 2 === 1 ? "bg-slate-50/70" : "")}>
+            <tr key={i} className={state || (i % 2 === 1 ? "bg-slate-100/80" : "")}>
               {cols.map((c) => <Cell key={c.key} col={c} row={r} roomy={roomy} />)}
             </tr>
           );
@@ -209,7 +209,7 @@ function GroupRows({ cols, g, depth, idx, expanded, onToggle, roomy }: {
   // Zebra by sibling position, not by depth — a static per-depth shade meant
   // every top-level group row read the same flat grey as its neighbours;
   // this is the same alternating-by-index convention every flat table uses.
-  const zebra = idx % 2 === 1 ? "bg-slate-50/70" : "";
+  const zebra = idx % 2 === 1 ? "bg-slate-100/80" : "";
   const py = roomy ? "py-2.5" : "py-2";
   const subPy = roomy ? "py-2" : "py-1.5";
   return (
@@ -234,7 +234,7 @@ function GroupRows({ cols, g, depth, idx, expanded, onToggle, roomy }: {
         <GroupRows key={sg.key} cols={cols} g={sg} depth={depth + 1} idx={si} expanded={expanded} onToggle={onToggle} roomy={roomy} />
       ))}
       {open && !g.subgroups && g.rows.map((r, i) => (
-        <tr key={`${g.key}-${i}`} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
+        <tr key={`${g.key}-${i}`} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
           {cols.map((c, ci) => <Cell key={c.key} col={c} row={r} indent={ci === 0 ? indent + 16 : undefined} roomy={roomy} />)}
         </tr>
       ))}

@@ -59,7 +59,7 @@ export default function DeliveryTable({ rows }: { rows: Row[] }) {
           </tr></thead>
           <tbody>
             {shown.map((r, i) => (
-              <tr key={r.vehicle_id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={r.vehicle_id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="td">{vehicleTitle(r)}{r.plate_no ? <span className="ml-1 text-xs text-slate-400">{r.plate_no}</span> : null}</td>
                 <td className="td">{r.cost_centre ?? "—"}</td>
                 <td className="td">{r.customer ?? "—"}</td>

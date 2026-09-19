@@ -476,8 +476,12 @@ plain report" the way `ReportKpi`'s own doc comment already warned against.
 Two more additions to the same standing convention:
 
 - **Zebra rows, but never a CSS rule.** `DataTable`'s two row renderers
-  (`FlatBody`, `GroupedBody`'s plain rows) alternate `bg-slate-50/70` on odd
-  indices, and any hand-rolled `report-grid` table does the same by hand,
+  (`FlatBody`, `GroupedBody`'s plain rows) alternate `bg-slate-100/80` on odd
+  indices (darkened from the original `bg-slate-50/70` once a real screen
+  showed the two shades were too close to tell apart at a glance — every
+  hand-rolled `report-grid` table across the ERP got the same one-line
+  swap, together, so no table quietly stayed on the old, harder-to-read
+  shade), and any hand-rolled `report-grid` table does the same by hand,
   keyed off its own `.map((r, i) => …)` index. This is deliberately NOT a
   `tbody tr:nth-child(even)` rule: a row's own state color — `bg-red-50/50`
   for a low-stock or short row, a Due/Overdue amber or red text — is set
@@ -691,7 +695,7 @@ doesn't matter if one is left behind). The same render also only offers the
 ▾/▸ toggle and `onClick` when a group actually has `subgroups` or a
 non-empty `rows` — a group whose only children would be a month drill that
 isn't switched on has nothing to reveal, so it isn't drawn as if it does.
-Group header rows also zebra by sibling index now (`bg-slate-50/70` on
+Group header rows also zebra by sibling index now (`bg-slate-100/80` on
 every second row, at each depth) instead of one flat shade per depth —
 before this, "Trading", "Umrah Package" and "Transport" all read the same
 grey and didn't visually separate the way a flat table's own rows do.
@@ -1880,49 +1884,101 @@ ERP's own report system (dark-green headers, `DataTable`/`DataGroup`,
 `PeriodDropdown`) rather than copied pixel-for-pixel. The old tab and its
 budget are left exactly as they were — see below.
 
-**Two of the three pivot dimensions already existed.** CC Group/Cost
-Center and Tag Area both read straight off `report_cost_centre_costing()`
-and `report_tag_area_costing()` — both already carry a per-leaf `expense`
-figure (type='expense', COGS excluded) with its own monthly breakdown, the
-SAME "expense" `dashboard_metrics()`'s own Expenses card already uses, so
-this report agrees with the dashboard card by construction rather than by
-coincidence. **Only Account Group/Account Name was a real gap** — nothing
-in the schema had ever resolved an expense account's own parent group —
-so `report_expense_by_account()` (440) is the one genuinely new data
-source, built the same single-level-`parent_id`-join way `cost_centre_group`/
-`tag_area_group` already are. All three normalize client-side into one
-`ExpRow` shape (`name`/`group`/`expense`/`monthly`), so one builder
-produces every dimension's `DataGroup[]` instead of three near-duplicates.
+**Round one got Expenses Filteration wrong, and it was a correctness bug,
+not a taste call.** CC Group/Cost Center and Account Group/Account Name
+were built as two mutually-exclusive "families" — you could pivot by the
+cost-centre hierarchy OR the account hierarchy, never both, so "show me
+this cost centre's own accounts" (Cost Center + Account Name together)
+had no way to be asked for. The owner's own old software proves this is
+one flat button row where any subset can be on at once. The fix needed a
+different DATA SHAPE, not just a UI change: `report_expense_matrix()`
+(441) is one flat source — one row per (cost centre, account, month),
+carrying both dimensions' ids/names/groups on every row — so the client
+can group by whichever of `cost_center_group` / `cost_center` /
+`account_group` / `account` are toggled on, in that fixed order, nesting
+only the levels actually selected. Cost Center + Account Name selected
+means a real 2-level tree (cost centre → its own accounts), skipping the
+two group levels; all four selected means the full 4-level drill. A
+generic recursive builder (`buildExpenseLevels`/`buildComparisonLevels`/
+`buildPivotLevels`/`buildBudgetExpenseLevels`, one per panel's own metric
+shape) replaces the old two-family, three-branch functions — there's no
+longer a fixed "group-only / leaf-only / group+leaf" shape to special
+case, just however many levels are active. **Tag Area is still the one
+genuinely exclusive option** — a line's `tag_area` is an alternate
+dimension to both hierarchies, not a level of either, so it can't nest
+with them; picking it clears the other four, picking any of the other
+four clears it. `report_expense_by_account()` (440) is superseded by the
+matrix RPC for this screen and now unused, but left in the schema rather
+than dropped — nothing else calls it, and a migration to remove a
+harmless unused function isn't worth the risk for its own sake.
 
-**Expenses Filteration is three mutually-exclusive FAMILIES, not five
-independent toggles** — Account Group/Account Name layer together (their
-own hierarchy), CC Group/Cost Center layer together (a separate
-hierarchy), and Tag Area is the third, alternate source; picking a button
-from a different family clears whichever family was active, exactly the
-layered-exclusion shape P&L Filteration already established, just with
-one more family. **And it needed the identical mode-switch fix P&L just
-got**: both filtration-governed tables here (`DataTable`'s own `groups`,
-and the hand-rolled `ExpenseMonthwisePivot`, which keeps its own local
-`expanded` state) are keyed on the sorted active mode set, so a group key
-like "Trading" — a flat row under CC Group alone, a group with subgroups
-once Cost Center also switches on — never opens pre-expanded from stale
-state left over by the previous mode. Recognising this as the SAME bug
-class immediately, rather than re-discovering it from scratch, is what
-the P&L write-up and the ERP-wide audit that followed it were for.
+**The same mode-switch remount P&L needed still applies, now to three
+tables instead of two.** `DataTable`'s own `groups` (Last vs Current Month
+Comparison), the hand-rolled `ExpenseMonthwisePivot`, and the new
+`BudgetExpenseReport` (below) all key on the sorted active mode set, so a
+key like "Trading" — flat under Cost Center alone, a group with subgroups
+the moment Account Name also switches on — never opens pre-expanded from
+state a *different* shape left behind. Recognising this as the same bug
+class on sight, rather than re-discovering it, is what documenting it
+after the P&L fix was for.
 
-**Monthly Expense Graph reads red by being ABOVE AVERAGE, not by sign** —
-an expense total is never negative in the ordinary case, so
-`negativeClass()`'s sign rule doesn't apply here at all. Verified against
-the old software's own screenshot: every month it colored red (Mar/Jun/Jul)
-was genuinely above that period's average expense, every green month at or
-below it — confirmed by hand against the screenshot's own numbers before
-writing the rule, not assumed. `TrendChart`'s `colorBySign: boolean` (P&L's
-own addition, one commit earlier) turned out too narrow the moment a
-second use case needed a *different* rule for what counts as "red" —
-generalised to `redWhen?: (value: number) => boolean`, a predicate the
-caller supplies (`v => v < 0` for P&L's Net Profit, `v => v > average` for
-this chart), so `TrendChart` itself stays a dumb renderer and never needs
-to know what "bad" means for a given series.
+**Cost Center Wise Expenses drills down now — it didn't before.** The
+first cut rendered this panel as flat `DataTable` `rows` (cost-centre
+GROUP totals only, no way to see the leaves under one), when the old
+software's own screenshot shows a ▸ to expand a group into its cost
+centres. Rebuilt on the same `buildExpenseLevels()` as everywhere else,
+fixed at CC Group → Cost Center (this one panel never reads the
+Filteration toggle — always this same two-level shape, the same
+"always-there beside the filterable panel" role P&L's own Cost Center
+Profit & Loss panel plays), through `DataTable`'s `groups`, so it gets a
+real ▸/▾ for free.
+
+**Monthly Expense Graph reads red against BUDGET, not average.** The
+first cut colored a month red when it ran above that PERIOD's own
+average expense — plausible-looking against the one screenshot checked,
+but wrong: the old software's screenshot has a straight blue Budget line
+across every month (the same flat, recurring monthly figure this report's
+own Budget matrix already holds) and colors a bar red exactly when it
+clears THAT line, not a computed average. `redWhen` on the Expense series
+now reads `v > totalMonthlyBudget`, and a second series with the new
+`type: "line"` option overlays Budget itself on the same chart — the
+straight reference line the screenshot shows — which needed `TrendChart`
+swapped from a bare `BarChart` to Recharts' `ComposedChart` so a `Bar`
+and a `Line` series can share one x-axis. **The lesson, generally**: a
+"looks right against the one example I checked" rule is not verified
+until it's checked against what the number is actually being compared
+to, not just whichever comparison happens to reproduce the sample.
+
+**The KPI total is traceable now, not just asserted.** "Expense —
+period" used to sum `report_expense_analysis()`'s own `.monthly` — a
+different, independently-fetched figure from anything else on the page,
+so there was nowhere on screen to actually check it against. It's now
+`matrixSelected.reduce((s,r) => s+r.amount, 0)` — the exact same rows,
+bounded to exactly the ticked months (not the whole `[from,to]` span,
+which matters the moment a non-contiguous month pick is possible), that
+the new Budget and Expense Report grid below sums to its own Total row.
+The KPI and the grid can't disagree, because they're the same arithmetic
+over the same array, and a caption under the KPI row says where to go
+check it.
+
+**Budget and Expense Report is the one grid this screen was missing
+entirely.** Budget / Expense / Variance side by side per selected month,
+at whatever level Filteration currently resolves to, built on the same
+`buildBudgetExpenseLevels()` recursive shape. Budget is a flat, recurring
+figure — the same every month, matching `acct_expense_budgets_cc`'s own
+shape — computed per node by summing the budget of exactly the (account,
+cost centre) PAIRS actually present in that node's own underlying rows:
+a node driven only by Account (no cost-centre level active) sums that
+account's budget across every cost centre it was posted to, a node
+driven only by Cost Center sums across every account, and a node at both
+levels reads the one exact cell — always the same population the node's
+own Expense figure was summed over, never a mismatched scope. Variance
+follows the established Budget direction (`budget - actual`, positive =
+under budget = good), and a negative cell is a solid red fill
+(`bg-red-600 text-white`), not the ERP's usual red text — a deliberately
+heavier signal than `negativeClass()`'s convention elsewhere, because
+this is the one figure on the page an owner reads specifically as "did
+we overspend," matching how the old software's own screenshot renders it.
 
 **"Last vs Current Month Comparison"'s Variance is `last_month - current`,
 not `current - last_month`.** Sales Report's own CC-Group table computes

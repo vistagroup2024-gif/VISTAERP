@@ -42,7 +42,7 @@ export default async function HotelReportsPage({ searchParams }: { searchParams:
           </tr></thead>
           <tbody>
             {Array.from(map.entries()).map(([k, v], i) => (
-              <tr key={k} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={k} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="td font-medium capitalize">{k}</td>
                 <td className="td">{v.count}</td>
                 <td className="td">{money(v.sales, "SAR")}</td>

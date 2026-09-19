@@ -67,7 +67,7 @@ export default function TrialBalanceView() {
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="px-3 py-1.5"><Link href={`/accounting/ledger?account=${r.id}&from=${from}&to=${to}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{Number(r.opening_debit) ? money(Number(r.opening_debit)) : ""}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{Number(r.opening_credit) ? money(Number(r.opening_credit)) : ""}</td>

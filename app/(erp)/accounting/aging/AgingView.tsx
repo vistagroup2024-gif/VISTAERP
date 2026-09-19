@@ -39,7 +39,7 @@ function QuickList({ title, rows }: { title: string; rows: { account_id: string;
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.account_id} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
+              <tr key={r.account_id} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
                 <td className="px-3 py-2"><Link href={`/accounting/customers/${r.account_id}`} className="hover:text-brand hover:underline">{r.name}</Link></td>
                 <td className="px-3 py-2">
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${r.kind === "customer" ? "bg-brand-100 text-brand-700" : "bg-amber-100 text-amber-700"}`}>

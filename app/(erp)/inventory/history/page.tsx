@@ -52,7 +52,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: { co
           </thead>
           <tbody>
             {R.map((r: any, i) => (
-              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="td text-sm text-slate-400">{dateStr(r.created_at)}</td>
                 <td className="td font-mono">{r.brn_inventory?.brn ?? "—"}</td>
                 <td className="td">{r.brn_inventory?.hotel_name ?? "—"}</td>

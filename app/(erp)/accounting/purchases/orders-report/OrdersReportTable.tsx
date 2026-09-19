@@ -46,7 +46,7 @@ export default function OrdersReportTable({ rows, lines }: { rows: Row[]; lines:
             const isOpen = open.has(r.doc_id);
             return (
               <Fragment key={r.doc_id}>
-                <tr className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+                <tr className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                   <td className="td">
                     {rowLines.length > 0 && (
                       <button onClick={() => toggle(r.doc_id)} className="text-slate-400 hover:text-slate-700" aria-label={isOpen ? "Collapse" : "Expand"}>
@@ -83,7 +83,7 @@ export default function OrdersReportTable({ rows, lines }: { rows: Row[]; lines:
                         </tr></thead>
                         <tbody>
                           {rowLines.map((l, i) => (
-                            <tr key={i} className={`border-t border-slate-200 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+                            <tr key={i} className={`border-t border-slate-200 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                               <td className="px-2 py-1">{l.product}</td>
                               <td className="px-2 py-1 text-right tabular-nums">{qty(l.qty)}</td>
                               <td className="px-2 py-1 text-right tabular-nums">{qty(l.received_qty)}</td>

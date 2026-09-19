@@ -73,7 +73,7 @@ export default async function CarAccountingPage({ searchParams }: { searchParams
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr><th className="px-4 py-2.5 text-left"><span className="col-resize">Type</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Entries</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Debit Total</span></th></tr></thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.source} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={r.source} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="td">{SOURCE_LABEL[r.source]}</td>
                 <td className="td text-right">{r.count}</td>
                 <td className="td text-right tabular-nums">{sar(r.total)}</td>

@@ -41,7 +41,7 @@ export default async function ProfitabilityReport() {
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="td"><Link href={`/car-sales/contracts/${r.id}`} className="text-brand hover:underline">{r.contract_no}</Link></td>
                 <td className="td">{r.vehicle}</td>
                 <td className="td text-right tabular-nums">{sar(r.cost)}</td>

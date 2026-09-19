@@ -45,7 +45,7 @@ export default async function UpcomingReport({ searchParams }: { searchParams: {
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={i} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={i} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="td">{dateStr(r.due)}</td>
                 <td className="td"><Link href={`/car-sales/contracts/${r.id}`} className="text-brand hover:underline">{r.contract_no}</Link></td>
                 <td className="td">{r.customer}</td><td className="td">{r.phone}</td>

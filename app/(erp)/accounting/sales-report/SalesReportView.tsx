@@ -158,7 +158,7 @@ function MonthwisePivotTable({ groups, monthKeys, showValue, showQty }: {
             const grandQty = g.rows.reduce((s, r) => s + r.total.qty, 0);
             return (
               <Fragment key={g.key}>
-                <tr className={`cursor-pointer font-semibold ${gi % 2 === 1 ? "bg-slate-50/70" : ""}`} onClick={() => toggle(g.key)}>
+                <tr className={`cursor-pointer font-semibold ${gi % 2 === 1 ? "bg-slate-100/80" : ""}`} onClick={() => toggle(g.key)}>
                   <td colSpan={colCount} className="border border-slate-200 px-3 py-2">
                     <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
                     {g.label}
@@ -168,7 +168,7 @@ function MonthwisePivotTable({ groups, monthKeys, showValue, showQty }: {
                   </td>
                 </tr>
                 {open && g.rows.map((row, i) => (
-                  <tr key={row.key} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
+                  <tr key={row.key} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
                     <td className="px-3 py-1.5" style={{ paddingLeft: 28 }}>{row.label}</td>
                     {monthKeys.map((mk) => (
                       <Fragment key={mk}>

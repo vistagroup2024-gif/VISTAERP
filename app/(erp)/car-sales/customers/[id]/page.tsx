@@ -117,7 +117,7 @@ export default async function CustomerProfile({ params }: { params: { id: string
             </thead>
             <tbody>
               {cars.map((c, i) => (
-                <tr key={c.id} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
+                <tr key={c.id} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
                   <td className="px-3 py-2"><Link href={`/car-sales/contracts/${c.id}`} className="text-brand hover:underline">{c.contract_no}</Link></td>
                   <td className="px-3 py-2">{c.vehicle || c.plate_no || "—"}</td>
                   <td className="px-3 py-2">{dateStr(c.contract_date)}</td>
@@ -147,7 +147,7 @@ export default async function CustomerProfile({ params }: { params: { id: string
             </thead>
             <tbody>
               {(receipts ?? []).map((rc: any, i: number) => (
-                <tr key={rc.receipt_no} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
+                <tr key={rc.receipt_no} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
                   <td className="px-3 py-2">{rc.receipt_no}</td>
                   <td className="px-3 py-2">{dateStr(rc.receipt_date)}</td>
                   <td className="px-3 py-2">{rc.contract?.contract_no ?? "—"}</td>

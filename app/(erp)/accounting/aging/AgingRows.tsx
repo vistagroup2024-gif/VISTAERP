@@ -42,7 +42,7 @@ export default function AgingRows({ rows }: { rows: Row[] }) {
         const rowBills = bills[r.account_id] ?? [];
         return (
           <Fragment key={r.account_id}>
-            <tr className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+            <tr className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
               <td className="px-3 py-1.5">
                 <button onClick={() => toggle(r.account_id)} className="mr-1.5 text-slate-400 hover:text-slate-700" aria-label={isOpen ? "Collapse" : "Expand"}>
                   {isOpen ? "▾" : "▸"}

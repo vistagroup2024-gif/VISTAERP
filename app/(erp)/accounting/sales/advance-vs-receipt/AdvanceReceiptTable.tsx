@@ -43,7 +43,7 @@ export default function AdvanceReceiptTable({ title, rows, receipts }: { title: 
               const isOpen = open.has(r.doc_id);
               return (
                 <Fragment key={r.doc_id}>
-                  <tr className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+                  <tr className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                     <td className="td">
                       {rcpts.length > 0 && (
                         <button onClick={() => toggle(r.doc_id)} className="text-slate-400 hover:text-slate-700" aria-label={isOpen ? "Collapse" : "Expand"}>
@@ -72,7 +72,7 @@ export default function AdvanceReceiptTable({ title, rows, receipts }: { title: 
                           </tr></thead>
                           <tbody>
                             {rcpts.map((rc, ri) => (
-                              <tr key={rc.id} className={`border-t border-slate-200 ${ri % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+                              <tr key={rc.id} className={`border-t border-slate-200 ${ri % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                                 <td className="px-2 py-1">{rc.receipt_no}</td>
                                 <td className="px-2 py-1">{dateStr(rc.receipt_date)}</td>
                                 <td className="px-2 py-1 text-right tabular-nums">{money(rc.amount)}</td>

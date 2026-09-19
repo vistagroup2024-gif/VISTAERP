@@ -130,7 +130,7 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="td text-right tabular-nums text-slate-400">{i + 1}</td>
                 <td className="td"><Link href={`/car-sales/customers/${r.id}`} className="text-brand hover:underline">{r.name}</Link></td>
                 <td className={`td text-right tabular-nums font-medium ${r.balance > 0 ? "text-red-600" : r.balance < 0 ? "text-emerald-700" : ""}`}>{drCr(r.balance)}</td>
@@ -199,7 +199,7 @@ async function MonthlyBalance(supabase: ReturnType<typeof createClient>) {
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={r.customer_id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+            <tr key={r.customer_id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
               <td className="td"><Link href={`/car-sales/customers/${r.customer_id}`} className="text-brand hover:underline">{r.name}</Link></td>
               <td className={`td text-right tabular-nums ${DUE_BG}`}>{num(r.due_cur)}</td>
               <td className={`td text-right tabular-nums ${DUE_BG}`}>{num(r.due_last)}</td>

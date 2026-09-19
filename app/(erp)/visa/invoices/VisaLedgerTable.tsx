@@ -66,7 +66,7 @@ export default function VisaLedgerTable({ rows, isAdmin }: { rows: VisaLedgerRow
           </tr></thead>
           <tbody>
             {filtered.map((r, i) => (
-              <tr key={r.group_id} className={`border-b border-slate-50 align-middle ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={r.group_id} className={`border-b border-slate-50 align-middle ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="td whitespace-nowrap">{dateStr(r.visa_date)}</td>
                 <td className="td">{r.company ?? "—"}</td>
                 <td className="td">{r.customer ?? "—"}</td>

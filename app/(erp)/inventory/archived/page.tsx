@@ -57,7 +57,7 @@ export default async function ArchivedBrnsPage({ searchParams }: { searchParams:
           </thead>
           <tbody>
             {archived.map(({ b, peakUsed, fullyOn, history }, i) => (
-              <tr key={b.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+              <tr key={b.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                 <td className="td text-slate-500">{b.group_companies?.name ?? "—"}</td>
                 <td className="td font-mono font-medium">
                   <Link href={`/inventory/brn/${b.id}`} className="text-brand hover:underline">{b.brn}</Link>

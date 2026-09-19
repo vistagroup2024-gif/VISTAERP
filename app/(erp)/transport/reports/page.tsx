@@ -23,7 +23,7 @@ function Table({ title, cols, rows }: { title: string; cols: string[]; rows: any
           <tr>{cols.map((c) => <th key={c} className="px-4 py-2.5 text-left"><span className="col-resize">{c}</span></th>)}</tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => <tr key={i} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>{r.map((c, j) => <td key={j} className="td">{c}</td>)}</tr>)}
+          {rows.map((r, i) => <tr key={i} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>{r.map((c, j) => <td key={j} className="td">{c}</td>)}</tr>)}
           {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={cols.length}>No data.</td></tr>}
         </tbody>
       </table>

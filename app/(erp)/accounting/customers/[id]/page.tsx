@@ -115,7 +115,7 @@ export default async function CustomerReportPage({ params, searchParams }: { par
             </thead>
             <tbody>
               {bills.map((b: any, i: number) => (
-                <tr key={b.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+                <tr key={b.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                   <td className="px-3 py-1.5">{b.doc_no}</td>
                   <td className="px-3 py-1.5">{dateStr(b.doc_date)}</td>
                   <td className="px-3 py-1.5">{b.due_date ? dateStr(b.due_date) : "—"}</td>
@@ -179,7 +179,7 @@ export default async function CustomerReportPage({ params, searchParams }: { par
             </thead>
             <tbody>
               {txns.map((t: any, i: number) => (
-                <tr key={`${t.entry_id}-${t.voucher_no}`} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
+                <tr key={`${t.entry_id}-${t.voucher_no}`} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
                   <td className="px-3 py-1.5">{t.voucher_no}</td>
                   <td className="px-3 py-1.5">{dateStr(t.date)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{money(t.debit)}</td>
