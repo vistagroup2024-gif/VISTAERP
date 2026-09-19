@@ -120,10 +120,15 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
         </div>
 
         {/* ── Stay Details ──────────────────────────────────────── */}
+        {/* Solid brand-orange pill, not a bordered neutral box — orange is
+            reserved as a rare accent (tailwind.config.ts) for exactly this:
+            the one date on the document a customer must actually act on,
+            the way QuickBooks/Xero/SAP invoices badge a payment due date
+            rather than leaving it as plain text. */}
         <SectionTitle className="mt-7" right={optionDate ? (
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Option Date</span>
-            <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800">{dateStr(optionDate)}</span>
+          <div className="flex items-center gap-2 rounded-full bg-brand-orange py-1 pl-3 pr-1" style={exact}>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-white">Option Date</span>
+            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-brand-orange" style={exact}>{dateStr(optionDate)}</span>
           </div>
         ) : undefined}>Stay Details</SectionTitle>
         {/* table-fixed + a colgroup keeps every column's width within the page
