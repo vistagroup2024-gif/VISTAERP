@@ -35,13 +35,14 @@ type MatrixRow = { customer_id: string; name: string; month: string; billed: num
 // Building this report's own totals from car_installments alone, the way it
 // did before, is what let it disagree with the card in the first place.
 //
-// FIVE TABS: Customer Due Ageing Summary (default — one row per customer,
+// FOUR TABS: Customer Due Ageing Summary (default — one row per customer,
 // combining car_customer_balances()'s "what is owed right now" with
 // car_customer_monthwise()'s "what was due and collected, month by month" —
 // both read the same three due-date sources, so merging them client-side
-// (no new RPC) never tells two different stories about the same customer),
-// Installment Aging (moved in from its own former screen — one row per
-// CONTRACT instead of per customer, car_installment_aging()), Monthly
+// (no new RPC) never tells two different stories about the same customer;
+// Installment Aging, moved in from its own former screen, sits under this
+// same grid — one row per CONTRACT instead of per customer,
+// car_installment_aging() — rather than being a tab of its own), Monthly
 // Balances, Receipts Monthwise and Billed vs Receipts Monthwise — the
 // latter three all pivoted client-side off the ONE flat
 // car_customer_monthly_matrix() RPC (migration 449), so they can never
@@ -55,33 +56,23 @@ type MatrixRow = { customer_id: string; name: string; month: string; billed: num
 export default async function OutstandingReport({ searchParams }: { searchParams: { tab?: string } }) {
   await guardStaffPage("carsales.reports");
   const supabase = createClient();
-  const tab = ["monthly", "receipts", "billed", "installments"].includes(searchParams.tab ?? "")
-    ? (searchParams.tab as "monthly" | "receipts" | "billed" | "installments") : "ageing";
+  const tab = ["monthly", "receipts", "billed"].includes(searchParams.tab ?? "")
+    ? (searchParams.tab as "monthly" | "receipts" | "billed") : "ageing";
 
   const TABS: [string, string][] = [
     ["ageing", "Customer Due Ageing Summary"],
-    ["installments", "Installment Aging"],
     ["monthly", "Monthly Balances"],
     ["receipts", "Receipts Monthwise"],
     ["billed", "Billed vs Receipts Monthwise"],
   ];
 
   let matrixRows: MatrixRow[] = [];
-  if (tab === "monthly" || tab === "receipts" || tab === "billed") {
+  if (tab !== "ageing") {
     const { data } = await supabase.rpc("car_customer_monthly_matrix", { p_company: COMPANY_ID });
     matrixRows = ((data ?? []) as any[]).map((r) => ({
       customer_id: r.customer_id, name: r.name ?? "—", month: String(r.month).slice(0, 7),
       billed: Number(r.billed || 0), outstanding: Number(r.outstanding || 0), receipts: Number(r.receipts || 0),
       receiptsByBill: Number(r.receipts_by_bill || 0),
-    }));
-  }
-  let instRows: InstallmentAgingRow[] = [];
-  if (tab === "installments") {
-    const { data } = await supabase.rpc("car_installment_aging");
-    instRows = ((data ?? []) as any[]).map((r) => ({
-      id: r.id, contract_no: r.contract_no, customer: r.customer ?? "—",
-      current: Number(r.current || 0), d30: Number(r.d30 || 0), d60: Number(r.d60 || 0),
-      d90: Number(r.d90 || 0), d90p: Number(r.d90p || 0), total: Number(r.total || 0),
     }));
   }
 
@@ -97,7 +88,6 @@ export default async function OutstandingReport({ searchParams }: { searchParams
         ))}
       </div>
       {tab === "ageing" ? await AgeingSummary(supabase)
-        : tab === "installments" ? <InstallmentAging rows={instRows} />
         : tab === "monthly" ? <MonthlyBalances rows={matrixRows} />
         : tab === "receipts" ? <ReceiptsMonthwise rows={matrixRows} />
         : <BilledVsReceipts rows={matrixRows} />}
@@ -109,7 +99,9 @@ export default async function OutstandingReport({ searchParams }: { searchParams
 // migration 430) — same per-contract bucketing (current/1-30/31-60/61-90/90+),
 // the same three due-date sources (installments, the invoice advance, monthly
 // service charges) car_customer_balances() and dashboard_metrics() already use,
-// so this tab never disagrees with the Ageing Summary tab beside it.
+// so it never disagrees with the customer-level grid it sits under. Rendered
+// under the Ageing Summary tab's own grid rather than a tab of its own — one
+// screen the viewer scrolls, not a second click to reach the same period.
 type InstallmentAgingRow = {
   id: string; contract_no: string; customer: string;
   current: number; d30: number; d60: number; d90: number; d90p: number; total: number;
@@ -155,9 +147,10 @@ function InstallmentAging({ rows }: { rows: InstallmentAgingRow[] }) {
 }
 
 async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
-  const [{ data }, { data: monthly }] = await Promise.all([
+  const [{ data }, { data: monthly }, { data: inst }] = await Promise.all([
     supabase.rpc("car_customer_balances"),
     supabase.rpc("car_customer_monthwise", { p_company: COMPANY_ID }),
+    supabase.rpc("car_installment_aging"),
   ]);
   const monthlyById = new Map(((monthly ?? []) as any[]).map((m) => [m.customer_id, m]));
 
@@ -190,7 +183,21 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
 
   const totalCars = rows.reduce((s, r) => s + r.cars, 0);
 
-  return <AgeingSummaryTable rows={rows} totalCars={totalCars} />;
+  const instRows: InstallmentAgingRow[] = ((inst ?? []) as any[]).map((r) => ({
+    id: r.id, contract_no: r.contract_no, customer: r.customer ?? "—",
+    current: Number(r.current || 0), d30: Number(r.d30 || 0), d60: Number(r.d60 || 0),
+    d90: Number(r.d90 || 0), d90p: Number(r.d90p || 0), total: Number(r.total || 0),
+  }));
+
+  return (
+    <div className="space-y-4">
+      <AgeingSummaryTable rows={rows} totalCars={totalCars} />
+      <div>
+        <SectionHeader title="Installment Aging" />
+        <InstallmentAging rows={instRows} />
+      </div>
+    </div>
+  );
 }
 
 // Every month that carries ANY billed or received activity, across every
