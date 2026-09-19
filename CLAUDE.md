@@ -2750,6 +2750,20 @@ per-installment allocation UI and the Car Receipt screens still read and
 write them for that detail. Only these three READ-side aggregates moved
 onto the ledger-true source.
 
+**Two more places had the identical bug, both on the customer detail page
+(`/car-sales/customers/[id]`), found by checking every remaining consumer
+of the same shadow tables rather than stopping at the three RPCs above**:
+- The page's own **Ledger Balance card** coloured red for any positive
+  balance (`ledgerBalance > 0`), the same "red isn't overdue" mistake the
+  Ageing Summary table had — fixed to key off `ageing.overdue` instead,
+  reading black/neutral for a balance that's owed but not yet due.
+- **Recent Receipts** queried `car_receipts` directly (`.from("car_receipts")`),
+  so it never listed a receipt taken the ordinary way either — ABDUL
+  JALAL's own two receipts included. `car_customer_report()` (455) now
+  returns a `receipts` array built the same way `month_pts` already is
+  (`allocations` → `open_items` → the settling `journal_entries`), and the
+  page reads that instead of querying the table itself.
+
 ## A customer's due is a report question of "for which car" — the Ageing Summary drills into it
 
 "some customer have multiple cars so it will show multiple car so we can
@@ -2803,3 +2817,55 @@ Two more small fixes landed on the same screen, same underlying cause
   still correctly says "Billed" since it's explicitly comparing billed
   against received) — only this one tab's user-facing label changed, to
   match what a viewer is actually asking this specific tab: what's due.
+
+## Renaming a column's LABEL doesn't change what it MEANS — and "Due" has to mean net, not gross
+
+The "Billed" → "Due" rename above was a UI-only change, on purpose — but
+it was wrong on the facts, the same shape of mistake this file keeps
+finding: a real question ("why is Aug still 28,583.34 after we received
+some amount") exposed that `car_customer_monthly_matrix()`'s `billed`
+column was never meant to move after a receipt (it's the ORIGINAL
+schedule, "what was this customer's schedule," a deliberate design
+documented above), and renaming its label to "Due" without changing what
+it computes just moved the mismatch from the code into the screen — "Due"
+that doesn't reduce after a real receipt reads as broken, correctly.
+
+Also swept the same tab and its two siblings (Receipts Monthwise, Billed
+vs Receipts Monthwise) for the shadow-ledger bug 453/455 already found
+and fixed in the other three car-customer RPCs, and found the exact same
+thing: `car_customer_monthly_matrix()`'s own `receipts` column still read
+`car_receipts` directly — a fourth sibling calculation over the same
+tables, missed in the 453 pass because it's called from a different
+screen than the other three. A receipt taken through the ordinary Receipt
+Voucher (ABDUL JALAL's own case) never appeared in Receipts Monthwise or
+in Billed vs Receipts' Receipts column either, for the identical reason.
+
+Fixed together (456), since both are the same RPC:
+- **`outstanding`** is a genuinely new, separate column — `open_items`-
+  sourced, period-shift rule included, the same figure
+  `car_customer_balances()` and the vehicle drilldown already compute.
+  Monthly Balances ("Due") now reads THIS, not `billed` — August correctly
+  reads 13,583.34 after the 15,000 receipt (5,000 remaining advance +
+  8,583.34 instalment #1), not 28,583.34.
+- **`billed` is untouched** — still the gross original schedule — because
+  Billed vs Receipts Monthwise's whole point is comparing the ORIGINAL
+  amount against what came in; repurposing it to mean "outstanding" would
+  have broken that tab's own, different, legitimate question. A caller
+  that wants "what's still owed" reads `outstanding`; a caller comparing
+  "what was billed vs what came in" reads `billed`. Two real questions,
+  two real columns — not one field pressed into meaning both.
+- **`receipts`** now sums `allocations.amount_base` through `open_items`
+  to the settling `journal_entries.entry_date`, exactly like 453's fix to
+  `car_customer_monthwise()` — so Receipts Monthwise and the Receipts
+  column of Billed vs Receipts both show a receipt taken any way, in the
+  month it actually posted.
+
+**The general lesson, on top of "a fix applied once belongs everywhere
+the same shape recurs"**: renaming a LABEL is a claim about what the
+number underneath now means to the reader, and has to be checked against
+what the number actually computes — a rename is not free just because it
+touches no logic. And a sweep for a known bug shape has to include every
+screen that reads the affected tables, not only every screen already
+touched by an earlier pass over a similar-looking call site — here, a
+whole separate RPC (`car_customer_monthly_matrix()`) sharing the same
+underlying tables as the three already fixed.

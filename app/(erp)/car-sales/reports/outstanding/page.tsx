@@ -25,7 +25,7 @@ const BAL_BG = "bg-slate-50";
 
 export const dynamic = "force-dynamic";
 
-type MatrixRow = { customer_id: string; name: string; month: string; billed: number; receipts: number };
+type MatrixRow = { customer_id: string; name: string; month: string; billed: number; outstanding: number; receipts: number };
 
 // This is the dashboard's Car Customer Balances card, per customer instead of
 // summed. car_customer_balances() is car_money's (dashboard_metrics()) own
@@ -67,7 +67,7 @@ export default async function OutstandingReport({ searchParams }: { searchParams
     const { data } = await supabase.rpc("car_customer_monthly_matrix", { p_company: COMPANY_ID });
     matrixRows = ((data ?? []) as any[]).map((r) => ({
       customer_id: r.customer_id, name: r.name ?? "—", month: String(r.month).slice(0, 7),
-      billed: Number(r.billed || 0), receipts: Number(r.receipts || 0),
+      billed: Number(r.billed || 0), outstanding: Number(r.outstanding || 0), receipts: Number(r.receipts || 0),
     }));
   }
 
@@ -138,33 +138,45 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
 function monthsAxis(rows: MatrixRow[]): string[] {
   return Array.from(new Set(rows.map((r) => r.month))).sort();
 }
-type CustRow = { id: string; name: string; byMonth: Map<string, { billed: number; receipts: number }>; totalBilled: number; totalReceipts: number };
+type CustRow = {
+  id: string; name: string;
+  byMonth: Map<string, { billed: number; outstanding: number; receipts: number }>;
+  totalBilled: number; totalOutstanding: number; totalReceipts: number;
+};
 function pivotByCustomer(rows: MatrixRow[]): CustRow[] {
   const m = new Map<string, CustRow>();
   for (const r of rows) {
     let c = m.get(r.customer_id);
-    if (!c) { c = { id: r.customer_id, name: r.name, byMonth: new Map(), totalBilled: 0, totalReceipts: 0 }; m.set(r.customer_id, c); }
-    c.byMonth.set(r.month, { billed: r.billed, receipts: r.receipts });
+    if (!c) { c = { id: r.customer_id, name: r.name, byMonth: new Map(), totalBilled: 0, totalOutstanding: 0, totalReceipts: 0 }; m.set(r.customer_id, c); }
+    c.byMonth.set(r.month, { billed: r.billed, outstanding: r.outstanding, receipts: r.receipts });
     c.totalBilled += r.billed;
+    c.totalOutstanding += r.outstanding;
     c.totalReceipts += r.receipts;
   }
   return Array.from(m.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 const thisMonthKey = new Date().toISOString().slice(0, 7);
 
+// "Due" here is what's genuinely still owed for that month — car_customer_
+// monthly_matrix()'s own 'outstanding' (456), the same open_items-sourced
+// figure car_customer_balances()/the vehicle drilldown already read — not
+// 'billed' (the original scheduled amount, never netted against payment).
+// Billed vs Receipts Monthwise, below, still reads 'billed' on purpose: that
+// tab is explicitly comparing the original schedule against what came in, a
+// different, legitimate question from "what's still due."
 function MonthlyBalances({ rows }: { rows: MatrixRow[] }) {
   const months = monthsAxis(rows);
-  const custs = pivotByCustomer(rows).filter((c) => c.totalBilled > 0.005);
-  const totalBilled = custs.reduce((s, c) => s + c.totalBilled, 0);
-  const curMonthBilled = rows.filter((r) => r.month === thisMonthKey).reduce((s, r) => s + r.billed, 0);
-  const monthTotal = (mk: string) => custs.reduce((s, c) => s + (c.byMonth.get(mk)?.billed ?? 0), 0);
+  const custs = pivotByCustomer(rows).filter((c) => c.totalOutstanding > 0.005);
+  const totalDue = custs.reduce((s, c) => s + c.totalOutstanding, 0);
+  const curMonthDue = rows.filter((r) => r.month === thisMonthKey).reduce((s, r) => s + r.outstanding, 0);
+  const monthTotal = (mk: string) => custs.reduce((s, c) => s + (c.byMonth.get(mk)?.outstanding ?? 0), 0);
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <ReportKpi label="Customers with a Schedule" value={String(custs.length)} icon="users" />
-        <ReportKpi label="Total Due (all months)" value={num(totalBilled)} icon="wallet" />
-        <ReportKpi label={`Due — ${monthShort(thisMonthKey)}`} value={num(curMonthBilled)} icon="clock" tone={curMonthBilled > 0 ? "warn" : undefined} />
+        <ReportKpi label="Customers with a Balance" value={String(custs.length)} icon="users" />
+        <ReportKpi label="Total Due (all months)" value={num(totalDue)} icon="wallet" tone={totalDue > 0 ? "warn" : undefined} />
+        <ReportKpi label={`Due — ${monthShort(thisMonthKey)}`} value={num(curMonthDue)} icon="clock" tone={curMonthDue > 0 ? "warn" : undefined} />
         <ReportKpi label="Months Shown" value={String(months.length)} icon="trendUp" />
       </div>
       <div>
@@ -185,10 +197,10 @@ function MonthlyBalances({ rows }: { rows: MatrixRow[] }) {
                     <Link href={`/car-sales/customers/${c.id}`} className="text-brand hover:underline">{c.name}</Link>
                   </td>
                   {months.map((mk) => {
-                    const v = c.byMonth.get(mk)?.billed ?? 0;
+                    const v = c.byMonth.get(mk)?.outstanding ?? 0;
                     return <td key={mk} className="td text-right tabular-nums">{v > 0.005 ? num(v) : ""}</td>;
                   })}
-                  <td className="td text-right tabular-nums font-semibold border-l border-slate-100">{num(c.totalBilled)}</td>
+                  <td className="td text-right tabular-nums font-semibold border-l border-slate-100">{num(c.totalOutstanding)}</td>
                 </tr>
               ))}
               {custs.length === 0 && <tr><td className="td text-slate-400" colSpan={months.length + 2}>No due schedule found.</td></tr>}
@@ -196,7 +208,7 @@ function MonthlyBalances({ rows }: { rows: MatrixRow[] }) {
             {custs.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
               <td className="td sticky left-0 bg-slate-50 z-10">Total ({custs.length})</td>
               {months.map((mk) => <td key={mk} className="td text-right tabular-nums">{num(monthTotal(mk))}</td>)}
-              <td className="td text-right tabular-nums border-l border-slate-100">{num(totalBilled)}</td>
+              <td className="td text-right tabular-nums border-l border-slate-100">{num(totalDue)}</td>
             </tr></tfoot>}
           </table>
         </div>

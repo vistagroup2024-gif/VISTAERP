@@ -37,10 +37,7 @@ export default async function CustomerProfile({ params }: { params: { id: string
   await guardStaffPage(["carsales.view", "carsales.installments", "carsales.sales"]);
   const supabase = createClient();
 
-  const [{ data: report, error }, { data: receipts }] = await Promise.all([
-    supabase.rpc("car_customer_report", { p_customer_id: params.id }),
-    supabase.from("car_receipts").select("receipt_no, receipt_date, amount, contract:contract_id(contract_no)").eq("customer_id", params.id).order("receipt_date", { ascending: false }).limit(50),
-  ]);
+  const { data: report, error } = await supabase.rpc("car_customer_report", { p_customer_id: params.id });
   if (error || !report || !(report as any).profile) notFound();
 
   const r: any = report;
@@ -50,7 +47,15 @@ export default async function CustomerProfile({ params }: { params: { id: string
   const byType: any[] = r.by_type ?? [];
   const bills: any[] = r.bills ?? [];
   const monthwise: any[] = r.monthwise ?? [];
+  // Every bill-wise settlement against this account (car_customer_report()'s
+  // own 'receipts', migration 455) — not a plain read of car_receipts, which
+  // only ever holds a receipt taken through the car module's own Receipt
+  // tab. A receipt made the ordinary way (Receipt Voucher, adjusted against
+  // the bill in the popup) posts and settles correctly but never writes a
+  // car_receipts row, so it used to be invisible on this exact list.
+  const receipts: any[] = r.receipts ?? [];
   const ledgerBalance = Number(r.ledger_balance ?? 0);
+  const overdue = Number(ageing.overdue ?? 0);
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -70,7 +75,7 @@ export default async function CustomerProfile({ params }: { params: { id: string
         <section className="card">
           <h2 className="mb-3 font-semibold text-slate-700">Ledger Balance</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <Money label="Ledger Balance" value={`${money(Math.abs(ledgerBalance))} ${ledgerBalance >= 0 ? "Dr" : "Cr"}`} tone={ledgerBalance > 0 ? "text-red-600" : "text-emerald-700"} />
+            <Money label="Ledger Balance" value={`${money(Math.abs(ledgerBalance))} ${ledgerBalance >= 0 ? "Dr" : "Cr"}`} tone={overdue > 0.005 ? "text-red-600" : ledgerBalance < -0.005 ? "text-emerald-700" : ""} />
             <Money label="Cars" value={String(cars.length)} />
           </div>
         </section>
@@ -141,20 +146,20 @@ export default async function CustomerProfile({ params }: { params: { id: string
               <tr>
                 <th className="px-3 py-2 text-left"><span className="col-resize">Receipt</span></th>
                 <th className="px-3 py-2 text-left"><span className="col-resize">Date</span></th>
-                <th className="px-3 py-2 text-left"><span className="col-resize">Contract</span></th>
+                <th className="px-3 py-2 text-left"><span className="col-resize">Against</span></th>
                 <th className="px-3 py-2 text-right"><span className="col-resize">Amount</span></th>
               </tr>
             </thead>
             <tbody>
-              {(receipts ?? []).map((rc: any, i: number) => (
-                <tr key={rc.receipt_no} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
-                  <td className="px-3 py-2">{rc.receipt_no}</td>
-                  <td className="px-3 py-2">{dateStr(rc.receipt_date)}</td>
-                  <td className="px-3 py-2">{rc.contract?.contract_no ?? "—"}</td>
+              {receipts.map((rc: any, i: number) => (
+                <tr key={`${rc.entry_id}-${rc.doc_no}`} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
+                  <td className="px-3 py-2">{rc.entry_no}</td>
+                  <td className="px-3 py-2">{dateStr(rc.entry_date)}</td>
+                  <td className="px-3 py-2">{rc.doc_no ?? "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{sar(rc.amount)}</td>
                 </tr>
               ))}
-              {(receipts ?? []).length === 0 && <tr><td className="px-3 py-8 text-center text-slate-400" colSpan={4}>No receipts.</td></tr>}
+              {receipts.length === 0 && <tr><td className="px-3 py-8 text-center text-slate-400" colSpan={4}>No receipts.</td></tr>}
             </tbody>
           </table>
         </div>
