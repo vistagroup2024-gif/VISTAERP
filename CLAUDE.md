@@ -1868,3 +1868,118 @@ nobody asked for on Balance Sheet, Aging, or anywhere else. The same
 became `lg:grid-cols-[280px_1fr]` (the Cost Center P&L panel, a simple
 two-column list, gets a fixed narrow width and the Summary panel — now
 carrying up to 11 columns instead of 8 — takes the rest of the row).
+
+## Expenses is a report now, not a tab buried in Targets & Budget
+
+The dashboard's Expenses card used to open Targets & Budget's "Expense
+Budget" tab — a budget-editing screen with a few analysis panels bolted on
+the side, not a report in its own right. `/accounting/expenses`
+(`ExpenseReportView.tsx`, 440) rebuilds this as a proper report matching
+the old software's own "Expenses Detail" screenshot's *features*, on this
+ERP's own report system (dark-green headers, `DataTable`/`DataGroup`,
+`PeriodDropdown`) rather than copied pixel-for-pixel. The old tab and its
+budget are left exactly as they were — see below.
+
+**Two of the three pivot dimensions already existed.** CC Group/Cost
+Center and Tag Area both read straight off `report_cost_centre_costing()`
+and `report_tag_area_costing()` — both already carry a per-leaf `expense`
+figure (type='expense', COGS excluded) with its own monthly breakdown, the
+SAME "expense" `dashboard_metrics()`'s own Expenses card already uses, so
+this report agrees with the dashboard card by construction rather than by
+coincidence. **Only Account Group/Account Name was a real gap** — nothing
+in the schema had ever resolved an expense account's own parent group —
+so `report_expense_by_account()` (440) is the one genuinely new data
+source, built the same single-level-`parent_id`-join way `cost_centre_group`/
+`tag_area_group` already are. All three normalize client-side into one
+`ExpRow` shape (`name`/`group`/`expense`/`monthly`), so one builder
+produces every dimension's `DataGroup[]` instead of three near-duplicates.
+
+**Expenses Filteration is three mutually-exclusive FAMILIES, not five
+independent toggles** — Account Group/Account Name layer together (their
+own hierarchy), CC Group/Cost Center layer together (a separate
+hierarchy), and Tag Area is the third, alternate source; picking a button
+from a different family clears whichever family was active, exactly the
+layered-exclusion shape P&L Filteration already established, just with
+one more family. **And it needed the identical mode-switch fix P&L just
+got**: both filtration-governed tables here (`DataTable`'s own `groups`,
+and the hand-rolled `ExpenseMonthwisePivot`, which keeps its own local
+`expanded` state) are keyed on the sorted active mode set, so a group key
+like "Trading" — a flat row under CC Group alone, a group with subgroups
+once Cost Center also switches on — never opens pre-expanded from stale
+state left over by the previous mode. Recognising this as the SAME bug
+class immediately, rather than re-discovering it from scratch, is what
+the P&L write-up and the ERP-wide audit that followed it were for.
+
+**Monthly Expense Graph reads red by being ABOVE AVERAGE, not by sign** —
+an expense total is never negative in the ordinary case, so
+`negativeClass()`'s sign rule doesn't apply here at all. Verified against
+the old software's own screenshot: every month it colored red (Mar/Jun/Jul)
+was genuinely above that period's average expense, every green month at or
+below it — confirmed by hand against the screenshot's own numbers before
+writing the rule, not assumed. `TrendChart`'s `colorBySign: boolean` (P&L's
+own addition, one commit earlier) turned out too narrow the moment a
+second use case needed a *different* rule for what counts as "red" —
+generalised to `redWhen?: (value: number) => boolean`, a predicate the
+caller supplies (`v => v < 0` for P&L's Net Profit, `v => v > average` for
+this chart), so `TrendChart` itself stays a dumb renderer and never needs
+to know what "bad" means for a given series.
+
+**"Last vs Current Month Comparison"'s Variance is `last_month - current`,
+not `current - last_month`.** Sales Report's own CC-Group table computes
+Difference as `current_year - previous_year` (positive = grew = good,
+correctly green) — copying that same formula here would have been wrong:
+for an EXPENSE, spending MORE is the bad direction, so the figure that
+should read green (positive, "good") is the one where CURRENT is LOWER
+than last month. `last_month - current` matches the direction Budget's own
+Variance already uses everywhere else in this codebase (`budget - actual`,
+positive = under budget = good = green) — "reference minus actual," not
+"actual minus reference." Column order still reads Current, Last Month,
+Variance, matching the old software's own headers; only the arithmetic
+underneath needed to be gotten right rather than copy-pasted from the
+nearest existing example.
+
+**The Monthly and Yearly Budgets panel is a genuine new feature, not a
+restyle.** `acct_expense_budgets` (249, the existing per-account annual
+budget the old "Expense Budget" tab still edits) has no cost-centre
+dimension at all — there was nowhere to read a per-cost-centre figure
+from. Checked the old software's own screenshot numbers before building
+anything: every filled cell's Yearly figure is EXACTLY Monthly × 12
+(Salaries - Staff (Off) under Monthly Car Service Charges: 6,200 × 12 =
+74,400, and every other cell in both screenshots the same), confirming
+this is a flat RECURRING monthly amount per (account, cost centre),
+annualised — not a 12-cell month-by-month grid the way
+`acct_cost_center_monthly_targets` is for sales targets. `acct_expense_budgets_cc`
+(440) is that table; `report_expense_budget_cc()` returns the full
+account × cost-centre cross product (every postable expense account
+against every leaf cost centre, not only pairs with a budget already
+entered — an editable grid has to offer every cell to fill in, the same
+reason the cost-centre monthly-targets grid always lists every cost
+centre) and the client pivots it into rows × columns exactly the way
+`MonthwisePivotTable` pivots months. Saving is a direct `.from(...).upsert()`
+against the table under RLS, the same pattern `acct_cost_center_monthly_targets`
+already uses — no wrapper RPC needed for a save this simple.
+
+**The Budget-vs-Expense KPI is bounded to the SAME window as everything
+else on the page, not always a full year.** The budget matrix's own
+`monthly_amount` is period-independent (a recurring plan, shown as
+Monthly/Yearly regardless of what `PeriodDropdown` is set to — the same
+reason the existing Cost Center Monthly Targets grid also ignores its
+page's own period filter), but the KPI multiplies it by however many
+months are actually selected, so a partial-year selection compares a
+partial-year budget against that same partial year's real spend — never a
+full year's budget against three months of actual, which would silently
+overstate how much headroom is left.
+
+**The old per-account "Expense Budget" tab was deliberately left alone,
+and that is a known, accepted gap, not an oversight.** It now reads a
+genuinely different, narrower Budget total (per account, no cost-centre
+split, and — unlike this report — COGS-tagged expense accounts included,
+matching `report_expense_analysis()`/`report_expense_budget()`'s own
+existing, older definition of "expense"). Retiring or merging the old tab
+into this report is its own follow-up; silently rewriting an existing
+screen nobody asked to have touched, while building a large new one, is
+exactly the kind of scope-creep this file's own conventions warn against
+elsewhere. The dashboard's Expenses card now points at `/accounting/expenses`
+instead — its old `hrefOverride` entry in `app/(erp)/dashboard/page.tsx`
+pointing at the tab was removed, the same "two places disagree" trap this
+file already caught once for the Cash Flow card.

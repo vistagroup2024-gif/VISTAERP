@@ -72,7 +72,6 @@ export default async function Dashboard() {
   const period = `from=${monthStartSA()}&to=${todaySA()}`;
   const hrefOverride: Partial<Record<CardKey, string>> = {
     sales: `/accounting/sales-report?${period}`,
-    expenses: "/accounting/targets?tab=exp",
     pnl: `/accounting/profit-loss?${period}`,
   };
 

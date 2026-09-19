@@ -131,6 +131,7 @@ export const DOC_TREE: DocModule[] = [
       { key: "targets",        label: "Targets & Budget",   rights: R, href: "/accounting/targets" },
       { key: "drawings_report", label: "Drawings Report",   rights: R, href: "/accounting/drawings" },
       { key: "cost_centre_costing", label: "Cost Centre Costing", rights: R, href: "/accounting/cost-centre-costing" },
+      { key: "expenses_report", label: "Expenses", rights: R, href: "/accounting/expenses" },
       { key: "audit",          label: "Audit Trail",        rights: R, href: "/accounting/audit" },
     ] },
     { group: "Period", docs: [

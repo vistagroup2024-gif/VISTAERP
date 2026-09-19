@@ -46,7 +46,7 @@ export const DASHBOARD_CARDS: CardDef[] = [
   { key: "sales", label: "Sales", icon: "sales",
     hint: "Income booked this month and this year, and how many invoices this month", href: "/accounting/sales-report" },
   { key: "expenses", label: "Expenses", icon: "trendDown",
-    hint: "Expense booked this month and this year", href: "/accounting/targets?tab=exp" },
+    hint: "Expense booked this month and this year", href: "/accounting/expenses" },
   { key: "pnl", label: "Profit & Loss", icon: "trendUp",
     hint: "The bottom line — gross profit, net profit and margin, month and year. Income and Expense have their own cards, so this one is the calculation those two combine into, not a repeat of either",
     href: "/accounting/profit-loss" },

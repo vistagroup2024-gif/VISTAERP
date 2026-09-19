@@ -11,14 +11,18 @@ const NEG_COLOR = "#dc2626"; // text-red-600 — same "a loss reads red" rule Da
 
 export interface TrendSeries {
   key: string; label: string; color?: string;
-  // A figure that can genuinely go negative (Net Profit, a variance) needs
-  // its own bar red on a loss — a fixed `fill` painted every bar the same
-  // color regardless of sign, which is how a real August loss on P&L's own
-  // "Monthwise Net Profit" chart still read green. Only set this on a
-  // series where a negative value IS a loss/shortfall (never Sales/Revenue,
-  // which are never legitimately negative), the same money/pct-only scope
-  // `negativeClass()` already applies to grid cells.
-  colorBySign?: boolean;
+  // A fixed `fill` paints every bar of a series the same color regardless of
+  // its value — fine for Sales/Revenue/Purchases, which are never
+  // legitimately negative or "too high" in a way worth flagging, but wrong
+  // for a figure where one particular bar deserves its own red: a real
+  // August loss on P&L's own "Monthwise Net Profit" chart still reading
+  // green, or an expense month that ran well above every other month not
+  // standing out at all. `redWhen` is the one hook for both: a predicate
+  // run against each bar's own value, red when it returns true. The caller
+  // decides what "red" means for its own series — `(v) => v < 0` for a
+  // loss, `(v) => v > average` for an above-average expense month — this
+  // component stays a dumb renderer either way.
+  redWhen?: (value: number) => boolean;
 }
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
@@ -44,8 +48,8 @@ export default function TrendChart({ data, xKey, series, height = 240 }: {
           const base = s.color ?? COLORS[i % COLORS.length];
           return (
             <Bar key={s.key} dataKey={s.key} name={s.label} fill={base} radius={[3, 3, 0, 0]} maxBarSize={36}>
-              {s.colorBySign && data.map((d, di) => (
-                <Cell key={di} fill={Number(d[s.key]) < 0 ? NEG_COLOR : base} />
+              {s.redWhen && data.map((d, di) => (
+                <Cell key={di} fill={s.redWhen!(Number(d[s.key])) ? NEG_COLOR : base} />
               ))}
             </Bar>
           );

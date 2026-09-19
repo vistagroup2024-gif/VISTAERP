@@ -190,6 +190,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/targets", label: "Targets & Budget" },
     { href: "/accounting/drawings", label: "Drawings Report" },
     { href: "/accounting/cost-centre-costing", label: "Cost Centre Costing" },
+    { href: "/accounting/expenses", label: "Expenses" },
     { href: "/accounting/profit-loss", label: "Profit & Loss" },
     { href: "/accounting/balance-sheet", label: "Balance Sheet" },
     { href: "/accounting/vat", label: "VAT Return" },

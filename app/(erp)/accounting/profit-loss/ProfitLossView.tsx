@@ -480,7 +480,7 @@ export default function ProfitLossView() {
         {monthly.length > 1 && (
           <div className="card">
             <SectionHeader title={`Monthwise Net Profit${loading ? " (loading…)" : ""}`} />
-            <TrendChart data={monthly} xKey="month_label" series={[{ key: "net_profit", label: "Net Profit", colorBySign: true }]} />
+            <TrendChart data={monthly} xKey="month_label" series={[{ key: "net_profit", label: "Net Profit", redWhen: (v) => v < 0 }]} />
           </div>
         )}
       </div>
