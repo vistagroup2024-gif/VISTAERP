@@ -10,18 +10,17 @@ export const dynamic = "force-dynamic";
 export default async function EditVehiclePage({ params }: { params: { id: string } }) {
   await guardStaffPage("carsales.vehicles");
   const supabase = createClient();
-  const [{ data: v }, { data: suppliers }, { data: products }, { data: tagAreas }] = await Promise.all([
+  const [{ data: v }, { data: suppliers }, { data: products }] = await Promise.all([
     supabase.from("car_vehicles").select("*, item:product_id(name)").eq("id", params.id).single(),
     supabase.from("parties").select("id, name").eq("party_type", "supplier").eq("is_active", true).order("name"),
     supabase.from("acct_products").select("id, name, parent_id, is_group").eq("is_active", true).order("name"),
-    supabase.from("acct_tag_areas").select("id, name").eq("is_active", true).eq("is_group", false).order("name"),
   ]);
   if (!v) notFound();
   return (
     <div>
       <PageHeader title={`Edit ${v.vehicle_no}`} />
       <VehicleForm existing={v} suppliers={(suppliers ?? []) as any}
-        products={productOptions((products ?? []) as any[])} tagAreas={(tagAreas ?? []) as any} />
+        products={productOptions((products ?? []) as any[])} />
     </div>
   );
 }
