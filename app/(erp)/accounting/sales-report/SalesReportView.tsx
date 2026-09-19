@@ -202,10 +202,17 @@ function MonthwisePivotTable({ nodes, monthKeys, showValue, showQty }: {
   nodes: PivotNode[]; monthKeys: string[]; showValue: boolean; showQty: boolean;
 }) {
   // Depth-0 (the outermost, first-clicked "View By" dimension) starts
-  // expanded; anything nested beneath it starts collapsed. The caller
-  // remounts this component on the click-order dimension key, so a fresh
-  // selection or a reordering re-seeds this from the new top-level nodes.
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(nodes.map((n) => n.key)));
+  // expanded only when nothing is nested beneath it (a single dimension
+  // selected) — its own row already carries real Value/Qty totals, so once a
+  // SECOND dimension is added, opening depth-0 would immediately dump that
+  // whole next level's group rows onto the screen unclicked. expanded then
+  // starts empty and each level is opened deliberately. The caller remounts
+  // this component on the click-order dimension key, so a fresh selection or
+  // a reordering re-seeds this from the new top-level nodes.
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const hasNesting = nodes.some((n) => n.children && n.children.length > 0);
+    return hasNesting ? new Set<string>() : new Set(nodes.map((n) => n.key));
+  });
   function toggle(k: string) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
   const colCount = PIVOT_COLS(monthKeys, showValue, showQty);
 
@@ -571,7 +578,7 @@ export default function SalesReportView() {
             { key: "cy", label: "CY Sales", kind: "money", total: true },
             { key: "growth", label: "Growth %", kind: "pct" },
           ]}
-          groups={lyVsCyGroups} empty="Select a dimension in View By above." />
+          groups={lyVsCyGroups} startCollapsed={dimOrder.length > 1} empty="Select a dimension in View By above." />
       </div>
 
       {completedMonthKeys.length > 0 && salesVsTargetGroups.length > 0 && (

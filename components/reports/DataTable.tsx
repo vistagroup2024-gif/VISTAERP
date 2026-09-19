@@ -62,7 +62,7 @@ export interface DataGroup {
  * the report to wire to its RPC — this component never re-fetches on its own.
  */
 export default function DataTable({
-  cols, rows, groups, empty, rowClass, page, pageSize, totalCount, onPageChange, bare, roomy,
+  cols, rows, groups, empty, rowClass, page, pageSize, totalCount, onPageChange, bare, roomy, startCollapsed,
 }: {
   cols: Col[];
   rows?: any[];
@@ -78,6 +78,12 @@ export default function DataTable({
   // less cramped (P&L Summary, asked for directly) — opt-in per caller
   // rather than a change to every report built on this component.
   roomy?: boolean;
+  // For a click-order multi-select combination with 2+ dimensions active —
+  // depth-0's own children are now a whole other group level, not just its
+  // rows, so starting it open would cascade-reveal that level unclicked.
+  // See the `expanded` seeding comment below for the full reasoning; a
+  // caller with a fixed group shape (never toggled) never sets this.
+  startCollapsed?: boolean;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   // Tracks which groups are OPEN, not which are closed. The DEPTH-0 groups
@@ -93,7 +99,21 @@ export default function DataTable({
   // DataTable element itself on that mode (P&L, Sales Report, Expense
   // Report), so a full remount re-reads `groups` here and this recomputes
   // for the new shape rather than carrying over stale expand state.
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set((groups ?? []).map((g) => g.key)));
+  //
+  // A caller whose group shape isn't FIXED — a click-order multi-select
+  // where depth-0's own children stop being plain rows/a single sub-level
+  // and become a WHOLE OTHER GROUP LEVEL the moment a second dimension is
+  // switched on (P&L Summary, Sales Report's LY-vs-CY, Expense Report's
+  // comparison table) — passes `startCollapsed` once 2+ dimensions are
+  // active, so depth-0 doesn't cascade-reveal that entire next level's own
+  // group rows the instant it's added (every group row already carries its
+  // own totals via `values`, so nothing is hidden by leaving it collapsed —
+  // only the drill-down is opt-in). A FIXED-shape multi-level grouping that
+  // never changes shape (Cost Centre Costing, Balance Sheet, Aging, Cash &
+  // Bank, Expense Report's own always-CC-Group-then-Cost-Center panel) never
+  // passes this and keeps the original always-auto-expand-depth-0 behaviour.
+  const [expanded, setExpanded] = useState<Set<string>>(() =>
+    startCollapsed ? new Set<string>() : new Set((groups ?? []).map((g) => g.key)));
 
   const visibleCols = useMemo(() => cols.filter((c) => !c.hideByDefault), [cols]);
   const isFlat = !groups;

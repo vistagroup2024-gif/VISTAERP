@@ -171,12 +171,20 @@ function PivotRows({ list, depth, expanded, onToggle, monthKeys }: {
   );
 }
 function ExpenseMonthwisePivot({ nodes, monthKeys }: { nodes: PivotNode[]; monthKeys: string[] }) {
-  // Depth-0 (the outermost, first-selected Filteration level) starts
-  // expanded; anything nested beneath it stays collapsed until clicked. The
-  // caller remounts this component on filterKey, so a fresh selection
-  // re-seeds this from the new top-level nodes rather than carrying over a
-  // stale expand set shaped for the old selection.
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(nodes.map((n) => n.key)));
+  // Depth-0 starts expanded only when there's exactly one Filteration level
+  // active (nodes have no children) — that's the case that needs it, since
+  // there's nothing else to reveal a level's own numbers. The moment a
+  // second level is switched on, depth-0's own row already carries its
+  // total, and opening it would immediately dump the whole next level's
+  // group rows onto the screen unclicked; expanded starts empty instead, so
+  // each level is opened deliberately. The caller remounts this component on
+  // filterKey, so a fresh selection re-seeds this from the new top-level
+  // nodes rather than carrying over a stale expand set shaped for the old
+  // selection.
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const hasNesting = nodes.some((n) => n.children && n.children.length > 0);
+    return hasNesting ? new Set<string>() : new Set(nodes.map((n) => n.key));
+  });
   const colCount = monthKeys.length + 2;
   function toggle(k: string) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
   return (
@@ -283,8 +291,12 @@ function BEORows({ list, depth, expanded, onToggle, monthKeys }: {
   );
 }
 function BudgetExpenseReport({ nodes, monthKeys }: { nodes: BEONode[]; monthKeys: string[] }) {
-  // Same depth-0-expanded default as ExpenseMonthwisePivot above.
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(nodes.map((n) => n.key)));
+  // Same "depth-0 expands only when there's nothing nested beneath it" rule
+  // as ExpenseMonthwisePivot above.
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const hasNesting = nodes.some((n) => n.children && n.children.length > 0);
+    return hasNesting ? new Set<string>() : new Set(nodes.map((n) => n.key));
+  });
   function toggle(k: string) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
   const colCount = monthKeys.length * 3 + 4;
   const grand = nodes.reduce((a, n) => ({
@@ -551,7 +563,7 @@ export default function ExpenseReportView() {
           pre-expanded under the new one. */}
       <div>
         <SectionHeader title="Last vs Current Month Comparison" />
-        <DataTable key={filterKey} cols={CMP_COLS} groups={comparisonGroups} empty="No expenses to compare." />
+        <DataTable key={filterKey} cols={CMP_COLS} groups={comparisonGroups} startCollapsed={activeLevels.length > 1} empty="No expenses to compare." />
       </div>
 
       {monthKeys.length > 1 && (

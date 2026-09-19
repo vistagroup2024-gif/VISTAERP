@@ -2448,3 +2448,97 @@ immediately, doing nothing, whenever `entry_id` is already set on the row
 — the general shape to watch for: **a trigger that fires unconditionally
 on insert cannot assume it is the only thing that ever posts that row**,
 once more than one code path can write to the same table.
+
+## A one-line aggregate posting still needs a cost centre — grouped the same way the lines beside it are
+
+`car_post_charges_month` built one debit line per customer for a month's
+charges, each correctly carrying that customer's vehicle's own cost centre
+(`car_cost_center()`) — then closed the entry with a single lump credit
+line on account 4300 (Monthly Service Charges) with **no** `cost_center` at
+all, because there was no one obviously-correct value to put on a line that
+summed every customer's charge into one number. The result: every month's
+service-charge income landed in P&L's and Expense Report's "Unassigned"
+bucket, even on a month where every customer charged shared the exact same
+cost centre. `car_cost_center()` isn't guaranteed uniform across every
+customer billed in a month (it reads a vehicle's own contract's cost
+centre first, falling back to CAR TRADING/CAR SALES INSTALLMENT), so
+there genuinely wasn't one safe value to hard-code — the fix is not to
+pick one, but to stop assuming the credit side has to be one line: it's
+now grouped by `(cost_center, tag_area)` off the same `car_service_charges`
+rows the debit loop already reads, the exact shape the debit side already
+uses. A month with two cost centres now posts two credit lines instead of
+one blank one; a month with only one (the common case) posts one, correctly
+attributed. Fixed with a backfill that regenerates any already-posted
+`car_scharge_month` entry the same way `car_charges_month_save` itself
+already does on every save (delete the month's entry, repost) — nothing
+about the amounts, customers or due dates changes, only the credit line's
+cost centre.
+
+**The general shape to check for**: any routine that posts one line per
+some-dimension (a customer, a vehicle, an account) and then closes the
+entry with a single SUMMARY line on the other side — that summary line
+needs to be split the same way, by whatever dimension the detail lines
+already carry, not left blank because there's "no one right value." An
+"Unassigned" cost centre showing up in a report is not always bad data
+entered by a user — check the posting routine that produced it first.
+
+## Depth-0 auto-expand is opt-out for a FIXED group shape, opt-in-to-collapse for a click-order one
+
+The "Depth-0 starts expanded" rule (above) was right for a report whose
+grouping never changes shape — Cost Centre Costing, Balance Sheet, Aging,
+Cash & Bank, Expense Report's own always-CC-Group-then-Cost-Center panel —
+where the outermost level opening is the only way to see anything beyond a
+label. It was wrong, unqualified, for P&L Summary, Sales Report's LY-vs-CY
+and Expense Report's Last-vs-Current-Month Comparison: all three are built
+on a click-order multi-select (P&L Filteration, Sales Report's View By,
+Expense Filteration) where depth-0's own children are NOT a fixed second
+level — they're a whole other GROUP LEVEL the moment a second dimension is
+switched on. Auto-expanding depth-0 there meant the instant a viewer added
+a second filter, the FIRST level sprang open and dumped the entire second
+level's own group rows onto the screen — reading as "selecting a filter
+auto-expanded something," reported more than once. Nothing was actually
+hidden by leaving it collapsed (every group row already carries its own
+totals via `values`), so there was nothing this auto-expand was protecting
+against — it was pure unwanted cascade.
+
+`DataTable`'s new `startCollapsed` prop is the fix, not a change to the
+default: a caller with a FIXED shape never sets it and keeps auto-expanding
+depth-0 exactly as before (nothing else in the ERP changed). A caller
+driven by a click-order combination passes `startCollapsed={<dims>.length >
+1}` — P&L's `plDimOrder.length > 1`, Sales Report's `dimOrder.length > 1`
+on the LY-vs-CY table, Expense Report's `activeLevels.length > 1` on its
+comparison table — so depth-0 auto-expands exactly when it's the ONLY
+level (nothing to cascade into) and starts fully collapsed the moment a
+second dimension joins it. The three hand-rolled pivots that aren't built
+on `DataTable` (`ExpenseMonthwisePivot`, `BudgetExpenseReport`, Sales
+Report's `MonthwisePivotTable`) get the same rule inline, since they're
+only ever used in the dynamic multi-select context and never reused for a
+fixed shape: seed `expanded` from the top-level nodes only when none of
+them has `children`, otherwise start empty.
+
+**A blanket fix inside `DataTable` itself — "auto-expand only when no
+group has `subgroups`" — was tried first and was wrong**, caught before
+shipping by remembering `DataTable` is shared with the FIXED-shape
+reports too: Cost Centre Costing is *always* Group → Cost Centre (always
+has `subgroups`), so a blanket rule would have silently regressed it (and
+Balance Sheet's, Aging's and Cash & Bank's own multi-level panels) straight
+back into the "screenful of chevrons, nothing behind them" bug the
+original depth-0 fix existed to solve. The distinguishing fact isn't
+"does this group have subgroups" — it's "does the CALLER'S shape change
+based on a toggle." Only the caller knows that, so only the caller can
+safely opt in.
+
+**P&L's own `plDimOrder` also defaulted to `["ccGroup"]`, not `[]`,
+compounding the same bug from a different angle.** With a dimension
+pre-selected on load, the viewer's very first click on any OTHER
+Filteration button was already adding a SECOND dimension, not a first —
+so `startCollapsed` alone wouldn't have looked like it was working, since
+the cascade would still show up on what read as "the first click."
+Defaulting to `[]` (the flat, whole-company month-wise Profit & Loss
+Summary) fixes two things at once: it's also the only mode
+`showDrawingCols` shows Drawing/Actual Net/Act % in, which is why those
+three columns weren't appearing on a fresh page load. Sales Report's own
+`dimOrder` and Expense Report's `expModeOrder` do the same "keep at least
+one selected" enforcement and genuinely can't reach `[]` (there's no flat,
+dimension-less view for either), so this half of the fix is P&L-only —
+`startCollapsed` is what makes the other two exempt from needing it.

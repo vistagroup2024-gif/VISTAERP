@@ -241,7 +241,15 @@ export default function ProfitLossView() {
   // wise is additive on whatever the deepest active level is (or on the
   // flat month fallback when nothing is selected), and Year wise swaps the
   // whole panel to a different, non-nesting view.
-  const [plDimOrder, setPlDimOrder] = useState<PLDim[]>(["ccGroup"]);
+  // Starts with no dimension selected — the flat, whole-company month-wise
+  // Profit & Loss Summary, which is also the only mode Drawing/Actual
+  // Net/Act % ever show on (see showDrawingCols below). Defaulting this to
+  // ["ccGroup"] used to hide those three columns from the very first load
+  // (nothing but Year wise ever clears the selection back to empty), and
+  // made the viewer's first-ever click on a Filteration button silently
+  // become a SECOND dimension nested under the pre-selected CC Group,
+  // cascade-revealing Cost Center's own rows on what looked like one click.
+  const [plDimOrder, setPlDimOrder] = useState<PLDim[]>([]);
   const [monthWise, setMonthWise] = useState(false);
   const [yearWise, setYearWise] = useState(false);
 
@@ -454,7 +462,8 @@ export default function ProfitLossView() {
                 combination's children render already open (or the newly
                 outermost level render collapsed) instead of fresh. */}
             <DataTable key={plFilterKey}
-              bare roomy cols={plCols} {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
+              bare roomy cols={plCols} startCollapsed={plDimOrder.length > 1}
+              {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
           </div>
         </div>
       </div>
