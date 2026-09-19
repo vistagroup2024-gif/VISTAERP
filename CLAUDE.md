@@ -2542,3 +2542,65 @@ three columns weren't appearing on a fresh page load. Sales Report's own
 one selected" enforcement and genuinely can't reach `[]` (there's no flat,
 dimension-less view for either), so this half of the fix is P&L-only —
 `startCollapsed` is what makes the other two exempt from needing it.
+
+## Car Customer Balances: a month's own instalment/charge is attributed to the month it's FOR, not the month it's due IN
+
+Car Customer Balances (`/car-sales/reports/outstanding`) gained two new
+tabs — **Receipts Monthwise** and **Billed vs Receipts Monthwise** —
+beside its existing Customer Due Ageing Summary, and its **Monthly
+Balances** tab (the old "Monthly Balance," renamed and rebuilt rather
+than left beside a new duplicate) now shows a customer's whole schedule
+instead of a capped four-month window. All three are pivoted client-side
+off one new flat RPC, `car_customer_monthly_matrix()` (449) — the same
+flat-matrix-then-pivot shape `report_expense_matrix()`/`report_pl_matrix()`/
+`report_sales_matrix()` already use — so Monthly Balances' own Billed
+figure and Billed vs Receipts' Billed column can never quietly drift
+apart; they're the same number read two ways.
+
+**"Billed" is a customer's original scheduled amount, not their
+outstanding balance.** The existing Ageing Summary tab and
+`car_customer_monthwise()` already answer "what's still owed" (netted
+against payments, `greatest(amount - paid, 0)`) — this is a different
+question, "what was this customer's schedule," so an instalment already
+paid in full still shows here at its full original amount. Reading these
+as the same figure would be exactly the "money questions read the ledger,
+not open_items" mismatch this file warns about elsewhere, just inverted —
+here the outstanding-only view is the wrong one to reuse.
+
+**A monthly instalment or service charge due on the 1st of a month
+belongs to the PRECEDING month's column — because that's the period it's
+actually for, not because of when it happens to fall due.** Monthly
+Charges already posts September's charge with `due_date` = 1 October
+(documented above, "Monthly Charges is a voucher"); car instalments turn
+out to follow the identical shape — a contract's first instalment is due
+the 1st of the month it starts, and every instalment after it is due the
+1st of the following month, i.e. instalment #2 (due 1 October) is
+September's payment, not October's. `car_customer_monthly_matrix()`
+applies one rule to both instalments and service charges: `due_date`'s
+day is checked, and a due date landing on the 1st is attributed to the
+PRIOR calendar month; anything else keeps its own due month unshifted, as
+a safe fallback. The one-time advance (tied to the invoice, not a
+recurring monthly item) is deliberately NOT shifted — it keeps whatever
+`advance_due_date`/`contract_date` it actually carries.
+
+**Receipts are never shifted — they belong to the calendar month the
+money actually arrived in**, same as every other receipts figure in this
+ERP (`car_customer_monthwise()`'s own `rcpt_*` buckets, Cash Flow, the
+dashboard's own Receivables reasoning). Only the BILLED side has a
+"period" distinct from its own due date; a receipt has no period beyond
+when it was banked.
+
+**Every report screen in the ERP gets a KPI row now, not just the newer
+ones.** The Ageing Summary and (old) Monthly Balance tabs were built
+before `ReportKpi` existed on this screen and never got one — asked for
+directly ("currently customer due ageing summary and monthly balance
+dont have it"). Ageing Summary's KPIs (Customers, Total Cars, Ledger
+Balance, Total Due, Total Overdue, Customers Owing) are the same figures
+its own table already sums in its footer, read once rather than making
+the viewer add up a footer row by eye. Monthly Balances, Receipts
+Monthwise and Billed vs Receipts each get KPIs suited to what that tab is
+actually answering (a schedule total vs. a collections total vs. a
+collection-rate percentage) rather than the same four numbers repeated
+across all four tabs — a KPI row that doesn't match the table beneath it
+is exactly the kind of noise this file's report-design section already
+warns against.
