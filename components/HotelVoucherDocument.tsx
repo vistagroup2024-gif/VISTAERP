@@ -19,6 +19,7 @@ export interface HotelVoucherStay {
   nights?: number | null; room_type?: string | null; room_summary?: string | null; rooms?: number | null;
   meal_plan?: string | null; hcn?: string | null;
   sale_rate?: number | null; sale_total?: number | null; currency?: string | null;
+  option_date?: string | null;
 }
 export interface HotelVoucherData {
   booking_no: string; booking_date?: string | null; guest_name: string; group_no?: string | null; agent?: string | null;
@@ -58,6 +59,14 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
   const rowTotal = (s: HotelVoucherStay) =>
     s.sale_total != null ? Number(s.sale_total) : (Number(s.sale_rate) || 0) * (Number(s.nights) || 0) * (Number(s.rooms) || 0);
   const grandTotal = stays.reduce((sum, s) => sum + rowTotal(s), 0);
+  // The Terms & Conditions text below refers to "the option date provided" —
+  // this is that date. Invoice only: it's the payment-due date the terms are
+  // about, not something a hotel-facing voucher needs. The earliest one
+  // across stays is shown, since that's the date payment actually has to be
+  // in by for the whole booking to hold.
+  const optionDate = isInvoice
+    ? stays.map((s) => s.option_date).filter((d): d is string => !!d).sort()[0]
+    : null;
   // The voucher is handed to the guest, so an unconfirmed HCN is left off
   // rather than printed as "Pending" — the column appears only once at
   // least one stay actually has a number, and only on the voucher (never
@@ -97,6 +106,7 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
           <div className="mt-2 space-y-0.5 text-sm text-slate-600">
             {b.booking_date && <div><span className="text-slate-400">Booking Date :</span> <span className="font-semibold text-slate-800">{dateStr(b.booking_date)}</span></div>}
             <div><span className="text-slate-400">Booking ID :</span> <span className="font-semibold text-slate-800">{b.booking_no}</span></div>
+            {optionDate && <div><span className="text-slate-400">Option Date :</span> <span className="font-semibold text-slate-800">{dateStr(optionDate)}</span></div>}
           </div>
         </div>
       </div>

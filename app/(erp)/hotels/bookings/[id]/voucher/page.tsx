@@ -22,7 +22,7 @@ export default async function HotelVoucherPage({ params, searchParams }: { param
 
   const [{ data: stayRows }, { data: roomRows }] = await Promise.all([
     supabase.from("hotel_purchase_bookings")
-      .select("id, hotel_name, city, check_in, check_out, nights, room_type, rooms, meal_plan, hcn, sale_rate, sale_total, currency, hotels:hotel_id(name)")
+      .select("id, hotel_name, city, check_in, check_out, nights, room_type, rooms, meal_plan, hcn, sale_rate, sale_total, currency, option_date, hotels:hotel_id(name)")
       .eq("booking_id", params.id).order("sort").order("created_at"),
     supabase.from("hotel_stay_rooms").select("stay_id, room_type").eq("booking_id", params.id).order("sort"),
   ]);
@@ -35,7 +35,7 @@ export default async function HotelVoucherPage({ params, searchParams }: { param
       hotel_name: s.hotels?.name ?? s.hotel_name, city: s.city, check_in: s.check_in, check_out: s.check_out,
       nights: s.nights, room_type: s.room_type, room_summary: rd.length ? roomSummary(rd) : null,
       rooms: s.rooms, meal_plan: s.meal_plan, hcn: s.hcn,
-      sale_rate: s.sale_rate, sale_total: s.sale_total, currency: s.currency,
+      sale_rate: s.sale_rate, sale_total: s.sale_total, currency: s.currency, option_date: s.option_date,
     };
   });
   const hcn = stays[0]?.hcn ?? null;
