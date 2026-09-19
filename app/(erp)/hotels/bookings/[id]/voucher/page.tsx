@@ -4,7 +4,7 @@ import Link from "next/link";
 import { guardStaffPage } from "@/lib/staffSession";
 import PrintButton from "@/components/PrintButton";
 import HotelVoucherDocument from "@/components/HotelVoucherDocument";
-import { VISTA, VISTA_BANK, VISTA_HOTEL_TERMS } from "@/lib/voucherBrand";
+import { VISTA, VISTA_BANK, VISTA_HOTEL_TERMS, VISTA_HOTEL_TERMS_VOUCHER } from "@/lib/voucherBrand";
 import { roomSummary } from "../../../lib";
 import QRCode from "qrcode";
 
@@ -64,7 +64,7 @@ export default async function HotelVoucherPage({ params, searchParams }: { param
         qr={qr}
         docType={docType}
         bank={docType === "invoice" ? VISTA_BANK : undefined}
-        terms={docType === "invoice" ? VISTA_HOTEL_TERMS : undefined}
+        terms={docType === "invoice" ? VISTA_HOTEL_TERMS : VISTA_HOTEL_TERMS_VOUCHER}
       />
     </div>
   );

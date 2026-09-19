@@ -175,12 +175,14 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
           </table>
         </div>
 
-        {/* ── Terms & Conditions (left) + Total / Bank Details (right) ──
-            A fixed grid, not an `lg:` breakpoint — this renders inside a
-            printed A4 page, whose CSS width never reaches a `lg:` viewport
-            breakpoint, so a responsive class would silently never apply. ── */}
-        {isInvoice && (
-          <div className="mt-4 grid grid-cols-[1fr_300px] items-start gap-5">
+        {/* ── Terms & Conditions, with Total / Bank Details beside it on the
+            invoice only — the voucher carries no pricing, so it gets just
+            the terms, full width. A fixed grid, not an `lg:` breakpoint:
+            this renders inside a printed A4 page, whose CSS width never
+            reaches a `lg:` viewport breakpoint, so a responsive class would
+            silently never apply. ── */}
+        {(isInvoice || (terms && terms.length > 0)) && (
+          <div className={`mt-4 grid items-start gap-5 ${isInvoice ? "grid-cols-[1fr_300px]" : "grid-cols-1"}`}>
             {terms && terms.length > 0 ? (
               <div>
                 <SectionTitle>Terms &amp; Conditions</SectionTitle>
@@ -195,24 +197,26 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
               </div>
             ) : <div />}
 
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col items-start gap-1 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3" style={exact}>
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total ({currency})</span>
-                <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(grandTotal, currency)}</span>
-              </div>
-
-              {bank && (
-                <div>
-                  <SectionTitle>Bank Details</SectionTitle>
-                  <div className="flex flex-col gap-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <Field label="Bank Name" value={bank.bankName} />
-                    <Field label="Account Name" value={bank.accountName} />
-                    <Field label="Account Number" value={bank.accountNumber} mono />
-                    <Field label="IBAN Number" value={bank.iban} mono />
-                  </div>
+            {isInvoice && (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col items-start gap-1 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3" style={exact}>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total ({currency})</span>
+                  <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(grandTotal, currency)}</span>
                 </div>
-              )}
-            </div>
+
+                {bank && (
+                  <div>
+                    <SectionTitle>Bank Details</SectionTitle>
+                    <div className="flex flex-col gap-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <Field label="Bank Name" value={bank.bankName} />
+                      <Field label="Account Name" value={bank.accountName} />
+                      <Field label="Account Number" value={bank.accountNumber} mono />
+                      <Field label="IBAN Number" value={bank.iban} mono />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
