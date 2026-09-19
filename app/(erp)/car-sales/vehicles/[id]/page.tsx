@@ -46,6 +46,7 @@ export default async function VehicleDetailPage({ params }: { params: { id: stri
             <D l="VIN / Chassis" v={v.vin} />
             <D l="Engine Number" v={v.engine_no} />
             <D l="Current Location" v={v.current_location} />
+            <D l="Tag Area" v={v.tag_area} />
             <D l="Customer" v={(v as any).customer?.name} />
           </dl>
           {v.notes && <p className="mt-2 text-sm text-slate-500">📝 {v.notes}</p>}

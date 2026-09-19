@@ -11,7 +11,9 @@ import SearchSelect from "@/components/ui/SearchSelect";
 
 interface Opt { id: string; name: string }
 
-export default function VehicleForm({ existing, suppliers, products }: { existing: any | null; suppliers: Opt[]; products: PickProduct[] }) {
+export default function VehicleForm({ existing, suppliers, products, tagAreas }: {
+  existing: any | null; suppliers: Opt[]; products: PickProduct[]; tagAreas: Opt[];
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [saving, setSaving] = useState(false);
@@ -33,6 +35,7 @@ export default function VehicleForm({ existing, suppliers, products }: { existin
     current_location: existing?.current_location ?? "",
     status: existing?.status ?? "in_stock",
     ownership: existing?.ownership ?? "vista",
+    tag_area: existing?.tag_area ?? "",
     notes: existing?.notes ?? "",
   });
   const set = (k: string, v: any) => setF((s) => ({ ...s, [k]: v }));
@@ -112,6 +115,10 @@ export default function VehicleForm({ existing, suppliers, products }: { existin
               <option value="vista">Vista-owned</option>
               <option value="transferred">Transferred</option>
             </select>
+          </Field>
+          <Field label="Tag Area" hint="Normally set from the Purchase Voucher this car came from. Every posting on this car — expenses, and eventually the sale — carries it until the Car Invoice sets its own.">
+            <SearchSelect value={f.tag_area} onChange={(v) => set("tag_area", v)} placeholder="—"
+              options={tagAreas.map((t) => ({ value: t.name, label: t.name }))} />
           </Field>
           <Field label="Notes" full><textarea className="input" rows={2} value={f.notes} onChange={(e) => set("notes", e.target.value)} /></Field>
           <p className="text-xs text-slate-400 sm:col-span-full">Reserved / Sold / Delivered / Held statuses are normally set automatically by the sale, delivery and holding flows in later steps.</p>
