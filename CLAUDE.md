@@ -2311,3 +2311,32 @@ for every doc_type that can legitimately source from the document in
 question, and match on doc_type explicitly if there's more than one — an
 unqualified "does any row point back at me" check is only safe when a
 document has exactly one possible descendant.
+
+**Swept the rest of the schema for the same shape and found one more,
+live: `workflow_summary()`'s own `pending_invoice`** (446) — it feeds
+`WorkFlowBoard.tsx` and already correctly narrowed its `trade_documents`
+check to `doc_type = 'sales_invoice'` (so a Purchase Order was never the
+problem here), but its `car_contracts` check carried no status filter at
+all: `exists (select 1 from car_contracts c where c.source_doc_id = d.id)`.
+A Sale Order whose only car contract had been cancelled read as already
+invoiced on the Workflow Board — the narrower "cancelled child still
+counts" variant of the same trap, on the SAME field 445 fixed elsewhere.
+`cc.status <> 'cancelled'` is the identical condition 445 added, so the
+two "has this Sale Order been invoiced" checks in the schema
+(`dashboard_metrics()`/`report_sale_orders()` and `workflow_summary()`)
+agree again. `workflow_summary()`'s OTHER field, the generic `pending`
+(picked via the single lowest-`sort` `next_type` per doc_type — always
+`sales_invoice` for `sale_order`, since it sorts ahead of
+`purchase_order`), never considers `car_contracts` at all and is
+technically wrong the same way, but was checked and left alone: it's
+read by the board only when `pending_po`/`pending_invoice` are both
+null, and for `sale_order` neither ever is, so nothing in the UI reads
+this particular value for this particular doc_type — restructuring the
+one general mechanism every OTHER doc_type on the board also depends on,
+to fix a value nothing currently reads, was judged not worth the risk.
+Every other `source_doc_id` check in the schema was confirmed
+single-branch (Purchase Order, MRN, Delivery Note/Sales Return's own
+dual-source-via-`alt_source_type` is handled by a separate union branch
+in `trade_doc_pending()`, not an unqualified exists check) — `sale_order`
+remains the only doc_type in this schema with more than one legitimate
+descendant.
