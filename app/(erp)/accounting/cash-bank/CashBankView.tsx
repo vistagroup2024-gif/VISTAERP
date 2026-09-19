@@ -48,8 +48,15 @@ export default function CashBankView() {
 
   const run = useCallback(async () => {
     const { data } = await supabase.rpc("report_cash_bank", { p_company: COMPANY_ID, p_as_of: asOf });
+    // report_cash_bank() returns each group with a `subtotal` (predating
+    // DataGroup.values), which DataTable only ever draws as a footer row
+    // UNDER the expanded rows — so a collapsed group (the default since the
+    // "starts collapsed" fix) showed nothing but its label, no balance
+    // anywhere, exactly the same blank-header bug P&L/Sales Report already
+    // had. `values` mirrors the same figures onto the header row itself.
     const raw = ((data as DataGroup[]) ?? []).map((g) => ({
       ...g, rows: g.rows.filter((r: any) => Math.abs(r.debit_balance) > 0.005 || Math.abs(r.credit_balance) > 0.005),
+      values: { debit_balance: g.subtotal?.debit_balance, credit_balance: g.subtotal?.credit_balance },
     })).filter((g) => g.rows.length > 0);
     setGroups(raw);
   }, [supabase, asOf]);

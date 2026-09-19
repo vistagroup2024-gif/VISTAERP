@@ -567,6 +567,67 @@ same "keep at least one selected" rule. A mixed row like this needs the
 mutual-exclusion worked out per option, not applied as "pivot dimension,
 therefore single-select" to the whole row.
 
+## Toggling a multi-select filter must not leave the last mode's expand state behind
+
+P&L Filteration has one `DataTable` reused across every mode (CC Group,
+Cost Center, both together, Tag Area, Year wise) — same component
+instance, same JSX position, so `DataTable`'s own `expanded` state (which
+groups are open) is not naturally reset just because `plModes` changed and
+a fresh `plGroups` array was computed. That's invisible most of the time,
+because a `DataGroup`'s `key` is usually stable and means the same thing
+across re-renders. It is NOT invisible for a cost centre GROUP key like
+`"Trading"`: in CC-Group-only mode it's a flat row with no children (or a
+month drill if Month wise is on); the moment Cost Center is *also*
+switched on, the exact same key `"Trading"` becomes a group with
+`subgroups` (its cost centres — `"Car Sales Installment"`, etc). If
+`"Trading"` was ever expanded under the OLD mode, `expanded.has("Trading")`
+is still true under the new one, so the newly-added subgroups render open
+on the very click that turned Cost Center on — reading as "selecting a
+filter auto-expanded something," which is a real bug, not the "starts
+collapsed" behavior working as intended. The fix is a `key` on the
+`DataTable` element itself, built from the sorted active mode set
+(`PL_MODES.map(m=>m.key).filter(k=>plModes.has(k)).join(",")`) — React
+remounts the whole component on any mode change, so `expanded` always
+starts fresh (collapsed) for a genuinely different shape, while still
+preserving a user's manual expand/collapse clicks across a plain period
+refetch *within* the same mode (the key doesn't change, so the instance
+and its state survive that). Sales Report's own "View By" multi-select
+doesn't have this problem — each dimension's `DataGroup` key (`ccGroup`,
+`costCentre`, `customer`, `product`) names a section whose own shape never
+changes based on which OTHER dimensions are also selected, so there's no
+key collision to reset. The rule for a future multi-mode grouped table:
+if turning one filter on changes what an EXISTING key's children look
+like, key the table on the mode combination; if each key's own shape is
+self-contained regardless of siblings, it's already safe.
+
+## A `DataGroup` from a server RPC needs `values` too, not just client-built ones
+
+The "blank header" bug (a collapsed group showing only its label, no
+figures, until clicked) wasn't only in Sales Report's own hand-built
+`DataGroup`s — `report_cash_bank()` (Cash & Bank) and `AgingView.tsx`'s
+three group builders (Group → Account for Receivables/Payables, the
+Vista Car Customers panel, and the Long Term panel) all predate the
+`values` convention and only ever set `subtotal`, which `GroupRows` draws
+as a footer row *under* the expanded children — invisible on a collapsed
+group. Before the "starts collapsed" fix this read fine by accident
+(everything opened on load, so the footer was always visible); after it,
+every one of these groups opened to a bare label with no balance in
+sight, same as Sales Report's bug. Cash & Bank's RPC keeps returning
+`subtotal` (a database contract, not worth a migration for a display
+detail) — the client now also copies the same figures into `values` when
+setting the groups state, rather than changing the RPC. Aging's three
+builders set both `subtotal` (still read by their own chart-data and
+sort-by-total code) and `values` (for the header row) on the same
+object — cheaper than threading a second read path through code that
+already works. `CostCentreCostingView.tsx` was checked and left alone:
+its groups use `meta` (an inline "— sales X, net Y" caption beside the
+label) to show real numbers on the collapsed header row, which already
+satisfies "no blank header" through a different, already-working
+mechanism — not every `subtotal`-only group is broken, only the ones with
+neither `meta` nor `values` showing anything on that first row. `Ledger`
+was checked too and isn't affected at all — it doesn't build a `DataGroup`
+through this shared component.
+
 ## A report's month column reads "Aug-26", never the RPC's raw "2026-08"
 
 Every monthly breakdown in the schema returns its key as `to_char(d,

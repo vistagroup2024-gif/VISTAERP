@@ -448,7 +448,17 @@ export default function ProfitLossView() {
                 ))}
               </div>
             </div>
-            <DataTable bare roomy cols={plCols} {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
+            {/* Keyed on the active mode combination so DataTable remounts
+                (and its own `expanded` state resets to collapsed) whenever
+                a filtration button is toggled. The same group KEY — "Trading",
+                say — means a different shape in different modes (a flat row
+                in CC-Group-only, a group with subgroups once Cost Center is
+                also on), so without this a key already in the old
+                component instance's `expanded` Set from one mode carried
+                straight into the next, making the new mode's children
+                render already open instead of needing a fresh click. */}
+            <DataTable key={PL_MODES.map((m) => m.key).filter((k) => plModes.has(k)).join(",")}
+              bare roomy cols={plCols} {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
           </div>
         </div>
       </div>

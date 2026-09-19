@@ -191,7 +191,10 @@ export default function AgingView() {
           account_id: r.account_id, name: r.name,
           debit: Math.max(0, realSigned(r)), credit: Math.max(0, -realSigned(r)),
         })),
-        subtotal: { debit, credit },
+        // `values` puts the group's own Debit/Credit on its header row —
+        // without it a collapsed group (the default) shows only its label,
+        // no balance anywhere, the same blank-header bug Cash & Bank had.
+        subtotal: { debit, credit }, values: { debit, credit },
       };
     }).sort((a, b) => (Number(b.subtotal!.debit) + Number(b.subtotal!.credit)) - (Number(a.subtotal!.debit) + Number(a.subtotal!.credit)));
   };
@@ -214,7 +217,7 @@ export default function AgingView() {
           account_id: r.id, name: r.name,
           debit: Math.max(0, Number(r.closing_net)), credit: Math.max(0, -Number(r.closing_net)),
         })),
-        subtotal: { debit, credit },
+        subtotal: { debit, credit }, values: { debit, credit },
       };
     }).sort((a, b) => (Number(b.subtotal!.debit) + Number(b.subtotal!.credit)) - (Number(a.subtotal!.debit) + Number(a.subtotal!.credit)));
   })();
