@@ -64,9 +64,14 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
   // the invoice, which is a billing document, not a hotel confirmation).
   const showHcnCol = !isInvoice && stays.some((s) => s.hcn);
 
+  // "Agent" here just names the walk-in/customer type for direct bookings, not
+  // a real booking agent — not worth a line on a document meant for the guest.
+  const GENERIC_AGENT_NAMES = new Set(["umrah package customer", "cash customer", "hotel customer"]);
+  const showAgent = !!b.agent && !GENERIC_AGENT_NAMES.has(b.agent.trim().toLowerCase());
+
   const guest: [string, React.ReactNode][] = [["Guest / Group", b.guest_name || "—"]];
   if (b.group_no) guest.push(["Group No.", b.group_no]);
-  if (b.agent) guest.push(["Agent", b.agent]);
+  if (showAgent) guest.push(["Agent", b.agent]);
   guest.push(["Guests", b.guests ?? "—"]);
 
   return (
@@ -120,8 +125,8 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
               <col style={{ width: isInvoice ? "10%" : "11%" }} />
               <col style={{ width: isInvoice ? "10%" : "11%" }} />
               <col style={{ width: isInvoice ? "6%" : "6%" }} />
-              <col style={{ width: isInvoice ? "6%" : "6%" }} />
               <col style={{ width: isInvoice ? "10%" : (showHcnCol ? "12%" : "14%") }} />
+              <col style={{ width: isInvoice ? "6%" : "6%" }} />
               <col style={{ width: isInvoice ? "12%" : (showHcnCol ? "15%" : "19%") }} />
               {isInvoice ? (<><col style={{ width: "11%" }} /><col style={{ width: "13%" }} /></>) : (showHcnCol && <col style={{ width: "13%" }} />)}
             </colgroup>
@@ -132,8 +137,8 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
                 <th className="px-2 py-2">Check In</th>
                 <th className="px-2 py-2">Check Out</th>
                 <th className="px-2 py-2 text-right">Nts</th>
-                <th className="px-2 py-2 text-right">Rms</th>
                 <th className="px-2 py-2">Room Type</th>
+                <th className="px-2 py-2 text-right">Qty</th>
                 <th className="px-2 py-2">Meal</th>
                 {isInvoice ? (
                   <>
@@ -153,8 +158,8 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
                   <td className="px-2 py-2">{dateStr(s.check_in)}</td>
                   <td className="px-2 py-2">{dateStr(s.check_out)}</td>
                   <td className="px-2 py-2 text-right">{s.nights ?? "—"}</td>
-                  <td className="px-2 py-2 text-right">{s.rooms ?? "—"}</td>
                   <td className="break-words px-2 py-2">{s.room_summary || s.room_type || "—"}</td>
+                  <td className="px-2 py-2 text-right">{s.rooms ?? "—"}</td>
                   <td className="break-words px-2 py-2">{s.meal_plan || "—"}</td>
                   {isInvoice ? (
                     <>
