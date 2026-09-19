@@ -106,10 +106,19 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
           <div className="mt-2 space-y-0.5 text-sm text-slate-600">
             {b.booking_date && <div><span className="text-slate-400">Booking Date :</span> <span className="font-semibold text-slate-800">{dateStr(b.booking_date)}</span></div>}
             <div><span className="text-slate-400">Booking ID :</span> <span className="font-semibold text-slate-800">{b.booking_no}</span></div>
-            {optionDate && <div><span className="text-slate-400">Option Date :</span> <span className="font-semibold text-slate-800">{dateStr(optionDate)}</span></div>}
           </div>
         </div>
       </div>
+
+      {/* Highlighted so the customer can't miss the date payment is due by —
+          a plain line in the header's small print was too easy to skip past. */}
+      {optionDate && (
+        <div className="mx-8 mt-5 flex items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5" style={exact}>
+          <span className="text-sm font-bold uppercase tracking-wide text-amber-800">Option Date</span>
+          <span className="text-sm text-amber-800">— payment must be settled by</span>
+          <span className="text-base font-extrabold text-amber-900" style={exact}>{dateStr(optionDate)}</span>
+        </div>
+      )}
 
       <div className="px-8 py-6">
         {/* ── Guest Details ─────────────────────────────────────── */}
