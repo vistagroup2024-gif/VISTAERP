@@ -13,3 +13,12 @@ export const VISTA = {
   logo: "/logo.svg",
   logoLockup: true,
 };
+
+// Bank account shown on the hotel invoice (amount-bearing document only —
+// never on the amount-free voucher). Edit to match the official account.
+export const VISTA_BANK = {
+  bankName: "Al Rajhi Bank",
+  accountName: "Vista Group Company",
+  accountNumber: "552000010006081111152",
+  iban: "SA8080000552608011111152",
+};
