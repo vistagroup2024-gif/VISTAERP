@@ -3102,3 +3102,86 @@ Total row's own visual weight — not specific to the one screen the owner
 happened to be looking at, so both went into `DataTable.tsx` first (the
 component nearly every report shares) and only then out to the hand-rolled
 tables that had independently copied its old, weaker convention.
+
+## Targets & Budget moved off its own screen and into the masters — a target or budget is edited where the thing it's about lives
+
+"remove targets & budget... these should be in master... in cost centers
+need targets tab... in chart of account under expense group account need
+tab of budget... targets and budget should be month wise... budget can be
+cost center wise" — the whole `/accounting/targets` screen split apart
+along exactly that line. It is not gone; it is `HIDDEN_ITEMS` now, the same
+"still built, still working, just not in the menu" convention this file
+already uses for Car Sales' own hidden screens.
+
+**Cost Centre Targets moved with no schema change.** `acct_cost_center_monthly_targets`
+(436) was already the real `(cost_center, year, month)` grid every report
+reads — only WHERE it's typed moved, off the old whole-company grid and
+onto a new **Targets tab** on the Cost Centre master's own Edit dialog
+(`components/accounting/TreeMaster.tsx`). Groups don't get the tab — a
+group's own "target" is whatever its leaves add up to, and Add doesn't
+either, since a fresh row has no id yet to point twelve months at. An
+**Annual** box seeds the twelve months (`splitAnnual()`, `lib/monthlySplit.ts`
+— eleven equal months and a twelfth carrying the rounding remainder, so
+they always sum back to exactly the figure typed) and every month keeps
+saving itself on its own blur afterward, exactly like the old grid did —
+Annual only seeds, it never locks a month.
+
+**Expense budgets needed a real schema change, because neither existing
+table was the right shape.** `acct_expense_budgets` (249) was account+year
+only, no cost centre. `acct_expense_budgets_cc` (440) added the cost
+centre but was still a single flat `monthly_amount` per (account,
+cost_centre, year) — a recurring figure, Yearly always Monthly × 12, never
+a real 12-cell grid (the migration's own comment said so at the time).
+`acct_expense_monthly_budgets` (464) is the new table — the same
+`(account, cost_centre, year, MONTH)` shape `acct_cost_center_monthly_targets`
+already proved, just with an account dimension — and it is what the Chart
+of Accounts' new **Budget tab** (`components/accounting/AccountTree.tsx`)
+reads and writes. The tab appears only on a leaf `nature = 'expense'`
+account, and shows every leaf cost centre as a row (Cost Center | Annual |
+Jan … Dec | Total), the same "offer every cell, not just the ones already
+filled" completeness `report_expense_budget_cc()`'s own cross join already
+had. **Neither old table is dropped** — both stay in the schema, inert,
+the same rule this file already applies to `acct_cost_centers.sales_target`
+and `report_expense_by_account()`: making a table irrelevant is not a
+reason to drop it.
+
+**464 seeded the new grid from the old one so nothing typed was lost** —
+twelve rows at the old row's own `monthly_amount`, exactly what "recurring"
+already meant, now real rows a viewer can hand-edit individually. A
+self-check inside the migration compared the old table's total (`monthly_amount
+× 12`, summed) against the new grid's total for the same year and refused
+to apply if they disagreed. In this database `acct_expense_budgets_cc` held
+zero rows — nobody had used the old flat panel yet — so the seed was a
+no-op, not a risk avoided in theory only.
+
+**`report_expense_budget_cc()` kept its name but changed what it reads and
+what it returns.** It now sums the real monthly grid per (account, cost
+centre) into `yearly_amount` (the true sum) and `monthly_amount` (that sum
+÷ 12, kept for the existing "Monthly" column's own shape) — the two can now
+genuinely differ, since a year's months are no longer forced identical. The
+Expense Report's own "Monthly and Yearly Budgets" panel (`ExpenseReportView.tsx`)
+reads this RPC exactly as it did before, but **lost its inline edit
+inputs** — editing this same data from two unreconciled places (this panel
+writing the old flat table, the new Budget tab writing the real grid) is
+exactly the "two screens disagree" trap this file keeps flagging elsewhere,
+so the panel is read-only now, with its own footer note pointing at
+Accounting → Chart of Accounts → the account's own Budget tab.
+
+**Customer Targets is the one piece of the old screen with nowhere to
+move.** It's a target-vs-actual REPORT (`report_customer_targets()`), and
+a customer's own target figure is already edited on Party Details, under
+Chart of Accounts (`acct_party_save`'s `p_sales_target`) — there is no
+separate editing surface to relocate, only a report screen to leave
+somewhere. `/accounting/targets` still serves it — retitled, its Cost
+Center Targets and Expense Budget tabs gone along with their own state and
+RPCs — and stays reachable at its old URL, just unlinked from the sidebar,
+the header's Transactions → Sales menu, and the dashboard's quick-links
+bar (all three read the label back out of `GROUPS`/`EXTRA_ITEMS`, which no
+longer has an entry for it, so removing the one `GROUPS` line was enough
+to drop it from all three at once — the same one-line-removal-cascades
+mechanic this file's own nav section already describes).
+
+The P&L Summary's "Expenses (P&L)" drill-down (`ProfitLossView.tsx`) used
+to land on the Expense Budget tab (`?tab=exp`) that no longer exists; it
+now goes to `/accounting/expenses`, the real expenses report per this
+file's own "Expenses is a report now" section.

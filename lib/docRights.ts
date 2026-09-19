@@ -128,7 +128,7 @@ export const DOC_TREE: DocModule[] = [
       { key: "purchase_report", label: "Purchase Report", rights: R, href: "/accounting/purchase-report" },
       { key: "purchase_vs_sale_report", label: "Purchase vs Sale", rights: R, href: "/accounting/purchase-vs-sale" },
       { key: "vat",            label: "VAT Return",         rights: R, href: "/accounting/vat" },
-      { key: "targets",        label: "Targets & Budget",   rights: R, href: "/accounting/targets" },
+      { key: "targets",        label: "Customer Targets",   rights: R, href: "/accounting/targets" },
       { key: "drawings_report", label: "Drawings Report",   rights: R, href: "/accounting/drawings" },
       { key: "cost_centre_costing", label: "Cost Centre Costing", rights: R, href: "/accounting/cost-centre-costing" },
       { key: "expenses_report", label: "Expenses", rights: R, href: "/accounting/expenses" },

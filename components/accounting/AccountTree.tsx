@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { yearSA } from "@/lib/saudiTime";
+import { splitAnnual, MONTH_LABELS } from "@/lib/monthlySplit";
 import { useDocRights } from "@/components/AccessProvider";
 import SearchSelect from "@/components/ui/SearchSelect";
 
@@ -441,41 +443,177 @@ function PropsModal({ node, busy, costCenters, onCancel, onSave }: {
     currency: node.currency ?? "SAR", status: node.status ?? "active",
   });
   const [costCenterId, setCostCenterId] = useState(node.cost_center_id ?? "");
+  // A leaf expense account — never a group, never any other nature — grows a
+  // second "Budget" tab: the month-wise, cost-centre-wise budget that used to
+  // be edited on the whole-company Targets & Budget screen, moved here so a
+  // budget is edited where the account itself is.
+  const showBudgetTab = !node.is_group && node.nature === "expense" && !!costCenters && costCenters.length > 0;
+  const [tab, setTab] = useState<"details" | "budget">("details");
   return (
-    <Modal title={`Properties · ${node.name}`} onClose={onCancel}>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2"><label className="label">Account name</label>
-          <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus /></div>
-        <div className="sm:col-span-2"><label className="label">Name (AR)</label>
-          <input className="input text-right" dir="rtl" value={f.name_ar} onChange={(e) => setF({ ...f, name_ar: e.target.value })} /></div>
-        {!node.is_group && (
-          <div><label className="label">Sub-type</label>
-            <select className="input" value={f.subtype} onChange={(e) => setF({ ...f, subtype: e.target.value })}>
-              <option value="">—</option>{SUBTYPES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select></div>
-        )}
-        <div><label className="label">Currency</label>
-          <select className="input" value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })}>
-            <option>SAR</option><option>PKR</option><option>USD</option><option>AED</option>
-          </select></div>
-        <div><label className="label">Status</label>
-          <select className="input" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
-            <option value="active">Active</option><option value="inactive">Inactive</option>
-          </select></div>
-        {costCenters && node.is_group && (
-          <div className="sm:col-span-2">
-            <label className="label">Cost Centre</label>
-            <SearchSelect value={costCenterId} onChange={setCostCenterId} placeholder="— none —"
-              options={costCenters.map((c) => ({ value: c.id, label: c.name }))} />
-            <p className="mt-1 text-xs text-slate-400">Everything under this group belongs to that cost centre, unless a group beneath it says otherwise.</p>
+    <Modal title={`Properties · ${node.name}`} onClose={onCancel} wide={tab === "budget"}>
+      {showBudgetTab && (
+        <div className="mb-4 flex gap-1 border-b border-slate-200">
+          {([["details", "Account"], ["budget", "Budget"]] as const).map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`px-3 py-1.5 text-sm ${tab === id ? "border-x border-t border-slate-200 rounded-t bg-white font-semibold text-brand" : "text-slate-500"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {tab === "budget" && showBudgetTab ? (
+        <>
+          <ExpenseBudgetTab accountId={node.id} costCenters={costCenters!} />
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={onCancel} className="btn-outline">Close</button>
           </div>
-        )}
-      </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onCancel} className="btn-outline">Cancel</button>
-        <button onClick={() => onSave({ ...f, costCenterId })} disabled={busy || !f.name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>
-      </div>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2"><label className="label">Account name</label>
+              <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus /></div>
+            <div className="sm:col-span-2"><label className="label">Name (AR)</label>
+              <input className="input text-right" dir="rtl" value={f.name_ar} onChange={(e) => setF({ ...f, name_ar: e.target.value })} /></div>
+            {!node.is_group && (
+              <div><label className="label">Sub-type</label>
+                <select className="input" value={f.subtype} onChange={(e) => setF({ ...f, subtype: e.target.value })}>
+                  <option value="">—</option>{SUBTYPES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select></div>
+            )}
+            <div><label className="label">Currency</label>
+              <select className="input" value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })}>
+                <option>SAR</option><option>PKR</option><option>USD</option><option>AED</option>
+              </select></div>
+            <div><label className="label">Status</label>
+              <select className="input" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
+                <option value="active">Active</option><option value="inactive">Inactive</option>
+              </select></div>
+            {costCenters && node.is_group && (
+              <div className="sm:col-span-2">
+                <label className="label">Cost Centre</label>
+                <SearchSelect value={costCenterId} onChange={setCostCenterId} placeholder="— none —"
+                  options={costCenters.map((c) => ({ value: c.id, label: c.name }))} />
+                <p className="mt-1 text-xs text-slate-400">Everything under this group belongs to that cost centre, unless a group beneath it says otherwise.</p>
+              </div>
+            )}
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={onCancel} className="btn-outline">Cancel</button>
+            <button onClick={() => onSave({ ...f, costCenterId })} disabled={busy || !f.name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>
+          </div>
+        </>
+      )}
     </Modal>
+  );
+}
+
+// This account's own month-wise, cost-centre-wise expense budget
+// (acct_expense_monthly_budgets, a real 12-cell grid — the flat recurring
+// acct_expense_budgets_cc and the older flat-annual-only acct_expense_budgets
+// it replaces as an editing surface are both left in the schema, inert, per
+// this codebase's own "never delete, make inert" rule). Rows are every leaf
+// cost centre so the whole thing can be typed here in one place; the Annual
+// box per row only SEEDS that row's twelve months (splitAnnual) and each
+// month keeps saving itself on its own blur afterward, exactly like the
+// Cost Centre's own Targets tab.
+function ExpenseBudgetTab({ accountId, costCenters }: { accountId: string; costCenters: { id: string; name: string }[] }) {
+  const supabase = createClient();
+  const thisYear = yearSA();
+  const [year, setYear] = useState(thisYear);
+  const [grid, setGrid] = useState<Record<string, Record<number, number>>>({});
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [annualDraft, setAnnualDraft] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [applyingCc, setApplyingCc] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("acct_expense_monthly_budgets")
+      .select("cost_center_id, month, amount").eq("company_id", COMPANY_ID).eq("account_id", accountId).eq("year", year);
+    const g: Record<string, Record<number, number>> = {};
+    for (const r of (data as any[]) ?? []) {
+      const m = g[r.cost_center_id] ?? (g[r.cost_center_id] = {});
+      m[r.month] = Number(r.amount);
+    }
+    setGrid(g); setDraft({}); setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, year]);
+  useEffect(() => { load(); }, [load]);
+
+  async function saveMonth(ccId: string, month: number) {
+    const key = `${ccId}-${month}`;
+    const v = draft[key];
+    if (v === undefined) return;
+    await supabase.from("acct_expense_monthly_budgets").upsert(
+      { company_id: COMPANY_ID, account_id: accountId, cost_center_id: ccId, year, month, amount: Number(v) || 0 },
+      { onConflict: "company_id,account_id,cost_center_id,year,month" });
+    load();
+  }
+  async function applyAnnual(ccId: string) {
+    const raw = annualDraft[ccId] ?? "";
+    const a = Number(raw);
+    if (!raw.trim() || isNaN(a)) return;
+    setApplyingCc(ccId);
+    const split = splitAnnual(a);
+    const rows = split.map((amount, i) => ({ company_id: COMPANY_ID, account_id: accountId, cost_center_id: ccId, year, month: i + 1, amount }));
+    await supabase.from("acct_expense_monthly_budgets").upsert(rows, { onConflict: "company_id,account_id,cost_center_id,year,month" });
+    setApplyingCc(null);
+    setAnnualDraft((d) => ({ ...d, [ccId]: "" }));
+    load();
+  }
+
+  const rowTotal = (ccId: string) => MONTH_LABELS.reduce((s, _, i) => s + Number(draft[`${ccId}-${i + 1}`] ?? grid[ccId]?.[i + 1] ?? 0), 0);
+  const grandTotal = costCenters.reduce((s, c) => s + rowTotal(c.id), 0);
+  const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return (
+    <div className="space-y-3">
+      <div><label className="label">Year</label><input type="number" className="input w-24" value={year} onChange={(e) => setYear(Number(e.target.value) || thisYear)} /></div>
+      {loading ? <p className="text-sm text-slate-400">Loading…</p> : (
+        <div className="max-h-[50vh] overflow-auto rounded border border-slate-200">
+          <table className="report-grid w-full text-sm">
+            <thead className="sticky top-0 z-10 bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+              <tr>
+                <th className="border border-slate-200 px-2 py-2 text-left">Cost Center</th>
+                <th className="border border-slate-200 px-2 py-2 text-right">Annual</th>
+                {MONTH_LABELS.map((m) => <th key={m} className="border border-slate-200 px-2 py-2 text-right">{m}</th>)}
+                <th className="border border-slate-200 px-2 py-2 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {costCenters.map((c, i) => (
+                <tr key={c.id} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
+                  <td className="border border-slate-200 px-2 py-1.5">{c.name}</td>
+                  <td className="border border-slate-200 px-1 py-1">
+                    <div className="flex items-center gap-1">
+                      <input className="input w-20 text-right tabular-nums" inputMode="decimal" placeholder="0.00"
+                        value={annualDraft[c.id] ?? ""} onChange={(e) => setAnnualDraft((d) => ({ ...d, [c.id]: e.target.value }))} />
+                      <button onClick={() => applyAnnual(c.id)} disabled={applyingCc === c.id || !annualDraft[c.id]?.trim()}
+                        title="Split this annual figure across the 12 months" className="btn-outline px-1.5 py-0.5 text-[11px]">Split</button>
+                    </div>
+                  </td>
+                  {MONTH_LABELS.map((_, mi) => {
+                    const month = mi + 1; const key = `${c.id}-${month}`;
+                    return (
+                      <td key={month} className="border border-slate-200 px-1 py-1">
+                        <input className="input w-16 text-right tabular-nums" inputMode="decimal"
+                          value={draft[key] ?? String(Number(grid[c.id]?.[month] ?? 0))}
+                          onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                          onBlur={() => saveMonth(c.id, month)} />
+                      </td>
+                    );
+                  })}
+                  <td className="border border-slate-200 px-2 py-1.5 text-right font-medium tabular-nums">{fmt(rowTotal(c.id))}</td>
+                </tr>
+              ))}
+              {costCenters.length === 0 && <tr><td colSpan={15} className="border border-slate-200 px-3 py-6 text-center text-slate-400">No cost centres.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-right text-sm font-semibold text-slate-700">Grand Total: <span className="tabular-nums">{fmt(grandTotal)}</span></p>
+    </div>
   );
 }
 
@@ -630,11 +768,11 @@ function MoveModal({ node, targets, busy, onCancel, onMove }: {
   );
 }
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-pop">
+      <div className={`relative w-full rounded-lg border border-slate-200 bg-white p-5 shadow-pop ${wide ? "max-w-4xl" : "max-w-md"}`}>
         <h3 className="mb-4 text-sm font-semibold text-slate-800">{title}</h3>
         {children}
       </div>

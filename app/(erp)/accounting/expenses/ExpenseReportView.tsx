@@ -371,18 +371,12 @@ export default function ExpenseReportView() {
   const [matrixCur, setMatrixCur] = useState<MatrixRow[]>([]);
 
   const [budgetRows, setBudgetRows] = useState<any[]>([]);
-  const [budgetDraft, setBudgetDraft] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const ranges = monthRanges(ym);
   const from = ranges[0]?.from ?? `${ym.year}-01-01`;
   const to = ranges[ranges.length - 1]?.to ?? `${ym.year}-12-31`;
   const periodTxt = periodLabel(ym);
-
-  async function loadBudget() {
-    const { data } = await sb.rpc("report_expense_budget_cc", { p_year: ym.year });
-    setBudgetRows((data as any[]) ?? []);
-  }
 
   useEffect(() => {
     let live = true;
@@ -409,21 +403,10 @@ export default function ExpenseReportView() {
       setMatrixLast((matL.data as any[]) ?? []);
       setMatrixCur((matC.data as any[]) ?? []);
       setBudgetRows((budget.data as any[]) ?? []);
-      setBudgetDraft({});
       setLoading(false);
     });
     return () => { live = false; };
   }, [sb, from, to, ym.year]);
-
-  async function saveBudgetCell(accountId: string, costCenterId: string) {
-    const key = `${accountId}::${costCenterId}`;
-    const v = budgetDraft[key];
-    if (v === undefined) return;
-    await sb.from("acct_expense_budgets_cc").upsert(
-      { company_id: COMPANY_ID, account_id: accountId, cost_center_id: costCenterId, year: ym.year, monthly_amount: Number(v) || 0 },
-      { onConflict: "company_id,account_id,cost_center_id,year" });
-    loadBudget();
-  }
 
   // Nesting order follows CLICK order, not a fixed hierarchy: whichever
   // level the user selected first is outermost. Clicking Account Name then
@@ -441,7 +424,12 @@ export default function ExpenseReportView() {
   const matrixSelected = useMemo(() => matrixPeriod.filter((r) => monthKeySet.has(r.month)), [matrixPeriod, monthKeys.join(",")]);
 
   const budgetCell = useMemo(() => new Map(budgetRows.map((r) => [`${r.account_id}::${r.cost_center_id}`, Number(r.monthly_amount || 0)])), [budgetRows]);
+  // The true sum of that (account, cost centre) pair's twelve real months —
+  // no longer always Monthly x 12, now that the underlying grid
+  // (acct_expense_monthly_budgets) lets each month differ.
+  const budgetYearlyCell = useMemo(() => new Map(budgetRows.map((r) => [`${r.account_id}::${r.cost_center_id}`, Number(r.yearly_amount || 0)])), [budgetRows]);
   const totalMonthlyBudget = budgetRows.reduce((s, r) => s + Number(r.monthly_amount || 0), 0);
+  const totalYearlyBudget = budgetRows.reduce((s, r) => s + Number(r.yearly_amount || 0), 0);
 
   // Every panel below reads the SAME matrixSelected rows the KPI totals are
   // summed from, so "Expense" up top and every grid underneath always
@@ -603,7 +591,8 @@ export default function ExpenseReportView() {
             </thead>
             <tbody>
               {budgetAccounts.map((acc, i) => {
-                const rowTotal = budgetCostCentres.reduce((s, cc) => s + (budgetCell.get(`${acc.id}::${cc.id}`) ?? 0), 0);
+                const rowMonthly = budgetCostCentres.reduce((s, cc) => s + (budgetCell.get(`${acc.id}::${cc.id}`) ?? 0), 0);
+                const rowYearly = budgetCostCentres.reduce((s, cc) => s + (budgetYearlyCell.get(`${acc.id}::${cc.id}`) ?? 0), 0);
                 return (
                   <tr key={acc.id} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
                     <td className="border border-slate-200 px-3 py-2">
@@ -612,21 +601,15 @@ export default function ExpenseReportView() {
                     </td>
                     {budgetCostCentres.map((cc) => {
                       const key = `${acc.id}::${cc.id}`;
-                      const val = budgetCell.get(key) ?? 0;
                       return (
                         <Fragment key={cc.id}>
-                          <td className="border border-l-2 border-slate-300 px-1.5 py-1.5 text-right">
-                            <input className="input w-24 text-right tabular-nums" inputMode="decimal"
-                              value={budgetDraft[key] ?? String(val)}
-                              onChange={(e) => setBudgetDraft((d) => ({ ...d, [key]: e.target.value }))}
-                              onBlur={() => saveBudgetCell(acc.id, cc.id)} />
-                          </td>
-                          <td className="border border-slate-200 px-2 py-2 text-right tabular-nums text-slate-500">{money(val * 12)}</td>
+                          <td className="border border-l-2 border-slate-300 px-2 py-2 text-right tabular-nums">{money(budgetCell.get(key) ?? 0)}</td>
+                          <td className="border border-slate-200 px-2 py-2 text-right tabular-nums text-slate-500">{money(budgetYearlyCell.get(key) ?? 0)}</td>
                         </Fragment>
                       );
                     })}
-                    <td className="border border-l-2 border-slate-300 px-2 py-2 text-right font-medium tabular-nums">{money(rowTotal)}</td>
-                    <td className="border border-slate-200 px-2 py-2 text-right font-medium tabular-nums">{money(rowTotal * 12)}</td>
+                    <td className="border border-l-2 border-slate-300 px-2 py-2 text-right font-medium tabular-nums">{money(rowMonthly)}</td>
+                    <td className="border border-slate-200 px-2 py-2 text-right font-medium tabular-nums">{money(rowYearly)}</td>
                   </tr>
                 );
               })}
@@ -638,23 +621,25 @@ export default function ExpenseReportView() {
               <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
                 <td className="border border-slate-200 px-3 py-2">Total</td>
                 {budgetCostCentres.map((cc) => {
-                  const colTotal = budgetAccounts.reduce((s, acc) => s + (budgetCell.get(`${acc.id}::${cc.id}`) ?? 0), 0);
+                  const colMonthly = budgetAccounts.reduce((s, acc) => s + (budgetCell.get(`${acc.id}::${cc.id}`) ?? 0), 0);
+                  const colYearly = budgetAccounts.reduce((s, acc) => s + (budgetYearlyCell.get(`${acc.id}::${cc.id}`) ?? 0), 0);
                   return (
                     <Fragment key={cc.id}>
-                      <td className="border border-l-2 border-slate-300 px-2 py-2 text-right tabular-nums">{money(colTotal)}</td>
-                      <td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(colTotal * 12)}</td>
+                      <td className="border border-l-2 border-slate-300 px-2 py-2 text-right tabular-nums">{money(colMonthly)}</td>
+                      <td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(colYearly)}</td>
                     </Fragment>
                   );
                 })}
                 <td className="border border-l-2 border-slate-300 px-2 py-2 text-right tabular-nums">{money(totalMonthlyBudget)}</td>
-                <td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(totalMonthlyBudget * 12)}</td>
+                <td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(totalYearlyBudget)}</td>
               </tr></tfoot>
             )}
           </table>
         </div>
         <p className="mt-1 text-xs text-slate-400">
-          A recurring monthly budget per account and cost centre — Yearly is always Monthly × 12. Separate from the
-          simpler per-account annual budget on Accounting → Targets & Budget → Expense Budget, which this does not replace.
+          A read-only summary — Monthly is that account and cost centre's average across the year, Yearly its real total.
+          Edit the real month-by-month figures on the account itself: Accounting → Chart of Accounts → open the expense
+          account → Budget tab.
         </p>
       </div>
     </div>

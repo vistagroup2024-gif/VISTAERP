@@ -36,7 +36,7 @@ const ACCOUNTING_REPORT_HREFS = [
   "/accounting/trial-balance", "/accounting/balance-sheet", "/accounting/profit-loss",
   "/accounting/ledger", "/accounting/aging", "/accounting/cash-bank", "/accounting/cash-flow",
   "/accounting/journal", "/accounting/transactions", "/accounting/cost-centre-costing",
-  "/accounting/expenses", "/accounting/targets", "/accounting/drawings", "/accounting/product-costing",
+  "/accounting/expenses", "/accounting/drawings", "/accounting/product-costing",
   "/accounting/vat", "/accounting/assets", "/accounting/audit",
 ];
 

@@ -8,7 +8,7 @@ export default async function TargetsPage() {
   await guardStaffPage("accounting.view");
   return (
     <div className="max-w-5xl">
-      <PageHeader title="Targets & Budget" />
+      <PageHeader title="Customer Targets" />
       <TargetsBudget />
     </div>
   );

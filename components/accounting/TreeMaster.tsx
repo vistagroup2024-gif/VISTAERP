@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMPANY_ID } from "@/lib/format";
+import { yearSA } from "@/lib/saudiTime";
+import { splitAnnual, MONTH_LABELS } from "@/lib/monthlySplit";
 import ProductRatesModal from "./ProductRatesModal";
 import { useDocRights } from "@/components/AccessProvider";
 import SearchSelect from "@/components/ui/SearchSelect";
@@ -52,12 +54,18 @@ type CostCenterOpt = { id: string; name: string };
 // to 0, and the list JUMPS TO THE TOP every time a checkbox is ticked. The
 // Chart of Accounts hit exactly this and says so in its own comment. Nothing
 // remounts here now.
-export default function TreeMaster({ table, initial, extra, extras, note, rateEditor, costCenters }: {
+export default function TreeMaster({ table, initial, extra, extras, note, rateEditor, costCenters, targetsEditor }: {
   table: string; initial: Node[]; extra?: Extra; extras?: Extra[]; note?: string; rateEditor?: boolean;
   // Which cost centre a GROUP belongs to — offered only where the caller
   // passes this in (Product Tree today), so a voucher can later narrow its
   // item picker to what is actually under the cost centre it was given.
   costCenters?: CostCenterOpt[];
+  // Cost Centre's own screen only: a leaf cost centre's Edit dialog grows a
+  // second "Targets" tab — the month-wise sales target
+  // (acct_cost_center_monthly_targets) that used to be a separate grid on the
+  // whole-company Targets & Budget screen, moved here so a target is edited
+  // where the cost centre itself is, not on a screen of its own.
+  targetsEditor?: boolean;
 }) {
   const rights = useDocRights(TABLE_DOC[table] ?? "");
   const router = useRouter();
@@ -316,7 +324,10 @@ export default function TreeMaster({ table, initial, extra, extras, note, rateEd
         <AddModal isGroup={adding.isGroup} parent={adding.parent} groups={groups} exs={exs} busy={busy} costCenters={costCenters}
           onCancel={() => setAdding(null)} onSave={add} />
       )}
-      {editing && <EditModal node={editing} exs={exs} busy={busy} costCenters={costCenters} onCancel={() => setEditing(null)} onSave={saveEdit} />}
+      {editing && (
+        <EditModal node={editing} exs={exs} busy={busy} costCenters={costCenters} targetsEditor={targetsEditor}
+          onCancel={() => setEditing(null)} onSave={saveEdit} />
+      )}
       {moving && (
         <MoveModal title={`Move · ${moving.name}`} current={moving.parent_id ?? ""} targets={moveTargets} busy={busy}
           onCancel={() => setMoving(null)} onMove={(t) => moveInto([moving.id], t)} />
@@ -388,40 +399,149 @@ function AddModal({ isGroup: initGroup, parent: initParent, groups, exs, busy, c
   );
 }
 
-function EditModal({ node, exs, busy, costCenters, onCancel, onSave }: {
-  node: Node; exs: Extra[]; busy: boolean; costCenters?: CostCenterOpt[];
+function EditModal({ node, exs, busy, costCenters, targetsEditor, onCancel, onSave }: {
+  node: Node; exs: Extra[]; busy: boolean; costCenters?: CostCenterOpt[]; targetsEditor?: boolean;
   onCancel: () => void; onSave: (f: { name: string; active: boolean; extras: Record<string, string>; costCenterId?: string }) => void;
 }) {
   const [name, setName] = useState(node.name);
   const [active, setActive] = useState(node.is_active);
   const [ex, setEx] = useState<Record<string, string>>(Object.fromEntries(exs.map((e) => [e.key, node[e.key] == null ? "" : String(node[e.key])])));
   const [costCenterId, setCostCenterId] = useState(node.cost_center_id ?? "");
+  // Targets only exists once the cost centre is a real, saved leaf row — a
+  // group's own "target" is whatever its leaves add up to, and there is
+  // nothing to point a fresh Add-dialog row at yet, so this tab is Edit-only.
+  const showTargetsTab = !!targetsEditor && !node.is_group;
+  const [tab, setTab] = useState<"details" | "targets">("details");
   return (
-    <Modal title={`Edit · ${node.name}`} onClose={onCancel}>
-      <label className="label">Name</label>
-      <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-      {!node.is_group && exs.map((e) => (
-        <div key={e.key} className="mt-3"><label className="label">{e.label}</label>
-          {e.type === "date" ? (
-            <input className="input" type="date" value={ex[e.key] ?? ""} onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} />
-          ) : (
-            <input className="input" type="number" step="any" value={ex[e.key] ?? ""} onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} />
-          )}</div>
-      ))}
-      {costCenters && node.is_group && (
-        <div className="mt-3">
-          <label className="label">Cost Centre</label>
-          <SearchSelect value={costCenterId} onChange={setCostCenterId} placeholder="— none —"
-            options={costCenters.map((c) => ({ value: c.id, label: c.name }))} />
-          <p className="mt-1 text-xs text-slate-400">Everything under this group belongs to that cost centre, unless a group beneath it says otherwise.</p>
+    <Modal title={`Edit · ${node.name}`} onClose={onCancel} wide={tab === "targets"}>
+      {showTargetsTab && (
+        <div className="mb-4 flex gap-1 border-b border-slate-200">
+          {([["details", "Details"], ["targets", "Targets"]] as const).map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`px-3 py-1.5 text-sm ${tab === id ? "border-x border-t border-slate-200 rounded-t bg-white font-semibold text-brand" : "text-slate-500"}`}>
+              {label}
+            </button>
+          ))}
         </div>
       )}
-      <label className="mt-3 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active</label>
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onCancel} className="btn-outline">Cancel</button>
-        <button onClick={() => onSave({ name, active, extras: ex, costCenterId })} disabled={busy || !name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>
-      </div>
+      {tab === "targets" && showTargetsTab ? (
+        <>
+          <CostCenterTargetsTab costCenterId={node.id} />
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={onCancel} className="btn-outline">Close</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <label className="label">Name</label>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          {!node.is_group && exs.map((e) => (
+            <div key={e.key} className="mt-3"><label className="label">{e.label}</label>
+              {e.type === "date" ? (
+                <input className="input" type="date" value={ex[e.key] ?? ""} onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} />
+              ) : (
+                <input className="input" type="number" step="any" value={ex[e.key] ?? ""} onChange={(v) => setEx((o) => ({ ...o, [e.key]: v.target.value }))} />
+              )}</div>
+          ))}
+          {costCenters && node.is_group && (
+            <div className="mt-3">
+              <label className="label">Cost Centre</label>
+              <SearchSelect value={costCenterId} onChange={setCostCenterId} placeholder="— none —"
+                options={costCenters.map((c) => ({ value: c.id, label: c.name }))} />
+              <p className="mt-1 text-xs text-slate-400">Everything under this group belongs to that cost centre, unless a group beneath it says otherwise.</p>
+            </div>
+          )}
+          <label className="mt-3 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active</label>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={onCancel} className="btn-outline">Cancel</button>
+            <button onClick={() => onSave({ name, active, extras: ex, costCenterId })} disabled={busy || !name.trim()} className="btn">{busy ? "Saving…" : "Save"}</button>
+          </div>
+        </>
+      )}
     </Modal>
+  );
+}
+
+// One cost centre's own month-wise sales target
+// (acct_cost_center_monthly_targets) — report_cost_center_targets(),
+// report_cost_centre_costing() and report_sales() all sum this same table
+// over whichever months their period covers, so a figure typed here reaches
+// every one of them without a second table to keep in step. Each month
+// saves itself on blur, exactly like the old whole-company grid did; Annual
+// only SEEDS the twelve months (splitAnnual — eleven equal, the twelfth
+// carrying the rounding remainder so they sum back exactly) and still has to
+// be applied, after which every month stays individually hand-editable.
+function CostCenterTargetsTab({ costCenterId }: { costCenterId: string }) {
+  const supabase = createClient();
+  const thisYear = yearSA();
+  const [year, setYear] = useState(thisYear);
+  const [months, setMonths] = useState<Record<number, number>>({});
+  const [draft, setDraft] = useState<Record<number, string>>({});
+  const [annual, setAnnual] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [applying, setApplying] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("acct_cost_center_monthly_targets")
+      .select("month, target").eq("company_id", COMPANY_ID).eq("cost_center_id", costCenterId).eq("year", year);
+    const m: Record<number, number> = {};
+    for (const r of (data as any[]) ?? []) m[r.month] = Number(r.target);
+    setMonths(m); setDraft({}); setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [costCenterId, year]);
+  useEffect(() => { load(); }, [load]);
+
+  async function saveMonth(month: number) {
+    const v = draft[month];
+    if (v === undefined) return;
+    await supabase.from("acct_cost_center_monthly_targets").upsert(
+      { company_id: COMPANY_ID, cost_center_id: costCenterId, year, month, target: Number(v) || 0 },
+      { onConflict: "company_id,cost_center_id,year,month" });
+    load();
+  }
+  async function applyAnnual() {
+    const a = Number(annual);
+    if (!annual.trim() || isNaN(a)) return;
+    setApplying(true);
+    const split = splitAnnual(a);
+    const rows = split.map((amount, i) => ({ company_id: COMPANY_ID, cost_center_id: costCenterId, year, month: i + 1, target: amount }));
+    await supabase.from("acct_cost_center_monthly_targets").upsert(rows, { onConflict: "company_id,cost_center_id,year,month" });
+    setApplying(false); setAnnual(""); load();
+  }
+  const total = MONTH_LABELS.reduce((s, _, i) => s + Number(draft[i + 1] ?? months[i + 1] ?? 0), 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div><label className="label">Year</label><input type="number" className="input w-24" value={year} onChange={(e) => setYear(Number(e.target.value) || thisYear)} /></div>
+        <div>
+          <label className="label">Annual — splits into the 12 months below</label>
+          <div className="flex gap-1">
+            <input className="input w-32 text-right tabular-nums" inputMode="decimal" placeholder="0.00"
+              value={annual} onChange={(e) => setAnnual(e.target.value)} />
+            <button onClick={applyAnnual} disabled={applying || !annual.trim()} className="btn-outline btn-sm">{applying ? "…" : "Apply"}</button>
+          </div>
+        </div>
+      </div>
+      {loading ? <p className="text-sm text-slate-400">Loading…</p> : (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {MONTH_LABELS.map((label, i) => {
+            const month = i + 1;
+            return (
+              <div key={month}>
+                <label className="label">{label}-{String(year).slice(-2)}</label>
+                <input className="input text-right tabular-nums" inputMode="decimal"
+                  value={draft[month] ?? String(Number(months[month] ?? 0))}
+                  onChange={(e) => setDraft((d) => ({ ...d, [month]: e.target.value }))}
+                  onBlur={() => saveMonth(month)} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="text-right text-sm font-semibold text-slate-700">Total: <span className="tabular-nums">{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
+    </div>
   );
 }
 
@@ -445,11 +565,11 @@ function MoveModal({ title, current, targets, busy, onCancel, onMove, children }
   );
 }
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-pop">
+      <div className={`relative w-full rounded-lg border border-slate-200 bg-white p-5 shadow-pop ${wide ? "max-w-lg" : "max-w-md"}`}>
         <h3 className="mb-4 text-sm font-semibold text-slate-800">{title}</h3>
         {children}
       </div>

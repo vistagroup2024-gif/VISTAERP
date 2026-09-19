@@ -461,7 +461,7 @@ export default function ProfitLossView() {
           <SectionHeader title="Profit & Loss Elements" />
           <ElementBar label="Revenue (P&L)" value={cur.totInc} basis={cur.totInc} tone="bg-brand-600" />
           <ElementBar label="Gross (P&L)" value={cur.gross} basis={cur.totInc} tone="bg-brand-400" />
-          <ElementBar label="Expenses (P&L)" value={cur.totExp} basis={cur.totInc} tone="bg-amber-500" href="/accounting/targets?tab=exp" />
+          <ElementBar label="Expenses (P&L)" value={cur.totExp} basis={cur.totInc} tone="bg-amber-500" href="/accounting/expenses" />
           <ElementBar label="Net (P&L)" value={cur.net} basis={cur.totInc} tone={cur.net >= 0 ? "bg-emerald-600" : "bg-red-600"} />
         </div>
         {monthly.length > 1 && (

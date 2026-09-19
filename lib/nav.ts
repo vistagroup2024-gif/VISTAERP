@@ -74,6 +74,20 @@ export const DASHBOARD: NavItem = { href: "/dashboard", label: "Dashboard", icon
  *                                      in EXTRA_ITEMS. To bring Reports back
  *                                      into the menu, move it into a Car Sales
  *                                      group in GROUPS.
+ *
+ *   Targets & Budget /accounting/targets — Cost Centre and expense-account
+ *                                      targets/budgets are edited on their own
+ *                                      masters now (Cost Centre's Targets tab,
+ *                                      Chart of Accounts' Budget tab — see
+ *                                      CLAUDE.md), so a screen just for typing
+ *                                      them is superseded, not just moved. The
+ *                                      page is left working — it still carries
+ *                                      Customer Targets, a report with no
+ *                                      natural master of its own to sit on
+ *                                      (a customer's own target field is
+ *                                      already edited on Party Details, under
+ *                                      Chart of Accounts) — only unlinked from
+ *                                      the menu.
  */
 export const HIDDEN_ITEMS: NavItem[] = [
   { href: "/sales/catalog", label: "Service Catalog", perm: ["sales.view"] },
@@ -82,6 +96,7 @@ export const HIDDEN_ITEMS: NavItem[] = [
   { href: "/invoices", label: "Invoices", perm: ["sales.view"] },
   { href: "/hotels/hcn", label: "HCN Management", perm: ["hotels.hcn", "hotels.bookings"] },
   { href: "/car-sales/reports", label: "Reports", perm: ["carsales.reports"] },
+  { href: "/accounting/targets", label: "Customer Targets", perm: ["accounting.view"] },
 ];
 
 // The modules, and every screen in them. Some of these screens are shown by the
@@ -184,7 +199,6 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/journal", label: "Voucher Register" },
     { href: "/accounting/transactions", label: "Transactions Report" },
     { href: "/accounting/trial-balance", label: "Trial Balance" },
-    { href: "/accounting/targets", label: "Targets & Budget" },
     { href: "/accounting/drawings", label: "Drawings Report" },
     { href: "/accounting/cost-centre-costing", label: "Cost Centre Costing" },
     { href: "/accounting/expenses", label: "Expenses" },
@@ -361,8 +375,9 @@ export const TRANSACTIONS: QuickGroupDef[] = [
     // `accounting.view` (showing only the tabs the user may see), so a
     // charges-only user is not stranded without the second menu row that used
     // to duplicate it.
-    // Focus's "Sales Targets".
-    "/accounting/targets",
+    // Targets & Budget is hidden now (see HIDDEN_ITEMS) — a target or budget
+    // is edited on the master it belongs to, not a screen of its own — so
+    // there is no longer a row to list here.
     // Focus lists Route Fares here too. A transport rate is a master, not a
     // sales voucher, so it stays in the Transport menu where it is worked on.
   ] },

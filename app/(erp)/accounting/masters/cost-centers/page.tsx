@@ -11,14 +11,13 @@ export default async function CostCentersPage() {
   const sb = createClient();
   const { data } = await fetchAllRows<any>((from, to) =>
     sb.from("acct_cost_centers")
-      .select("id, parent_id, name, is_group, is_active, sort, sales_target")
+      .select("id, parent_id, name, is_group, is_active, sort")
       .order("id").range(from, to));
   return (
     <div>
       <PageHeader title="Cost Centers" />
-      <TreeMaster table="acct_cost_centers" initial={data ?? []}
-        extra={{ key: "sales_target", label: "Sales Target" }}
-        note="Cost centers tag receipts, payments and journals so you can report profit by branch / activity. Group them and set a sales target per centre." />
+      <TreeMaster table="acct_cost_centers" initial={data ?? []} targetsEditor
+        note="Cost centers tag receipts, payments and journals so you can report profit by branch / activity. Edit a cost centre and open its Targets tab to set a month-wise sales target." />
     </div>
   );
 }
