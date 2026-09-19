@@ -77,7 +77,7 @@ export default function StockQuery() {
                     <td className="px-3 py-2">{b.warehouse}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{qtyf(b.qty)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{money(b.avg_cost)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{money(b.value)}</td>
+                    <td className={`px-3 py-2 text-right tabular-nums ${Number(b.value) < 0 ? "text-red-600" : ""}`}>{money(b.value)}</td>
                   </tr>
                 ))}
                 {res.balances.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400">Nothing on hand.</td></tr>}

@@ -63,7 +63,7 @@ export default function OrdersReportTable({ rows, lines }: { rows: Row[]; lines:
                   <td className="td">{r.cost_centre}</td>
                   <td className="td text-right tabular-nums">{money(r.total)}</td>
                   <td className="td text-right tabular-nums">{money(r.received_value)}</td>
-                  <td className="td text-right tabular-nums font-medium">{money(r.balance_value)}</td>
+                  <td className={`td text-right tabular-nums font-medium ${Number(r.balance_value) < 0 ? "text-red-600" : ""}`}>{money(r.balance_value)}</td>
                   <td className="td">{r.consumed ? <span className="badge bg-green-100 text-green-700">Received</span> : <span className="badge bg-amber-100 text-amber-700">Pending</span>}</td>
                 </tr>
                 {isOpen && rowLines.length > 0 && (
@@ -91,7 +91,7 @@ export default function OrdersReportTable({ rows, lines }: { rows: Row[]; lines:
                               <td className="px-2 py-1 text-right tabular-nums">{qty(l.stock)}</td>
                               <td className="px-2 py-1 text-right tabular-nums">{money(l.rate)}</td>
                               <td className="px-2 py-1 text-right tabular-nums">{money(l.amount)}</td>
-                              <td className="px-2 py-1 text-right tabular-nums font-medium">{money(l.balance_value)}</td>
+                              <td className={`px-2 py-1 text-right tabular-nums font-medium ${Number(l.balance_value) < 0 ? "text-red-600" : ""}`}>{money(l.balance_value)}</td>
                             </tr>
                           ))}
                         </tbody>

@@ -61,7 +61,7 @@ export default function OrdersReportTable({ rows, lines }: { rows: Row[]; lines:
                   <td className="td text-right tabular-nums">{money(r.total)}</td>
                   <td className="td text-right tabular-nums">{money(r.advance)}</td>
                   <td className="td text-right tabular-nums">{money(r.advance_received)}</td>
-                  <td className="td text-right tabular-nums font-medium">{money(r.advance_balance)}</td>
+                  <td className={`td text-right tabular-nums font-medium ${Number(r.advance_balance) < 0 ? "text-red-600" : ""}`}>{money(r.advance_balance)}</td>
                   <td className="td">{r.consumed ? <span className="badge bg-green-100 text-green-700">Invoiced</span> : <span className="badge bg-amber-100 text-amber-700">Pending</span>}</td>
                 </tr>
                 {isOpen && rowLines.length > 0 && (

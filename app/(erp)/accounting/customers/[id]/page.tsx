@@ -78,7 +78,7 @@ export default async function CustomerReportPage({ params, searchParams }: { par
         <Kpi label="Due" value={money(row?.due)} />
         <Kpi label="Overdue" value={money(row?.overdue)} tone="text-red-600" />
         <Kpi label="Total Due" value={money(row?.total_due)} />
-        <Kpi label="Ledger Balance" value={money(row?.ledger_balance)} />
+        <Kpi label="Ledger Balance" value={money(row?.ledger_balance)} tone={Number(row?.ledger_balance ?? 0) < 0 ? "text-red-600" : undefined} />
       </div>
 
       {row && (

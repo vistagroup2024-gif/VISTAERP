@@ -13,7 +13,8 @@ export default async function VatPage({ searchParams }: { searchParams: { from?:
   const v = (data ?? {}) as any;
   const row = (label: string, val: number, strong = false) => (
     <tr className={`border-b border-slate-100 ${strong ? "font-bold" : ""}`}>
-      <td className="px-4 py-2">{label}</td><td className="px-4 py-2 text-right tabular-nums">{money(val)}</td>
+      <td className="px-4 py-2">{label}</td>
+      <td className={`px-4 py-2 text-right tabular-nums ${val < 0 ? "text-red-600" : ""}`}>{money(val)}</td>
     </tr>
   );
 

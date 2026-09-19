@@ -64,8 +64,15 @@ export default function MultiLevelMovement() {
     .sort((a, b) => a.name.localeCompare(b.name)), [data, known]);
   const orphans = itemsOf.get(null) ?? [];
 
-  function Num({ v, money: isMoney }: { v: number; money?: boolean }) {
-    return <td className="px-3 py-1.5 text-right tabular-nums">{isMoney ? money(v) : qtyf(v)}</td>;
+  // Scoped the same way DataTable.tsx's own negativeClass() is: only a
+  // balance figure (opening/closing) gets sign coloring, and only its money
+  // column — a negative closing value is a real data issue (stock over-
+  // issued past zero), while a negative qty isn't given "loss" treatment
+  // here either, and a period's Receipt/Issue totals aren't a balance that
+  // can legitimately go negative, so neither of those gets it.
+  function Num({ v, money: isMoney, neg }: { v: number; money?: boolean; neg?: boolean }) {
+    const cls = isMoney && neg && Number(v) < 0 ? "text-red-600" : "";
+    return <td className={`px-3 py-1.5 text-right tabular-nums ${cls}`}>{isMoney ? money(v) : qtyf(v)}</td>;
   }
 
   function GroupRows({ g, depth }: { g: Grp; depth: number }): JSX.Element {
@@ -81,10 +88,10 @@ export default function MultiLevelMovement() {
             </button>
             {g.name}
           </td>
-          <Num v={g.opening_qty} /><Num v={g.opening_value} money />
+          <Num v={g.opening_qty} /><Num v={g.opening_value} money neg />
           <Num v={g.in_qty} /><Num v={g.in_value} money />
           <Num v={g.out_qty} /><Num v={g.out_value} money />
-          <Num v={g.closing_qty} /><Num v={g.closing_value} money />
+          <Num v={g.closing_qty} /><Num v={g.closing_value} money neg />
         </tr>
         {open && subs.map((s) => <GroupRows key={s.id} g={s} depth={depth + 1} />)}
         {open && its.map((i) => (
@@ -92,10 +99,10 @@ export default function MultiLevelMovement() {
             <td className="px-3 py-1.5" style={{ paddingLeft: 12 + (depth + 1) * 18 }}>
               {i.item}{i.uom ? <span className="text-slate-400"> · {i.uom}</span> : null}
             </td>
-            <Num v={i.opening_qty} /><Num v={i.opening_value} money />
+            <Num v={i.opening_qty} /><Num v={i.opening_value} money neg />
             <Num v={i.in_qty} /><Num v={i.in_value} money />
             <Num v={i.out_qty} /><Num v={i.out_value} money />
-            <Num v={i.closing_qty} /><Num v={i.closing_value} money />
+            <Num v={i.closing_qty} /><Num v={i.closing_value} money neg />
           </tr>
         ))}
       </>
@@ -130,10 +137,10 @@ export default function MultiLevelMovement() {
                 {orphans.map((i) => (
                   <tr key={i.item_id} className="border-t border-slate-100">
                     <td className="px-3 py-1.5">{i.item}</td>
-                    <Num v={i.opening_qty} /><Num v={i.opening_value} money />
+                    <Num v={i.opening_qty} /><Num v={i.opening_value} money neg />
                     <Num v={i.in_qty} /><Num v={i.in_value} money />
                     <Num v={i.out_qty} /><Num v={i.out_value} money />
-                    <Num v={i.closing_qty} /><Num v={i.closing_value} money />
+                    <Num v={i.closing_qty} /><Num v={i.closing_value} money neg />
                   </tr>
                 ))}
               </tbody>

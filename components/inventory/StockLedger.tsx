@@ -96,7 +96,7 @@ export default function StockLedger() {
                       <td className="px-3 py-1.5" colSpan={3}>Opening balance</td>
                       <td colSpan={6} />
                       <td className="px-3 py-1.5 text-right tabular-nums">{qtyf(b.opening_qty)}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{money(b.opening_value)}</td>
+                      <td className={`px-3 py-1.5 text-right tabular-nums ${Number(b.opening_value) < 0 ? "text-red-600" : ""}`}>{money(b.opening_value)}</td>
                     </tr>
                     {b.rows.map((r, i) => (
                       <tr key={i} className="border-t border-slate-100">
@@ -110,7 +110,7 @@ export default function StockLedger() {
                         <td className="px-3 py-1.5 text-right tabular-nums">{r.qty_iss ? money(r.rate_iss) : ""}</td>
                         <td className="px-3 py-1.5 text-right tabular-nums">{r.qty_iss ? money(r.iss_value) : ""}</td>
                         <td className="px-3 py-1.5 text-right tabular-nums">{qtyf(r.bal_qty)}</td>
-                        <td className="px-3 py-1.5 text-right tabular-nums">{money(r.bal_value)}</td>
+                        <td className={`px-3 py-1.5 text-right tabular-nums ${Number(r.bal_value) < 0 ? "text-red-600" : ""}`}>{money(r.bal_value)}</td>
                       </tr>
                     ))}
                     <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
@@ -122,7 +122,7 @@ export default function StockLedger() {
                       <td />
                       <td className="px-3 py-1.5 text-right tabular-nums">{money(issVal)}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums">{qtyf(last ? last.bal_qty : b.opening_qty)}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{money(last ? last.bal_value : b.opening_value)}</td>
+                      <td className={`px-3 py-1.5 text-right tabular-nums ${Number(last ? last.bal_value : b.opening_value) < 0 ? "text-red-600" : ""}`}>{money(last ? last.bal_value : b.opening_value)}</td>
                     </tr>
                   </tbody>
                 );

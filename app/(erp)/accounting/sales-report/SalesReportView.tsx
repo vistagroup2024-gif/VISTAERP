@@ -307,14 +307,24 @@ export default function SalesReportView() {
   const ccGroups: DataGroup[] = Array.from(ccGroupMap.entries()).map(([group, rows]) => {
     const groupTotal = rows.reduce((a, r) => a + r.current_year, 0);
     const groupTarget = rows.reduce((a, r) => a + r.target, 0);
+    const groupPY = rows.reduce((a, r) => a + r.previous_year, 0);
+    const groupDiff = rows.reduce((a, r) => a + r.difference, 0);
     rows.sort((a, b) => b.current_year - a.current_year);
+    // `values` — the same "group row IS a P&L line" pattern P&L uses — puts
+    // Target/CY/PY/Difference/Difference%/Contribution right on the group's
+    // own header row, formatted and red-on-loss like any other cell. The old
+    // `meta` text folded only the target into one caption string and hid
+    // everything else until you clicked ▸, which is exactly what read as
+    // "blank" group rows.
     return {
-      key: group, label: group,
-      meta: <span className="ml-2 font-normal text-slate-500">— {money(groupTotal)}{groupTarget > 0 ? ` of ${money(groupTarget)} target (${((groupTotal / groupTarget) * 100).toFixed(0)}%)` : ""}</span>,
-      rows,
-      subtotal: { current_year: groupTotal, previous_year: rows.reduce((a, r) => a + r.previous_year, 0), difference: rows.reduce((a, r) => a + r.difference, 0), target: groupTarget },
+      key: group, label: group, rows,
+      values: {
+        target: groupTarget, current_year: groupTotal, previous_year: groupPY, difference: groupDiff,
+        difference_pct: groupPY ? (groupDiff / Math.abs(groupPY)) * 100 : null,
+        contribution: Number(s.total) !== 0 ? (groupTotal / Number(s.total)) * 100 : 0,
+      },
     };
-  }).sort((a, b) => (b.subtotal!.current_year ?? 0) - (a.subtotal!.current_year ?? 0));
+  }).sort((a, b) => (b.values!.current_year ?? 0) - (a.values!.current_year ?? 0));
 
   // LY vs CY — one DataGroup per selected "View By" dimension inside ONE
   // DataTable, so picking Cost Centre and Customer opens two collapsible
@@ -324,8 +334,8 @@ export default function SalesReportView() {
   // merge works for all four.
   const lyVsCyByDim: Record<Dim, { name: string; ly: number; cy: number; growth: number | null }[]> = {
     ccGroup: ccGroups.map((g) => ({
-      name: g.label, ly: Number(g.subtotal!.previous_year), cy: Number(g.subtotal!.current_year),
-      growth: g.subtotal!.previous_year ? ((Number(g.subtotal!.current_year) - Number(g.subtotal!.previous_year)) / Math.abs(Number(g.subtotal!.previous_year))) * 100 : null,
+      name: g.label, ly: Number(g.values!.previous_year), cy: Number(g.values!.current_year),
+      growth: g.values!.previous_year ? ((Number(g.values!.current_year) - Number(g.values!.previous_year)) / Math.abs(Number(g.values!.previous_year))) * 100 : null,
     })),
     costCentre: lyVsCy(s.by_cost_centre, py.by_cost_centre, (r) => r.name),
     customer: lyVsCy(s.by_customer, py.by_customer, (r) => r.account_id ?? r.name),
@@ -415,13 +425,18 @@ export default function SalesReportView() {
   // rows here have no `values` of their own) and starts collapsed; a
   // reader clicks ▸ to see the individual CC Groups / Cost Centres /
   // Customers / Products behind that total.
+  // `values` (not `subtotal`) — the same P&L "group row IS a line" pattern:
+  // a collapsed group with only `subtotal` shows nothing but its label until
+  // clicked, because GroupRows only ever draws the subtotal as a footer
+  // UNDER the expanded rows. `values` puts the real LY/CY/Growth% figures on
+  // the header row itself, visible before anything is expanded.
   const lyVsCyGroups: DataGroup[] = activeDims.map((d) => {
     const rows = lyVsCyByDim[d];
     const ly = rows.reduce((s, r) => s + r.ly, 0);
     const cy = rows.reduce((s, r) => s + r.cy, 0);
     return {
       key: d, label: `${DIM_LABEL[d]} wise Sales — LY vs CY`, rows,
-      subtotal: { ly, cy, growth: ly ? ((cy - ly) / Math.abs(ly)) * 100 : null },
+      values: { ly, cy, growth: ly ? ((cy - ly) / Math.abs(ly)) * 100 : null },
     };
   });
 
@@ -430,8 +445,8 @@ export default function SalesReportView() {
     const target = rows.reduce((s, r) => s + r.target, 0);
     const sales = rows.reduce((s, r) => s + r.sales, 0);
     return {
-      key: d, label: DIM_LABEL[d], rows,
-      subtotal: { target, sales, achieved: target > 0 ? (sales / target) * 100 : null },
+      key: d, label: `${DIM_LABEL[d]} wise Sales vs Target`, rows,
+      values: { target, sales, achieved: target > 0 ? (sales / target) * 100 : null },
     };
   });
 

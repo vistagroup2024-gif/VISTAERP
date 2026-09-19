@@ -47,7 +47,7 @@ export default async function HotelReportsPage({ searchParams }: { searchParams:
                 <td className="td">{v.count}</td>
                 <td className="td">{money(v.sales, "SAR")}</td>
                 {canProfit && <td className="td">{money(v.purchase, "SAR")}</td>}
-                {canProfit && <td className="td text-green-700">{money(v.sales - v.purchase, "SAR")}</td>}
+                {canProfit && <td className={`td ${v.sales - v.purchase < 0 ? "text-red-600" : "text-green-700"}`}>{money(v.sales - v.purchase, "SAR")}</td>}
               </tr>
             ))}
             {map.size === 0 && <tr><td className="td text-slate-400" colSpan={5}>No data.</td></tr>}

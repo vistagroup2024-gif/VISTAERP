@@ -58,7 +58,7 @@ export default function AdvanceReceiptTable({ title, rows, receipts }: { title: 
                     <td className="td text-right tabular-nums">{money(r.total)}</td>
                     <td className="td text-right tabular-nums">{money(r.advance)}</td>
                     <td className="td text-right tabular-nums">{money(r.advance_received)}</td>
-                    <td className="td text-right tabular-nums font-medium">{money(r.advance_balance)}</td>
+                    <td className={`td text-right tabular-nums font-medium ${Number(r.advance_balance) < 0 ? "text-red-600" : ""}`}>{money(r.advance_balance)}</td>
                   </tr>
                   {isOpen && rcpts.length > 0 && (
                     <tr className="border-t border-slate-100 bg-slate-50/60">

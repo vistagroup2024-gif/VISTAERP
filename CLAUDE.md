@@ -1679,6 +1679,51 @@ Summary panel already shows everything that report does, in the same
 place, so the link was pointing a reader at a second copy of what they
 were already looking at rather than anywhere new.
 
+A follow-up sweep of every remaining hand-rolled (non-`DataTable`) table
+in the ERP found the same gap in more places, fixed the same way — sign
+read straight off the actual figure, never a hard-coded tone:
+
+- VAT report's Net VAT Payable row (can go negative into refund territory).
+- Accounting customer ledger's Ledger Balance KPI (signed — negative
+  means the party is in credit).
+- Sales Orders Report, Purchase Orders Report (header row and nested
+  line rows) and Advance vs Receipt — all three carry a Balance column
+  that's a genuine variance (advance − received, or the reverse) that can
+  go negative on an overpayment or over-receipt.
+- Car Sales' Ageing Summary Led. Bal column (had a Dr/Cr suffix but no
+  colour) and the Held report's Outstanding column.
+- Hotel Reports' Profit column (By City / By Agent) — same hard-coded-green
+  bug as Car Sales' Vehicle Profitability.
+- Transport Costing's Dashboard tab (Most/Least Profitable Route tiles
+  were hard-coded green/red regardless of the route's actual margin
+  sign) and several Profit/Margin figures across the Calculator, Route
+  Profitability and Fleet tabs that had no colour logic at all.
+- Multi-level Stock Movement, Stock Ledger and Stock Query's own balance
+  columns (opening/closing value, running balance, warehouse value) — a
+  negative balance is a real data issue (stock over-issued past zero),
+  so it gets the same treatment; the period's own Receipt/Issue totals
+  and every `qty` column stay out of scope, same as `DataTable`'s rule.
+
+**A `DataGroup` with `subtotal` but no `values` is still a blank header
+row, and that's a bug, not a style choice.** Sales Report's own LY-vs-CY
+and Sales-vs-Target sections looked broken — a group collapsed to just
+its label with no figures anywhere, arrows pointing at nothing — because
+`lyVsCyGroups`/`salesVsTargetGroups` set `subtotal` (which `GroupRows`
+only ever draws as a footer *under* the expanded rows) instead of
+`values` (which draws real, formatted cells directly on the header row,
+visible before anything is clicked). This is the exact "a group row that
+is itself a P&L line" feature P&L already used — Sales Report just never
+got converted when that feature shipped, so the group rows quietly went
+back to the old label-only shape from before it existed. Fixed by
+switching all three of this file's `DataGroup` builders (`ccGroups`,
+`lyVsCyGroups`, `salesVsTargetGroups`) to `values`; `ccGroups` also lost
+its old `meta` caption text (which folded only the target into a small
+grey string) now that Target/CY/PY/Difference/Difference%/Contribution
+are each their own real, sign-coloured, sortable-formatted column on the
+group's own row. A caller that sets `subtotal` without `values` is not a
+smaller or simpler version of this pattern — it is the old, pre-`values`
+shape, and looks broken the same way this did.
+
 The rule for anywhere else a profit-or-loss figure shows up, hand-rolled
 or not: color follows the SIGN of the actual number, never a fixed class
 picked because the figure is "usually positive" — the Vehicle Profitability

@@ -43,7 +43,7 @@ export default async function HeldReport() {
                 <td className="td">{r.contract ? <Link href={`/car-sales/contracts/${r.contract.id}`} className="text-brand hover:underline">{r.contract.contract_no}</Link> : "—"}</td>
                 <td className="td">{dateStr(r.held_date)}</td>
                 <td className="td text-sm">{r.reason ?? "—"}</td>
-                <td className="td text-right tabular-nums">{sar(r.outstanding)}</td>
+                <td className={`td text-right tabular-nums ${r.outstanding < 0 ? "text-red-600" : ""}`}>{sar(r.outstanding)}</td>
                 <td className="td text-right tabular-nums text-red-600">{sar(r.overdue)}</td>
                 <td className="td">{dateStr(r.nextDue)}</td>
               </tr>

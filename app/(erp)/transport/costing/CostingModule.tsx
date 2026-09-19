@@ -362,7 +362,7 @@ function CalculatorTab({ vehicles, routes, period, setPeriod, from, setFrom, to,
                 <div><div className="text-xs text-slate-400">Trips</div><div className="font-semibold">{result.historical_sales.trips}</div></div>
                 <div><div className="text-xs text-slate-400">Lowest / Highest</div><div className="font-semibold">{sar(result.historical_sales.lowest)} / {sar(result.historical_sales.highest)}</div></div>
                 <div><div className="text-xs text-slate-400">Average / Median</div><div className="font-semibold">{sar(result.historical_sales.average)} / {sar(result.historical_sales.median)}</div></div>
-                <div><div className="text-xs text-slate-400">Avg. Profit / Margin</div><div className="font-semibold">{sar(result.historical_sales.average_profit)} / {pct(result.historical_sales.average_margin_pct)}</div></div>
+                <div><div className="text-xs text-slate-400">Avg. Profit / Margin</div><div className={`font-semibold ${Number(result.historical_sales.average_profit) < 0 ? "text-red-700" : ""}`}>{sar(result.historical_sales.average_profit)} / {pct(result.historical_sales.average_margin_pct)}</div></div>
                 <p className="col-span-full text-xs text-slate-400">Cost basis: reconstructed at today's cost/KM (the ERP keeps no historical cost/KM series).</p>
               </div>
             ) : <p className="text-sm text-slate-400">No completed trips for this vehicle + route in this period — nothing to compare against yet.</p>}
@@ -386,7 +386,7 @@ function CalculatorTab({ vehicles, routes, period, setPeriod, from, setFrom, to,
               <div className="grid grid-cols-3 gap-3 text-sm">
                 <div><div className="text-xs text-slate-400">Revenue</div><div className="font-semibold">{sar(revenue)}</div></div>
                 <div><div className="text-xs text-slate-400">Estimated Profit</div><div className={`font-semibold ${profit >= 0 ? "text-emerald-700" : "text-red-700"}`}>{sar(profit)}</div></div>
-                <div><div className="text-xs text-slate-400">Profit Margin</div><div className="font-semibold">{margin === null ? "—" : pct(margin)}</div></div>
+                <div><div className="text-xs text-slate-400">Profit Margin</div><div className={`font-semibold ${margin !== null && margin < 0 ? "text-red-700" : ""}`}>{margin === null ? "—" : pct(margin)}</div></div>
               </div>
             )}
             <Warnings warnings={simWarnings} />
@@ -529,7 +529,7 @@ function RouteProfitTab({ routes, period, setPeriod, from, setFrom, to, setTo, s
             {tile("Avg. Selling Price", sar(d.average_selling_price))}
             {tile("Avg. Cost", sar(d.average_cost))}
             {tile("Avg. Profit", sar(d.average_profit), Number(d.average_profit) >= 0 ? "text-emerald-700" : "text-red-700")}
-            {tile("Avg. Margin", pct(d.average_margin_pct))}
+            {tile("Avg. Margin", pct(d.average_margin_pct), d.average_margin_pct != null && Number(d.average_margin_pct) < 0 ? "text-red-700" : undefined)}
             {tile("Empty Return %", pct(d.empty_return_pct))}
             {tile("Revenue / KM", cpk(d.revenue_per_km))}
             {tile("Cost / KM", cpk(d.cost_per_km))}
@@ -578,7 +578,7 @@ function FleetTab({ period, setPeriod, from, setFrom, to, setTo, supabase }: any
                     <td className="td text-right tabular-nums">{cpk(v.cost_per_km)}</td>
                     <td className="td text-right tabular-nums">{cpk(v.revenue_per_km)}</td>
                     <td className={`td text-right tabular-nums font-semibold ${Number(v.profit) >= 0 ? "text-emerald-700" : "text-red-700"}`}>{sar(v.profit)}</td>
-                    <td className="td text-right tabular-nums">{margin === null ? "—" : pct(margin)}</td>
+                    <td className={`td text-right tabular-nums ${margin !== null && margin < 0 ? "text-red-600" : ""}`}>{margin === null ? "—" : pct(margin)}</td>
                   </tr>
                 );
               })}
@@ -622,8 +622,8 @@ function DashboardTab({ period, setPeriod, from, setFrom, to, setTo, supabase }:
           {tile("Fleet Monthly Profit", sar(d.fleet_monthly_profit), Number(d.fleet_monthly_profit) >= 0 ? "text-emerald-700" : "text-red-700")}
           {tile("Avg. Vehicle Utilization", km2(d.average_vehicle_utilization_km))}
           {tile("Avg. Empty Return %", pct(d.average_empty_return_pct))}
-          {tile("Most Profitable Route", d.most_profitable_route ? `${d.most_profitable_route.route} (${pct(d.most_profitable_route.margin_pct)})` : "—", "text-emerald-700")}
-          {tile("Least Profitable Route", d.least_profitable_route ? `${d.least_profitable_route.route} (${pct(d.least_profitable_route.margin_pct)})` : "—", "text-red-700")}
+          {tile("Most Profitable Route", d.most_profitable_route ? `${d.most_profitable_route.route} (${pct(d.most_profitable_route.margin_pct)})` : "—", d.most_profitable_route && Number(d.most_profitable_route.margin_pct) < 0 ? "text-red-700" : "text-emerald-700")}
+          {tile("Least Profitable Route", d.least_profitable_route ? `${d.least_profitable_route.route} (${pct(d.least_profitable_route.margin_pct)})` : "—", d.least_profitable_route && Number(d.least_profitable_route.margin_pct) < 0 ? "text-red-700" : "text-emerald-700")}
         </div>
       )}
     </div>

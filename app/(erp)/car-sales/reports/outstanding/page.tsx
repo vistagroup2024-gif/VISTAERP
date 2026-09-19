@@ -133,7 +133,7 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
               <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
                 <td className="td text-right tabular-nums text-slate-400">{i + 1}</td>
                 <td className="td"><Link href={`/car-sales/customers/${r.id}`} className="text-brand hover:underline">{r.name}</Link></td>
-                <td className="td text-right tabular-nums font-medium">{drCr(r.balance)}</td>
+                <td className={`td text-right tabular-nums font-medium ${r.balance > 0 ? "text-red-600" : r.balance < 0 ? "text-emerald-700" : ""}`}>{drCr(r.balance)}</td>
                 <td className="td text-right tabular-nums">{r.due > 0 ? <span className="text-amber-700">{num(r.due)}</span> : "—"}</td>
                 <td className="td text-right tabular-nums">{r.overdue > 0 ? <span className="text-red-600">{num(r.overdue)}</span> : "—"}</td>
                 <td className="td text-right tabular-nums font-medium">{num(r.total_due)}</td>
@@ -153,7 +153,7 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
           {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
             <td className="td" />
             <td className="td">Total ({rows.length})</td>
-            <td className="td text-right tabular-nums">{drCr(sum("balance"))}</td>
+            <td className={`td text-right tabular-nums ${sum("balance") > 0 ? "text-red-600" : sum("balance") < 0 ? "text-emerald-700" : ""}`}>{drCr(sum("balance"))}</td>
             <td className="td text-right tabular-nums">{num(sum("due"))}</td>
             <td className="td text-right tabular-nums">{num(sum("overdue"))}</td>
             <td className="td text-right tabular-nums">{num(sum("total_due"))}</td>
