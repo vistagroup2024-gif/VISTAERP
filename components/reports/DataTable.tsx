@@ -62,7 +62,7 @@ export interface DataGroup {
  * the report to wire to its RPC — this component never re-fetches on its own.
  */
 export default function DataTable({
-  cols, rows, groups, empty, rowClass, page, pageSize, totalCount, onPageChange, bare, roomy, startCollapsed,
+  cols, rows, groups, empty, rowClass, page, pageSize, totalCount, onPageChange, bare, roomy, startCollapsed, showGroupTotal,
 }: {
   cols: Col[];
   rows?: any[];
@@ -84,6 +84,15 @@ export default function DataTable({
   // See the `expanded` seeding comment below for the full reasoning; a
   // caller with a fixed group shape (never toggled) never sets this.
   startCollapsed?: boolean;
+  // A grand-total footer row across every top-level group — GroupedBody
+  // never had one (unlike FlatBody's own `hasTotals` footer), so switching
+  // a report's default view from a flat row list to a grouped one silently
+  // dropped the one row a viewer scans for first. Opt-in, the same way
+  // `roomy`/`bare` are: most `groups` callers already show their own total
+  // a different way (a KPI row, a hand-rolled bar) and don't need a second
+  // one appended here. Summed from each top-level group's own `values`
+  // (falling back to `subtotal` for a caller that only ever set that).
+  showGroupTotal?: boolean;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   // Tracks which groups are OPEN, not which are closed. The DEPTH-0 groups
@@ -141,6 +150,16 @@ export default function DataTable({
   }, [cols, flatRows]);
   const hasTotals = cols.some((c) => c.total);
 
+  const groupTotals = useMemo(() => {
+    const t: Record<string, number> = {};
+    if (!groups) return t;
+    for (const c of cols) {
+      if (!c.total) continue;
+      t[c.key] = groups.reduce((s, g) => s + Number((g.values ? g.values[c.key] : g.subtotal?.[c.key]) ?? 0), 0);
+    }
+    return t;
+  }, [cols, groups]);
+
   function toggleSort(c: Col) {
     if (c.sortable === false) return;
     setSort((s) => {
@@ -174,7 +193,7 @@ export default function DataTable({
             <GroupedBody cols={visibleCols} groups={groups ?? []} empty={empty}
               expanded={expanded} onToggle={(k) => setExpanded((c) => {
                 const n = new Set(c); n.has(k) ? n.delete(k) : n.add(k); return n;
-              })} roomy={roomy} />
+              })} roomy={roomy} showGroupTotal={showGroupTotal} groupTotals={groupTotals} hasTotals={hasTotals} />
           )}
         </table>
       </div>
@@ -222,13 +241,28 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals, roomy }: {
   );
 }
 
-function GroupedBody({ cols, groups, empty, expanded, onToggle, roomy }: {
+function GroupedBody({ cols, groups, empty, expanded, onToggle, roomy, showGroupTotal, groupTotals, hasTotals }: {
   cols: Col[]; groups: DataGroup[]; empty: string; expanded: Set<string>; onToggle: (key: string) => void; roomy?: boolean;
+  showGroupTotal?: boolean; groupTotals?: Record<string, number>; hasTotals?: boolean;
 }) {
   if (groups.length === 0) {
     return <tbody><tr><td colSpan={cols.length} className="border border-slate-200 px-3 py-8 text-center text-slate-400">{empty}</td></tr></tbody>;
   }
-  return <tbody>{groups.map((g, i) => <GroupRows key={g.key} cols={cols} g={g} depth={0} idx={i} expanded={expanded} onToggle={onToggle} roomy={roomy} />)}</tbody>;
+  const py = roomy ? "py-2.5" : "py-2";
+  return (
+    <>
+      <tbody>{groups.map((g, i) => <GroupRows key={g.key} cols={cols} g={g} depth={0} idx={i} expanded={expanded} onToggle={onToggle} roomy={roomy} />)}</tbody>
+      {showGroupTotal && hasTotals && (
+        <tfoot><tr className="bg-slate-50 font-semibold">
+          {cols.map((c, i) => (
+            <td key={c.key} className={`border border-slate-200 px-3 ${py} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total ? negativeTotalClass(c, groupTotals?.[c.key]) : ""}`}>
+              {c.total ? cellText(c, groupTotals?.[c.key]) : i === 0 ? "Total" : ""}
+            </td>
+          ))}
+        </tr></tfoot>
+      )}
+    </>
+  );
 }
 
 // One group, rendered at its own depth — and, when it has subgroups, each of

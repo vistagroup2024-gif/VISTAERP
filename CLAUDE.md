@@ -2910,6 +2910,84 @@ each needing its own attribution rule, the same way `billed` (gross) and
 `outstanding` (net) needed to stay two separate columns rather than one
 field meaning both.
 
+## P&L Summary: a phantom "Unassigned" bucket, a missing grand total, and the default view
+
+Three requests landed together on P&L Summary, and the middle one exposed
+a real, general `report_pl_matrix()` bug rather than a UI preference:
+
+**"Unassigned" was showing under CC Group/Cost Center with every figure
+at zero — a phantom bucket, not real unattributed data.**
+`report_pl_matrix()`'s own `gl` CTE grouped EVERY posted journal line by
+`(cost_center, tag_area, month)` before the `agg` CTE's filter clauses
+picked out only income/COGS/expense/Drawing sums into `sales`/`cogs`/
+`expense`/`drawing` — so a cash or bank line with no cost centre (an
+ordinary Receipt Voucher's cash leg) still created an `'Unassigned'`
+grouping bucket, with every one of its filtered sums correctly landing
+on zero. The bucket itself still reached the output: a row reading
+Unassigned, 0.00 across every column, real activity nowhere in it.
+Confirmed live — September 2026 carried exactly one such row. Fixed
+(460) by restricting `gl` to only lines whose account is actually one of
+the three types this report aggregates (`income`, `expense`, or
+`equity` + `Drawing` subtype) — the same set `agg`'s filters already
+read, just applied before the grouping instead of only after it.
+
+**Tag Area's own "Unassigned" is untouched, and is real** — many genuine
+income/expense lines legitimately carry no tag area (it's the optional
+dimension, unlike cost centre, which every P&L line carries) — verified
+live at SAR 123,500 of real sales with no tag area set. "Unassigned only
+where the data is genuinely absent" (the standing instruction here) means
+this bucket stays real for Tag Area and stops being fake for Cost
+Centre/CC Group — not that it's suppressed everywhere except Tag Area by
+some filter; after 460 there's simply nothing fake left to filter out
+of the cost-centre side.
+
+**The grouped view never had a grand-total footer row at all** —
+`DataTable`'s `FlatBody` has always summed `total: true` columns into a
+footer; `GroupedBody` never did, because nothing needed it before P&L's
+own default was the flat month-wise view (which DID show one). The
+moment CC Group became the default (below), that row's absence became
+visible: a real gap, not a P&L-specific one. `showGroupTotal` is the fix,
+opt-in the same way `roomy`/`bare` are (most `groups` callers already
+show their own total a different way — a KPI row, a donut, a hand-rolled
+bar — and don't need a second one appended here): summed from each
+top-level group's own `values` (falling back to `subtotal` for a caller
+that only ever set that), rendered as the same `bg-slate-50 font-semibold`
+footer row `FlatBody` already uses. P&L Summary is the one caller that
+passes it today.
+
+**The default view moved from the flat month-wise fallback back to CC
+Group.** It was set to `[]` specifically because Drawing/Actual Net/Act %
+used to only ever show in that one flat mode, and a pre-selected CC Group
+made the viewer's first Filteration click silently become a second,
+nested dimension. Both reasons are gone: `report_pl_matrix()` attributes
+Drawing for real at every depth now (see "Drawing now shows on every P&L
+row" above), and `startCollapsed` already only engages once
+`plDimOrder.length > 1` — a single default dimension opens straight to
+its own rows, nothing cascades. `plDimOrder` now starts as `["ccGroup"]`.
+
+**Act % not rendering was the same root cause as the width/height ask
+below, not a separate bug** — `PL_COLS` already lists it right after
+Actual Net; with `bare`'s `overflow-x-auto` it was always reachable by
+scrolling, just past the fold in the old side-by-side `280px` + narrow
+column layout. Widening the panel (below) is the actual fix; there was
+no missing column to add.
+
+## P&L Summary is full width now; Cost Center Profit & Loss moved down beside its own Donut
+
+The Summary panel used to share a row with the Cost Center Profit & Loss
+list at a fixed `lg:grid-cols-[280px_1fr]` split — asked to be wide
+instead, since it's the panel actually being read, now carrying up to 11
+columns plus whatever CC Group/Cost Center/Tag Area drill is active.
+Cost Center Profit & Loss moved down into the bottom `lg:grid-cols-3`
+row, first item before Cost Center Comparison (its own Donut chart of
+the exact same `ccGroupNetRows`) — the two already sat one screen apart
+telling the same story in two forms (a list, a chart), so putting them
+side by side is more natural than it was floating alone up top. `roomy`
+(the "bit height increase" from an earlier round) was already on and
+needed no further change — the ask this time was width, and the
+Act %/height complaints above both trace back to the same narrow
+container this resolves.
+
 **Monthly Balances' own KPI row picked up the same Due/Overdue/Total
 shape Ageing Summary's already uses**, read off the same period-shifted
 `outstanding` column Due already reads: `Overdue` sums every month

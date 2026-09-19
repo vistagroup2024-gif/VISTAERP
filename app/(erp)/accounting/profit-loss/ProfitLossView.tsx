@@ -237,15 +237,15 @@ export default function ProfitLossView() {
   // wise is additive on whatever the deepest active level is (or on the
   // flat month fallback when nothing is selected), and Year wise swaps the
   // whole panel to a different, non-nesting view.
-  // Starts with no dimension selected — the flat, whole-company month-wise
-  // Profit & Loss Summary, which is also the only mode Drawing/Actual
-  // Net/Act % ever show on (see showDrawingCols below). Defaulting this to
-  // ["ccGroup"] used to hide those three columns from the very first load
-  // (nothing but Year wise ever clears the selection back to empty), and
-  // made the viewer's first-ever click on a Filteration button silently
-  // become a SECOND dimension nested under the pre-selected CC Group,
-  // cascade-revealing Cost Center's own rows on what looked like one click.
-  const [plDimOrder, setPlDimOrder] = useState<PLDim[]>([]);
+  // Defaults to CC Group — the summary a viewer actually opens this report
+  // for. This used to default to [] (the flat month-wise view) because
+  // Drawing/Actual Net/Act % only ever showed in that one mode; now that
+  // report_pl_matrix() attributes Drawing for real at every depth (see
+  // plValues below), that reason is gone, and a single pre-selected
+  // dimension is safe: startCollapsed only kicks in once a SECOND
+  // dimension joins it (plDimOrder.length > 1), so CC Group alone still
+  // opens straight to its own rows, nothing cascades.
+  const [plDimOrder, setPlDimOrder] = useState<PLDim[]>(["ccGroup"]);
   const [monthWise, setMonthWise] = useState(false);
   const [yearWise, setYearWise] = useState(false);
 
@@ -388,7 +388,46 @@ export default function ProfitLossView() {
         <ReportKpi label="Actual Net" value={money(actualNet)} icon="wallet" tone={actualNet >= 0 ? "pos" : "neg"} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+      <div className="overflow-hidden rounded-lg border border-slate-200 shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-brand-700 px-3 py-2 text-sm font-bold text-white">
+          <span>Profit &amp; Loss Summary</span>
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
+            {PL_LEVELS.map((l) => {
+              const idx = plDimOrder.indexOf(l.key);
+              return (
+                <button key={l.key} onClick={() => toggleDim(l.key)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${idx >= 0 ? "bg-white text-brand-700" : "bg-brand-600 text-white/80 hover:bg-brand-500"}`}>
+                  {l.label}{idx >= 0 && plDimOrder.length > 1 ? ` ${idx + 1}` : ""}
+                </button>
+              );
+            })}
+            <button onClick={toggleMonthWise}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${monthWise ? "bg-white text-brand-700" : "bg-brand-600 text-white/80 hover:bg-brand-500"}`}>
+              Month wise
+            </button>
+            <button onClick={toggleYearWise}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${yearWise ? "bg-white text-brand-700" : "bg-brand-600 text-white/80 hover:bg-brand-500"}`}>
+              Year wise
+            </button>
+          </div>
+        </div>
+        {/* Keyed on the active combination (in click order for the
+            dimensions) so DataTable remounts — and its own `expanded`
+            state resets fresh to depth-0 — whenever Filteration changes.
+            The same group KEY — "Trading", say — means a different shape
+            under a different combination (a flat row under Cost Center
+            alone, a group with subgroups once Tag Area is also on, or a
+            different TREE entirely if the click order is reversed), so
+            without this a key already in the old component instance's
+            `expanded` Set carries straight into the next, making the new
+            combination's children render already open (or the newly
+            outermost level render collapsed) instead of fresh. */}
+        <DataTable key={plFilterKey}
+          bare roomy showGroupTotal cols={PL_COLS} startCollapsed={plDimOrder.length > 1}
+          {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
         <div className="overflow-hidden rounded-lg border border-slate-200 shadow-card">
           <div className="bg-brand-700 px-3 py-2 text-sm font-bold text-white">Cost Center Profit &amp; Loss</div>
           <table className="report-grid w-full text-sm">
@@ -412,50 +451,6 @@ export default function ProfitLossView() {
             )}
           </table>
         </div>
-
-        <div>
-          <div className="overflow-hidden rounded-lg border border-slate-200 shadow-card">
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-brand-700 px-3 py-2 text-sm font-bold text-white">
-              <span>Profit &amp; Loss Summary</span>
-              <div className="flex flex-wrap items-center gap-2 print:hidden">
-                {PL_LEVELS.map((l) => {
-                  const idx = plDimOrder.indexOf(l.key);
-                  return (
-                    <button key={l.key} onClick={() => toggleDim(l.key)}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${idx >= 0 ? "bg-white text-brand-700" : "bg-brand-600 text-white/80 hover:bg-brand-500"}`}>
-                      {l.label}{idx >= 0 && plDimOrder.length > 1 ? ` ${idx + 1}` : ""}
-                    </button>
-                  );
-                })}
-                <button onClick={toggleMonthWise}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${monthWise ? "bg-white text-brand-700" : "bg-brand-600 text-white/80 hover:bg-brand-500"}`}>
-                  Month wise
-                </button>
-                <button onClick={toggleYearWise}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${yearWise ? "bg-white text-brand-700" : "bg-brand-600 text-white/80 hover:bg-brand-500"}`}>
-                  Year wise
-                </button>
-              </div>
-            </div>
-            {/* Keyed on the active combination (in click order for the
-                dimensions) so DataTable remounts — and its own `expanded`
-                state resets fresh to depth-0 — whenever Filteration changes.
-                The same group KEY — "Trading", say — means a different shape
-                under a different combination (a flat row under Cost Center
-                alone, a group with subgroups once Tag Area is also on, or a
-                different TREE entirely if the click order is reversed), so
-                without this a key already in the old component instance's
-                `expanded` Set carries straight into the next, making the new
-                combination's children render already open (or the newly
-                outermost level render collapsed) instead of fresh. */}
-            <DataTable key={plFilterKey}
-              bare roomy cols={PL_COLS} startCollapsed={plDimOrder.length > 1}
-              {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-3 lg:grid-cols-3">
         {ccGroupNetRows.length > 0 && (
           <div className="card">
             <SectionHeader title="Cost Center Comparison" />
