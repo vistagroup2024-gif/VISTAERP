@@ -134,7 +134,10 @@ export default function InvoiceAutomationSettings({ canEdit }: { canEdit: boolea
         <div className="min-w-0">
           <p className="text-sm text-slate-600">
             When something happens in the ERP, these rules decide what is created automatically.
-            A rule that is <b>OFF</b> does nothing; you can still post by hand from the invoice screens.
+            A rule that is <b>OFF</b> does nothing; for Transport, Visa and Hotel you can still post by hand
+            from the invoice screens. <b>Car Sales rules have no manual alternative</b> — a Car Invoice, Car
+            Receipt or Vehicle Purchase posts only through its own rule, so turning one off means that posting
+            simply never happens until it is turned back on.
           </p>
           <p className="mt-2 text-sm">
             {onCount === 0
@@ -224,7 +227,9 @@ export default function InvoiceAutomationSettings({ canEdit }: { canEdit: boolea
               <p className="rounded bg-slate-50 px-3 py-2 text-sm text-slate-600">
                 <b>When:</b> {r.trigger_label}. This is a Car Sales posting — its trigger and its accounts are
                 resolved inside the Car module and are not configurable here yet.{" "}
-                {r.always_runs ? "It always posts and this switch has no effect." : "It can be switched on and off."}
+                {r.always_runs
+                  ? "It always posts and this switch has no effect."
+                  : "There is no manual “post” button for this — while it is OFF, nothing of this kind posts to the ledger at all, and a document saved while it is off stays unposted even after you turn it back on (post it again from the record itself, or ask support to repost it)."}
               </p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">

@@ -2340,3 +2340,59 @@ dual-source-via-`alt_source_type` is handled by a separate union branch
 in `trade_doc_pending()`, not an unqualified exists check) — `sale_order`
 remains the only doc_type in this schema with more than one legitimate
 descendant.
+
+## A Car Sales automation rule that is OFF has no manual fallback — unlike every other module
+
+Invoice Automation's own banner used to say "a rule that is OFF does
+nothing; you can still post by hand from the invoice screens" — true for
+Transport, Visa and Hotel (their module invoices are `trade_documents`
+raised through `trade_doc_raise`, but a clerk can also open Sales Invoice
+and type one from scratch, going through the ordinary `trade_doc_save`
+posting gate). It is **false for Car Sales**: `car_post_vehicle`,
+`car_post_contract`, `car_post_receipt`, `car_post_charge`,
+`car_post_charge_payment` and `car_post_commission` are internal engines
+granted to no role (see "`revoke ... from anon` is not a gate" above —
+these are exactly the engines verified shut to anon and to
+`authenticated`), called from nowhere in the app except their own
+`car_autopost_trigger`, which is itself gated by
+`acct_automation_enabled(company, 'car.' || kind)`. There is no "Post"
+button anywhere in the Car Sales screens, because the trigger was always
+assumed to be the only door. So a Car Sales rule left OFF doesn't mean
+"post it by hand instead" — it means that kind of posting **never
+happens at all**, silently: the trigger runs, the automation check fails,
+it returns with no error and nothing in `audit_log`.
+
+This is exactly how a real Car Receipt went missing: `car.receipt` was
+`enabled = false` (the row existed in `acct_automation_rules`, just never
+turned on — likely never noticed, since `car.contract` and `car.charge`
+were on and everything else on the Car Sales screens looked and behaved
+normally). A receipt saved through Accounting → Receipt → Advance on a
+Sale Order wrote its `car_receipts` row and told the user it was saved —
+it was, as a record — but no journal entry followed, so the customer's
+ledger and the cash ledger both stayed silent about 10,000 that had
+genuinely been collected. Fixed by turning `car.receipt` on
+(`acct_automation_save`) and posting the one stranded receipt by hand
+(`car_post_receipt(id)`, called directly — this is the one legitimate
+reason to reach for an internal engine directly rather than through the
+UI, since nothing in the UI can do it once a document has been saved
+under a rule that was off). `InvoiceAutomationSettings.tsx`'s banner and
+its per-rule Car Sales detail panel both now say so plainly, instead of
+repeating a promise that was never true for this one module.
+
+**A rule left this way stays a landmine, not a one-time fix**: turning
+`car.receipt` back on does not retroactively post whatever was saved
+while it was off — the trigger already ran and already declined, and
+nothing re-fires it. Any document of that kind saved during the gap has
+to be found and posted by hand the same way, or it stays a real,
+uncounted gap in the books. `car.vehicle`, `car.commission` and
+`car.charge_payment` are still OFF today and were left that way —
+nothing currently reports them as broken the way the receipt was, and
+turning one on is a business decision (see "Whether it is on is the
+business's decision, not a migration's" above), not something to flip
+silently while fixing an unrelated report. But they carry the identical
+risk: if any of those three kinds of document is ever saved while its
+rule is off, it will look saved and post nothing, with nothing in the UI
+to say so beyond the corrected banner text. Worth a periodic check —
+`select rule_key, enabled from acct_automation_rules where module = 'car'
+and kind = 'trigger'` — rather than waiting for the next ledger to come
+up short.
