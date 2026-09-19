@@ -2909,3 +2909,24 @@ point: two genuinely different questions over the same settlements,
 each needing its own attribution rule, the same way `billed` (gross) and
 `outstanding` (net) needed to stay two separate columns rather than one
 field meaning both.
+
+**Monthly Balances' own KPI row picked up the same Due/Overdue/Total
+shape Ageing Summary's already uses**, read off the same period-shifted
+`outstanding` column Due already reads: `Overdue` sums every month
+strictly before the current one that still carries a balance, `Total Due`
+is Due + Overdue — the identical bucket definitions this file's dashboard-
+card section already states ("Due — its date has ARRIVED and its month
+has not ended... Overdue — the month it was due in has ended"), just
+applied to the customer's whole schedule instead of one company-wide sum.
+"Months Shown" was dropped — a count with no decision it informs, once
+the table beneath it already shows exactly how many month columns there
+are.
+
+**"Customers Owing" (tab 1's own last KPI) answers a different question
+from "Customers" (the first), even though both are customer counts**:
+`Customers` is every row on the table — anyone with recent activity, a
+schedule, or a balance, including a customer sitting at a clean zero or
+in credit; `Customers Owing` narrows that to `balance > 0` — genuinely
+owes something right now. Worth stating plainly rather than assuming
+it's self-evident from the label alone, since two customer-count cards
+side by side invite exactly that "aren't these the same" question.

@@ -169,17 +169,23 @@ const thisMonthKey = new Date().toISOString().slice(0, 7);
 function MonthlyBalances({ rows }: { rows: MatrixRow[] }) {
   const months = monthsAxis(rows);
   const custs = pivotByCustomer(rows).filter((c) => c.totalOutstanding > 0.005);
-  const totalDue = custs.reduce((s, c) => s + c.totalOutstanding, 0);
+  const totalBilled = custs.reduce((s, c) => s + c.totalOutstanding, 0);
   const curMonthDue = rows.filter((r) => r.month === thisMonthKey).reduce((s, r) => s + r.outstanding, 0);
+  // Overdue here is the same bucket Ageing Summary's own KPI row uses — every
+  // month whose own period has already ended, still carrying a balance —
+  // read off the same period-shifted 'outstanding' column Due already reads.
+  const overdueMonthly = rows.filter((r) => r.month < thisMonthKey).reduce((s, r) => s + r.outstanding, 0);
+  const totalDueMonthly = curMonthDue + overdueMonthly;
   const monthTotal = (mk: string) => custs.reduce((s, c) => s + (c.byMonth.get(mk)?.outstanding ?? 0), 0);
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <ReportKpi label="Customers with a Balance" value={String(custs.length)} icon="users" />
-        <ReportKpi label="Total Billed (all months)" value={num(totalDue)} icon="wallet" tone={totalDue > 0 ? "warn" : undefined} />
+        <ReportKpi label="Total Billed (all months)" value={num(totalBilled)} icon="wallet" tone={totalBilled > 0 ? "warn" : undefined} />
         <ReportKpi label={`Due — ${monthShort(thisMonthKey)}`} value={num(curMonthDue)} icon="clock" tone={curMonthDue > 0 ? "warn" : undefined} />
-        <ReportKpi label="Months Shown" value={String(months.length)} icon="trendUp" />
+        <ReportKpi label="Overdue" value={num(overdueMonthly)} icon="clock" tone={overdueMonthly > 0 ? "neg" : undefined} />
+        <ReportKpi label="Total Due" value={num(totalDueMonthly)} icon="wallet" tone={totalDueMonthly > 0 ? "warn" : undefined} />
       </div>
       <div>
         <SectionHeader title="Balances Monthwise" />
@@ -210,7 +216,7 @@ function MonthlyBalances({ rows }: { rows: MatrixRow[] }) {
             {custs.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
               <td className="td sticky left-0 bg-slate-50 z-10">Total ({custs.length})</td>
               {months.map((mk) => <td key={mk} className="td text-right tabular-nums">{num(monthTotal(mk))}</td>)}
-              <td className="td text-right tabular-nums border-l border-slate-100">{num(totalDue)}</td>
+              <td className="td text-right tabular-nums border-l border-slate-100">{num(totalBilled)}</td>
             </tr></tfoot>}
           </table>
         </div>
