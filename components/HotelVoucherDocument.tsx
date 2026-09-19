@@ -110,19 +110,6 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
         </div>
       </div>
 
-      {/* Its own card, not a line in the header's small print, so the date
-          payment is due by doesn't get skipped past — brand accent, not an
-          alert colour, to read as part of the document rather than a warning. */}
-      {optionDate && (
-        <div className="mx-8 mt-5 flex items-center justify-between gap-4 rounded-xl border border-brand/30 bg-brand/5 px-5 py-3" style={exact}>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Option Date</div>
-            <div className="mt-0.5 text-xs text-slate-500">Payment must be settled by this date to hold the booking</div>
-          </div>
-          <div className="text-xl font-bold text-brand" style={exact}>{dateStr(optionDate)}</div>
-        </div>
-      )}
-
       <div className="px-8 py-6">
         {/* ── Guest Details ─────────────────────────────────────── */}
         <SectionTitle>Guest Details</SectionTitle>
@@ -221,6 +208,13 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
 
             {isInvoice && (
               <div className="flex flex-col gap-4">
+                {optionDate && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Option Date</span>
+                    <span className="text-sm font-bold text-slate-800">{dateStr(optionDate)}</span>
+                  </div>
+                )}
+
                 <div className="flex flex-col items-start gap-1 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3" style={exact}>
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total ({currency})</span>
                   <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(grandTotal, currency)}</span>

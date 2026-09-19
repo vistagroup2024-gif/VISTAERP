@@ -33,13 +33,13 @@ const HOTEL_TERMS: { text: string; amount?: boolean }[] = [
   { text: "Payment must be settled by the option date provided. Failure to settle payment by the given date will result in the cancellation of the booking, and a one-night charge will be applied to your account.", amount: true },
   { text: "Check-in time is at 4:00 PM." },
   { text: "Check-out time is at 12:00 PM." },
-  { text: "It is the client's responsibility to ensure a smooth check-out process. Any additional charges for extra nights incurred due to late check-out will be billed to the client's account accordingly.", amount: true },
-  { text: "In case of a no-show, the full amount will be charged.", amount: true },
-  { text: "For cancellations made prior to 7 days before the guest's arrival, a one-night charge will be applied.", amount: true },
-  { text: "For cancellations made within 5 days of the guest's arrival, the full amount will be charged.", amount: true },
-  { text: "During high season periods (e.g., Ramadan, Hajj, high Umrah season, school holidays, and public holidays), full payment will be charged for cancellations or no-shows.", amount: true },
+  { text: "It is the client's responsibility to ensure a smooth check-out process. Any additional charges for extra nights incurred due to late check-out will be billed to the client's account accordingly." },
+  { text: "In case of a no-show, the full amount will be charged." },
+  { text: "For cancellations made prior to 7 days before the guest's arrival, a one-night charge will be applied." },
+  { text: "For cancellations made within 5 days of the guest's arrival, the full amount will be charged." },
+  { text: "During high season periods (e.g., Ramadan, Hajj, high Umrah season, school holidays, and public holidays), full payment will be charged for cancellations or no-shows." },
   { text: "Any amendments to the booking will be subject to hotel availability." },
-  { text: "Amendments cannot be used as a reason for cancellation or to request a refund of any amount paid.", amount: true },
+  { text: "Amendments cannot be used as a reason for cancellation or to request a refund of any amount paid." },
 ];
 
 export const VISTA_HOTEL_TERMS = HOTEL_TERMS.map((t) => t.text);
