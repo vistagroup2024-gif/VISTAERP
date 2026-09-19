@@ -52,7 +52,7 @@ export interface DataGroup {
  * the report to wire to its RPC — this component never re-fetches on its own.
  */
 export default function DataTable({
-  cols, rows, groups, empty, rowClass, page, pageSize, totalCount, onPageChange, bare,
+  cols, rows, groups, empty, rowClass, page, pageSize, totalCount, onPageChange, bare, roomy,
 }: {
   cols: Col[];
   rows?: any[];
@@ -64,6 +64,10 @@ export default function DataTable({
   // merged card around a dark-green header and this table (P&L Summary),
   // so the header sits flush on top of the grid instead of two separate boxes.
   bare?: boolean;
+  // A touch more row/header padding for a table a caller wants to read as
+  // less cramped (P&L Summary, asked for directly) — opt-in per caller
+  // rather than a change to every report built on this component.
+  roomy?: boolean;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   // Tracks which groups are OPEN, not which are closed — so the empty set
@@ -108,6 +112,7 @@ export default function DataTable({
   }
 
   const showPager = typeof totalCount === "number" && typeof pageSize === "number" && typeof page === "number" && onPageChange;
+  const headPy = roomy ? "py-2.5" : "py-2";
 
   return (
     <div>
@@ -116,7 +121,7 @@ export default function DataTable({
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>{visibleCols.map((c) => (
               <th key={c.key}
-                className={`border border-slate-200 px-3 py-2 ${isNumeric(c) ? "text-right" : "text-left"}`}>
+                className={`border border-slate-200 px-3 ${headPy} ${isNumeric(c) ? "text-right" : "text-left"}`}>
                 <span onClick={() => toggleSort(c)} className={`col-resize ${c.sortable === false ? "" : "cursor-pointer select-none hover:text-brand-900"}`}>
                   {c.label}{sort?.key === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
                 </span>
@@ -125,12 +130,12 @@ export default function DataTable({
           </thead>
           {isFlat ? (
             <FlatBody cols={visibleCols} rows={flatRows} empty={empty} rowClass={rowClass}
-              hasTotals={hasTotals} totals={totals} />
+              hasTotals={hasTotals} totals={totals} roomy={roomy} />
           ) : (
             <GroupedBody cols={visibleCols} groups={groups ?? []} empty={empty}
               expanded={expanded} onToggle={(k) => setExpanded((c) => {
                 const n = new Set(c); n.has(k) ? n.delete(k) : n.add(k); return n;
-              })} />
+              })} roomy={roomy} />
           )}
         </table>
       </div>
@@ -146,9 +151,10 @@ export default function DataTable({
   );
 }
 
-function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals }: {
-  cols: Col[]; rows: any[]; empty: string; rowClass?: (row: any) => string; hasTotals: boolean; totals: Record<string, number>;
+function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals, roomy }: {
+  cols: Col[]; rows: any[]; empty: string; rowClass?: (row: any) => string; hasTotals: boolean; totals: Record<string, number>; roomy?: boolean;
 }) {
+  const py = roomy ? "py-2.5" : "py-2";
   return (
     <>
       <tbody>
@@ -156,7 +162,7 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals }: {
           const state = rowClass ? rowClass(r) : (r.low || r.short) ? "bg-red-50/50" : "";
           return (
             <tr key={i} className={state || (i % 2 === 1 ? "bg-slate-50/70" : "")}>
-              {cols.map((c) => <Cell key={c.key} col={c} row={r} />)}
+              {cols.map((c) => <Cell key={c.key} col={c} row={r} roomy={roomy} />)}
             </tr>
           );
         })}
@@ -167,7 +173,7 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals }: {
       {rows.length > 0 && hasTotals && (
         <tfoot><tr className="bg-slate-50 font-semibold">
           {cols.map((c, i) => (
-            <td key={c.key} className={`border border-slate-200 px-3 py-2 ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total ? negativeClass(c, totals[c.key]) : ""}`}>
+            <td key={c.key} className={`border border-slate-200 px-3 ${py} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total ? negativeClass(c, totals[c.key]) : ""}`}>
               {c.total ? cellText(c, totals[c.key]) : i === 0 ? "Total" : ""}
             </td>
           ))}
@@ -177,20 +183,20 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals }: {
   );
 }
 
-function GroupedBody({ cols, groups, empty, expanded, onToggle }: {
-  cols: Col[]; groups: DataGroup[]; empty: string; expanded: Set<string>; onToggle: (key: string) => void;
+function GroupedBody({ cols, groups, empty, expanded, onToggle, roomy }: {
+  cols: Col[]; groups: DataGroup[]; empty: string; expanded: Set<string>; onToggle: (key: string) => void; roomy?: boolean;
 }) {
   if (groups.length === 0) {
     return <tbody><tr><td colSpan={cols.length} className="border border-slate-200 px-3 py-8 text-center text-slate-400">{empty}</td></tr></tbody>;
   }
-  return <tbody>{groups.map((g, i) => <GroupRows key={g.key} cols={cols} g={g} depth={0} idx={i} expanded={expanded} onToggle={onToggle} />)}</tbody>;
+  return <tbody>{groups.map((g, i) => <GroupRows key={g.key} cols={cols} g={g} depth={0} idx={i} expanded={expanded} onToggle={onToggle} roomy={roomy} />)}</tbody>;
 }
 
 // One group, rendered at its own depth — and, when it has subgroups, each of
 // those again, one level deeper. A Cost Centre Group's row is the same shape
 // as a Cost Centre's; only the indent and what happens on expand differ.
-function GroupRows({ cols, g, depth, idx, expanded, onToggle }: {
-  cols: Col[]; g: DataGroup; depth: number; idx: number; expanded: Set<string>; onToggle: (key: string) => void;
+function GroupRows({ cols, g, depth, idx, expanded, onToggle, roomy }: {
+  cols: Col[]; g: DataGroup; depth: number; idx: number; expanded: Set<string>; onToggle: (key: string) => void; roomy?: boolean;
 }) {
   // A group with nothing beneath it (no subgroups, an empty rows array) gets
   // no chevron and no click handler — expanding it would show nothing, so
@@ -204,30 +210,32 @@ function GroupRows({ cols, g, depth, idx, expanded, onToggle }: {
   // every top-level group row read the same flat grey as its neighbours;
   // this is the same alternating-by-index convention every flat table uses.
   const zebra = idx % 2 === 1 ? "bg-slate-50/70" : "";
+  const py = roomy ? "py-2.5" : "py-2";
+  const subPy = roomy ? "py-2" : "py-1.5";
   return (
     <Fragment>
       <tr className={`font-semibold ${zebra} ${hasChildren ? "cursor-pointer" : ""}`} onClick={hasChildren ? () => onToggle(g.key) : undefined}>
         {g.values ? (
           <>
-            <td className="border border-slate-200 py-2" style={{ paddingLeft: indent }}>
+            <td className={`border border-slate-200 ${py}`} style={{ paddingLeft: indent }}>
               {hasChildren && <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>}
               {g.label}{g.meta}
             </td>
-            {cols.slice(1).map((c) => <Cell key={c.key} col={c} row={g.values!} />)}
+            {cols.slice(1).map((c) => <Cell key={c.key} col={c} row={g.values!} roomy={roomy} />)}
           </>
         ) : (
-          <td colSpan={cols.length} className="border border-slate-200 py-2" style={{ paddingLeft: indent }}>
+          <td colSpan={cols.length} className={`border border-slate-200 ${py}`} style={{ paddingLeft: indent }}>
             {hasChildren && <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>}
             {g.label}{g.meta}
           </td>
         )}
       </tr>
       {open && g.subgroups && g.subgroups.map((sg, si) => (
-        <GroupRows key={sg.key} cols={cols} g={sg} depth={depth + 1} idx={si} expanded={expanded} onToggle={onToggle} />
+        <GroupRows key={sg.key} cols={cols} g={sg} depth={depth + 1} idx={si} expanded={expanded} onToggle={onToggle} roomy={roomy} />
       ))}
       {open && !g.subgroups && g.rows.map((r, i) => (
         <tr key={`${g.key}-${i}`} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
-          {cols.map((c, ci) => <Cell key={c.key} col={c} row={r} indent={ci === 0 ? indent + 16 : undefined} />)}
+          {cols.map((c, ci) => <Cell key={c.key} col={c} row={r} indent={ci === 0 ? indent + 16 : undefined} roomy={roomy} />)}
         </tr>
       ))}
       {/* A values-bearing group's own header row already IS the subtotal —
@@ -237,7 +245,7 @@ function GroupRows({ cols, g, depth, idx, expanded, onToggle }: {
       {open && !g.subgroups && g.subtotal && !g.values && (
         <tr key={`${g.key}-sub`} className="bg-slate-50/60 font-medium">
           {cols.map((c, i) => (
-            <td key={c.key} className={`border border-slate-200 px-3 py-1.5 ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total && g.subtotal![c.key] !== undefined ? negativeClass(c, g.subtotal![c.key]) : ""}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>
+            <td key={c.key} className={`border border-slate-200 px-3 ${subPy} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total && g.subtotal![c.key] !== undefined ? negativeClass(c, g.subtotal![c.key]) : ""}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>
               {c.total && g.subtotal![c.key] !== undefined ? cellText(c, g.subtotal![c.key]) : i === 0 ? "Subtotal" : ""}
             </td>
           ))}
@@ -247,18 +255,19 @@ function GroupRows({ cols, g, depth, idx, expanded, onToggle }: {
   );
 }
 
-function Cell({ col, row, indent }: { col: Col; row: any; indent?: number }) {
+function Cell({ col, row, indent, roomy }: { col: Col; row: any; indent?: number; roomy?: boolean }) {
   const v = row[col.key];
   const style = indent !== undefined ? { paddingLeft: indent } : undefined;
+  const py = roomy ? "py-2.5" : "py-2";
   if (col.kind === "class") {
     const tone = v === "A" ? "bg-green-100 text-green-700" : v === "B" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600";
-    return <td className="border border-slate-200 px-3 py-2 text-right" style={style}><span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${tone}`}>{v}</span></td>;
+    return <td className={`border border-slate-200 px-3 ${py} text-right`} style={style}><span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${tone}`}>{v}</span></td>;
   }
   const text = cellText(col, v);
   const href = col.href?.(row);
   const neg = negativeClass(col, v);
   return (
-    <td className={`border border-slate-200 px-3 py-2 ${isNumeric(col) ? "text-right tabular-nums" : ""} ${neg}`} style={style}>
+    <td className={`border border-slate-200 px-3 ${py} ${isNumeric(col) ? "text-right tabular-nums" : ""} ${neg}`} style={style}>
       {href ? <Link href={href} className={`hover:underline ${neg || "text-brand"}`}>{text}</Link> : text}
     </td>
   );

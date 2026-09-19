@@ -86,13 +86,25 @@ const EMPTY_ARR: any[] = [];
 // group/costCentre id to drill further into; a costing row does).
 type CostRow = { name: string; group: string; sales: number; cogs: number; expense: number; monthly: { month: string; sales: number; cogs: number; expense: number }[] };
 
-function plValues(sales: number, cogs: number, expense: number) {
+// `drawing` is only ever passed for a row that represents a whole calendar
+// period for the whole company (a month, or "This Period"/"Same Period Last
+// Year") — Drawings has no cost-centre, tag-area or group breakdown
+// anywhere in the schema (report_drawings() returns a company-wide monthly
+// total, not one split by cost centre), so a CC Group / Cost Center / Tag
+// Area row leaves it undefined rather than showing a "0.00" that would read
+// as a real, checked figure instead of "not attributable here" — the same
+// insufficient_data-over-a-fabricated-zero rule Transport Costing already
+// follows.
+function plValues(sales: number, cogs: number, expense: number, drawing?: number) {
   const gross = sales - cogs, net = gross - expense;
+  const actualNet = drawing !== undefined ? net - drawing : undefined;
   return {
     revenue: sales, cogs, gross_profit: gross,
     gp_pct: sales !== 0 ? (gross / sales) * 100 : null,
     expense, net_profit: net,
     per_pct: sales !== 0 ? (net / sales) * 100 : null,
+    drawing, actual_net: actualNet,
+    act_pct: actualNet !== undefined && sales !== 0 ? (actualNet / sales) * 100 : null,
   };
 }
 
@@ -169,6 +181,17 @@ const PL_COLS = [
   { key: "net_profit", label: "Net", kind: "money" as const, total: true },
   { key: "per_pct", label: "PER %", kind: "pct" as const },
 ];
+// Drawing / Actual Net / Act % — only meaningful on a row that IS a whole
+// calendar period (a month, or the Year-wise This-Period/Last-Year rows),
+// since Drawings has no cost-centre/tag-area breakdown to show honestly on
+// a CC Group, Cost Center or Tag Area row. Appended to PL_COLS only in
+// those modes (see `plCols` below) rather than always shown with a
+// fabricated-looking "0.00" on every other row.
+const PL_DRAWING_COLS = [
+  { key: "drawing", label: "Drawing", kind: "money" as const, total: true },
+  { key: "actual_net", label: "Actual Net", kind: "money" as const, total: true },
+  { key: "act_pct", label: "Act %", kind: "pct" as const },
+];
 
 // The five P&L Filteration buttons are independent criteria, not one
 // exclusive tab each — CC Group and Month wise are both real things a user
@@ -233,6 +256,12 @@ export default function ProfitLossView() {
   const [ccData, setCcData] = useState<any[]>(EMPTY_ARR);
   const [tagData, setTagData] = useState<any[]>(EMPTY_ARR);
   const [drawings, setDrawings] = useState(0);
+  // Per-month breakdown of the current period's own drawings — the same
+  // report_drawings() call's `monthly` array, kept alongside the total so
+  // the flat month-wise Profit & Loss Summary can show a real Drawing
+  // figure per month instead of only a period total.
+  const [drawingsMonthly, setDrawingsMonthly] = useState<{ month: string; amount: number }[]>(EMPTY_ARR);
+  const [drawingsPy, setDrawingsPy] = useState(0);
   // Last Month / Current Month / Year to Date — three FIXED calendar windows
   // shown alongside whatever period the filter is set to, not a second
   // reading of it: "current month" here is always this actual month, "year
@@ -270,8 +299,9 @@ export default function ProfitLossView() {
       sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: lmFrom, p_to: lmTo }),
       sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: cmFrom, p_to: cmTo }),
       sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: ytdFrom, p_to: ytdTo }),
+      sb.rpc("report_drawings", { p_company: COMPANY_ID, p_from: pyFrom, p_to: pyTo }),
     ]).then(([{ data }, { data: lmData }, { data: pyData }, { data: cmData }, { data: ytdData }, { data: monthlyData }, { data: ccD }, { data: tagD },
-      { data: drawingsData }, { data: drawLmData }, { data: drawCmData }, { data: drawYtdData }]) => {
+      { data: drawingsData }, { data: drawLmData }, { data: drawCmData }, { data: drawYtdData }, { data: drawPyData }]) => {
       if (!live) return;
       setRows((data as any[]) ?? []);
       setLmRows((lmData as any[]) ?? []);
@@ -282,9 +312,11 @@ export default function ProfitLossView() {
       setCcData((ccD as any[]) ?? []);
       setTagData((tagD as any[]) ?? []);
       setDrawings(drawTotal(drawingsData));
+      setDrawingsMonthly(((drawingsData as any)?.monthly as any[]) ?? []);
       setDrawingsLm(drawTotal(drawLmData));
       setDrawingsCm(drawTotal(drawCmData));
       setDrawingsYtd(drawTotal(drawYtdData));
+      setDrawingsPy(drawTotal(drawPyData));
       setLoading(false);
     });
     return () => { live = false; };
@@ -327,19 +359,30 @@ export default function ProfitLossView() {
   const hasLeaf = plModes.has("costCenter");
   const withMonth = plModes.has("monthWise");
 
+  // Drawing / Actual Net / Act % only ever show on a row that IS a whole
+  // calendar period for the whole company — see PL_DRAWING_COLS. That's
+  // exactly the flat month-wise fallback and the Year-wise comparison; a
+  // CC Group / Cost Center / Tag Area row (or its month drill-down, which
+  // is that GROUP's own months, not the company's) has no honest figure to
+  // put there, so those three columns are left off the table entirely
+  // rather than shown with a fabricated-looking "0.00" on every row.
+  const showDrawingCols = hasYear || (!hasGroup && !hasLeaf && !hasTag);
+  const plCols = showDrawingCols ? [...PL_COLS, ...PL_DRAWING_COLS] : PL_COLS;
+  const drawingsByMonth = new Map(drawingsMonthly.map((r) => [r.month, Number(r.amount || 0)]));
+
   let plGroups: DataGroup[] | null = null;
   let plFlatRows: any[] | null = null;
   if (hasYear) {
     plFlatRows = [
-      { label: "This Period", ...plValues(cur.totInc, cur.totCost, cur.totExp) },
-      { label: "Same Period Last Year", ...plValues(py.totInc, py.totCost, py.totExp) },
+      { label: "This Period", ...plValues(cur.totInc, cur.totCost, cur.totExp, drawings) },
+      { label: "Same Period Last Year", ...plValues(py.totInc, py.totCost, py.totExp, drawingsPy) },
     ];
   } else if (hasTag) {
     plGroups = buildCostingGroups(tagCostRows, { hasGroup: true, hasLeaf: true, withMonth });
   } else if (hasGroup || hasLeaf) {
     plGroups = buildCostingGroups(ccCostRows, { hasGroup, hasLeaf, withMonth });
   } else {
-    plFlatRows = monthly.map((m) => ({ label: m.month_label, ...plValues(Number(m.revenue || 0), Number(m.cogs || 0), Number(m.expense || 0)) }));
+    plFlatRows = monthly.map((m) => ({ label: m.month_label, ...plValues(Number(m.revenue || 0), Number(m.cogs || 0), Number(m.expense || 0), drawingsByMonth.get(m.month) ?? 0) }));
   }
 
   return (
@@ -367,7 +410,7 @@ export default function ProfitLossView() {
         <ReportKpi label="Actual Net" value={money(actualNet)} icon="wallet" tone={actualNet >= 0 ? "pos" : "neg"} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_2.6fr]">
+      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
         <div className="overflow-hidden rounded-lg border border-slate-200 shadow-card">
           <div className="bg-brand-700 px-3 py-2 text-sm font-bold text-white">Cost Center Profit &amp; Loss</div>
           <table className="report-grid w-full text-sm">
@@ -405,7 +448,7 @@ export default function ProfitLossView() {
                 ))}
               </div>
             </div>
-            <DataTable bare cols={PL_COLS} {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
+            <DataTable bare roomy cols={plCols} {...(plGroups ? { groups: plGroups } : { rows: plFlatRows ?? [] })} empty="No activity in this period." />
           </div>
         </div>
       </div>
@@ -427,7 +470,7 @@ export default function ProfitLossView() {
         {monthly.length > 1 && (
           <div className="card">
             <SectionHeader title={`Monthwise Net Profit${loading ? " (loading…)" : ""}`} />
-            <TrendChart data={monthly} xKey="month_label" series={[{ key: "net_profit", label: "Net Profit" }]} />
+            <TrendChart data={monthly} xKey="month_label" series={[{ key: "net_profit", label: "Net Profit", colorBySign: true }]} />
           </div>
         )}
       </div>

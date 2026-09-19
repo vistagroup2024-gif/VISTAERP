@@ -1728,3 +1728,64 @@ The rule for anywhere else a profit-or-loss figure shows up, hand-rolled
 or not: color follows the SIGN of the actual number, never a fixed class
 picked because the figure is "usually positive" — the Vehicle Profitability
 bug is exactly what that shortcut produces.
+
+**A bar chart can have the identical bug, and it's the same rule.**
+`TrendChart` (`components/reports/charts/TrendChart.tsx`) painted every bar
+of a series one fixed `fill` color — fine for Sales/Revenue/Purchases,
+which are never legitimately negative, but P&L's own "Monthwise Net
+Profit" chart used the same component for a figure that genuinely can be
+a loss, so an August loss still drew a green bar. `TrendSeries.colorBySign`
+is the opt-in fix: a series that sets it renders each month's `<Cell>`
+red (`#dc2626`, the same red `negativeClass()` uses) when that month's
+value is negative, green otherwise — set only on a series where a
+negative value IS a loss (Net Profit, a variance), never on Sales/Revenue
+series, the same money/pct-only scope `negativeClass()` already applies to
+grid cells. Nothing else calling `TrendChart` needed this — Sales,
+Purchases, Drawings, Balance-by-Type are all non-negative by construction.
+
+## Profit & Loss Summary carries Drawing / Actual Net / Act %, but only where they're honest
+
+The old software's Profit & Loss Summary showed three more columns this
+ERP's version was missing — Drawing, Actual Net, Act % — alongside
+Revenue/COGS/Gross/Expenses/Net. They're not a new calculation:
+`report_drawings()` already returns a `monthly` breakdown
+(`{month, amount}`), so a flat month row's Drawing is that month's real
+figure, Actual Net is `net_profit - drawing`, and Act % is
+`actual_net / revenue * 100` — the same shape `per_pct` already uses for
+Net.
+
+**They only appear where a row genuinely represents a whole calendar
+period for the whole company** — the flat month-wise fallback view and
+the Year-wise "This Period" / "Same Period Last Year" rows — never on a
+CC Group, Cost Center or Tag Area row. `report_drawings()` has no
+cost-centre or tag-area breakdown anywhere in the schema (drawings aren't
+posted against a cost centre the way revenue/expense are), so a grouped
+row has no honest figure to put there. `cellText()` renders a missing
+money value as `"0.00"`, not `"—"` — showing the column anyway with
+`undefined` would read as a checked, real zero rather than "not
+attributable to this row," which is exactly the fabricated-figure trap
+this file keeps warning against (Violation Charges, Transport Costing's
+`insufficient_data`). So `PL_DRAWING_COLS` is appended to `PL_COLS` only
+when `showDrawingCols` is true (`hasYear || (!hasGroup && !hasLeaf &&
+!hasTag)`) — the three columns are absent from the grid entirely in every
+grouped mode, not shown with a misleading zero. Year-wise's own
+"Same Period Last Year" row needed one more fetch this page didn't
+already make (`report_drawings` for the shifted-back-a-year range) —
+every other period box already had its own drawings call, this was the
+one comparison missing it.
+
+## A table a caller wants roomier is opt-in, not a change to every report
+
+"a bit height increase" on P&L Summary specifically — not every report —
+is `DataTable`'s new `roomy?: boolean` prop: `py-2` header/row padding
+becomes `py-2.5` (and a group's `py-1.5` subtotal row becomes `py-2`)
+when set, threaded through `FlatBody`/`GroupedBody`/`GroupRows`/`Cell`.
+Default `false` everywhere it isn't passed, so every other report built
+on `DataTable` is pixel-identical to before — a caller opts in the same
+way `bare` already works, rather than this being a global density change
+nobody asked for on Balance Sheet, Aging, or anywhere else. The same
+"widen this one panel" request became a plain layout change:
+`lg:grid-cols-[1fr_2.6fr]` (a ratio that caps the Summary panel's share)
+became `lg:grid-cols-[280px_1fr]` (the Cost Center P&L panel, a simple
+two-column list, gets a fixed narrow width and the Summary panel — now
+carrying up to 11 columns instead of 8 — takes the rest of the row).
