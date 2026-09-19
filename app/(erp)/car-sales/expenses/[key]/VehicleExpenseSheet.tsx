@@ -13,6 +13,8 @@ import Link from "next/link";
 type VehicleOpt = {
   kind: "vehicle" | "po_line"; id: string | null; po_line: string | null;
   label: string; cost: number; status: string; grp: string;
+  item: string | null; supplier: string | null; source: string | null;
+  cost_center: string | null; tag_area: string | null;
 };
 type Head = { id: string; name: string; amount: number | null; credit_account: string | null };
 type Acct = { id: string; name: string; code: string; subtype: string };
@@ -132,6 +134,17 @@ export default function VehicleExpenseSheet({ vkey, vehicle, heads, accounts, ro
             : <>{rows.length} line{rows.length === 1 ? "" : "s"} so far, <b className="tabular-nums">{sar(total)}</b>,
                 {" "}in a total cost of <b className="tabular-nums">{sar(vehicle.cost)}</b>.</>}
         </p>
+        {/* Which car this actually is, beyond its bare vehicle number: what it
+            was bought as, who from, and which Purchase Order or Purchase
+            Voucher raised it — plus the cost centre and tag area its ledger
+            entry carries, so a plain "CAR-000006" is traceable from here. */}
+        <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-slate-500 sm:grid-cols-3">
+          {vehicle.item && <div><dt className="inline text-slate-400">Item: </dt><dd className="inline text-slate-700">{vehicle.item}</dd></div>}
+          {vehicle.source && <div><dt className="inline text-slate-400">From: </dt><dd className="inline text-slate-700">{vehicle.source}</dd></div>}
+          {vehicle.supplier && <div><dt className="inline text-slate-400">Supplier: </dt><dd className="inline text-slate-700">{vehicle.supplier}</dd></div>}
+          {vehicle.cost_center && <div><dt className="inline text-slate-400">Cost Centre: </dt><dd className="inline text-slate-700">{vehicle.cost_center}</dd></div>}
+          {vehicle.tag_area && <div><dt className="inline text-slate-400">Tag Area: </dt><dd className="inline text-slate-700">{vehicle.tag_area}</dd></div>}
+        </dl>
       </div>
 
       {err && <div className="rounded border border-danger-soft bg-danger-soft/50 px-3 py-2 text-sm text-danger-fg">{err}</div>}

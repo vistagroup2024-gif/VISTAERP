@@ -9,9 +9,13 @@ import { dateStr } from "@/lib/format";
 type VehicleOpt = {
   kind: "vehicle" | "po_line"; id: string | null; po_line: string | null;
   label: string; cost: number; status: string; grp: string;
+  item: string | null; supplier: string | null; source: string | null;
+  cost_center: string | null; tag_area: string | null;
 };
 type Summary = {
   vehicle_id: string; label: string; status: string; cost: number;
+  item: string | null; supplier: string | null; source: string | null;
+  cost_center: string | null; tag_area: string | null;
   count: number; total: number; last_date: string;
 };
 
@@ -20,6 +24,13 @@ type Summary = {
 // The vehicle's own sheet is keyed the same way, so opening either list lands
 // on the same route.
 const keyOf = (v: VehicleOpt) => (v.kind === "vehicle" ? `v:${v.id}` : `p:${v.po_line}`);
+
+// What a bare "CAR-000006" doesn't say by itself: the item it was bought as,
+// who it was bought from, and which Purchase Order or Purchase Voucher
+// raised it. Shown as a hint under the label — and SearchSelect searches
+// hints too, so typing a PO number or a supplier's name finds the car.
+const sourceHint = (v: { item: string | null; supplier: string | null; source: string | null }) =>
+  [v.item, v.source ? `from ${v.source}` : null, v.supplier].filter(Boolean).join(" · ") || undefined;
 
 export default function CarExpenseLanding({ vehicles, summary, rights }: {
   vehicles: VehicleOpt[]; summary: Summary[]; rights: Record<string, boolean>;
@@ -59,7 +70,7 @@ export default function CarExpenseLanding({ vehicles, summary, rights }: {
               <SearchSelect value={pick} onChange={setPick}
                 placeholder="Choose a vehicle…"
                 options={groups.flatMap(([g, list]) =>
-                  list.map((v) => ({ value: keyOf(v), label: v.label, group: g.replace(/^\d\s/, "") })))} />
+                  list.map((v) => ({ value: keyOf(v), label: v.label, hint: sourceHint(v), group: g.replace(/^\d\s/, "") })))} />
               <p className="mt-1 text-xs text-slate-500">
                 Cars in the yard, and cars still on a purchase order — customs and transport are billed
                 long before the car turns up. A vehicle with expenses already on it is not offered here —
@@ -78,7 +89,8 @@ export default function CarExpenseLanding({ vehicles, summary, rights }: {
         <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">
             <thead className="bg-slate-50"><tr>
-              <th className="th">Vehicle</th><th className="th text-right">Lines</th>
+              <th className="th">Vehicle</th><th className="th">Source</th><th className="th">Tag Area</th>
+              <th className="th text-right">Lines</th>
               <th className="th text-right">Total</th><th className="th">Last expense</th>
               <th className="th text-right">Total cost</th><th className="th"></th>
             </tr></thead>
@@ -86,7 +98,14 @@ export default function CarExpenseLanding({ vehicles, summary, rights }: {
               {summary.map((s) => (
                 <tr key={s.vehicle_id} className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
                   onClick={() => open(`v:${s.vehicle_id}`)}>
-                  <td className="td">{s.label}</td>
+                  <td className="td">
+                    {s.label}
+                    {(s.item || s.supplier) && (
+                      <p className="text-xs text-slate-400">{[s.item, s.supplier].filter(Boolean).join(" · ")}</p>
+                    )}
+                  </td>
+                  <td className="td text-slate-500">{s.source ?? "—"}</td>
+                  <td className="td text-slate-500">{s.tag_area ?? "—"}</td>
                   <td className="td text-right tabular-nums">{s.count}</td>
                   <td className="td text-right tabular-nums">{sar(s.total)}</td>
                   <td className="td">{dateStr(s.last_date)}</td>
@@ -98,7 +117,7 @@ export default function CarExpenseLanding({ vehicles, summary, rights }: {
                   </td>
                 </tr>
               ))}
-              {summary.length === 0 && <tr><td className="td text-slate-400" colSpan={6}>No car expenses yet.</td></tr>}
+              {summary.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>No car expenses yet.</td></tr>}
             </tbody>
           </table>
         </div>
