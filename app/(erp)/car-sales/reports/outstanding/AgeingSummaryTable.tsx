@@ -109,7 +109,7 @@ export default function AgeingSummaryTable({ rows, totalCars }: { rows: AgeingRo
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
         <ReportKpi label="Customers" value={String(rows.length)} icon="users" />
         <ReportKpi label="Total Cars" value={String(totalCars)} icon="car" />
-        <ReportKpi label="Ledger Balance" value={drCr(totalBalance)} icon="wallet" tone={totalOverdue > 0 ? "neg" : undefined} />
+        <ReportKpi label="Ledger Balance" value={drCr(totalBalance)} icon="wallet" />
         <ReportKpi label="Due" value={num(totalDue)} icon="clock" tone={totalDue > 0 ? "warn" : undefined} />
         <ReportKpi label="Overdue" value={num(totalOverdue)} icon="clock" tone={totalOverdue > 0 ? "neg" : undefined} />
         <ReportKpi label="Total Dues" value={num(totalDue + totalOverdue)} icon="wallet" tone={totalDue + totalOverdue > 0 ? "warn" : undefined} />
@@ -158,7 +158,7 @@ export default function AgeingSummaryTable({ rows, totalCars }: { rows: AgeingRo
                       </button>
                       <Link href={`/car-sales/customers/${r.id}`} className="text-brand hover:underline">{r.name}</Link>
                     </td>
-                    <td className={`td text-right tabular-nums font-medium ${r.overdue > 0.005 ? "text-red-600" : r.balance < -0.005 ? "text-emerald-700" : ""}`}>{drCr(r.balance)}</td>
+                    <td className={`td text-right tabular-nums font-medium ${r.balance < -0.005 ? "text-emerald-700" : ""}`}>{drCr(r.balance)}</td>
                     <td className="td text-right tabular-nums">{r.due > 0 ? <span className="text-amber-700">{num(r.due)}</span> : "—"}</td>
                     <td className="td text-right tabular-nums">{r.overdue > 0 ? <span className="text-red-600">{num(r.overdue)}</span> : "—"}</td>
                     <td className="td text-right tabular-nums font-medium">{num(r.total_due)}</td>
@@ -187,7 +187,7 @@ export default function AgeingSummaryTable({ rows, totalCars }: { rows: AgeingRo
             {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
               <td className="td" />
               <td className="td">Total ({rows.length})</td>
-              <td className={`td text-right tabular-nums ${totalOverdue > 0.005 ? "text-red-600" : totalBalance < -0.005 ? "text-emerald-700" : ""}`}>{drCr(totalBalance)}</td>
+              <td className={`td text-right tabular-nums ${totalBalance < -0.005 ? "text-emerald-700" : ""}`}>{drCr(totalBalance)}</td>
               <td className="td text-right tabular-nums">{num(totalDue)}</td>
               <td className="td text-right tabular-nums">{num(totalOverdue)}</td>
               <td className="td text-right tabular-nums">{num(sum("total_due"))}</td>

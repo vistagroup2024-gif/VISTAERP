@@ -25,7 +25,7 @@ const BAL_BG = "bg-slate-50";
 
 export const dynamic = "force-dynamic";
 
-type MatrixRow = { customer_id: string; name: string; month: string; billed: number; outstanding: number; receipts: number };
+type MatrixRow = { customer_id: string; name: string; month: string; billed: number; outstanding: number; receipts: number; receiptsByBill: number };
 
 // This is the dashboard's Car Customer Balances card, per customer instead of
 // summed. car_customer_balances() is car_money's (dashboard_metrics()) own
@@ -68,6 +68,7 @@ export default async function OutstandingReport({ searchParams }: { searchParams
     matrixRows = ((data ?? []) as any[]).map((r) => ({
       customer_id: r.customer_id, name: r.name ?? "—", month: String(r.month).slice(0, 7),
       billed: Number(r.billed || 0), outstanding: Number(r.outstanding || 0), receipts: Number(r.receipts || 0),
+      receiptsByBill: Number(r.receipts_by_bill || 0),
     }));
   }
 
@@ -140,18 +141,19 @@ function monthsAxis(rows: MatrixRow[]): string[] {
 }
 type CustRow = {
   id: string; name: string;
-  byMonth: Map<string, { billed: number; outstanding: number; receipts: number }>;
-  totalBilled: number; totalOutstanding: number; totalReceipts: number;
+  byMonth: Map<string, { billed: number; outstanding: number; receipts: number; receiptsByBill: number }>;
+  totalBilled: number; totalOutstanding: number; totalReceipts: number; totalReceiptsByBill: number;
 };
 function pivotByCustomer(rows: MatrixRow[]): CustRow[] {
   const m = new Map<string, CustRow>();
   for (const r of rows) {
     let c = m.get(r.customer_id);
-    if (!c) { c = { id: r.customer_id, name: r.name, byMonth: new Map(), totalBilled: 0, totalOutstanding: 0, totalReceipts: 0 }; m.set(r.customer_id, c); }
-    c.byMonth.set(r.month, { billed: r.billed, outstanding: r.outstanding, receipts: r.receipts });
+    if (!c) { c = { id: r.customer_id, name: r.name, byMonth: new Map(), totalBilled: 0, totalOutstanding: 0, totalReceipts: 0, totalReceiptsByBill: 0 }; m.set(r.customer_id, c); }
+    c.byMonth.set(r.month, { billed: r.billed, outstanding: r.outstanding, receipts: r.receipts, receiptsByBill: r.receiptsByBill });
     c.totalBilled += r.billed;
     c.totalOutstanding += r.outstanding;
     c.totalReceipts += r.receipts;
+    c.totalReceiptsByBill += r.receiptsByBill;
   }
   return Array.from(m.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -175,7 +177,7 @@ function MonthlyBalances({ rows }: { rows: MatrixRow[] }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <ReportKpi label="Customers with a Balance" value={String(custs.length)} icon="users" />
-        <ReportKpi label="Total Due (all months)" value={num(totalDue)} icon="wallet" tone={totalDue > 0 ? "warn" : undefined} />
+        <ReportKpi label="Total Billed (all months)" value={num(totalDue)} icon="wallet" tone={totalDue > 0 ? "warn" : undefined} />
         <ReportKpi label={`Due — ${monthShort(thisMonthKey)}`} value={num(curMonthDue)} icon="clock" tone={curMonthDue > 0 ? "warn" : undefined} />
         <ReportKpi label="Months Shown" value={String(months.length)} icon="trendUp" />
       </div>
@@ -271,14 +273,19 @@ function ReceiptsMonthwise({ rows }: { rows: MatrixRow[] }) {
   );
 }
 
+// Receipts here are attributed to the BILL's own month, not the calendar
+// month the cash posted in (byMonth's own 'receiptsByBill', 457) — this
+// tab is a collection-performance view ("how much of August's bill has
+// been collected"), a different question from Receipts Monthwise's plain
+// cash-by-month view, which correctly keeps reading the unshifted figure.
 function BilledVsReceipts({ rows }: { rows: MatrixRow[] }) {
   const months = monthsAxis(rows);
-  const custs = pivotByCustomer(rows).filter((c) => c.totalBilled > 0.005 || c.totalReceipts > 0.005);
+  const custs = pivotByCustomer(rows).filter((c) => c.totalBilled > 0.005 || c.totalReceiptsByBill > 0.005);
   const totalBilled = custs.reduce((s, c) => s + c.totalBilled, 0);
-  const totalReceipts = custs.reduce((s, c) => s + c.totalReceipts, 0);
+  const totalReceipts = custs.reduce((s, c) => s + c.totalReceiptsByBill, 0);
   const totalBalance = totalBilled - totalReceipts;
   const collectionPct = totalBilled > 0 ? (totalReceipts / totalBilled) * 100 : null;
-  const monthTotal = (mk: string, key: "billed" | "receipts") => custs.reduce((s, c) => s + (c.byMonth.get(mk)?.[key] ?? 0), 0);
+  const monthTotal = (mk: string, key: "billed" | "receiptsByBill") => custs.reduce((s, c) => s + (c.byMonth.get(mk)?.[key] ?? 0), 0);
 
   return (
     <div className="space-y-4">
@@ -315,7 +322,7 @@ function BilledVsReceipts({ rows }: { rows: MatrixRow[] }) {
                   </td>
                   {months.map((mk) => {
                     const billed = c.byMonth.get(mk)?.billed ?? 0;
-                    const receipts = c.byMonth.get(mk)?.receipts ?? 0;
+                    const receipts = c.byMonth.get(mk)?.receiptsByBill ?? 0;
                     const balance = billed - receipts;
                     return (
                       <Fragment key={mk}>
@@ -332,7 +339,7 @@ function BilledVsReceipts({ rows }: { rows: MatrixRow[] }) {
             {custs.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
               <td className="td sticky left-0 bg-slate-50 z-10">Total ({custs.length})</td>
               {months.map((mk) => {
-                const b = monthTotal(mk, "billed"), r = monthTotal(mk, "receipts");
+                const b = monthTotal(mk, "billed"), r = monthTotal(mk, "receiptsByBill");
                 return (
                   <Fragment key={mk}>
                     <td className={`td text-right tabular-nums border-l border-slate-100 ${DUE_BG}`}>{num(b)}</td>

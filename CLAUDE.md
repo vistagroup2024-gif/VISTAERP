@@ -2801,10 +2801,13 @@ Two more small fixes landed on the same screen, same underlying cause
 (reading the wrong thing, not a display bug):
 - **Ledger Balance's red/green used to key off the sign of the balance
   alone** — any customer owing anything read red, even a balance that
-  isn't overdue yet (this month's instalment, not yet due). It now keys
-  off `overdue > 0` — red only when something is genuinely overdue, green
-  only when the customer is in credit, plain otherwise — matching the
-  Due/Overdue columns' own already-correct logic right beside it.
+  isn't overdue yet (this month's instalment, not yet due). Changed to
+  key off `overdue > 0` first (red only when something is genuinely
+  overdue), then asked to drop red from this column entirely — Due and
+  Overdue already carry their own colour right beside it, so Ledger
+  Balance itself is now plain black/neutral for a debit balance and
+  green only when the customer is in credit, on both the KPI card and
+  the table (row and footer total).
 - **"Total Overdue" renamed to "Overdue"** (matching the table's own
   column header) and a **"Total Dues" KPI added** (Due + Overdue, the same
   sum the table's own Total column already shows) — the KPI row was
@@ -2869,3 +2872,40 @@ screen that reads the affected tables, not only every screen already
 touched by an earlier pass over a similar-looking call site — here, a
 whole separate RPC (`car_customer_monthly_matrix()`) sharing the same
 underlying tables as the three already fixed.
+
+**That KPI's own label was then reconsidered again and moved back to
+"Total Billed"** — the underlying figure sums `outstanding` across the
+customer's WHOLE remaining schedule (every future instalment too, since
+this tab is deliberately uncapped), and for a month nothing has been paid
+against yet `outstanding` simply equals the original amount — so summed
+across a whole contract term, that total reads much closer to "everything
+still to be billed and collected" than to "what's due right now" (which
+the per-month grid, and the ageing-bucket KPIs on tab 1, already answer
+correctly). The per-month grid cells and column header stay "Due" —
+they're genuinely net, correctly reduced by a receipt — only the
+all-months KPI's label changed back.
+
+**Billed vs Receipts Monthwise had one more mismatch of the same
+"which month" shape, caught directly**: "receipt should come on aug
+because receipt was adjusted in august bill." `receipts` (fixed in 456)
+is keyed on the settling entry's own `entry_date` — right for Receipts
+Monthwise (tab 3), confirmed correct ("received in september," since
+that's genuinely when the cash posted) — but wrong for tab 4, which is a
+collection-performance view: "how much of August's bill has been
+collected," not "how much cash arrived in August." ABDUL JALAL's 15,000
+was collected in September against the August advance bill, so tab 4 read
+it as a September receipt, next to August's own Billed figure, when the
+whole point of the tab is comparing what was billed for a period against
+what came in against THAT period.
+
+`car_customer_monthly_matrix()` (457) adds `receipts_by_bill` — the same
+`allocations`/`open_items` join `receipts` already does, but keyed on the
+SETTLED BILL's own due date (the identical period-shift rule `billed`/
+`outstanding` already apply), not the settling entry's date. Tab 4 reads
+this new column; tab 3 keeps reading `receipts`, unchanged, since it was
+already right. Both columns sum to the same grand total (15,000) — they
+only disagree about which month it's filed under, which is exactly the
+point: two genuinely different questions over the same settlements,
+each needing its own attribution rule, the same way `billed` (gross) and
+`outstanding` (net) needed to stay two separate columns rather than one
+field meaning both.
