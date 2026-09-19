@@ -1447,3 +1447,49 @@ cash IN), `'C'` is a payable (expected cash OUT); both are already on
 out which side a bill is on. "Cash Now" plus expected inflows less expected
 outflows within 30 days is the one projected figure on the screen, and it
 says so in its own label rather than presenting a projection as a fact.
+
+## Sales Report: "View By" is one shared multi-select, not a picker per section
+
+CC Group, Cost Centre, Customer and Product are four different things to
+slice the SAME sales total by — not four mutually exclusive views of one
+thing — so a user wanting Cost Centre and Customer on screen together is
+asking for exactly what the multi-select test in this file already says
+yes to. The report had two single-select pickers that got this wrong: the
+Monthwise Sales pivot could only be on one dimension at a time, and the
+flat "Cost Centre Group wise Sales — LY vs CY" table had no picker at
+all — it was hard-coded to CC Group, so "I want to see by cost centre" had
+nowhere to go.
+
+One shared `dims: Set<Dim>` ("View By", `DIM_ORDER` = ccGroup/costCentre/
+customer/product) now drives both: the LY vs CY table renders once per
+selected dimension (`lyVsCy()` merges that dimension's current- and
+previous-year arrays — `py`, the previous-year fetch, already carries the
+full `SalesData` shape, so Cost Centre/Customer/Product all had a previous-
+year array sitting right there, just never read for this table before),
+and the Monthwise pivot renders once per selected dimension too
+(`MonthwisePivotTable`, extracted so four instances don't mean four copies
+of the same ~70-line table). Selecting all four stacks four tables; keep
+at least one selected, same convention as every other multi-select toggle
+in this file.
+
+**Sales vs Target of Completed Months was already built (395/436) — it was
+just invisible when nothing had a target yet.** `TARGET_DIMS` narrows the
+shared "View By" selection to `ccGroup`/`costCentre`, the only two with a
+target concept (`acct_cost_center_monthly_targets` is keyed on a cost
+centre; a customer or a product has none), and now renders unconditionally
+whenever a completed month exists in the selected period — previously the
+whole section vanished silently once `salesVsTargetCompleted.length === 0`,
+which is indistinguishable from "not built" to someone who has not yet
+entered a target on Accounting → Targets & Budget. It now shows the section
+with an explicit empty message pointing at that screen instead of
+disappearing.
+
+**The Target/Achievement/Difference KPIs are the sum of whichever months
+`PeriodDropdown` has selected, not always the whole year** — that was
+already true (`report_cost_center_targets` is called with the
+PeriodDropdown's own `[from,to]`), but the KPI cards didn't say so, so
+"is this month's target or the year's" had to be guessed. Each of those
+three labels now carries `periodLabel(ym)` directly (`Target — Jan-Aug
+2026`, say), the same "state the range in the label rather than leaving it
+to be inferred" rule this file's report-design section already applies to
+`PageHeader` titles.
