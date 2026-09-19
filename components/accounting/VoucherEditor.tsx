@@ -176,14 +176,17 @@ export default function VoucherEditor({ kind, accounts, cashBank, variant, right
     const amt = calc(amount);
     if (!(amt > 0)) return setError("Enter an amount.");
     setSaving(true);
-    const { error } = await supabase.rpc("car_receipt_save", {
+    const { data, error } = await supabase.rpc("car_receipt_save", {
       p_id: null,
       p_header: { source_doc_id: advOrderId, receipt_date: date, amount: String(amt), cash_account_id: cash, method: "cash", reference, notes: narration },
       p_allocs: [],
     });
     setSaving(false);
     if (error) return setError(error.message);
-    resetToNew(`received ${money(amt)} on ${advOrder?.doc_no ?? "the order"} — new voucher ready`);
+    const res = data as any;
+    resetToNew(res?.pending
+      ? `submitted for approval (${money(Number(res.amount))}) — new voucher ready`
+      : `received ${money(amt)} on ${advOrder?.doc_no ?? "the order"} — new voucher ready`);
     await loadAdvOrders();
     router.refresh();
   }

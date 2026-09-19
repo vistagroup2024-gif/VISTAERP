@@ -2396,3 +2396,55 @@ to say so beyond the corrected banner text. Worth a periodic check —
 `select rule_key, enabled from acct_automation_rules where module = 'car'
 and kind = 'trigger'` — rather than waiting for the next ledger to come
 up short.
+
+## The advance-on-Sale-Order receipt is a real Receipt Voucher now, not a look-alike
+
+The fix above turned `car.receipt` back on so installment collection kept
+posting — and immediately exposed a second, unrelated problem with the
+*other* branch of `car_receipt_save`: "Advance against a Sale Order" was
+the same screen (the Receipt Voucher's own tab, not a separate menu item)
+but not the same voucher underneath. It posted through
+`car_post_entry` under `source = 'car_receipt'`, its own `RCP-` numbering
+series, and the `car.receipt` automation toggle — completely separate
+from an ordinary receipt's `source = 'gl_receipt'` / `RCT-` series. Since
+`gl_voucher_find`/`gl_voucher_nav` (the Document No. / Previous / Next box
+every voucher screen uses to reopen a saved one) filter on
+`journal_entries.source`, an advance receipt saved from that tab could
+never be found again from that same tab — only via Car Sales → Receipts,
+a different screen with a different permission. A user who was told
+"everything is Receipt Voucher / Payment Voucher, nothing else" had, in
+fact, been given something else, even though the checkbox they used lived
+on the one screen they were promised.
+
+`car_receipt_save`'s advance-on-Sale-Order branch now posts through
+`gl_submit(..., 'gl_receipt', ...)` directly — the exact mechanism
+`po_payment_save`/`po_advances` already uses for the mirror case on the
+Payment side (an advance against a Purchase Order). Same `RCT-` numbering,
+same `acct_approval_rules` gate (if a rule holds it, `voucher_approve`
+finishes the posting and writes the `car_receipts` row itself, mirroring
+its existing `po_id` branch), same Document No. lookup, same
+`acct_is_manual_voucher('gl_receipt')` editability every other receipt
+already has. `car_receipts.entry_id` is a direct link from the row to
+whichever `journal_entries` row actually posted it — `car_receipt_settle_bills`,
+`car_post_receipt` and `car_receipt_delete` all read it in preference to
+the old `source='car_receipt' and reference=receipt_no` string match,
+which still works for rows posted the old way. **This did not touch
+installment collection** (`ContractDetail.tsx`'s PaymentPanel, against an
+already-invoiced contract): that is genuine per-installment allocation a
+flat `gl_submit` line array cannot express, so it is unchanged — still
+trigger-posted, still `source='car_receipt'`, still `RCP-` numbered.
+
+**Rehearsing this caught a real double-posting bug before it shipped.**
+`trg_car_autopost_receipt` fires `AFTER INSERT` on `car_receipts`
+unconditionally — it doesn't know or care which branch inserted the row.
+With `car.receipt` now switched on (the fix two sections above), the new
+synchronous `INSERT` — already carrying the correct `entry_id` from
+`gl_submit` — was *also* triggering `car_post_receipt`, which doesn't
+collide with the first posting (different `source`/`reference`) and so
+happily created a **second, duplicate journal entry** for the same
+advance, then overwrote `car_receipts.entry_id` to point at its own
+duplicate instead of the real one. `car_post_receipt` now returns
+immediately, doing nothing, whenever `entry_id` is already set on the row
+— the general shape to watch for: **a trigger that fires unconditionally
+on insert cannot assume it is the only thing that ever posts that row**,
+once more than one code path can write to the same table.
