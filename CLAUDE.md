@@ -1493,3 +1493,72 @@ three labels now carries `periodLabel(ym)` directly (`Target — Jan-Aug
 2026`, say), the same "state the range in the label rather than leaving it
 to be inferred" rule this file's report-design section already applies to
 `PageHeader` titles.
+
+## Every report in the ERP has been swept for filtration, once
+
+"check in every report that where filteration needed is there filteration
+if not make filteration with multi selection" — every report screen in the
+ERP was read against the multi-select test above and either left alone,
+converted, or given a filter it was missing outright. This was a one-time
+sweep (three parallel passes: Accounting; Inventory/Stock; Car Sales/
+Hotels/Transport/Visa), not a standing process — a **new** report still has
+to apply the test itself; nothing re-checks this automatically.
+
+**Two shared filter bars already covered most of Inventory/Stock
+correctly**, and were left untouched: `components/reports/ReportFilters.tsx`
+(driving 11 of the 14 `/stock/*` screens through `ReportRunner.tsx`) and
+`components/inventory/ReportFilters.tsx` (the older, narrower twin driving
+Stock Ledger and Multi-level Movement). Both already do Items / Cost
+Centre / Tag Area / Account / Product as genuine multi-select tree
+pickers. **One dimension across every stock report is single-select and
+arguably shouldn't be**: Warehouse (`Filters.warehouse: string | null`,
+feeding 13 RPCs whose signature takes a bare `p_wh uuid`, not `uuid[]`).
+Fixing it means changing those RPC signatures (`uuid` → `uuid[]`,
+`= p_wh` → `= any(p_wh)`) as well as both filter bars — a real backend
+change that was flagged rather than faked with a client-side-only filter
+that would silently narrow to one warehouse while claiming to filter by
+several. Not done yet.
+
+**Screens fixed for missing filtration** (all found showing everything
+with no way to narrow it, several with no date bound at all on a table
+that could grow indefinitely — the exact `select() without a bound`
+shape this file already warns about elsewhere, just for display rather
+than for the 1000-row PostgREST cap):
+- `accounting/audit/page.tsx` — had zero controls; gained a From/To range
+  (single-select, a date window) plus an Action multi-select toggle
+  (`AuditFilters.tsx`) over the real action values `acct_log`/audit
+  inserts actually write.
+- `accounting/customers/[id]/page.tsx` — Recent Transactions was
+  hard-coded to `yearSA()-01-01`..today with no control at all, despite
+  calling `report_transactions()`, the same RPC Transactions Report
+  already exposes a period picker for. Gained `CustomerPeriodControl.tsx`
+  (the standard `PeriodDropdown`, correctly single-select).
+- `car-sales/accounting/page.tsx` — every posted car journal entry ever,
+  bounded only by `.limit(20000)`. Gained an Entry Date From/To range.
+- `hotels/reports/page.tsx` — City/Agent sales-purchase-profit with no
+  date bound at all, unlike every other module's reports. Gained a
+  Booking Date From/To range.
+- `inventory/history/page.tsx` — had no filter at all where its sibling
+  `inventory/archived/page.tsx` already had one. Gained the same
+  `CompanyFilter` (correctly single-select — company is a workspace
+  partition here, which legal entity's BRNs, not an additive report
+  criterion the way Cost Centre or Tag Area are).
+- `car-sales/reports/delivery/page.tsx` — Sold/Delivered/Pending only
+  ever showed as KPI counts, with the table itself unfilterable. Gained
+  a Delivered/Pending multi-select toggle (`DeliveryTable.tsx`, extracted
+  from the server page so the filter can be client-side).
+- `car-sales/reports/service-charges/page.tsx` — Ownership (Vista-owned
+  vs Transferred) was a column but not a filter. Gained the same toggle
+  shape (`ServiceChargeTable.tsx`), with the footer total row recomputed
+  against the filtered rows rather than the whole list.
+
+**Everything else was already correct or genuinely needs no filter**, and
+was left alone rather than forced into a filter bar it doesn't need — a
+single-item lookup (Stock Query), a fixed reconciliation table that has
+to show every account to balance (Trial Balance), a fixed ageing-bucket
+snapshot where the buckets ARE the filter (Car Aging), a nested nothing-
+to-narrow date window (Car Sales Upcoming's 7/30/60 days), a genuine
+layout-swap tab (Car Sales Outstanding's Ageing vs Monthly, Targets &
+Budget's three data-entry tabs), and two ledger tables
+(`transport/reports/ledger`, `visa/invoices`) that were already multi-
+select per-column pickers richer than the toggle-button pattern itself.

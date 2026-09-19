@@ -7,14 +7,19 @@ import { money } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 // Hotel Reports: sales / purchase / profit summarised by city and by agent.
-export default async function HotelReportsPage() {
+export default async function HotelReportsPage({ searchParams }: { searchParams: { from?: string; to?: string } }) {
   const access = await guardStaffPage("hotels.reports");
   const supabase = createClient();
   const canProfit = staffCan(access, "hotels.profit");
-  const { data } = await supabase
+  const from = searchParams.from || "";
+  const to = searchParams.to || "";
+  let query = supabase
     .from("hotel_bookings")
-    .select("city, status, sale_total, parties:agent_id(name), hotel_purchase_bookings(purchase_total)")
+    .select("city, status, booking_date, sale_total, parties:agent_id(name), hotel_purchase_bookings(purchase_total)")
     .neq("status", "cancelled").limit(2000);
+  if (from) query = query.gte("booking_date", from);
+  if (to) query = query.lte("booking_date", to);
+  const { data } = await query;
 
   const byCity = new Map<string, { sales: number; purchase: number; count: number }>();
   const byAgent = new Map<string, { sales: number; purchase: number; count: number }>();
@@ -55,6 +60,12 @@ export default async function HotelReportsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Hotel Reports" />
+      <form className="card flex flex-wrap items-end gap-3 print:hidden" method="get">
+        <div><label className="label">Booking Date From</label><input type="date" name="from" defaultValue={from} className="input" /></div>
+        <div><label className="label">Booking Date To</label><input type="date" name="to" defaultValue={to} className="input" /></div>
+        <button className="btn">Run</button>
+        {(from || to) && <a href="/hotels/reports" className="text-sm text-slate-400 hover:underline">Clear</a>}
+      </form>
       <Section title="By City" map={byCity} keyLabel="City" />
       <Section title="By Agent" map={byAgent} keyLabel="Agent" />
     </div>

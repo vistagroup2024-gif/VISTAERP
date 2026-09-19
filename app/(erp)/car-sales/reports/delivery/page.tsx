@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { guardStaffPage } from "@/lib/staffSession";
-import { COMPANY_ID, dateStr } from "@/lib/format";
+import { COMPANY_ID } from "@/lib/format";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
-import { sar, VEHICLE_STATUS_LABEL, VEHICLE_STATUS_TONE, vehicleTitle } from "../../lib";
+import DeliveryTable from "./DeliveryTable";
 
 export const dynamic = "force-dynamic";
 
@@ -49,32 +48,7 @@ export default async function CarDeliveryReport({ searchParams }: { searchParams
         <Kpi label="Pending" value={String(pending)} tone={pending > 0 ? "text-amber-700" : "text-green-700"} />
         <Kpi label="Delivery %" value={`${pct.toFixed(1)}%`} />
       </div>
-      <div className="card overflow-x-auto p-0">
-        <table className="report-grid w-full min-w-[900px]">
-          <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
-            <th className="px-4 py-2.5 text-left"><span className="col-resize">Vehicle</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Cost Centre</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Customer</span></th>
-            <th className="px-4 py-2.5 text-left"><span className="col-resize">Tag Area</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Invoice No</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Invoice Date</span></th>
-            <th className="px-4 py-2.5 text-right"><span className="col-resize">Invoice Amount</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Status</span></th>
-          </tr></thead>
-          <tbody>
-            {rows.filter((r) => r.status === "sold" || r.status === "delivered").map((r, i) => (
-              <tr key={r.vehicle_id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/70" : ""}`}>
-                <td className="td">{vehicleTitle(r)}{r.plate_no ? <span className="ml-1 text-xs text-slate-400">{r.plate_no}</span> : null}</td>
-                <td className="td">{r.cost_centre ?? "—"}</td>
-                <td className="td">{r.customer ?? "—"}</td>
-                <td className="td">{r.tag_area ?? "—"}</td>
-                <td className="td">
-                  {r.contract_id ? <Link href={`/car-sales/contracts/${r.contract_id}`} className="text-brand hover:underline">{r.invoice_no ?? "—"}</Link> : (r.invoice_no ?? "—")}
-                </td>
-                <td className="td">{r.invoice_date ? dateStr(r.invoice_date) : "—"}</td>
-                <td className="td text-right tabular-nums">{sar(r.invoice_amount)}</td>
-                <td className="td"><span className={`badge ${VEHICLE_STATUS_TONE[r.status] ?? ""}`}>{VEHICLE_STATUS_LABEL[r.status] ?? r.status}</span></td>
-              </tr>
-            ))}
-            {sold === 0 && <tr><td className="td text-slate-400" colSpan={8}>No cars sold in this window.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <DeliveryTable rows={rows.filter((r) => r.status === "sold" || r.status === "delivered")} />
     </div>
   );
 }

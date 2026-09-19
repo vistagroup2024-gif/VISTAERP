@@ -13,16 +13,21 @@ const SOURCE_LABEL: Record<string, string> = {
   car_scharge_pay: "Service Charge Payments", car_commission: "Commissions",
 };
 
-export default async function CarAccountingPage() {
+export default async function CarAccountingPage({ searchParams }: { searchParams: { from?: string; to?: string } }) {
   await guardStaffPage("carsales.accounting");
   const supabase = createClient();
+  const from = searchParams.from || "";
+  const to = searchParams.to || "";
 
   // Aggregate posted car journal entries by source (debit totals per entry group).
-  const { data: entries } = await supabase
+  let query = supabase
     .from("journal_entries")
-    .select("id, source, journal_lines(debit)")
+    .select("id, source, entry_date, journal_lines(debit)")
     .like("source", "car_%")
     .limit(20000);
+  if (from) query = query.gte("entry_date", from);
+  if (to) query = query.lte("entry_date", to);
+  const { data: entries } = await query;
 
   const agg = new Map<string, { count: number; total: number }>();
   for (const e of (entries ?? []) as any[]) {
@@ -37,6 +42,13 @@ export default async function CarAccountingPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeader title="Car Sales — Accounting" />
+
+      <form className="card flex flex-wrap items-end gap-3 print:hidden" method="get">
+        <div><label className="label">Entry Date From</label><input type="date" name="from" defaultValue={from} className="input" /></div>
+        <div><label className="label">Entry Date To</label><input type="date" name="to" defaultValue={to} className="input" /></div>
+        <button className="btn">Run</button>
+        {(from || to) && <a href="/car-sales/accounting" className="text-sm text-slate-400 hover:underline">Clear</a>}
+      </form>
 
       <section className="card space-y-2">
         <SectionHeader title="Posted automatically" />

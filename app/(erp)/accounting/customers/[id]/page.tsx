@@ -2,9 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { COMPANY_ID, dateStr } from "@/lib/format";
 import { todaySA, yearSA } from "@/lib/saudiTime";
+import { periodLabel, type YearMonths } from "@/lib/reports/period";
 import PageHeader from "@/components/PageHeader";
 import PrintButton from "@/components/PrintButton";
 import SectionHeader from "@/components/reports/SectionHeader";
+import CustomerPeriodControl from "./CustomerPeriodControl";
 
 export const dynamic = "force-dynamic";
 const money = (n: any) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -26,7 +28,7 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
 // verified against the dashboard card. A car-sales customer gets a link
 // through to their car-specific breakdown (car_customer_balances) rather
 // than this page trying to also be that one.
-export default async function CustomerReportPage({ params }: { params: { id: string } }) {
+export default async function CustomerReportPage({ params, searchParams }: { params: { id: string }; searchParams: { from?: string; to?: string } }) {
   const sb = createClient();
   const { data: account } = await sb.from("accounts").select("id, code, name, subtype, party_id").eq("id", params.id).maybeSingle();
   if (!account) return <div><PageHeader title="Account" /><p className="text-sm text-slate-400">Not found.</p></div>;
@@ -39,10 +41,21 @@ export default async function CustomerReportPage({ params }: { params: { id: str
   const { data: agingRows } = await sb.rpc("ar_ap_aging", { p_company: COMPANY_ID, p_kind: kind });
   const row = ((agingRows ?? []) as any[]).find((r) => r.account_id === account.id);
 
-  const from = `${yearSA()}-01-01`;
-  const to = todaySA();
+  const from = searchParams.from || `${yearSA()}-01-01`;
+  const to = searchParams.to || todaySA();
   const { data: txnData } = await sb.rpc("report_transactions", { p_company: COMPANY_ID, p_from: from, p_to: to, p_account_ids: [account.id] });
   const txns = ((txnData ?? []) as any[]).slice(0, 50);
+
+  // Approximate the selected {from,to} back to a Year+Months value for the
+  // control's own initial state — a plain Jan-of-from..month-of-to run,
+  // which is exactly what monthRanges() turns it back into on change.
+  const fromYear = Number(from.slice(0, 4));
+  const fromMonth = Number(from.slice(5, 7));
+  const toYear = Number(to.slice(0, 4));
+  const toMonth = Number(to.slice(5, 7));
+  const initialYm: YearMonths = fromYear === toYear
+    ? { year: fromYear, months: Array.from({ length: toMonth - fromMonth + 1 }, (_, i) => fromMonth + i) }
+    : { year: toYear, months: Array.from({ length: 12 }, (_, i) => i + 1) };
 
   const { data: billsData } = await sb.rpc("party_outstanding", { p_company: COMPANY_ID, p_account_id: account.id });
   const bills = (billsData ?? []) as any[];
@@ -153,7 +166,10 @@ export default async function CustomerReportPage({ params }: { params: { id: str
       </div>
 
       <div>
-        <SectionHeader title="Recent Transactions (this year)" />
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex-1"><SectionHeader title={`Recent Transactions — ${periodLabel(initialYm)}`} /></div>
+          <CustomerPeriodControl initial={initialYm} />
+        </div>
         <div className="card overflow-x-auto p-0">
           <table className="report-grid w-full text-sm">
             <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
@@ -171,7 +187,7 @@ export default async function CustomerReportPage({ params }: { params: { id: str
                   <td className="px-3 py-1.5">{t.remarks ?? ""}</td>
                 </tr>
               ))}
-              {txns.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={5}>No transactions this year.</td></tr>}
+              {txns.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={5}>No transactions in this period.</td></tr>}
             </tbody>
           </table>
         </div>

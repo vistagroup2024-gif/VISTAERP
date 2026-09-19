@@ -1,26 +1,41 @@
 import { createClient } from "@/lib/supabase/server";
 import { guardStaffPage } from "@/lib/staffSession";
 import PageHeader from "@/components/PageHeader";
+import CompanyFilter from "@/components/CompanyFilter";
 import { dateStr } from "@/lib/format";
 import { totalNights } from "@/lib/brn";
 import ReleaseButton from "./ReleaseButton";
 
 export const dynamic = "force-dynamic";
 
-export default async function HistoryPage() {
+// The Archived BRNs screen right next to this one already narrows by
+// group company (CompanyFilter) — History had no filter at all, so a
+// multi-company book made this list unscannable. Same single-select
+// company filter, same pattern: company is a workspace partition here
+// (which legal entity's BRNs), not an additive report criterion, so it
+// stays single-select like every other CompanyFilter use in the ERP.
+export default async function HistoryPage({ searchParams }: { searchParams: { company?: string } }) {
   await guardStaffPage("brn.view");
+  const company = searchParams.company ?? "";
   const supabase = createClient();
-  const { data: rows } = await supabase
+  let query = supabase
     .from("brn_consumption")
-    .select("id, reference, check_in, check_out, beds, created_at, brn_inventory:brn_id(brn, hotel_name)")
+    .select(`id, reference, check_in, check_out, beds, created_at,
+      brn_inventory:brn_id${company ? "!inner" : ""}(brn, hotel_name, group_company_id)`)
     .order("created_at", { ascending: false })
     .limit(500);
+  if (company) query = query.eq("brn_inventory.group_company_id", company);
+  const [{ data: rows }, { data: companies }] = await Promise.all([
+    query,
+    supabase.from("group_companies").select("id, name").order("name"),
+  ]);
 
   const R = rows ?? [];
 
   return (
     <div>
       <PageHeader title="Inventory History" />
+      <CompanyFilter companies={companies ?? []} value={company} />
       <div className="card overflow-x-auto p-0">
         <table className="report-grid w-full min-w-[720px]">
           <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
