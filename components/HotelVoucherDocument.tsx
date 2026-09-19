@@ -128,11 +128,12 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
             accent (tailwind.config.ts) for exactly this: the one date on the
             document a customer must actually act on, the way QuickBooks/
             Xero/SAP invoices badge a payment due date rather than leaving
-            it as plain text. */}
+            it as plain text. Text stays black/green, not orange — orange on
+            white read as too loud; the border alone carries the accent. */}
         <SectionTitle className="mt-7" right={optionDate ? (
           <div className="flex items-center gap-2 rounded-full border-2 border-brand-orange bg-white px-3 py-1">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-brand-orange">Option Date</span>
-            <span className="text-xs font-extrabold text-brand-orange">{dateStr(optionDate)}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Option Date</span>
+            <span className="text-xs font-extrabold text-brand" style={exact}>{dateStr(optionDate)}</span>
           </div>
         ) : undefined}>Stay Details</SectionTitle>
         {/* table-fixed + a colgroup keeps every column's width within the page
@@ -208,6 +209,16 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
           <div className={`mt-4 grid items-start gap-5 ${isInvoice ? "grid-cols-[1fr_300px]" : "grid-cols-1"}`}>
             {terms && terms.length > 0 ? (
               <div>
+                {/* An invisible copy of the Total card, same classes and
+                    content — not a guessed pixel margin — so its rendered
+                    height always matches exactly, pushing this heading down
+                    to line up with Bank Details' heading rather than Total's. */}
+                {isInvoice && (
+                  <div className="invisible mb-4 flex flex-col items-start gap-1 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3" aria-hidden="true">
+                    <span className="text-xs font-semibold uppercase tracking-wide">Total ({currency})</span>
+                    <span className="text-xl font-bold">{fmtMoney(grandTotal, currency)}</span>
+                  </div>
+                )}
                 <SectionTitle>Terms &amp; Conditions</SectionTitle>
                 <ul className="space-y-1.5 text-[10.5px] leading-relaxed text-slate-600">
                   {terms.map((t, i) => (
