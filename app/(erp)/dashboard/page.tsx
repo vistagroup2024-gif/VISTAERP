@@ -55,13 +55,22 @@ export default async function Dashboard() {
   const noCompany = !(prof as any)?.company_id;
   const m = { ...((metrics as any) ?? {}), ...((moduleMetrics as any) ?? {}) };
 
-  // Sales / Expenses / P&L / Cash Flow show a strong "this month" figure, so
-  // their click-through lands on that same month rather than the
-  // destination report's own default — computed per request, since "this
-  // month" is not something a static href can carry.
+  // Sales / Expenses / P&L show a strong "this month" figure, so their
+  // click-through lands on that same month rather than the destination
+  // report's own default — computed per request, since "this month" is not
+  // something a static href can carry. NOTE: none of these three screens
+  // actually reads ?from=&to= yet (SalesReportView/ProfitLossView both
+  // default their own PeriodDropdown state with no searchParams awareness),
+  // so today this only sets the URL, not what the report shows — a real
+  // gap, not a deliberate no-op, left for when that plumbing is added.
+  // Cash Flow used to have its own override here pointing at the OLD
+  // ledger-filter href, a second definition of the same card that silently
+  // outlived the fix made to its real one in lib/dashboardCards.ts — this
+  // is exactly the two-places-written-down trap this file's own CLAUDE.md
+  // keeps flagging elsewhere; removed rather than corrected in place, so
+  // there is only one href for this card to ever drift out of step again.
   const period = `from=${monthStartSA()}&to=${todaySA()}`;
   const hrefOverride: Partial<Record<CardKey, string>> = {
-    cash_flow: `/accounting/ledger?subtype=Cash,Bank&${period}`,
     sales: `/accounting/sales-report?${period}`,
     expenses: "/accounting/targets?tab=exp",
     pnl: `/accounting/profit-loss?${period}`,
