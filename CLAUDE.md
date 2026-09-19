@@ -1370,3 +1370,38 @@ no violation-charge table or posting path anywhere under Car Sales, only
 is exactly the fabricated-figure trap this file warns against elsewhere —
 it stays out until it is a real feature (a table, a posting routine) rather
 than a column with nothing behind it.
+
+## The Balance Sheet is classified by the account's own subtype, not by guessing
+
+`/accounting/balance-sheet` (reached from the dashboard's Balance Sheet
+card) used to be a plain two-column list of every asset/liability/equity
+account with no grouping, no KPI row and none of the report system's own
+visual conventions (dark-green merged header, light `bg-brand-50` grid,
+zebra rows) — it read like a draft next to every other report this file
+already moved onto that system. The fix is presentation, not a new report:
+same `trial_balance()` call, same accounts, same total.
+
+Assets split into **Current Assets / Fixed Assets / Other Assets** because
+`accounts.subtype` already carries "Current Asset" and "Fixed Asset" as
+real values the account editor writes — grouping by them uses data the
+user entered, it doesn't invent a classification. **Liabilities stays split
+by what the chart actually has** — Payables, Tax Payable, Other
+Liabilities — rather than manufacturing a Current/Long-term split: no
+liability in this chart carries a subtype that says which it is, and
+guessing one would be exactly the kind of fabricated figure this file
+keeps warning against elsewhere (Transport Costing's `insufficient_data`,
+Car Sales' Violation Charges). An account with no subtype set lands in its
+side's own "Other" bucket, visibly unclassified, instead of being folded
+into Current by default. Equity keeps Drawings on its own line (already
+negative, since `-net()` on a debit-balance Drawing account correctly
+reduces equity) and Current-year earnings appears as its own row under
+Capital & Reserves, always shown even when there is no earnings yet.
+
+Each of the three classifications is one merged card (`DataGroup.values`
+again, the same pattern P&L's Cost Centre grouping uses) with a bold total
+bar under its own grid rather than a plain list, and a KPI row up top —
+Total Assets, Total Liabilities, Total Equity, Current-year Earnings, and
+Books (Balanced, or Off by the difference) — answers "does the business
+balance" before a single row is read. Two small donuts (Asset Composition,
+Financing Mix) are the one addition with no prior equivalent on this
+screen, reusing `DonutChart` rather than a new chart component.
