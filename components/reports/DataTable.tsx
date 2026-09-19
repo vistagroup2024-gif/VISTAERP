@@ -17,6 +17,16 @@ function negativeClass(col: Col, v: any): string {
   const n = Number(v);
   return !isNaN(n) && n < 0 ? "text-red-600" : "";
 }
+// A TOTAL row (the flat footer, a group's Subtotal row) gets a full
+// background fill when negative, not just red text — the same weight
+// Balance Sheet's own three total bars already used. A total is the one
+// figure on a grid a reader scans for without reading every row above it,
+// so it needs to read as a loss even at a glance, not just on close reading.
+function negativeTotalClass(col: Col, v: any): string {
+  if (!col.kind || !NEGATIVE_KINDS.has(col.kind)) return "";
+  const n = Number(v);
+  return !isNaN(n) && n < 0 ? "bg-red-50 text-red-700" : "";
+}
 
 export interface DataGroup {
   key: string;
@@ -70,11 +80,20 @@ export default function DataTable({
   roomy?: boolean;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
-  // Tracks which groups are OPEN, not which are closed — so the empty set
-  // this starts as means every group starts collapsed. A report opens
-  // showing its group totals only; a group's own rows appear once the
-  // viewer clicks its ▸, never before.
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Tracks which groups are OPEN, not which are closed. The DEPTH-0 groups
+  // (this component's own `groups` prop, the outermost level of whatever
+  // filter combination is active) start open, so a report shows real
+  // figures the moment it loads rather than a screenful of chevrons with
+  // nothing behind them — Cash & Bank's account rows, Sales Report's
+  // Monthwise pivot, both read as "broken/empty" when the top level itself
+  // was collapsed by default. Anything BENEATH that first level (a second
+  // filter dimension switched on, or a report's own natural sub-nesting)
+  // still starts collapsed — only the top level is free. Every caller that
+  // wants a fresh collapse state on a filter-mode change already keys the
+  // DataTable element itself on that mode (P&L, Sales Report, Expense
+  // Report), so a full remount re-reads `groups` here and this recomputes
+  // for the new shape rather than carrying over stale expand state.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set((groups ?? []).map((g) => g.key)));
 
   const visibleCols = useMemo(() => cols.filter((c) => !c.hideByDefault), [cols]);
   const isFlat = !groups;
@@ -173,7 +192,7 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals, roomy }: {
       {rows.length > 0 && hasTotals && (
         <tfoot><tr className="bg-slate-50 font-semibold">
           {cols.map((c, i) => (
-            <td key={c.key} className={`border border-slate-200 px-3 ${py} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total ? negativeClass(c, totals[c.key]) : ""}`}>
+            <td key={c.key} className={`border border-slate-200 px-3 ${py} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total ? negativeTotalClass(c, totals[c.key]) : ""}`}>
               {c.total ? cellText(c, totals[c.key]) : i === 0 ? "Total" : ""}
             </td>
           ))}
@@ -245,7 +264,7 @@ function GroupRows({ cols, g, depth, idx, expanded, onToggle, roomy }: {
       {open && !g.subgroups && g.subtotal && !g.values && (
         <tr key={`${g.key}-sub`} className="bg-slate-50/60 font-medium">
           {cols.map((c, i) => (
-            <td key={c.key} className={`border border-slate-200 px-3 ${subPy} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total && g.subtotal![c.key] !== undefined ? negativeClass(c, g.subtotal![c.key]) : ""}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>
+            <td key={c.key} className={`border border-slate-200 px-3 ${subPy} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total && g.subtotal![c.key] !== undefined ? negativeTotalClass(c, g.subtotal![c.key]) : ""}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>
               {c.total && g.subtotal![c.key] !== undefined ? cellText(c, g.subtotal![c.key]) : i === 0 ? "Subtotal" : ""}
             </td>
           ))}

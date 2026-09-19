@@ -127,7 +127,14 @@ const PIVOT_COLS = (monthKeys: string[], showValue: boolean, showQty: boolean) =
 function MonthwisePivotTable({ groups, monthKeys, showValue, showQty }: {
   groups: { key: Dim; label: string; rows: PivotRow[] }[]; monthKeys: string[]; showValue: boolean; showQty: boolean;
 }) {
-  const [expanded, setExpanded] = useState<Set<Dim>>(new Set());
+  // Depth-0 — each selected "View By" dimension's own section — starts
+  // expanded, the same "first filter/default is expanded" rule DataTable
+  // itself now follows; only something nested BENEATH that (there is none
+  // here — a dimension's rows are the one level under it) would start
+  // collapsed. The caller keys this component on the active dimension set,
+  // so a newly-added dimension remounts it and gets this fresh, rather than
+  // silently staying collapsed because `expanded` was seeded once already.
+  const [expanded, setExpanded] = useState<Set<Dim>>(() => new Set(groups.map((g) => g.key)));
   function toggle(k: Dim) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
   const colCount = PIVOT_COLS(monthKeys, showValue, showQty);
 
@@ -154,18 +161,35 @@ function MonthwisePivotTable({ groups, monthKeys, showValue, showQty }: {
         <tbody>
           {groups.map((g, gi) => {
             const open = expanded.has(g.key);
+            // The group's own header row IS a P&L-style total line — each
+            // selected month's real figure in its own column, not a single
+            // grand-total caption glued onto the label (the same bug this
+            // file already fixed once in AR&AP: an amount belongs in its
+            // own column, never folded into the name cell as text).
+            const groupCells: Record<string, MonthCell> = {};
+            for (const mk of monthKeys) {
+              groupCells[mk] = {
+                amount: g.rows.reduce((s, r) => s + (r.cells[mk]?.amount ?? 0), 0),
+                qty: g.rows.reduce((s, r) => s + (r.cells[mk]?.qty ?? 0), 0),
+              };
+            }
             const grandTotal = g.rows.reduce((s, r) => s + r.total.amount, 0);
             const grandQty = g.rows.reduce((s, r) => s + r.total.qty, 0);
             return (
               <Fragment key={g.key}>
                 <tr className={`cursor-pointer font-semibold ${gi % 2 === 1 ? "bg-slate-100/80" : ""}`} onClick={() => toggle(g.key)}>
-                  <td colSpan={colCount} className="border border-slate-200 px-3 py-2">
+                  <td className="px-3 py-2">
                     <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
                     {g.label}
-                    <span className="ml-2 font-normal text-slate-500">
-                      — {showValue ? money(grandTotal) : qtyFmt(grandQty)}
-                    </span>
                   </td>
+                  {monthKeys.map((mk) => (
+                    <Fragment key={mk}>
+                      {showValue && <td className="px-2 py-2 text-right tabular-nums">{groupCells[mk].amount ? money(groupCells[mk].amount) : "—"}</td>}
+                      {showQty && <td className="px-2 py-2 text-right tabular-nums">{groupCells[mk].qty ? qtyFmt(groupCells[mk].qty) : "—"}</td>}
+                    </Fragment>
+                  ))}
+                  {showValue && <td className="px-2 py-2 text-right tabular-nums">{money(grandTotal)}</td>}
+                  {showQty && <td className="px-2 py-2 text-right tabular-nums">{qtyFmt(grandQty)}</td>}
                 </tr>
                 {open && g.rows.map((row, i) => (
                   <tr key={row.key} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
@@ -451,6 +475,11 @@ export default function SalesReportView() {
   });
 
   const pivotGroups = activeDims.map((d) => ({ key: d, label: DIM_LABEL[d], rows: buildPivot(pivotSourceByDim[d]) }));
+  // Remounts each dimension-driven table when the active dimension SET
+  // changes, so a freshly-toggled-on dimension seeds its own "starts
+  // expanded" state fresh rather than carrying over whatever an earlier
+  // selection had already opened or closed.
+  const dimsKey = activeDims.join(",");
 
   return (
     <div className="space-y-4">
@@ -517,7 +546,7 @@ export default function SalesReportView() {
 
       <div>
         <SectionHeader title="Sales — LY vs CY" />
-        <DataTable
+        <DataTable key={dimsKey}
           cols={[
             { key: "name", label: "Name" },
             { key: "ly", label: "LY Sales", kind: "money", total: true },
@@ -530,7 +559,7 @@ export default function SalesReportView() {
       {completedMonthKeys.length > 0 && salesVsTargetGroups.length > 0 && (
         <div>
           <SectionHeader title="Sales vs Target of Completed Months" />
-          <DataTable
+          <DataTable key={dimsKey}
             cols={[
               { key: "name", label: "Name" },
               { key: "target", label: "Target", kind: "money", total: true },
@@ -567,7 +596,7 @@ export default function SalesReportView() {
                 className={`rounded-full px-3 py-1 text-sm ${showQty ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>Qty</button>
             </div>
           </div>
-          <MonthwisePivotTable groups={pivotGroups} monthKeys={monthKeys} showValue={showValue} showQty={showQty} />
+          <MonthwisePivotTable key={dimsKey} groups={pivotGroups} monthKeys={monthKeys} showValue={showValue} showQty={showQty} />
         </div>
       )}
 

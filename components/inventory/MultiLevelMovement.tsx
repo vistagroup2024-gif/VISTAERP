@@ -25,13 +25,19 @@ export default function MultiLevelMovement() {
   const [data, setData] = useState<{ groups: Grp[]; items: Itm[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  // Tracks which groups are OPEN, not which are closed — the empty object
-  // this starts as means every group starts collapsed, showing only its own
-  // totals until a viewer clicks ▸ (the same fix DataTable.tsx's own group
-  // rows got: `collapsed[id]` undefined read as "not collapsed" was the bug,
-  // since it opened every group on load with no way to tell it hadn't been
-  // clicked).
+  // Tracks which groups are OPEN, not which are closed. Depth-0 — the
+  // report's root groups — starts OPEN (the "first filter/default is
+  // expanded" rule every grouped report now follows), so running the
+  // report shows real figures immediately rather than a screenful of
+  // chevrons; anything nested beneath a root still starts collapsed until
+  // clicked. Seeded in run() below, where the root ids are first known.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  // A group whose parent is not itself in the result set is a root of the report.
+  function computeRoots(groups: Grp[]): Grp[] {
+    const known = new Set(groups.map((g) => g.id));
+    return groups.filter((g) => !g.parent_id || !known.has(g.parent_id)).sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   async function run() {
     setBusy(true); setErr(null);
@@ -40,8 +46,10 @@ export default function MultiLevelMovement() {
       p_wh: filters.warehouse, p_moved_only: filters.movedOnly,
     });
     setBusy(false);
-    if (error) { setErr(error.message); setData({ groups: [], items: [] }); return; }
-    setData((d as any) ?? { groups: [], items: [] });
+    if (error) { setErr(error.message); setData({ groups: [], items: [] }); setExpanded({}); return; }
+    const result = (d as any) ?? { groups: [], items: [] };
+    setData(result);
+    setExpanded(Object.fromEntries(computeRoots(result.groups ?? []).map((g) => [g.id, true])));
   }
 
   const byParent = useMemo(() => {
@@ -58,10 +66,7 @@ export default function MultiLevelMovement() {
     return m;
   }, [data]);
 
-  // A group whose parent is not itself in the result set is a root of the report.
-  const known = useMemo(() => new Set((data?.groups ?? []).map((g) => g.id)), [data]);
-  const roots = useMemo(() => (data?.groups ?? []).filter((g) => !g.parent_id || !known.has(g.parent_id))
-    .sort((a, b) => a.name.localeCompare(b.name)), [data, known]);
+  const roots = useMemo(() => computeRoots(data?.groups ?? []), [data]);
   const orphans = itemsOf.get(null) ?? [];
 
   // Scoped the same way DataTable.tsx's own negativeClass() is: only a

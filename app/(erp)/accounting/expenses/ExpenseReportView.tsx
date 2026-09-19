@@ -28,50 +28,48 @@ function groupByField<T>(rows: T[], field: (r: T) => string): Map<string, T[]> {
   return m;
 }
 
-// report_expense_matrix() (441) — one row per (cost centre, account, month),
-// carrying BOTH dimensions' ids/names/groups at once. This is what makes
-// "whichever combination you want" possible: CC Group, Cost Center, Account
-// Group and Account Name are four independent, freely-combinable levels of
-// the SAME rows, not four separate per-dimension datasets you pick one of
-// (that was the actual bug in the first cut of this report — CC Group/Cost
-// Center and Account Group/Account Name could only ever be selected as two
-// whole alternate "families", never together).
+// report_expense_matrix() (441, extended by 442 to also carry tag_area) —
+// one row per (cost centre, account, tag area, month), carrying every
+// dimension's id/name/group at once. This is what makes "whichever
+// combination you want, in whichever order you want" possible: CC Group,
+// Cost Center, Account Group, Account Name, Tag Area Group and Tag Area are
+// six independent, freely-combinable levels of the SAME rows, not separate
+// per-dimension datasets you pick one family of (that was the bug in the
+// first cut of this report) and not one of them held back as a forced
+// exclusive alternate (442 folded Tag Area — previously its own
+// report_tag_area_costing() call, mutually exclusive with the other four —
+// into this same matrix, because the owner wants it combinable too).
 type MatrixRow = {
   cost_center_id: string | null; cost_center: string; cost_center_group: string;
   account_id: string; account: string; account_group: string;
+  tag_area_id: string | null; tag_area: string; tag_area_group: string;
   month: string; amount: number;
 };
-type ExpMode = "ccGroup" | "costCenter" | "acctGroup" | "acctName" | "tagArea";
+type ExpMode = "ccGroup" | "costCenter" | "acctGroup" | "acctName" | "tagAreaGroup" | "tagArea";
 type Level = { key: ExpMode; label: string; field: (r: MatrixRow) => string };
-// Fixed nesting order when more than one is on: coarse-to-fine within each
-// hierarchy, cost-centre side before account side (an arbitrary but stable
-// choice — picking Cost Center + Account Name nests accounts under their
-// cost centre, not the reverse).
-const MATRIX_LEVELS: Level[] = [
+// The six selectable levels, in the fixed order they're offered as buttons.
+// This is NOT the nesting order any more — nesting order is whichever order
+// the user actually clicked them in (see expModeOrder below): "select Cost
+// Center then Account Name" nests Account Name under Cost Center; clicking
+// the same two the other way round nests Cost Center under Account Name.
+const ALL_LEVELS: Level[] = [
   { key: "ccGroup", label: "CC Group", field: (r) => r.cost_center_group },
   { key: "costCenter", label: "Cost Center", field: (r) => r.cost_center },
   { key: "acctGroup", label: "Account Group", field: (r) => r.account_group },
   { key: "acctName", label: "Account Name", field: (r) => r.account },
+  { key: "tagAreaGroup", label: "Tag Area Group", field: (r) => r.tag_area_group },
+  { key: "tagArea", label: "Tag Area", field: (r) => r.tag_area },
 ];
-const EXP_MODES: { key: ExpMode; label: string }[] = [
-  ...MATRIX_LEVELS.map((l) => ({ key: l.key, label: l.label })),
-  { key: "tagArea", label: "Tag Area" },
-];
-// Tag Area is the one genuinely exclusive option — a line's tag_area is an
-// alternate dimension to both hierarchies above, not a level of either, so
-// it can't nest with them the way they nest with each other. Everything
-// else toggles freely: turning one of the four matrix levels on only ever
-// clears Tag Area, never any of its siblings.
-function toggleExpMode(prev: Set<ExpMode>, m: ExpMode): Set<ExpMode> {
-  const next = new Set(prev);
-  const turningOn = !next.has(m);
-  if (turningOn) {
-    if (m === "tagArea") { next.clear(); next.add("tagArea"); }
-    else { next.delete("tagArea"); next.add(m); }
-  } else if (next.size > 1) {
-    next.delete(m);
-  }
-  return next;
+const LEVEL_BY_KEY = new Map(ALL_LEVELS.map((l) => [l.key, l]));
+const EXP_MODES = ALL_LEVELS.map((l) => ({ key: l.key, label: l.label }));
+// Click order IS nesting order, so the active selection is an ordered
+// array, not a Set — the newest click goes on the end (innermost), an
+// existing one clicked again drops out but the relative order of the rest
+// is preserved. At least one level must stay selected, same "keep at least
+// one on" rule every other multi-select toggle group in this ERP follows.
+function toggleExpMode(prev: ExpMode[], m: ExpMode): ExpMode[] {
+  if (prev.includes(m)) return prev.length > 1 ? prev.filter((k) => k !== m) : prev;
+  return [...prev, m];
 }
 
 // Group-only / leaf-only / any N-level combination — one recursive builder
@@ -173,7 +171,12 @@ function PivotRows({ list, depth, expanded, onToggle, monthKeys }: {
   );
 }
 function ExpenseMonthwisePivot({ nodes, monthKeys }: { nodes: PivotNode[]; monthKeys: string[] }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Depth-0 (the outermost, first-selected Filteration level) starts
+  // expanded; anything nested beneath it stays collapsed until clicked. The
+  // caller remounts this component on filterKey, so a fresh selection
+  // re-seeds this from the new top-level nodes rather than carrying over a
+  // stale expand set shaped for the old selection.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(nodes.map((n) => n.key)));
   const colCount = monthKeys.length + 2;
   function toggle(k: string) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
   return (
@@ -280,7 +283,8 @@ function BEORows({ list, depth, expanded, onToggle, monthKeys }: {
   );
 }
 function BudgetExpenseReport({ nodes, monthKeys }: { nodes: BEONode[]; monthKeys: string[] }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Same depth-0-expanded default as ExpenseMonthwisePivot above.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(nodes.map((n) => n.key)));
   function toggle(k: string) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
   const colCount = monthKeys.length * 3 + 4;
   const grand = nodes.reduce((a, n) => ({
@@ -343,7 +347,7 @@ function BudgetExpenseReport({ nodes, monthKeys }: { nodes: BEONode[]; monthKeys
 export default function ExpenseReportView() {
   const sb = useMemo(() => createClient(), []);
   const [ym, setYm] = useState<YearMonths>(defaultYearMonths);
-  const [expMode, setExpMode] = useState<Set<ExpMode>>(() => new Set<ExpMode>(["acctName"]));
+  const [expModeOrder, setExpModeOrder] = useState<ExpMode[]>(["acctName"]);
 
   const [monthly, setMonthly] = useState<{ month: string; amount: number }[]>([]);
   const [lastMonthTotal, setLastMonthTotal] = useState(0);
@@ -353,9 +357,6 @@ export default function ExpenseReportView() {
   const [matrixPeriod, setMatrixPeriod] = useState<MatrixRow[]>([]);
   const [matrixLast, setMatrixLast] = useState<MatrixRow[]>([]);
   const [matrixCur, setMatrixCur] = useState<MatrixRow[]>([]);
-  const [tagPeriod, setTagPeriod] = useState<any[]>([]);
-  const [tagLast, setTagLast] = useState<any[]>([]);
-  const [tagCur, setTagCur] = useState<any[]>([]);
 
   const [budgetRows, setBudgetRows] = useState<any[]>([]);
   const [budgetDraft, setBudgetDraft] = useState<Record<string, string>>({});
@@ -385,11 +386,8 @@ export default function ExpenseReportView() {
       sb.rpc("report_expense_matrix", { p_from: from, p_to: to }),
       sb.rpc("report_expense_matrix", { p_from: lmFrom, p_to: lmTo }),
       sb.rpc("report_expense_matrix", { p_from: cmFrom, p_to: today }),
-      sb.rpc("report_tag_area_costing", { p_from: from, p_to: to }),
-      sb.rpc("report_tag_area_costing", { p_from: lmFrom, p_to: lmTo }),
-      sb.rpc("report_tag_area_costing", { p_from: cmFrom, p_to: today }),
       sb.rpc("report_expense_budget_cc", { p_year: ym.year }),
-    ]).then(([main, lm, cm, ytd, matP, matL, matC, tag, tagL, tagC, budget]) => {
+    ]).then(([main, lm, cm, ytd, matP, matL, matC, budget]) => {
       if (!live) return;
       setMonthly(((main.data as any)?.monthly as any[]) ?? []);
       setLastMonthTotal(Number((lm.data as any)?.total ?? 0));
@@ -398,9 +396,6 @@ export default function ExpenseReportView() {
       setMatrixPeriod((matP.data as any[]) ?? []);
       setMatrixLast((matL.data as any[]) ?? []);
       setMatrixCur((matC.data as any[]) ?? []);
-      setTagPeriod((tag.data as any[]) ?? []);
-      setTagLast((tagL.data as any[]) ?? []);
-      setTagCur((tagC.data as any[]) ?? []);
       setBudgetRows((budget.data as any[]) ?? []);
       setBudgetDraft({});
       setLoading(false);
@@ -418,8 +413,11 @@ export default function ExpenseReportView() {
     loadBudget();
   }
 
-  const isTag = expMode.has("tagArea");
-  const activeLevels = MATRIX_LEVELS.filter((l) => expMode.has(l.key));
+  // Nesting order follows CLICK order, not a fixed hierarchy: whichever
+  // level the user selected first is outermost. Clicking Account Name then
+  // Cost Center nests Cost Center under each Account Name; the same two
+  // clicked the other way round nests Account Name under Cost Center.
+  const activeLevels = expModeOrder.map((k) => LEVEL_BY_KEY.get(k)!);
 
   const selectedMonths = Array.from(new Set(ym.months)).sort((a, b) => a - b);
   const monthKeys = selectedMonths.map((m) => `${ym.year}-${pad(m)}`);
@@ -430,16 +428,14 @@ export default function ExpenseReportView() {
   // take one range.
   const matrixSelected = useMemo(() => matrixPeriod.filter((r) => monthKeySet.has(r.month)), [matrixPeriod, monthKeys.join(",")]);
 
-  const tagPeriodExpense = (tagPeriod ?? []).reduce((s: number, r: any) => s + Number(r.expense || 0), 0);
-
   const budgetCell = useMemo(() => new Map(budgetRows.map((r) => [`${r.account_id}::${r.cost_center_id}`, Number(r.monthly_amount || 0)])), [budgetRows]);
   const totalMonthlyBudget = budgetRows.reduce((s, r) => s + Number(r.monthly_amount || 0), 0);
 
-  // Every panel below reads the SAME matrixSelected/tag rows the KPI totals
-  // are summed from, so "Expense" up top and every grid underneath always
+  // Every panel below reads the SAME matrixSelected rows the KPI totals are
+  // summed from, so "Expense" up top and every grid underneath always
   // reconcile to the same number — no second, independently-derived total
   // to drift out of step with what's actually shown.
-  const expenseForPeriod = isTag ? tagPeriodExpense : matrixSelected.reduce((s, r) => s + r.amount, 0);
+  const expenseForPeriod = matrixSelected.reduce((s, r) => s + r.amount, 0);
   const budgetForPeriod = totalMonthlyBudget * selectedMonths.length;
   const varianceForPeriod = budgetForPeriod - expenseForPeriod;
   const usedPct = budgetForPeriod > 0 ? (expenseForPeriod / budgetForPeriod) * 100 : null;
@@ -451,7 +447,7 @@ export default function ExpenseReportView() {
   // group in this ERP always gets, so a cost centre group's own leaves are
   // one click away instead of only ever shown as one rolled-up figure.
   const ccWiseGroups = useMemo(
-    () => buildExpenseLevels(matrixSelected, [MATRIX_LEVELS[0], MATRIX_LEVELS[1]]),
+    () => buildExpenseLevels(matrixSelected, [ALL_LEVELS[0], ALL_LEVELS[1]]),
     [matrixSelected]
   );
 
@@ -465,26 +461,9 @@ export default function ExpenseReportView() {
   // or below it) before writing the rule this way.
   const monthlyChart = monthly.map((m) => ({ ...m, month_label: monthShort(m.month), amount: Number(m.amount || 0), budget: totalMonthlyBudget }));
 
-  const tagRowsFor = (data: any[]) => (data ?? []).map((r: any) => ({ name: r.tag_area, expense: Number(r.expense || 0) }));
-  const tagComparisonGroups: DataGroup[] = (() => {
-    const curMap = new Map(tagRowsFor(tagCur).map((r) => [r.name, r.expense]));
-    const lastMap = new Map(tagRowsFor(tagLast).map((r) => [r.name, r.expense]));
-    const names = new Set([...Array.from(curMap.keys()), ...Array.from(lastMap.keys())]);
-    return Array.from(names).map((name) => {
-      const current = curMap.get(name) ?? 0, last_month = lastMap.get(name) ?? 0;
-      return { key: name, label: name, rows: [], values: { current, last_month, variance: last_month - current } };
-    }).filter((g) => g.values!.current !== 0 || g.values!.last_month !== 0)
-      .sort((a, b) => Number(b.values!.current) - Number(a.values!.current));
-  })();
-  const comparisonGroups = isTag ? tagComparisonGroups : buildComparisonLevels(matrixCur, matrixLast, activeLevels);
-
-  const tagPivotNodes: PivotNode[] = (tagPeriod ?? []).map((r: any) => {
-    const cells: Record<string, number> = {};
-    for (const m of r.monthly ?? []) cells[m.month] = Number(m.expense || 0);
-    return { key: r.tag_area, label: r.tag_area, cells, total: Object.values(cells).reduce((s, v) => s + v, 0) };
-  }).sort((a, b) => b.total - a.total);
-  const pivotNodes = isTag ? tagPivotNodes : buildPivotLevels(matrixSelected, activeLevels);
-  const budgetExpenseNodes = isTag ? [] : buildBudgetExpenseLevels(matrixSelected, activeLevels, monthKeys, budgetCell);
+  const comparisonGroups = buildComparisonLevels(matrixCur, matrixLast, activeLevels);
+  const pivotNodes = buildPivotLevels(matrixSelected, activeLevels);
+  const budgetExpenseNodes = buildBudgetExpenseLevels(matrixSelected, activeLevels, monthKeys, budgetCell);
 
   const budgetAccounts = useMemo(() => {
     const m = new Map<string, { id: string; name: string; group: string }>();
@@ -497,7 +476,10 @@ export default function ExpenseReportView() {
     return Array.from(m.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [budgetRows]);
 
-  const filterKey = Array.from(expMode).sort().join(",");
+  // Order matters here, not just membership: Cost Center->Account Name and
+  // Account Name->Cost Center are two different trees, so the remount key
+  // has to be the click-order array itself, never a sorted/set version of it.
+  const filterKey = expModeOrder.join(",");
 
   return (
     <div className="space-y-4">
@@ -540,22 +522,23 @@ export default function ExpenseReportView() {
         </div>
       </div>
 
-      {/* Expenses Filteration — CC Group, Cost Center, Account Group and
-          Account Name are all independently toggleable and freely combine
-          in any subset (the actual old-software behavior — the first cut
-          of this report wrongly forced a choice between the cost-centre
-          side and the account side). Tag Area is the one exclusive option:
-          a different dimension entirely, so turning it on clears the other
-          four and turning any of the other four on clears it. */}
+      {/* Expenses Filteration — all six levels (CC Group, Cost Center,
+          Account Group, Account Name, Tag Area Group, Tag Area) are
+          independently toggleable and freely combine in any subset, in
+          whichever order they're clicked — the click order becomes the
+          nesting order (outermost = clicked first), not a fixed hierarchy. */}
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Expenses Filteration</span>
         <div className="flex flex-wrap gap-1">
-          {EXP_MODES.map((m) => (
-            <button key={m.key} onClick={() => setExpMode((s) => toggleExpMode(s, m.key))}
-              className={`rounded-full px-3 py-1 text-sm ${expMode.has(m.key) ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>
-              {m.label}
-            </button>
-          ))}
+          {EXP_MODES.map((m) => {
+            const idx = expModeOrder.indexOf(m.key);
+            return (
+              <button key={m.key} onClick={() => setExpModeOrder((s) => toggleExpMode(s, m.key))}
+                className={`rounded-full px-3 py-1 text-sm ${idx >= 0 ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>
+                {m.label}{idx >= 0 && expModeOrder.length > 1 ? ` ${idx + 1}` : ""}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -578,12 +561,10 @@ export default function ExpenseReportView() {
         </div>
       )}
 
-      {!isTag && (
-        <div>
-          <SectionHeader title="Budget and Expense Report" />
-          <BudgetExpenseReport key={filterKey} nodes={budgetExpenseNodes} monthKeys={monthKeys} />
-        </div>
-      )}
+      <div>
+        <SectionHeader title="Budget and Expense Report" />
+        <BudgetExpenseReport key={filterKey} nodes={budgetExpenseNodes} monthKeys={monthKeys} />
+      </div>
 
       <div>
         <SectionHeader title={`Monthly and Yearly Budgets — ${ym.year}`} />

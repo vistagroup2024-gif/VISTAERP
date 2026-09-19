@@ -2039,3 +2039,160 @@ elsewhere. The dashboard's Expenses card now points at `/accounting/expenses`
 instead — its old `hrefOverride` entry in `app/(erp)/dashboard/page.tsx`
 pointing at the tab was removed, the same "two places disagree" trap this
 file already caught once for the Cash Flow card.
+
+## Flexible filtration means CLICK ORDER is nesting order, not a fixed hierarchy
+
+Expenses Filteration (441) already made CC Group/Cost Center/Account
+Group/Account Name freely combinable instead of two forced "families" —
+right, but still not what "whichever way we want" meant. Nesting order
+was still a fixed array (`MATRIX_LEVELS`), so Cost Center + Account Name
+always nested accounts under their cost centre, never the reverse. The
+owner's own example is the test: click Account Name first, then Cost
+Center, and Account Name should be OUTERMOST — each account expanding
+into the cost centres it was posted against — because that is literally
+the order the two were chosen in.
+
+The fix is the selection state itself: not a `Set<Dim>` (membership
+only) but an ordered array, appended to on the end when a level is
+clicked on and filtered out (keeping the rest's relative order) when
+clicked off. `activeLevels` is built by mapping that array back to each
+level's definition, so the recursive group-builders
+(`buildExpenseLevels`, `buildComparisonLevels`, `buildPivotLevels`,
+`buildBudgetExpenseLevels` in `ExpenseReportView.tsx`) needed no change
+at all — they already recursed over whatever `levels` array they were
+handed, in the order handed. Only how that array was derived changed.
+The remount key that resets stale expand state on a mode change
+(`filterKey`, this file's own earlier "DataTable group starts collapsed"
+section) has to be the array **in click order**, not a sorted version of
+it — Cost Center→Account Name and Account Name→Cost Center are two
+different trees and must never share a remount key.
+
+**442 also folded Tag Area into the same matrix**, ending the one
+remaining exception: Tag Area was still the exclusive fifth option in
+441 (picking it cleared the other four), reasoned as "a genuinely
+different dimension." The owner wants it combinable too — CC Group /
+Cost Center / Account Group / Account Name / Tag Area Group / Tag Area
+are six freely-combinable, freely-orderable levels of the same
+`report_expense_matrix()` rows now, not five plus one exception.
+`report_tag_area_costing()` and the separate `tagPeriod`/`tagLast`/
+`tagCur` state, `tagComparisonGroups`, `tagPivotNodes` and the `isTag`
+branching that hid the Budget and Expense Report panel entirely are gone
+from `ExpenseReportView.tsx` — tag area flows through the exact same
+`buildExpenseLevels`/`buildComparisonLevels`/`buildPivotLevels`/
+`buildBudgetExpenseLevels` path as every other level, because it is one
+now, not a special case.
+
+**This is the standing pattern for a new flexible multi-dimension filter
+going forward — click order = nesting order, an ordered array not a
+Set — not something to be asked for per report.** It has NOT yet been
+retrofitted onto P&L's own CC Group/Cost Center/Tag Area toggle or Sales
+Report's "View By" (ccGroup/costCentre/customer/product): both still
+render each selected dimension as its own independent, non-nesting
+section (P&L's own note on this: CC Group and Cost Center there are
+levels of ONE hierarchy with a fixed Group→leaf order, not independently
+orderable; Sales Report's four dimensions are deliberately parallel
+sections, not a single tree at all — "Cost Centre nested inside Customer"
+was never asked for or meaningful there the way it is for Expenses'
+cost-centre/account/tag-area combination). Rebuilding either onto a
+combined-matrix, click-order-nesting architecture is its own, separately-
+scoped change if the business ever asks for cross-dimension nesting on
+those screens — this section documents the RULE (click order nests, once
+a report's dimensions genuinely form one drillable tree), not a mandate
+that every report share Expense Report's exact matrix shape.
+
+## Depth-0 starts expanded; only what nests inside it stays collapsed
+
+The earlier "DataTable group starts collapsed" fix (above) was right for
+what it fixed — a stale, cross-mode auto-expand where switching P&L's
+filtration re-opened a group the new shape had never had reason to open —
+but it over-corrected: EVERY group started collapsed, including the
+single outermost level of a report whose entire content lives inside
+that first click. Cash & Bank's own account groups, and Sales Report's
+Monthwise Sales pivot, read as broken on load for exactly this reason —
+a screenful of ▸ with no figures behind any of them until the viewer
+clicked every single one.
+
+The correct rule is about DEPTH, not "expanded vs collapsed" as a single
+global default: the **first, outermost level** of whatever grouping or
+filter combination is currently active starts open, because that level
+IS the report — a viewer should see real numbers the instant the page
+loads. Anything **beneath** that first level — a second filter dimension
+switched on, or a report's own natural sub-nesting (a cost centre's
+accounts, a group's cost centres) — still starts collapsed, exactly as
+before, because that detail is opt-in by design. `DataTable.tsx`'s own
+`expanded` state now seeds itself from the component's own `groups` prop
+on mount (`new Set((groups ?? []).map(g => g.key))`) instead of an empty
+Set — every caller built on `DataTable` (P&L, Balance Sheet, Cash & Bank,
+Aging, Cost Centre Costing, Sales Report's nested tables, every grouped
+Inventory report, Expense Report) gets this at once, with no per-caller
+change. A caller that remounts the table on a filter-mode change (keyed
+on `filterKey`/`dimsKey`) gets it fresh on every combination, not just on
+first load — the newly outermost level of whatever combination is now
+active opens, whatever was open under the previous combination is
+discarded along with the remount, matching how the remount-key fix
+already worked.
+
+The same depth-0 rule was applied to every **hand-rolled** (non-
+`DataTable`) grouped table that tracks its own expand state, since none
+of those get the shared-component fix for free: `ExpenseMonthwisePivot`
+and `BudgetExpenseReport` (`ExpenseReportView.tsx`) now seed `expanded`
+from their own top-level `nodes` on mount, the same pattern; Sales
+Report's own `MonthwisePivotTable` now seeds from its `groups` prop, and
+the page keys it (and the two `DataTable` calls that share the same "View
+By" dimension set) on `dimsKey` — the sorted active-dimension list — so a
+freshly-toggled-on dimension remounts and starts open rather than
+silently staying collapsed because `expanded` had already been seeded
+once for an earlier selection; `MultiLevelMovement.tsx`'s own root groups
+are now seeded open the moment `run()` returns data, via the same
+`computeRoots()` logic the render path already used to find them, rather
+than starting as an untouched `{}` until a viewer clicks every root by
+hand. Per-row, per-transaction line-item expansions (Orders Report,
+Advance vs Receipt, the car customer report's bill drill-down, Aging's
+own row detail) were checked and are a different shape on purpose — those
+expand ONE row's own detail on demand, not a report's outermost grouping,
+so starting collapsed there is still correct and untouched.
+
+## A negative TOTAL row gets a background fill, not just red text
+
+`negativeClass()` (this file's own "A loss reads red" section) colors a
+negative money/pct figure's TEXT red, appropriate for an ordinary data
+row or group subtotal sitting among many other rows a viewer reads one at
+a time. A **Total** row is read differently — it's the one line a viewer
+scans for without reading everything above it (Balance Sheet's own three
+total bars already used a background fill for exactly this reason, ahead
+of the rest of the ERP catching up) — so text color alone doesn't carry
+enough weight to register at a glance the way Balance Sheet's precedent
+already did. `negativeTotalClass()` in `DataTable.tsx` is the total-row
+variant — `bg-red-50 text-red-700` instead of `text-red-600` — applied
+to the flat footer's Total row and a group's Subtotal row, the two places
+`DataTable` itself draws a TOTAL rather than a data row. This reaches
+every report built on `DataTable` at once, the same way the "loss reads
+red" rule did. `BudgetExpenseReport`'s own Variance cells already carried
+a heavier-than-usual solid `bg-red-600 text-white` treatment for the same
+reason (it's the one figure that answers "did we overspend") and needed
+no change — that precedent is what this rule generalises ERP-wide.
+
+## A fix applied once belongs everywhere the same shape recurs — check, don't wait to be told
+
+Sales Report's own `MonthwisePivotTable` had the exact "amount in a
+caption instead of its own column" bug this file's AR&AP fix (`values`
+on `DataGroup`, applied to `mainGroups`/`carGroups`/`ltGroups` in
+`AgingView.tsx`) had already corrected elsewhere: a group's header row
+rendered `{g.label} — {money(grandTotal)}` as one colSpan cell with the
+figure glued onto the label as trailing text, instead of that figure
+sitting in its own month column the way every row beneath it does. This
+was the SAME bug, in a component built independently of the one already
+fixed — not a new bug needing its own investigation. Fixed by computing
+each group's real per-month totals (`groupCells`, summed from the same
+`PivotRow.cells` the leaf rows already read) and rendering them as real
+cells alongside the label, the same shape `ExpenseMonthwisePivot`'s
+`PivotNode`/`PivotRows` already used correctly from the start.
+
+The standing instruction this generalises: once a defect shape is fixed
+in one report, sweep for the same shape elsewhere in the same pass,
+rather than waiting for it to be reported again per screen. This file's
+own "A loss reads red" and "DataTable group starts collapsed" sections
+already did this once each (a global `DataTable.tsx` fix plus an explicit
+sweep of every hand-rolled table outside it); this section is the same
+discipline applied to the caption-vs-column bug, and the two sections
+above apply it again to expand-state depth and total-row backgrounds.
