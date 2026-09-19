@@ -2686,3 +2686,120 @@ for it to be reported per screen. `car_customer_report()` and
 same four tables; only one of them was updated when the rule was
 introduced, because the second wasn't remembered as reading the same
 data a second time.
+
+## Balance Sheet was checked for the same Drawing gap P&L had — it never had it
+
+Asked directly after the P&L Drawing fix above: Balance Sheet has no
+cost-centre dimension anywhere (`trial_balance()` classified by account
+`nature`/`subtype` only), so there was no per-cost-centre breakdown for a
+Drawing account to have been missing FROM in the first place — a Drawing
+account already lands in its own "Drawings" equity group, negative,
+correctly reducing Total Equity. Verified live (a real Drawing account,
+`nature: equity, subtype: Drawing`, showing its full closing balance).
+Nothing to fix here; the P&L bug was specific to a report that groups by
+cost centre and never read the column, not a general "Drawing is hidden"
+problem.
+
+## Car Customer Balances read a SECOND, shadow ledger of what a customer owes — a receipt taken the ordinary way vanished from it
+
+`car_customer_balances()`, `car_customer_monthwise()` and
+`car_customer_report()`'s own monthly chart all computed due/overdue/
+collected from `car_installments.paid_amount` / `car_contracts.advance`
+minus `car_receipt_allocations` / `car_receipts.receipt_date` — a second,
+car-module-only ledger of what's been paid, kept in sync only by
+`car_receipt_save`'s two branches and `car_post_receipt`'s trigger. It was
+never the real source: `open_items`/`allocations` already is, and
+"Every invoice is a bill the receipt can adjust against" already means
+ANY voucher — not only a Car Receipt — can settle one, through the
+ordinary Receipt/Payment/Journal bill-wise popup.
+
+A receipt taken that way — the plain Receipt Voucher, the customer's own
+account picked as the line, adjusted against the bill in the popup —
+posts correctly to the ledger and correctly to `open_items`/`allocations`,
+but never touches `car_receipts` or `car_installments.paid_amount`, since
+it never runs through `car_receipt_save`. So it vanished from this report
+entirely, while being fully correct everywhere else. Reproduced live:
+ABDUL JALAL (CI-000005) had two such receipts, SAR 15,000 total against
+the CI-000005 advance bill, both posted and both correctly bill-adjusted
+(the bill's own outstanding dropped from 20,000 to 5,000) — and Car
+Customer Balances still read collected: 0, overdue: 20,000, total_due:
+28,583.34, because the two shadow tables never moved.
+
+Fixed (453) by reading `open_items` directly instead of the shadow
+figures — the same "money questions read the ledger" rule stated
+elsewhere in this file, just for AR ageing instead of a P&L total:
+- `car_customer_balances()`'s `due_items` sums
+  `open_items.outstanding_base` for `doc_type in ('car_sale',
+  'car_installment', 'car_scharge_month')`, keyed on `open_items.party_id`
+  directly (it already carries the customer). `collected` is
+  `amount_base - outstanding_base`, true regardless of which voucher
+  settled the bill.
+- `car_customer_monthwise()`'s `receipts_by_month` now sums
+  `allocations.amount_base` joined through `open_items` to the settling
+  `journal_entries.entry_date` — the month money actually posted, not
+  `car_receipts.receipt_date` (which a plain Receipt Voucher never wrote).
+- `car_customer_report()` — only its `month_pts` CTE changes, to the same
+  `open_items`/`allocations` reading, keeping the 451 period-shift rule
+  (by `doc_type`, since a one-time `car_sale` bill is never shifted). Its
+  `ageing`/`by_type`/`bills` sections already read `open_items` and were
+  never affected by this bug — only the schedule chart was.
+
+None of `car_receipts` / `car_installments` / `car_receipt_allocations`
+were dropped — `car_receipt_settle_bills`, the PaymentPanel's own
+per-installment allocation UI and the Car Receipt screens still read and
+write them for that detail. Only these three READ-side aggregates moved
+onto the ledger-true source.
+
+## A customer's due is a report question of "for which car" — the Ageing Summary drills into it
+
+"some customer have multiple cars so it will show multiple car so we can
+see which car balance is due" — Car Customer Balances' Ageing Summary only
+ever showed a customer's TOTAL, with no way to see which vehicle (or which
+month of service charges) it actually belonged to. `car_customer_vehicle_
+dues(p_customer_id)` (454) is the drill-down, one row per `car_contracts`
+row (vehicle), each split into the car-invoice side (advance + instalments)
+and the service-charge side, plus an `other` bucket for anything posted to
+the account outside the three car doc_types — reached from a ▸/▾ chevron
+beside the customer's name in `AgeingSummaryTable.tsx`, fetched on demand
+the same way `CustomerReportClient.tsx`'s own `BillDrilldown` reads
+`journal_lines` on click: a report row's own detail, not the report's
+outermost grouping, so it starts collapsed on purpose (see "the same shape
+recurs" section above).
+
+The car-invoice side matches a bill back to its own contract exactly,
+through `doc_no` (`car_contract_bills_raise`'s own `'<contract_no>/<n>'` /
+`'<contract_no> advance'` shape is the only link `open_items` carries — a
+contract's own bills always parse back to exactly that one contract). The
+service-charge side can't be that precise: `car_post_charges_month` raises
+ONE bill per customer PER MONTH, summing every vehicle's charge into it —
+a two-vehicle customer's two charges share one bill, so `open_items` alone
+can't say which vehicle a partial payment actually covers. A vehicle's own
+share of what's outstanding is taken as its share of that month's total,
+applied to the bill's own remaining balance (`car_service_charges.amount *
+bill's outstanding/billed ratio`) — exact for the common single-vehicle
+customer, a fair proportional split otherwise. This reads
+`car_service_charges.amount` (the real, per-vehicle billed figure) but
+never `car_service_charges.paid_amount` — that column has the identical
+shadow-ledger problem `car_customer_balances()` just had, and would
+silently miss the same plain, bill-wise-adjusted Receipt Voucher.
+
+Two more small fixes landed on the same screen, same underlying cause
+(reading the wrong thing, not a display bug):
+- **Ledger Balance's red/green used to key off the sign of the balance
+  alone** — any customer owing anything read red, even a balance that
+  isn't overdue yet (this month's instalment, not yet due). It now keys
+  off `overdue > 0` — red only when something is genuinely overdue, green
+  only when the customer is in credit, plain otherwise — matching the
+  Due/Overdue columns' own already-correct logic right beside it.
+- **"Total Overdue" renamed to "Overdue"** (matching the table's own
+  column header) and a **"Total Dues" KPI added** (Due + Overdue, the same
+  sum the table's own Total column already shows) — the KPI row was
+  answering "what's overdue" and "what's due this month" separately but
+  never "what's owed altogether" at a glance.
+- **Monthly Balances (tab 2) renamed "Billed" to "Due"** throughout its
+  own KPI labels and empty-state text — the underlying field name and RPC
+  are unchanged (`car_customer_monthly_matrix()`'s own `billed` column is
+  still what it's always been, and Billed vs Receipts Monthwise, tab 4,
+  still correctly says "Billed" since it's explicitly comparing billed
+  against received) — only this one tab's user-facing label changed, to
+  match what a viewer is actually asking this specific tab: what's due.

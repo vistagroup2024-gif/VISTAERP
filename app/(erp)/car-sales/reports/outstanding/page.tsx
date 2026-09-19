@@ -7,6 +7,7 @@ import PrintButton from "@/components/PrintButton";
 import SectionHeader from "@/components/reports/SectionHeader";
 import ReportKpi from "@/components/reports/ReportKpi";
 import { COMPANY_ID, monthShort } from "@/lib/format";
+import AgeingSummaryTable, { type AgeingRow } from "./AgeingSummaryTable";
 
 // A plain number, no currency code — every figure on this screen is SAR, so
 // repeating "SAR" on all 14 columns of every row is noise the column headers
@@ -96,7 +97,7 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
   ]);
   const monthlyById = new Map(((monthly ?? []) as any[]).map((m) => [m.customer_id, m]));
 
-  const rows = ((data ?? []) as any[]).map((r) => {
+  const rows: AgeingRow[] = ((data ?? []) as any[]).map((r) => {
     const m = monthlyById.get(r.customer_id);
     monthlyById.delete(r.customer_id);
     return {
@@ -123,92 +124,9 @@ async function AgeingSummary(supabase: ReturnType<typeof createClient>) {
       Math.abs(r.balance) > 0.005 || r.total_due > 0.005 ||
       [r.due_cur, r.due_last, r.due_l2, r.due_l3, r.due_prev, r.rcpt_cur, r.rcpt_last, r.rcpt_l2, r.rcpt_l3].some((v) => Math.abs(v) > 0.005));
 
-  const sum = (k: string) => rows.reduce((s, r) => s + Number((r as any)[k] || 0), 0);
   const totalCars = rows.reduce((s, r) => s + r.cars, 0);
-  const totalBalance = sum("balance");
-  const custsWithBalance = rows.filter((r) => r.balance > 0.005).length;
 
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <ReportKpi label="Customers" value={String(rows.length)} icon="users" />
-        <ReportKpi label="Total Cars" value={String(totalCars)} icon="car" />
-        <ReportKpi label="Ledger Balance" value={drCr(totalBalance)} icon="wallet" tone={totalBalance > 0 ? "neg" : undefined} />
-        <ReportKpi label="Total Due" value={num(sum("due"))} icon="clock" tone={sum("due") > 0 ? "warn" : undefined} />
-        <ReportKpi label="Total Overdue" value={num(sum("overdue"))} icon="clock" tone={sum("overdue") > 0 ? "neg" : undefined} />
-        <ReportKpi label="Customers Owing" value={String(custsWithBalance)} icon="users" />
-      </div>
-      <div>
-        <SectionHeader title={`Customer Due Ageing Summary — Total Cars: ${totalCars}`} />
-        <div className="card overflow-x-auto p-0">
-          <table className="report-grid w-full min-w-[1150px] text-sm">
-            <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
-              <tr>
-                <th className="px-4 py-2.5 text-right" rowSpan={2}>Sr #</th>
-                <th className="px-4 py-2.5 text-left" rowSpan={2}><span className="col-resize">Name</span></th>
-                <th className="px-4 py-2.5 text-right" rowSpan={2}><span className="col-resize">Led. Bal</span></th>
-                <th className="px-4 py-2.5 text-right" rowSpan={2}><span className="col-resize">Due</span></th>
-                <th className="px-4 py-2.5 text-right" rowSpan={2}><span className="col-resize">Overdue</span></th>
-                <th className="px-4 py-2.5 text-right" rowSpan={2}><span className="col-resize">Total</span></th>
-                <th className={`px-4 py-2.5 text-center border-l border-slate-300 ${DUE_BG}`} colSpan={5}>Monthly Due</th>
-                <th className={`px-4 py-2.5 text-center border-l border-slate-300 ${RCPT_BG}`} colSpan={4}>Monthly Receipts</th>
-              </tr>
-              <tr>
-                <th className={`px-2 py-2.5 text-right border-l border-slate-300 ${DUE_BG}`}><span className="col-resize-wrap">Current Month Due</span></th>
-                <th className={`px-2 py-2.5 text-right ${DUE_BG}`}><span className="col-resize-wrap">Last Month Due</span></th>
-                <th className={`px-2 py-2.5 text-right ${DUE_BG}`}><span className="col-resize-wrap">2nd Last Month Due</span></th>
-                <th className={`px-2 py-2.5 text-right ${DUE_BG}`}><span className="col-resize-wrap">3rd Last Month Due</span></th>
-                <th className={`px-2 py-2.5 text-right ${DUE_BG}`}><span className="col-resize-wrap">All Previous Dues</span></th>
-                <th className={`px-2 py-2.5 text-right border-l border-slate-300 ${RCPT_BG}`}><span className="col-resize-wrap">Current Month Rec</span></th>
-                <th className={`px-2 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize-wrap">Last Month Rec</span></th>
-                <th className={`px-2 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize-wrap">2nd Last Month Rec</span></th>
-                <th className={`px-2 py-2.5 text-right ${RCPT_BG}`}><span className="col-resize-wrap">3rd Last Month Rec</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
-                  <td className="td text-right tabular-nums text-slate-400">{i + 1}</td>
-                  <td className="td"><Link href={`/car-sales/customers/${r.id}`} className="text-brand hover:underline">{r.name}</Link></td>
-                  <td className={`td text-right tabular-nums font-medium ${r.balance > 0 ? "text-red-600" : r.balance < 0 ? "text-emerald-700" : ""}`}>{drCr(r.balance)}</td>
-                  <td className="td text-right tabular-nums">{r.due > 0 ? <span className="text-amber-700">{num(r.due)}</span> : "—"}</td>
-                  <td className="td text-right tabular-nums">{r.overdue > 0 ? <span className="text-red-600">{num(r.overdue)}</span> : "—"}</td>
-                  <td className="td text-right tabular-nums font-medium">{num(r.total_due)}</td>
-                  <td className={`td text-right tabular-nums border-l border-slate-100 ${DUE_BG}`}>{num(r.due_cur)}</td>
-                  <td className={`td text-right tabular-nums ${DUE_BG}`}>{num(r.due_last)}</td>
-                  <td className={`td text-right tabular-nums ${DUE_BG}`}>{num(r.due_l2)}</td>
-                  <td className={`td text-right tabular-nums ${DUE_BG}`}>{num(r.due_l3)}</td>
-                  <td className={`td text-right tabular-nums text-red-600 ${DUE_BG}`}>{num(r.due_prev)}</td>
-                  <td className={`td text-right tabular-nums text-green-700 border-l border-slate-100 ${RCPT_BG}`}>{num(r.rcpt_cur)}</td>
-                  <td className={`td text-right tabular-nums text-green-700 ${RCPT_BG}`}>{num(r.rcpt_last)}</td>
-                  <td className={`td text-right tabular-nums text-green-700 ${RCPT_BG}`}>{num(r.rcpt_l2)}</td>
-                  <td className={`td text-right tabular-nums text-green-700 ${RCPT_BG}`}>{num(r.rcpt_l3)}</td>
-                </tr>
-              ))}
-              {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={15}>No outstanding balances or recent activity.</td></tr>}
-            </tbody>
-            {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
-              <td className="td" />
-              <td className="td">Total ({rows.length})</td>
-              <td className={`td text-right tabular-nums ${sum("balance") > 0 ? "text-red-600" : sum("balance") < 0 ? "text-emerald-700" : ""}`}>{drCr(sum("balance"))}</td>
-              <td className="td text-right tabular-nums">{num(sum("due"))}</td>
-              <td className="td text-right tabular-nums">{num(sum("overdue"))}</td>
-              <td className="td text-right tabular-nums">{num(sum("total_due"))}</td>
-              <td className={`td text-right tabular-nums border-l border-slate-100 ${DUE_BG}`}>{num(sum("due_cur"))}</td>
-              <td className={`td text-right tabular-nums ${DUE_BG}`}>{num(sum("due_last"))}</td>
-              <td className={`td text-right tabular-nums ${DUE_BG}`}>{num(sum("due_l2"))}</td>
-              <td className={`td text-right tabular-nums ${DUE_BG}`}>{num(sum("due_l3"))}</td>
-              <td className={`td text-right tabular-nums ${DUE_BG}`}>{num(sum("due_prev"))}</td>
-              <td className={`td text-right tabular-nums border-l border-slate-100 ${RCPT_BG}`}>{num(sum("rcpt_cur"))}</td>
-              <td className={`td text-right tabular-nums ${RCPT_BG}`}>{num(sum("rcpt_last"))}</td>
-              <td className={`td text-right tabular-nums ${RCPT_BG}`}>{num(sum("rcpt_l2"))}</td>
-              <td className={`td text-right tabular-nums ${RCPT_BG}`}>{num(sum("rcpt_l3"))}</td>
-            </tr></tfoot>}
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+  return <AgeingSummaryTable rows={rows} totalCars={totalCars} />;
 }
 
 // Every month that carries ANY billed or received activity, across every
@@ -245,8 +163,8 @@ function MonthlyBalances({ rows }: { rows: MatrixRow[] }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <ReportKpi label="Customers with a Schedule" value={String(custs.length)} icon="users" />
-        <ReportKpi label="Total Billed (all months)" value={num(totalBilled)} icon="wallet" />
-        <ReportKpi label={`Billed — ${monthShort(thisMonthKey)}`} value={num(curMonthBilled)} icon="clock" tone={curMonthBilled > 0 ? "warn" : undefined} />
+        <ReportKpi label="Total Due (all months)" value={num(totalBilled)} icon="wallet" />
+        <ReportKpi label={`Due — ${monthShort(thisMonthKey)}`} value={num(curMonthBilled)} icon="clock" tone={curMonthBilled > 0 ? "warn" : undefined} />
         <ReportKpi label="Months Shown" value={String(months.length)} icon="trendUp" />
       </div>
       <div>
@@ -273,7 +191,7 @@ function MonthlyBalances({ rows }: { rows: MatrixRow[] }) {
                   <td className="td text-right tabular-nums font-semibold border-l border-slate-100">{num(c.totalBilled)}</td>
                 </tr>
               ))}
-              {custs.length === 0 && <tr><td className="td text-slate-400" colSpan={months.length + 2}>No billed schedule found.</td></tr>}
+              {custs.length === 0 && <tr><td className="td text-slate-400" colSpan={months.length + 2}>No due schedule found.</td></tr>}
             </tbody>
             {custs.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
               <td className="td sticky left-0 bg-slate-50 z-10">Total ({custs.length})</td>
