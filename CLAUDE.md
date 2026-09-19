@@ -2449,38 +2449,70 @@ immediately, doing nothing, whenever `entry_id` is already set on the row
 on insert cannot assume it is the only thing that ever posts that row**,
 once more than one code path can write to the same table.
 
-## A one-line aggregate posting still needs a cost centre — grouped the same way the lines beside it are
+## A one-line aggregate posting still needs a cost centre — but not necessarily the same one as the lines beside it
 
 `car_post_charges_month` built one debit line per customer for a month's
 charges, each correctly carrying that customer's vehicle's own cost centre
 (`car_cost_center()`) — then closed the entry with a single lump credit
-line on account 4300 (Monthly Service Charges) with **no** `cost_center` at
-all, because there was no one obviously-correct value to put on a line that
-summed every customer's charge into one number. The result: every month's
-service-charge income landed in P&L's and Expense Report's "Unassigned"
-bucket, even on a month where every customer charged shared the exact same
-cost centre. `car_cost_center()` isn't guaranteed uniform across every
-customer billed in a month (it reads a vehicle's own contract's cost
-centre first, falling back to CAR TRADING/CAR SALES INSTALLMENT), so
-there genuinely wasn't one safe value to hard-code — the fix is not to
-pick one, but to stop assuming the credit side has to be one line: it's
-now grouped by `(cost_center, tag_area)` off the same `car_service_charges`
-rows the debit loop already reads, the exact shape the debit side already
-uses. A month with two cost centres now posts two credit lines instead of
-one blank one; a month with only one (the common case) posts one, correctly
-attributed. Fixed with a backfill that regenerates any already-posted
-`car_scharge_month` entry the same way `car_charges_month_save` itself
-already does on every save (delete the month's entry, repost) — nothing
-about the amounts, customers or due dates changes, only the credit line's
-cost centre.
+line on account 4300 (Monthly Service Charges) with **no** `cost_center`
+at all. The result: every month's service-charge income landed in P&L's
+and Expense Report's "Unassigned" bucket.
+
+The first fix (448) grouped the credit side by `(cost_center, tag_area)`
+off the same `car_service_charges` rows the debit loop reads — mirroring
+the debit side's own per-vehicle cost centre. That was wrong: it posted
+Monthly Service Charges income under CAR SALES INSTALLMENT/CAR TRADING,
+the SOLD VEHICLE's cost centre, when the business tracks Monthly Service
+Charges as its own line — the chart already carries a dedicated cost
+centre for exactly this, **MONTHLY CAR SERVICE CHARGES**, under the
+SERVICE CHARGES group, alongside OTHER SERVICES/WORK VISA/YUSRA COMPANY.
+450 replaced the per-vehicle split with one credit line fixed to that
+cost centre — the same way `car_cost_center()` itself hardcodes its own
+fallback cost centre names rather than deriving them. The debit
+(receivable) lines are untouched and still carry each vehicle's own cost
+centre — that line is an ASSET account, invisible to P&L's cost-centre
+breakdown regardless of what it carries, so only the credit side's
+attribution actually mattered for this bug.
 
 **The general shape to check for**: any routine that posts one line per
 some-dimension (a customer, a vehicle, an account) and then closes the
-entry with a single SUMMARY line on the other side — that summary line
-needs to be split the same way, by whatever dimension the detail lines
-already carry, not left blank because there's "no one right value." An
-"Unassigned" cost centre showing up in a report is not always bad data
-entered by a user — check the posting routine that produced it first.
+entry with a single SUMMARY line on the other side needs to decide, on
+its own business terms, what that summary line's cost centre should be —
+inheriting the SAME dimension the detail lines carry is the wrong default
+whenever the summary represents a genuinely different line of business
+(a service fee, a admin charge) rather than a rollup of the same thing.
+An "Unassigned" cost centre showing up in a report is not always bad data
+entered by a user — check the posting routine that produced it first, and
+check what cost centre the business actually wants before picking one to
+fix it with.
+
+## A `type = 'equity'` account never enters P&L's cost-centre breakdown — by accounting design, not a gap to fill
+
+A Drawing posting (`3-02-04 HAMMAD DRAWING`, `type = 'equity'`,
+`subtype = 'Drawing'`) with `cost_center = 'MAIN'` correctly typed and
+saved on its line will never show its amount against "MAIN" — or any
+cost centre — in P&L's Cost Centre / Cost Centre Group view.
+`report_pl_matrix()`'s `sales`/`cogs`/`expense` sums are each filtered to
+`acct_type = 'income'` or `'expense'`; an equity-type line contributes
+nothing to any of the three, no matter what cost centre it carries. The
+group row for "MAIN" still appears in the matrix (the `gl`/`agg` CTEs
+group by cost centre regardless of account type), but reads 0.00 on
+every column — the 2,000 SAR drawing itself is structurally invisible
+there, not lost or mis-filed. This is the same fact "Profit & Loss
+Summary carries Drawing / Actual Net / Act %, but only where they're
+honest" (above) already states for the flat month view — Drawings have
+no cost-centre breakdown ANYWHERE in the schema, on purpose: a drawing is
+an owner's equity withdrawal, not a business expense, so folding it into
+a cost centre's Expenses would overstate what that cost centre actually
+cost to run. The only place a drawing's amount shows at all is the
+whole-company `Drawing` KPI/column — never split by cost centre, cost
+centre group or tag area. If the business genuinely wants drawings
+tracked by cost centre, that is a real, unbuilt feature (a schema
+decision — whether a drawing should even carry one — not a bug in the
+existing report), not something to retrofit into `report_pl_matrix()`
+by relaxing its account-type filter, which would then also start
+counting balance-sheet movements (loans, fixed-asset purchases) as if
+they were operating income or expense.
 
 ## Depth-0 auto-expand is opt-out for a FIXED group shape, opt-in-to-collapse for a click-order one
 
