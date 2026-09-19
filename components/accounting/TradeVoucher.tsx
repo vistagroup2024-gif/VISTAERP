@@ -798,6 +798,29 @@ export default function TradeVoucher({ type, rights, initialId }: {
     router.refresh();
     if (cfg.showDelivered && !delivered && r.id) setDeliverAsk({ id: r.id, docNo: r.doc_no, date: todaySA() });
   }
+
+  // The lighter door for a posted voucher: Cost Centre and Tag Area are
+  // reporting attribution, not stock or money, so they don't need the full
+  // unpost/repost cycle Save does — which is also the cycle that correctly
+  // refuses once stock has moved on or a later document has loaded from this
+  // one. Only offered once the document exists and is posted; an unposted
+  // voucher already saves these through the ordinary Save button.
+  async function saveAttribution() {
+    if (!id) return;
+    setBusy(true); setErr(null); setDone(null);
+    const { data, error } = await supabase.rpc("trade_doc_set_attribution", {
+      p_id: id, p_cost_center: costCenter || null,
+      p_tag_area: cfg.showTagArea === false ? null : (tagArea || null),
+    });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    const r = data as any;
+    setDone(!r.posted ? "Cost centre / tag area updated."
+      : r.ledger_synced ? "Cost centre / tag area updated — the posted ledger entry now carries it too."
+      : "Cost centre / tag area updated on the voucher. The posted ledger entry has more than one line sharing the old value, so it was left as is — unpost and re-save to correct it there too.");
+    router.refresh();
+  }
+
   async function answerDelivered() {
     if (!deliverAsk) return;
     setBusy(true); setErr(null);
@@ -964,6 +987,20 @@ export default function TradeVoucher({ type, rights, initialId }: {
             <div><label className="label">Tag Area</label>
               <SearchSelect value={tagArea} onChange={setTagArea} placeholder="—"
                 options={tagAreas.map((t) => ({ value: t.name, label: t.name }))} /></div>
+          )}
+          {/* Cost Centre / Tag Area are reporting attribution, not stock or
+              money — a posted voucher stays locked against the rest (Save
+              below), but these two don't need the full unpost/repost cycle,
+              so they get their own lighter save. Only worth showing once the
+              voucher is posted; unposted, the ordinary Save already covers
+              these fields with everything else. */}
+          {id && posted && (
+            <div className="col-span-2 -mt-2 flex items-end md:col-span-4">
+              <button type="button" onClick={saveAttribution} disabled={busy || !may("edit")}
+                className="text-xs text-brand hover:underline disabled:opacity-40 disabled:no-underline">
+                Update Cost Centre / Tag Area only (works even while the rest is locked)
+              </button>
+            </div>
           )}
           <div><label className="label">Reference</label><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} /></div>
           {canPost && cfg.showWarehouse && (
