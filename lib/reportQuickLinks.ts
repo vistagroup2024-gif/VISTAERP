@@ -34,7 +34,7 @@ function resolve(hrefs: string[]): { href: string; label: string }[] {
 
 const ACCOUNTING_REPORT_HREFS = [
   "/accounting/trial-balance", "/accounting/balance-sheet", "/accounting/profit-loss",
-  "/accounting/ledger", "/accounting/aging", "/accounting/cash-bank",
+  "/accounting/ledger", "/accounting/aging", "/accounting/cash-bank", "/accounting/cash-flow",
   "/accounting/journal", "/accounting/transactions", "/accounting/cost-centre-costing",
   "/accounting/targets", "/accounting/drawings", "/accounting/product-costing",
   "/accounting/vat", "/accounting/assets", "/accounting/audit",

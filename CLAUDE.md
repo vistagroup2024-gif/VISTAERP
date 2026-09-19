@@ -1405,3 +1405,45 @@ Books (Balanced, or Off by the difference) — answers "does the business
 balance" before a single row is read. Two small donuts (Asset Composition,
 Financing Mix) are the one addition with no prior equivalent on this
 screen, reusing `DonutChart` rather than a new chart component.
+
+## Cash Flow is a statement, not the ledger with a filter on it
+
+The dashboard's Cash Flow card used to open `/accounting/ledger?subtype=Cash,Bank`
+— clicking through it was, in the user's own words, "it open all ledger,
+this is wrong." `report_cash_flow()` (439) and `/accounting/cash-flow`
+replace that with the three things a professional cash flow report always
+carries (QuickBooks, Xero, SAP all shape it the same way): where cash
+actually came from and went to this period, a monthly trend, and what's
+already committed to arrive or leave soon.
+
+**Cash/bank accounts are identified exactly the way `report_cash_bank()`
+already does** — by chart-of-accounts path under the 1-02 (Cash) and 1-03
+(Bank) groups, not by subtype — precisely so this report's balance can
+never drift from what the Cash & Bank card already shows for the same
+date. Re-deriving "what counts as cash" a second way is the two-screens-
+disagree trap this file keeps finding; the migration's own rehearsal
+cross-checked both RPCs' totals against each other before being applied.
+
+**The direct-method statement (Operating / Investing / Financing) needs no
+per-voucher-type special-casing, because double-entry does the work.** For
+every posted entry that touches a cash/bank account in the period, its
+OTHER (non-cash) lines are summed by (credit − debit), grouped by that
+line's own account `subtype`/`nature` (Receivable → Received from
+Customers, Payable → Paid to Suppliers, Fixed Asset → Investing, Drawing/
+Equity → Financing, everything else → Operating Expenses / Other Income /
+Other). Because debits equal credits within every entry, this sum is
+*exactly* the period's net cash movement — nothing is estimated,
+apportioned, or specific to Receipt/Payment/Car Sale/whatever voucher
+raised the entry. A transfer between two of the company's own cash/bank
+accounts (a Contra voucher) has no non-cash line at all, so it drops out
+on its own instead of being counted as both an inflow and an outflow.
+
+**"What's coming and what's due" reads `open_items`, bucketed exactly the
+way `ar_ap_aging()` and the car customer report already bucket it** —
+overdue / due this month / next 30 days / beyond 30 — rather than a fourth
+definition of the same buckets. `direction = 'D'` is a receivable (expected
+cash IN), `'C'` is a payable (expected cash OUT); both are already on
+`open_items` and needed no join back through `accounts.subtype` to work
+out which side a bill is on. "Cash Now" plus expected inflows less expected
+outflows within 30 days is the one projected figure on the screen, and it
+says so in its own label rather than presenting a projection as a fact.

@@ -176,6 +176,7 @@ export const GROUPS: NavGroup[] = [
     { href: "/accounting/approvals", label: "Approval Inbox" },
     { href: "/accounting/aging", label: "Aging (AR/AP)" },
     { href: "/accounting/cash-bank", label: "Cash & Bank" },
+    { href: "/accounting/cash-flow", label: "Cash Flow" },
     { href: "/accounting/sales-report", label: "Sales Report" },
     { href: "/accounting/sales/orders-report", label: "Sales Orders Report" },
     { href: "/accounting/sales/advance-vs-receipt", label: "Sale Order · Advance vs Receipt" },
