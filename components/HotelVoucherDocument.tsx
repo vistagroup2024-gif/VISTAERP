@@ -110,13 +110,16 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
         </div>
       </div>
 
-      {/* Highlighted so the customer can't miss the date payment is due by —
-          a plain line in the header's small print was too easy to skip past. */}
+      {/* Its own card, not a line in the header's small print, so the date
+          payment is due by doesn't get skipped past — brand accent, not an
+          alert colour, to read as part of the document rather than a warning. */}
       {optionDate && (
-        <div className="mx-8 mt-5 flex items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5" style={exact}>
-          <span className="text-sm font-bold uppercase tracking-wide text-amber-800">Option Date</span>
-          <span className="text-sm text-amber-800">— payment must be settled by</span>
-          <span className="text-base font-extrabold text-amber-900" style={exact}>{dateStr(optionDate)}</span>
+        <div className="mx-8 mt-5 flex items-center justify-between gap-4 rounded-xl border border-brand/30 bg-brand/5 px-5 py-3" style={exact}>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Option Date</div>
+            <div className="mt-0.5 text-xs text-slate-500">Payment must be settled by this date to hold the booking</div>
+          </div>
+          <div className="text-xl font-bold text-brand" style={exact}>{dateStr(optionDate)}</div>
         </div>
       )}
 
