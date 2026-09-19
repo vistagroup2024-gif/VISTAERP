@@ -600,6 +600,24 @@ if turning one filter on changes what an EXISTING key's children look
 like, key the table on the mode combination; if each key's own shape is
 self-contained regardless of siblings, it's already safe.
 
+**Checked every other grouped-table report for the same bug — P&L was the
+only one that had it.** Every `groups={…}` call site in the ERP (Cost
+Centre Costing, Balance Sheet's three panels, Aging's three panels, Cash
+& Bank, Sales Report's three `DataTable` groups and its hand-rolled
+Monthwise pivot, and `ReportRunner`, which only Cash & Bank actually
+exercises) was checked against the same question: does toggling one
+filter change what an EXISTING group KEY's children look like? Only two
+places build `subgroups` at all — Cost Centre Costing and P&L — and Cost
+Centre Costing has no mode toggle; it is always Group → Cost Centre →
+Month, so a key's shape never changes. Sales Report's "View By" toggle
+looked like the same risk at first glance (it's also a multi-select over
+several dimensions) but isn't: each dimension's key (`ccGroup`,
+`costCentre`, `customer`, `product`) is its own self-contained section
+whose shape depends only on that dimension's own data, never on which
+other dimensions happen to also be selected. Nothing else in the ERP
+reuses a `DataGroup` key across a toggle that reshapes it, so nothing
+else needed the same `key=` fix.
+
 ## A `DataGroup` from a server RPC needs `values` too, not just client-built ones
 
 The "blank header" bug (a collapsed group showing only its label, no
