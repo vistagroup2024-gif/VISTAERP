@@ -1617,3 +1617,23 @@ regardless of the period picker, fed by a second `report_cost_center_targets()`
 call bounded to `monthStartSA()`..the month's own last day (not today) —
 the full month's target, so a partial month is honestly compared against
 a whole one rather than a target prorated to flatter the percentage.
+
+**Checked every other hand-rolled group-expand outside `DataTable`, asked
+to after the P&L/Sales Report fix.** Most were already right —
+`AgingRows.tsx`, the car customer report's bill drill-down, and the
+Orders Report / Advance-vs-Receipt line-item expansions all track OPEN
+state (`useState<string | null>(null)`, `open: Set<string>` starting
+empty) the way `DataTable` does now, so they were never affected. One more
+had the exact same bug: Inventory's Multi-level Stock Movement
+(`components/inventory/MultiLevelMovement.tsx`) tracked `collapsed:
+Record<string, boolean>` and read a group as open whenever
+`collapsed[id]` was `undefined` — true for every group on load, the
+identical "closed-state-starting-empty-means-open" mistake `DataTable`
+itself had. Fixed the same way: renamed to `expanded`, read `open =
+!!expanded[id]`, so it starts collapsed like everything else now does. Two
+kinds of tree were deliberately left alone: the Chart-of-Accounts-style
+master trees (`AccountTree.tsx`, `AccountPickTree.tsx`, `TreeMaster.tsx`)
+and the filter-picker trees (`TreePickList.tsx`) — neither is a report
+result a viewer drills INTO, one is an always-browsable master list and
+the other is a selection UI, so "starts open so you can see what's there
+to pick" is the right default for those, not a bug of the same shape.

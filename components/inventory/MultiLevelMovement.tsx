@@ -25,7 +25,13 @@ export default function MultiLevelMovement() {
   const [data, setData] = useState<{ groups: Grp[]; items: Itm[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Tracks which groups are OPEN, not which are closed — the empty object
+  // this starts as means every group starts collapsed, showing only its own
+  // totals until a viewer clicks ▸ (the same fix DataTable.tsx's own group
+  // rows got: `collapsed[id]` undefined read as "not collapsed" was the bug,
+  // since it opened every group on load with no way to tell it hadn't been
+  // clicked).
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   async function run() {
     setBusy(true); setErr(null);
@@ -63,14 +69,14 @@ export default function MultiLevelMovement() {
   }
 
   function GroupRows({ g, depth }: { g: Grp; depth: number }): JSX.Element {
-    const open = !collapsed[g.id];
+    const open = !!expanded[g.id];
     const subs = byParent.get(g.id) ?? [];
     const its = itemsOf.get(g.id) ?? [];
     return (
       <>
         <tr className="border-t border-slate-100 bg-slate-50 font-semibold text-slate-700">
           <td className="px-3 py-1.5" style={{ paddingLeft: 12 + depth * 18 }}>
-            <button className="mr-1 text-slate-400" onClick={() => setCollapsed((c) => ({ ...c, [g.id]: open }))}>
+            <button className="mr-1 text-slate-400" onClick={() => setExpanded((c) => ({ ...c, [g.id]: !open }))}>
               {open ? "▾" : "▸"}
             </button>
             {g.name}
