@@ -120,7 +120,12 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
         </div>
 
         {/* ── Stay Details ──────────────────────────────────────── */}
-        <SectionTitle className="mt-7">Stay Details</SectionTitle>
+        <SectionTitle className="mt-7" right={optionDate ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Option Date</span>
+            <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800">{dateStr(optionDate)}</span>
+          </div>
+        ) : undefined}>Stay Details</SectionTitle>
         {/* table-fixed + a colgroup keeps every column's width within the page
             regardless of content length, so the last column (Total, on the
             invoice) never gets pushed past the printable A4 width — an
@@ -208,18 +213,10 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
 
             {isInvoice && (
               <div className="flex flex-col gap-4">
-                {optionDate && (
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Option Date</span>
-                    <span className="text-sm font-bold text-slate-800">{dateStr(optionDate)}</span>
-                  </div>
-                )}
-
-                <div className="flex flex-col items-start gap-1 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3" style={exact}>
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total ({currency})</span>
-                  <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(grandTotal, currency)}</span>
-                </div>
-
+                {/* Bank Details' own heading sits first, so it lines up level
+                    with Terms & Conditions' heading on the left — Total (which
+                    carries its own label, not a SectionTitle) moved below it
+                    rather than pushing Bank Details' heading out of alignment. */}
                 {bank && (
                   <div>
                     <SectionTitle>Bank Details</SectionTitle>
@@ -231,6 +228,11 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
                     </div>
                   </div>
                 )}
+
+                <div className="flex flex-col items-start gap-1 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3" style={exact}>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total ({currency})</span>
+                  <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(grandTotal, currency)}</span>
+                </div>
               </div>
             )}
           </div>
@@ -251,11 +253,14 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
   );
 }
 
-function SectionTitle({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function SectionTitle({ children, className = "", right }: { children: React.ReactNode; className?: string; right?: React.ReactNode }) {
   return (
-    <div className={`mb-3 flex items-center gap-2 ${className}`}>
-      <span className="h-4 w-1 rounded-full bg-brand" style={exact} />
-      <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">{children}</h3>
+    <div className={`mb-3 flex items-center justify-between gap-4 ${className}`}>
+      <div className="flex items-center gap-2">
+        <span className="h-4 w-1 rounded-full bg-brand" style={exact} />
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">{children}</h3>
+      </div>
+      {right}
     </div>
   );
 }
