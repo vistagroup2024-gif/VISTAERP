@@ -2084,21 +2084,87 @@ now, not a special case.
 
 **This is the standing pattern for a new flexible multi-dimension filter
 going forward — click order = nesting order, an ordered array not a
-Set — not something to be asked for per report.** It has NOT yet been
-retrofitted onto P&L's own CC Group/Cost Center/Tag Area toggle or Sales
-Report's "View By" (ccGroup/costCentre/customer/product): both still
-render each selected dimension as its own independent, non-nesting
-section (P&L's own note on this: CC Group and Cost Center there are
-levels of ONE hierarchy with a fixed Group→leaf order, not independently
-orderable; Sales Report's four dimensions are deliberately parallel
-sections, not a single tree at all — "Cost Centre nested inside Customer"
-was never asked for or meaningful there the way it is for Expenses'
-cost-centre/account/tag-area combination). Rebuilding either onto a
-combined-matrix, click-order-nesting architecture is its own, separately-
-scoped change if the business ever asks for cross-dimension nesting on
-those screens — this section documents the RULE (click order nests, once
-a report's dimensions genuinely form one drillable tree), not a mandate
-that every report share Expense Report's exact matrix shape.
+Set — not something to be asked for per report.** P&L and Sales Report
+were checked against it directly ("check other reports for the flexible
+filtration and nesting rule too") and both turned out to have the same
+shape Expense Report did — see the next section.
+
+## The click-order matrix rule was checked against every other report, not just Expense
+
+"check other reports for the flexible filtration and nesting rule too" —
+the honest test from Expense Report's own section above (does a report's
+selected dimensions come off the SAME underlying row, or are they
+genuinely separate questions) was run against the two other
+multi-dimension filtration screens in the ERP, not left as a one-off.
+
+**Cost Centre Costing has no toggle at all** — always a fixed Group ->
+Cost Centre -> Month drill, so there's no combination to reorder. Nothing
+to check.
+
+**P&L's CC Group and Cost Center are one hierarchy (Group contains
+leaf), never independently orderable — but Tag Area was wrongly held out
+as an exclusive alternate.** A journal line carries a `cost_center` AND a
+`tag_area` on the SAME row — exactly Expense Report's cost-centre/account
+shape — so "this cost centre's own tag areas" is a real, answerable
+question, not a mismatched comparison between
+`report_cost_centre_costing()` and `report_tag_area_costing()`, the two
+separate RPCs that made it look like one. `report_pl_matrix()` (443) is
+the P&L twin of `report_expense_matrix()`: one row per (cost centre, tag
+area, month), both dimensions' ids/names/groups on it. `ProfitLossView.tsx`
+now carries CC Group / Cost Center / Tag Area Group / Tag Area as four
+click-order-nestable levels (`plDimOrder: PLDim[]`, `buildPLLevels()` —
+the exact recursive shape `buildExpenseLevels()` already proved), plus
+Month wise (still additive on the deepest active level) and Year wise
+(still the one exclusive layout swap, clearing everything else). The
+Cost Center Profit & Loss side panel and `report_cost_centre_costing()`
+are untouched — that panel is always its own fixed 2-level shape, the
+same "always-there beside the filterable panel" role Expense Report's own
+Cost Center Wise Expenses panel plays, unrelated to Filteration.
+`report_tag_area_costing()` is left in the schema, unused by this screen
+now — the same "superseded, not dropped" choice 441 made for
+`report_expense_by_account()`.
+
+**Sales Report's four "View By" dimensions looked like Sales Report's
+own parallel-sections case (P&L's CC Group/Cost Center, Expense's old
+Tag Area) but weren't — a sales LINE genuinely carries all four
+together.** A trade document (or car contract) fixes one cost centre and
+one customer; its LINES each carry a product. `report_sales()`'s own
+`by_product_raw` already reads item lines off exactly that shape — the
+ingredients for "this customer's sales broken down by product" were
+already sitting in the schema, just never joined on one row. Built as
+wrong once already in this same section of work — first read as "four
+independent parallel slices, deliberately not a tree" — until actually
+checking whether the underlying rows support nesting, the same mistake
+Expense Report's first cut made with Tag Area. `report_sales_matrix()`
+(444) is the fix: one row per (cost centre, customer, product, month),
+built from the same `trade_document_lines`/`car_contracts` union
+`report_sales()`'s `by_product_raw` already reads. `SalesReportView.tsx`'s
+"View By" is now `dimOrder: Dim[]`, click-order nested through
+`buildSalesComparisonLevels()` (LY vs CY, current- and previous-year
+matrix rows grouped simultaneously at each level, `cy - ly` direction —
+Sales Report's own established "grew = good" sign, never Expense's
+reversed one) and `buildSalesPivotLevels()` (Monthwise Sales, replacing
+the old one-flat-list-of-leaves-per-dimension `PivotRow`/`buildPivot`
+with a real `PivotNode` tree carrying both Value and Qty per cell at
+every depth). Sales vs Target of Completed Months stays on its own fixed
+`TARGET_DIMS` (ccGroup/costCentre only) — a customer or product has no
+target concept in this schema (`acct_cost_center_monthly_targets` is
+keyed on a cost centre alone), so it can't join the matrix and doesn't
+need to: Group->leaf is one structural hierarchy there too, the same
+reason P&L's own CC Group/Cost Center order was never ambiguous.
+`report_sales()` itself is untouched — Monthly Trend, By Customer, By
+Product and Sales vs Target all still read it directly.
+
+**The lesson generalised**: "these dimensions are independent, not a
+tree" is a claim to verify against the actual rows, not a default to
+reach for because a report's first cut already shipped that way. The
+test is always the same one Expense Report's section states it: does a
+single row in the underlying data carry more than one of the dimensions
+at once? If yes, they nest, in click order, on one flat matrix RPC; if
+a dimension is asked for that the data doesn't have (Drawings with no
+cost-centre split, a target with no customer/product concept), it stays
+out of the matrix and keeps its own fixed shape rather than being forced
+in with a fabricated zero.
 
 ## Depth-0 starts expanded; only what nests inside it stays collapsed
 

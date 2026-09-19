@@ -24,41 +24,96 @@ const EMPTY = {
 };
 type SalesData = typeof EMPTY;
 
-// Every breakdown on this report — the LY vs CY comparison, the Monthwise
-// pivot, and Sales vs Target — is a view of the same sales data sliced by
-// one of these four dimensions. A user wanting Cost Centre AND Customer
-// side by side is asking to see two independent slices at once, the same
-// multi-select test this file's own convention already states elsewhere.
-// "View By" below is one shared multi-select governing every
-// dimension-aware section on the page. Each section is still ONE table,
-// though — a selected dimension becomes a collapsible group WITHIN that
-// table (the same ▸/▾ DataGroup pattern P&L uses), not a whole separate
-// box per dimension; picking three dimensions opens three sections inside
-// one grid, not three grids.
+// Every breakdown on this report — the LY vs CY comparison and the
+// Monthwise pivot — is a view of the same sales data sliced by one or more
+// of these four dimensions. A sales LINE genuinely carries all four at
+// once (a document's cost centre and customer, a line's product), so "this
+// customer's sales by product" is a real, answerable question — not four
+// independent parallel slices the way this report first built it. "View
+// By" is one shared multi-select governing both sections, and the click
+// ORDER is the nesting order: whichever is clicked first is outermost, the
+// same rule Expense Report (441/442) and P&L (443) already use.
 type Dim = "ccGroup" | "costCentre" | "customer" | "product";
 const DIM_ORDER: Dim[] = ["ccGroup", "costCentre", "customer", "product"];
 const DIM_LABEL: Record<Dim, string> = { ccGroup: "CC Group", costCentre: "Cost Centre", customer: "Customer", product: "Product" };
 // Only Cost Centre Group and Cost Centre carry a target (acct_cost_center_monthly_targets
 // is keyed on a cost centre) — a customer or a product has no target concept
-// in this schema, so Sales vs Target only ever renders for these two.
+// in this schema, so Sales vs Target only ever renders for these two, and
+// stays on its own fixed Group->leaf shape (structurally one hierarchy, the
+// same reason P&L's CC Group/Cost Center order was never ambiguous either)
+// rather than joining the click-order matrix system below.
 const TARGET_DIMS: Dim[] = ["ccGroup", "costCentre"];
 
-// Name x month -> {amount, qty} for whichever dimension the Monthwise Sales
-// pivot is on — Value/Qty are both carried per cell so the toggle just picks
-// which one to display, rather than re-fetching or re-deriving anything.
+// report_sales_matrix() (444) — one row per (cost centre, customer,
+// product, month), carrying every dimension's id/name/group at once, the
+// Sales Report twin of report_expense_matrix()/report_pl_matrix(). CC
+// Group, Cost Centre, Customer and Product are four freely-combinable,
+// freely-orderable levels of the SAME rows now.
+type MatrixRow = {
+  cost_center_id: string | null; cost_center: string; cost_center_group: string;
+  customer: string; customer_account_id: string | null;
+  product: string; month: string; amount: number; qty: number;
+};
+type DimLevel = { key: Dim; label: string; field: (r: MatrixRow) => string };
+const DIM_LEVELS: DimLevel[] = [
+  { key: "ccGroup", label: "CC Group", field: (r) => r.cost_center_group },
+  { key: "costCentre", label: "Cost Centre", field: (r) => r.cost_center },
+  { key: "customer", label: "Customer", field: (r) => r.customer },
+  { key: "product", label: "Product", field: (r) => r.product },
+];
+const DIM_LEVEL_BY_KEY = new Map(DIM_LEVELS.map((l) => [l.key, l]));
+
+function groupByDimField(rows: MatrixRow[], field: (r: MatrixRow) => string): Map<string, MatrixRow[]> {
+  const m = new Map<string, MatrixRow[]>();
+  for (const r of rows) { const k = field(r); const arr = m.get(k) ?? []; arr.push(r); m.set(k, arr); }
+  return m;
+}
+
+// LY vs CY, nested in click order — groups the current- and previous-year
+// matrix SIMULTANEOUSLY by the same key at each level, the same shape
+// Expense Report's buildComparisonLevels uses, except growth here follows
+// Sales Report's own established direction (cy - ly, positive = grew =
+// good), never Expense's reversed "less is better" one.
+function buildSalesComparisonLevels(curRows: MatrixRow[], lastRows: MatrixRow[], levels: DimLevel[], depth = 0): DataGroup[] {
+  if (depth >= levels.length) return [];
+  const field = levels[depth].field;
+  const curByKey = groupByDimField(curRows, field);
+  const lastByKey = groupByDimField(lastRows, field);
+  const keys = new Set([...Array.from(curByKey.keys()), ...Array.from(lastByKey.keys())]);
+  const isLast = depth === levels.length - 1;
+  return Array.from(keys).map((key) => {
+    const curRs = curByKey.get(key) ?? [], lastRs = lastByKey.get(key) ?? [];
+    const cy = curRs.reduce((s, r) => s + r.amount, 0), ly = lastRs.reduce((s, r) => s + r.amount, 0);
+    return {
+      key: `${depth}:${key}`, label: key, rows: [] as any[],
+      values: { ly, cy, growth: ly ? ((cy - ly) / Math.abs(ly)) * 100 : null },
+      ...(isLast ? {} : { subgroups: buildSalesComparisonLevels(curRs, lastRs, levels, depth + 1) }),
+    };
+  }).filter((g) => g.values!.cy !== 0 || g.values!.ly !== 0)
+    .sort((a, b) => Number(b.values!.cy) - Number(a.values!.cy));
+}
+
+// Name x month -> {amount, qty} at every depth of the nested pivot — Value/
+// Qty are both carried per cell so the toggle just picks which to display.
 type MonthCell = { amount: number; qty: number };
-type PivotRow = { key: string; label: string; cells: Record<string, MonthCell>; total: MonthCell };
-function buildPivot(items: { name: string; month: string; amount: number; qty: number }[]): PivotRow[] {
-  const map = new Map<string, PivotRow>();
-  for (const it of items) {
-    let row = map.get(it.name);
-    if (!row) { row = { key: it.name, label: it.name, cells: {}, total: { amount: 0, qty: 0 } }; map.set(it.name, row); }
-    const cell = row.cells[it.month] ?? { amount: 0, qty: 0 };
-    cell.amount += it.amount; cell.qty += it.qty;
-    row.cells[it.month] = cell;
-    row.total.amount += it.amount; row.total.qty += it.qty;
-  }
-  return Array.from(map.values()).sort((a, b) => b.total.amount - a.total.amount);
+type PivotNode = { key: string; label: string; cells: Record<string, MonthCell>; total: MonthCell; children?: PivotNode[] };
+function buildSalesPivotLevels(rows: MatrixRow[], levels: DimLevel[], depth = 0): PivotNode[] {
+  if (depth >= levels.length) return [];
+  const byKey = groupByDimField(rows, levels[depth].field);
+  const isLast = depth === levels.length - 1;
+  return Array.from(byKey.entries()).map(([key, rs]) => {
+    const cells: Record<string, MonthCell> = {};
+    for (const r of rs) {
+      const c = cells[r.month] ?? { amount: 0, qty: 0 };
+      c.amount += r.amount; c.qty += r.qty;
+      cells[r.month] = c;
+    }
+    const total = Object.values(cells).reduce((a, c) => ({ amount: a.amount + c.amount, qty: a.qty + c.qty }), { amount: 0, qty: 0 });
+    return {
+      key: `${depth}:${key}`, label: key, cells, total,
+      children: isLast ? undefined : buildSalesPivotLevels(rs, levels, depth + 1),
+    };
+  }).sort((a, b) => b.total.amount - a.total.amount);
 }
 
 // Selecting non-contiguous months (Jan + Mar, say) can't be expressed as one
@@ -102,40 +157,56 @@ async function fetchSales(sb: ReturnType<typeof createClient>, ym: YearMonths): 
   return mergeSales(results);
 }
 
-// One LY-vs-CY row per entity in a dimension's current-period array, matched
-// to its previous-year counterpart by the same key both arrays already use.
-function lyVsCy(cur: any[], prev: any[], keyFn: (r: any) => string): { name: string; ly: number; cy: number; growth: number | null }[] {
-  const prevMap = new Map(prev.map((r) => [keyFn(r), Number(r.amount || 0)]));
-  return cur.map((r) => {
-    const cy = Number(r.amount || 0);
-    const ly = prevMap.get(keyFn(r)) ?? 0;
-    return { name: r.name, ly, cy, growth: ly ? ((cy - ly) / Math.abs(ly)) * 100 : null };
-  }).sort((a, b) => b.cy - a.cy);
-}
-
 const PIVOT_COLS = (monthKeys: string[], showValue: boolean, showQty: boolean) => monthKeys.length * ((showValue ? 1 : 0) + (showQty ? 1 : 0)) + 1 + (showValue ? 1 : 0) + (showQty ? 1 : 0);
 
-// The Monthwise Sales pivot — ONE table for every selected "View By"
-// dimension, each rendered as its own collapsible group (▸/▾, starts
-// closed) rather than a separate table per dimension, so picking Cost
-// Centre and Customer together opens two sections in one grid instead of
-// two grids. Hand-rolled rather than DataTable's own grouped mode, because
-// the two-row month/Value-Qty header this pivot needs isn't something
-// DataTable's generic Col system expresses — but the group open/closed
-// affordance follows the exact same rule DataTable itself now does:
-// starts collapsed, opens only on a click.
-function MonthwisePivotTable({ groups, monthKeys, showValue, showQty }: {
-  groups: { key: Dim; label: string; rows: PivotRow[] }[]; monthKeys: string[]; showValue: boolean; showQty: boolean;
+// The Monthwise Sales pivot — ONE tree, nested in whatever order "View By"
+// was clicked in (Customer then Product nests each customer's own products
+// under it; the reverse click order nests the other way). Hand-rolled
+// rather than DataTable's own grouped mode, because the two-row month/
+// Value-Qty header this pivot needs isn't something DataTable's generic Col
+// system expresses — but the group open/closed affordance follows the same
+// depth-0-starts-expanded rule DataTable itself now does.
+function PivotRows({ list, depth, expanded, onToggle, monthKeys, showValue, showQty }: {
+  list: PivotNode[]; depth: number; expanded: Set<string>; onToggle: (k: string) => void; monthKeys: string[]; showValue: boolean; showQty: boolean;
 }) {
-  // Depth-0 — each selected "View By" dimension's own section — starts
-  // expanded, the same "first filter/default is expanded" rule DataTable
-  // itself now follows; only something nested BENEATH that (there is none
-  // here — a dimension's rows are the one level under it) would start
-  // collapsed. The caller keys this component on the active dimension set,
-  // so a newly-added dimension remounts it and gets this fresh, rather than
-  // silently staying collapsed because `expanded` was seeded once already.
-  const [expanded, setExpanded] = useState<Set<Dim>>(() => new Set(groups.map((g) => g.key)));
-  function toggle(k: Dim) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
+  return (
+    <>
+      {list.map((n, i) => {
+        const hasChildren = !!(n.children && n.children.length);
+        const open = hasChildren && expanded.has(n.key);
+        const zebra = i % 2 === 1 ? "bg-slate-100/80" : "";
+        return (
+          <Fragment key={n.key}>
+            <tr className={`${hasChildren ? "cursor-pointer font-semibold" : ""} ${zebra}`} onClick={hasChildren ? () => onToggle(n.key) : undefined}>
+              <td className="px-3 py-1.5" style={{ paddingLeft: 12 + depth * 18 }}>
+                {hasChildren && <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>}
+                {n.label}
+              </td>
+              {monthKeys.map((mk) => (
+                <Fragment key={mk}>
+                  {showValue && <td className="px-2 py-1.5 text-right tabular-nums">{n.cells[mk]?.amount ? money(n.cells[mk].amount) : "—"}</td>}
+                  {showQty && <td className="px-2 py-1.5 text-right tabular-nums">{n.cells[mk]?.qty ? qtyFmt(n.cells[mk].qty) : "—"}</td>}
+                </Fragment>
+              ))}
+              {showValue && <td className="px-2 py-1.5 text-right font-medium tabular-nums">{money(n.total.amount)}</td>}
+              {showQty && <td className="px-2 py-1.5 text-right font-medium tabular-nums">{qtyFmt(n.total.qty)}</td>}
+            </tr>
+            {open && n.children && <PivotRows list={n.children} depth={depth + 1} expanded={expanded} onToggle={onToggle} monthKeys={monthKeys} showValue={showValue} showQty={showQty} />}
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
+function MonthwisePivotTable({ nodes, monthKeys, showValue, showQty }: {
+  nodes: PivotNode[]; monthKeys: string[]; showValue: boolean; showQty: boolean;
+}) {
+  // Depth-0 (the outermost, first-clicked "View By" dimension) starts
+  // expanded; anything nested beneath it starts collapsed. The caller
+  // remounts this component on the click-order dimension key, so a fresh
+  // selection or a reordering re-seeds this from the new top-level nodes.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(nodes.map((n) => n.key)));
+  function toggle(k: string) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
   const colCount = PIVOT_COLS(monthKeys, showValue, showQty);
 
   return (
@@ -159,58 +230,9 @@ function MonthwisePivotTable({ groups, monthKeys, showValue, showQty }: {
           </tr>
         </thead>
         <tbody>
-          {groups.map((g, gi) => {
-            const open = expanded.has(g.key);
-            // The group's own header row IS a P&L-style total line — each
-            // selected month's real figure in its own column, not a single
-            // grand-total caption glued onto the label (the same bug this
-            // file already fixed once in AR&AP: an amount belongs in its
-            // own column, never folded into the name cell as text).
-            const groupCells: Record<string, MonthCell> = {};
-            for (const mk of monthKeys) {
-              groupCells[mk] = {
-                amount: g.rows.reduce((s, r) => s + (r.cells[mk]?.amount ?? 0), 0),
-                qty: g.rows.reduce((s, r) => s + (r.cells[mk]?.qty ?? 0), 0),
-              };
-            }
-            const grandTotal = g.rows.reduce((s, r) => s + r.total.amount, 0);
-            const grandQty = g.rows.reduce((s, r) => s + r.total.qty, 0);
-            return (
-              <Fragment key={g.key}>
-                <tr className={`cursor-pointer font-semibold ${gi % 2 === 1 ? "bg-slate-100/80" : ""}`} onClick={() => toggle(g.key)}>
-                  <td className="px-3 py-2">
-                    <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
-                    {g.label}
-                  </td>
-                  {monthKeys.map((mk) => (
-                    <Fragment key={mk}>
-                      {showValue && <td className="px-2 py-2 text-right tabular-nums">{groupCells[mk].amount ? money(groupCells[mk].amount) : "—"}</td>}
-                      {showQty && <td className="px-2 py-2 text-right tabular-nums">{groupCells[mk].qty ? qtyFmt(groupCells[mk].qty) : "—"}</td>}
-                    </Fragment>
-                  ))}
-                  {showValue && <td className="px-2 py-2 text-right tabular-nums">{money(grandTotal)}</td>}
-                  {showQty && <td className="px-2 py-2 text-right tabular-nums">{qtyFmt(grandQty)}</td>}
-                </tr>
-                {open && g.rows.map((row, i) => (
-                  <tr key={row.key} className={i % 2 === 1 ? "bg-slate-100/80" : ""}>
-                    <td className="px-3 py-1.5" style={{ paddingLeft: 28 }}>{row.label}</td>
-                    {monthKeys.map((mk) => (
-                      <Fragment key={mk}>
-                        {showValue && <td className="px-2 py-1.5 text-right tabular-nums">{row.cells[mk]?.amount ? money(row.cells[mk].amount) : "—"}</td>}
-                        {showQty && <td className="px-2 py-1.5 text-right tabular-nums">{row.cells[mk]?.qty ? qtyFmt(row.cells[mk].qty) : "—"}</td>}
-                      </Fragment>
-                    ))}
-                    {showValue && <td className="px-2 py-1.5 text-right font-medium tabular-nums">{money(row.total.amount)}</td>}
-                    {showQty && <td className="px-2 py-1.5 text-right font-medium tabular-nums">{qtyFmt(row.total.qty)}</td>}
-                  </tr>
-                ))}
-                {open && g.rows.length === 0 && (
-                  <tr><td colSpan={colCount} className="px-3 py-4 text-center text-slate-400">No sales in this period.</td></tr>
-                )}
-              </Fragment>
-            );
-          })}
-          {groups.length === 0 && <tr><td colSpan={colCount} className="px-3 py-6 text-center text-slate-400">Select a dimension in View By above.</td></tr>}
+          {nodes.length > 0
+            ? <PivotRows list={nodes} depth={0} expanded={expanded} onToggle={toggle} monthKeys={monthKeys} showValue={showValue} showQty={showQty} />
+            : <tr><td colSpan={colCount} className="px-3 py-6 text-center text-slate-400">Select a dimension in View By above.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -236,17 +258,22 @@ export default function SalesReportView() {
   const [targets, setTargets] = useState<any[]>([]);
   const [curMonthTargets, setCurMonthTargets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dims, setDims] = useState<Set<Dim>>(() => new Set<Dim>(["ccGroup"]));
+  // Click order = nesting order — whichever dimension is clicked first is
+  // outermost. Appending on click-on and filtering out on click-off keeps
+  // the relative order of what's left, the same rule Expense Report and
+  // P&L use for their own Filteration.
+  const [dimOrder, setDimOrder] = useState<Dim[]>(["ccGroup"]);
+  const [matrixRaw, setMatrixRaw] = useState<MatrixRow[]>([]);
+  const [matrixPyRaw, setMatrixPyRaw] = useState<MatrixRow[]>([]);
   // Both can be on at once — "if we want to see qty + value so both should
   // come" — at least one stays on so the grid is never empty.
   const [showValue, setShowValue] = useState(true);
   const [showQty, setShowQty] = useState(false);
 
   function toggleDim(d: Dim) {
-    setDims((prev) => {
-      const next = new Set(prev);
-      if (next.has(d)) { if (next.size > 1) next.delete(d); } else next.add(d);
-      return next;
+    setDimOrder((prev) => {
+      if (prev.includes(d)) return prev.length > 1 ? prev.filter((k) => k !== d) : prev;
+      return [...prev, d];
     });
   }
 
@@ -274,6 +301,10 @@ export default function SalesReportView() {
       const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
       return `${t.slice(0, 7)}-${pad(last)}`;
     };
+    const shiftYear = (d: string, delta: number) => {
+      const [y, m, dd] = d.split("-").map(Number);
+      return `${y + delta}-${pad(m)}-${pad(dd)}`;
+    };
 
     Promise.all([
       fetchSales(sb, ym),
@@ -282,11 +313,14 @@ export default function SalesReportView() {
       sb.rpc("report_sales", { p_company: COMPANY_ID, p_from: lmFrom, p_to: lmTo }).then(({ data }) => (data as SalesData) ?? EMPTY),
       sb.rpc("report_cost_center_targets", { p_from: from, p_to: to }).then(({ data }) => (data as any[]) ?? []),
       sb.rpc("report_cost_center_targets", { p_from: monthStartSA(), p_to: curMonthEnd() }).then(({ data }) => (data as any[]) ?? []),
-    ]).then(([sData, pyData, cm, pm, tg, curTg]) => {
+      sb.rpc("report_sales_matrix", { p_company: COMPANY_ID, p_from: from, p_to: to }).then(({ data }) => (data as MatrixRow[]) ?? []),
+      sb.rpc("report_sales_matrix", { p_company: COMPANY_ID, p_from: shiftYear(from, -1), p_to: shiftYear(to, -1) }).then(({ data }) => (data as MatrixRow[]) ?? []),
+    ]).then(([sData, pyData, cm, pm, tg, curTg, matD, matPyD]) => {
       if (!live) return;
       setS(sData); setPy(pyData); setCurMonth(cm); setPrevMonth(pm);
       setTargets(tg.filter((r) => Number(r.actual || 0) || Number(r.target || 0)));
       setCurMonthTargets(curTg);
+      setMatrixRaw(matD); setMatrixPyRaw(matPyD);
       setLoading(false);
     });
     return () => { live = false; };
@@ -350,31 +384,22 @@ export default function SalesReportView() {
     };
   }).sort((a, b) => (b.values!.current_year ?? 0) - (a.values!.current_year ?? 0));
 
-  // LY vs CY — one DataGroup per selected "View By" dimension inside ONE
-  // DataTable, so picking Cost Centre and Customer opens two collapsible
-  // sections in the same grid instead of two separate grids. Cost Centre,
-  // Customer and Product all carry both a current- and previous-year array
-  // already (py is fetched in full, same shape as s), so the same lyVsCy()
-  // merge works for all four.
-  const lyVsCyByDim: Record<Dim, { name: string; ly: number; cy: number; growth: number | null }[]> = {
-    ccGroup: ccGroups.map((g) => ({
-      name: g.label, ly: Number(g.values!.previous_year), cy: Number(g.values!.current_year),
-      growth: g.values!.previous_year ? ((Number(g.values!.current_year) - Number(g.values!.previous_year)) / Math.abs(Number(g.values!.previous_year))) * 100 : null,
-    })),
-    costCentre: lyVsCy(s.by_cost_centre, py.by_cost_centre, (r) => r.name),
-    customer: lyVsCy(s.by_customer, py.by_customer, (r) => r.account_id ?? r.name),
-    product: lyVsCy(s.by_product, py.by_product, (r) => r.name),
-  };
-
-  // Monthwise Sales pivot sources — the months actually selected, as
-  // columns; rows are whichever dimension(s) are picked. CC Group is
-  // by_cc_month rolled up one level (the field is already on every row);
-  // Cost Centre, Customer and Product each read their own *_month array
-  // directly — no new calculation, the same finer-grouping-of-an-existing-
-  // total shape 431's by_cc_month set.
+  // The months actually selected, as columns — and the bound both matrix
+  // fetches (current period and previous year) get filtered down to, since
+  // a non-contiguous month pick (Jan + Mar) can't be expressed as the
+  // RPC's own single p_from/p_to range.
   const selectedMonths = Array.from(new Set(ym.months)).sort((a, b) => a - b);
   const monthKeys = selectedMonths.map((m) => `${ym.year}-${String(m).padStart(2, "0")}`);
+  const monthKeySet = new Set(monthKeys);
+  const pyMonthKeys = selectedMonths.map((m) => `${ym.year - 1}-${String(m).padStart(2, "0")}`);
+  const pyMonthKeySet = new Set(pyMonthKeys);
+  const matrixSelected = useMemo(() => matrixRaw.filter((r) => monthKeySet.has(r.month)), [matrixRaw, monthKeys.join(",")]);
+  const matrixPySelected = useMemo(() => matrixPyRaw.filter((r) => pyMonthKeySet.has(r.month)), [matrixPyRaw, pyMonthKeys.join(",")]);
 
+  // Still needed by Sales vs Target of Completed Months below, which stays
+  // on its own fixed ccGroup/costCentre-only shape (see TARGET_DIMS) rather
+  // than joining the click-order matrix — a customer or product has no
+  // target concept in this schema.
   const ccGroupMonthly = useMemo(() => {
     const m = new Map<string, { name: string; month: string; amount: number; qty: number }>();
     for (const r of s.by_cc_month) {
@@ -386,9 +411,6 @@ export default function SalesReportView() {
     return Array.from(m.values());
   }, [s.by_cc_month]);
   const costCentreMonthly = s.by_cc_month.map((r: any) => ({ name: r.cost_center, month: r.month, amount: Number(r.amount || 0), qty: Number(r.qty || 0) }));
-  const customerMonthly = s.by_customer_month.map((r: any) => ({ name: r.name, month: r.month, amount: Number(r.amount || 0), qty: Number(r.qty || 0) }));
-  const productMonthly = s.by_product_month.map((r: any) => ({ name: r.name, month: r.month, amount: Number(r.amount || 0), qty: Number(r.qty || 0) }));
-  const pivotSourceByDim: Record<Dim, typeof ccGroupMonthly> = { ccGroup: ccGroupMonthly, costCentre: costCentreMonthly, customer: customerMonthly, product: productMonthly };
 
   // Sales vs Target of Completed Months — the old software's own table,
   // scoped to months that have actually ended (a month "in progress" isn't
@@ -441,28 +463,18 @@ export default function SalesReportView() {
     ...r, contribution: Number(s.total) !== 0 ? (Number(r.amount) / Number(s.total)) * 100 : 0,
   })).sort((a: any, b: any) => b.amount - a.amount);
 
-  const activeDims = DIM_ORDER.filter((d) => dims.has(d));
-  const activeTargetDims = TARGET_DIMS.filter((d) => dims.has(d));
+  // Click order = nesting order for both matrix-driven sections below.
+  // Sales vs Target stays on its own fixed ccGroup/costCentre order (see
+  // TARGET_DIMS) since Group->leaf is one structural hierarchy there, the
+  // same reason P&L's own CC Group/Cost Center order was never ambiguous.
+  const dimLevels = dimOrder.map((d) => DIM_LEVEL_BY_KEY.get(d)!);
+  const activeTargetDims = TARGET_DIMS.filter((d) => dimOrder.includes(d));
 
-  // One DataGroup per active dimension for the LY vs CY table — a group's
-  // own header row carries the dimension's totals (via `subtotal`, since
-  // rows here have no `values` of their own) and starts collapsed; a
-  // reader clicks ▸ to see the individual CC Groups / Cost Centres /
-  // Customers / Products behind that total.
-  // `values` (not `subtotal`) — the same P&L "group row IS a line" pattern:
-  // a collapsed group with only `subtotal` shows nothing but its label until
-  // clicked, because GroupRows only ever draws the subtotal as a footer
-  // UNDER the expanded rows. `values` puts the real LY/CY/Growth% figures on
-  // the header row itself, visible before anything is expanded.
-  const lyVsCyGroups: DataGroup[] = activeDims.map((d) => {
-    const rows = lyVsCyByDim[d];
-    const ly = rows.reduce((s, r) => s + r.ly, 0);
-    const cy = rows.reduce((s, r) => s + r.cy, 0);
-    return {
-      key: d, label: `${DIM_LABEL[d]} wise Sales — LY vs CY`, rows,
-      values: { ly, cy, growth: ly ? ((cy - ly) / Math.abs(ly)) * 100 : null },
-    };
-  });
+  // LY vs CY — nested in click order, off the matrix (current vs previous
+  // year, both bounded to the exact selected months). Picking Customer then
+  // Product nests each customer's own products under it; the same two
+  // clicked the other way round nests the other way.
+  const lyVsCyGroups: DataGroup[] = buildSalesComparisonLevels(matrixSelected, matrixPySelected, dimLevels);
 
   const salesVsTargetGroups: DataGroup[] = activeTargetDims.map((d) => {
     const rows = salesVsTargetForDim(d);
@@ -474,12 +486,14 @@ export default function SalesReportView() {
     };
   });
 
-  const pivotGroups = activeDims.map((d) => ({ key: d, label: DIM_LABEL[d], rows: buildPivot(pivotSourceByDim[d]) }));
-  // Remounts each dimension-driven table when the active dimension SET
-  // changes, so a freshly-toggled-on dimension seeds its own "starts
-  // expanded" state fresh rather than carrying over whatever an earlier
-  // selection had already opened or closed.
-  const dimsKey = activeDims.join(",");
+  const pivotNodes = buildSalesPivotLevels(matrixSelected, dimLevels);
+  // Remounts each dimension-driven table when the active combination
+  // changes, so a freshly-toggled-on (or reordered) dimension seeds its own
+  // "starts expanded" state fresh rather than carrying over whatever an
+  // earlier combination had already opened or closed. Click order is part
+  // of the key — Customer->Product and Product->Customer are different
+  // trees, so this is dimOrder itself, never a sorted version of it.
+  const dimsKey = dimOrder.join(",");
 
   return (
     <div className="space-y-4">
@@ -528,19 +542,23 @@ export default function SalesReportView() {
         </div>
       )}
 
-      {/* Shared multi-select — governs every dimension-aware section below
-          (LY vs CY, Sales vs Target, Monthwise Sales): pick any combination
-          of CC Group / Cost Centre / Customer / Product and each becomes a
-          collapsible section inside that section's one table. */}
+      {/* Shared multi-select — governs LY vs CY and Monthwise Sales below,
+          nested in whichever order they're clicked (click first = outermost).
+          Sales vs Target reads the same selection but stays its own fixed
+          CC Group -> Cost Centre shape, since it has no Customer/Product
+          concept to nest with. */}
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">View By</span>
         <div className="flex flex-wrap gap-1">
-          {DIM_ORDER.map((d) => (
-            <button key={d} onClick={() => toggleDim(d)}
-              className={`rounded-full px-3 py-1 text-sm ${dims.has(d) ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>
-              {DIM_LABEL[d]}
-            </button>
-          ))}
+          {DIM_ORDER.map((d) => {
+            const idx = dimOrder.indexOf(d);
+            return (
+              <button key={d} onClick={() => toggleDim(d)}
+                className={`rounded-full px-3 py-1 text-sm ${idx >= 0 ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>
+                {DIM_LABEL[d]}{idx >= 0 && dimOrder.length > 1 ? ` ${idx + 1}` : ""}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -596,7 +614,7 @@ export default function SalesReportView() {
                 className={`rounded-full px-3 py-1 text-sm ${showQty ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>Qty</button>
             </div>
           </div>
-          <MonthwisePivotTable key={dimsKey} groups={pivotGroups} monthKeys={monthKeys} showValue={showValue} showQty={showQty} />
+          <MonthwisePivotTable key={dimsKey} nodes={pivotNodes} monthKeys={monthKeys} showValue={showValue} showQty={showQty} />
         </div>
       )}
 
