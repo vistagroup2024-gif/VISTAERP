@@ -2636,3 +2636,34 @@ collection-rate percentage) rather than the same four numbers repeated
 across all four tabs — a KPI row that doesn't match the table beneath it
 is exactly the kind of noise this file's report-design section already
 warns against.
+
+**The same period-shift rule was missing from `car_customer_report()`
+too** (451) — a second, older RPC that builds the individual customer
+detail page's (`/car-sales/customers/[id]`) own "Monthwise Receivables"
+chart from the exact same `car_installments`/`car_service_charges`/
+`car_contracts`/`car_receipts` tables, with its own separate `month_pts`
+CTE that had never been updated. Before 451, the SAME customer's SAME
+schedule read one calendar month apart depending on which of the two
+screens you checked — Car Customer Balances' own Monthly Balances tab
+(449, fixed) attributed a 1st-of-month due date to the PRECEDING month,
+while the customer detail page (unfixed) still read it under its own raw
+due month. Verified against ABDUL JALAL (CI-000005) directly: before 451,
+the detail page's August read 20,000 (advance only) and September read
+8,583.34 (instalment #1, unshifted); after, August reads 28,583.34
+(advance + instalment #1, both correctly in the same period) and
+September reads 9,083.34 (instalment #2 + the service charge), matching
+`car_customer_monthly_matrix()` exactly. The `ageing`/`by_type`/`bills`
+sections of `car_customer_report()` were checked and left untouched — they
+read `open_items.due_date` directly for ageing-bucket and bill-listing
+purposes, where the REAL due date is what should show, not the shifted
+period; only the schedule/"which month is this really for" view needed
+the rule.
+
+**The lesson repeats the one already stated for the click-order matrix
+rule**: a fix applied to one RPC belongs everywhere the same underlying
+data is read a second way — check for a sibling calculation, don't wait
+for it to be reported per screen. `car_customer_report()` and
+`car_customer_monthly_matrix()` both derive a monthly schedule from the
+same four tables; only one of them was updated when the rule was
+introduced, because the second wasn't remembered as reading the same
+data a second time.
