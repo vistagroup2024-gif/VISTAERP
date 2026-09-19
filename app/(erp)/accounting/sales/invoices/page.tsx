@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { guardStaffPage, docRightsFor, staffCan, staffDocCan, staffLanding } from "@/lib/staffSession";
 import TradeVoucher from "@/components/accounting/TradeVoucher";
 import MonthlyChargesVoucher from "@/components/carsales/MonthlyChargesVoucher";
+import VehicleTransferVoucher from "@/components/carsales/VehicleTransferVoucher";
 import ServiceChargesPanel from "../../../car-sales/service-charges/ServiceChargesPanel";
 
 export const dynamic = "force-dynamic";
@@ -17,21 +18,23 @@ export const dynamic = "force-dynamic";
 // The tab is in the URL rather than in component state, so each panel stays a
 // server component and a tab can be linked to directly.
 //
-// MONTHLY CHARGES CARRIES ITS OWN PERMISSION, and it is the ONLY place that
-// screen is reached from. So this page opens for `carsales.charges` as well as
-// for `accounting.view`, showing only the tabs the user may see — a user who
-// holds only the charges permission lands on that tab, not on a bounce.
+// MONTHLY CHARGES AND VEHICLE TRANSFER EACH CARRY THEIR OWN PERMISSION, and
+// each is the ONLY place its screen is reached from. So this page opens for
+// `carsales.charges` and `carsales.ownership` as well as for
+// `accounting.view`, showing only the tabs the user may see — a user who
+// holds only one of those lands on that tab, not on a bounce.
 const TABS = [
-  { key: "sales",     label: "Sales Invoice",   perm: "accounting.view", doc: "sales_invoice" },
-  { key: "air",       label: "Air Ticket",      perm: "accounting.view", doc: "air_ticket_invoice" },
-  { key: "hotel",     label: "Hotel",           perm: "accounting.view", doc: "hotel_invoice" },
-  { key: "transport", label: "Transport",       perm: "accounting.view", doc: "transport_invoice" },
-  { key: "visa",      label: "Visa",            perm: "accounting.view", doc: "visa_invoice" },
-  { key: "charges",   label: "Monthly Charges", perm: "carsales.charges" },
+  { key: "sales",     label: "Sales Invoice",    perm: "accounting.view", doc: "sales_invoice" },
+  { key: "air",       label: "Air Ticket",       perm: "accounting.view", doc: "air_ticket_invoice" },
+  { key: "hotel",     label: "Hotel",            perm: "accounting.view", doc: "hotel_invoice" },
+  { key: "transport", label: "Transport",        perm: "accounting.view", doc: "transport_invoice" },
+  { key: "visa",      label: "Visa",             perm: "accounting.view", doc: "visa_invoice" },
+  { key: "charges",   label: "Monthly Charges",  perm: "carsales.charges" },
+  { key: "transfer",  label: "Vehicle Transfer", perm: "carsales.ownership" },
 ] as const;
 
-export default async function Page({ searchParams }: { searchParams?: { tab?: string } }) {
-  const access = await guardStaffPage(["accounting.view", "carsales.charges"]);
+export default async function Page({ searchParams }: { searchParams?: { tab?: string; vehicle?: string } }) {
+  const access = await guardStaffPage(["accounting.view", "carsales.charges", "carsales.ownership"]);
   const tabs = TABS.filter((t) => staffCan(access, t.perm) && (!("doc" in t) || staffDocCan(access, t.doc, "access")));
   if (tabs.length === 0) redirect(staffLanding(access));
   const tab = tabs.some((t) => t.key === searchParams?.tab) ? searchParams!.tab! : tabs[0].key;
@@ -66,6 +69,9 @@ export default async function Page({ searchParams }: { searchParams?: { tab?: st
             <div className="border-t border-slate-100 p-4"><ServiceChargesPanel /></div>
           </details>
         </div>
+      )}
+      {tab === "transfer" && (
+        <VehicleTransferVoucher canEdit={staffCan(access, "carsales.ownership")} initialVehicleId={searchParams?.vehicle} />
       )}
     </div>
   );

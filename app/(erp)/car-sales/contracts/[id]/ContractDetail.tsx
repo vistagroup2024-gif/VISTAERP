@@ -222,7 +222,7 @@ function LifecyclePanel({ contract, onDone }: { contract: any; onDone: () => voi
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [modal, setModal] = useState<null | "deliver" | "hold" | "transfer">(null);
+  const [modal, setModal] = useState<null | "deliver" | "hold">(null);
   const [f, setF] = useState<Record<string, string>>({});
   const vs = contract.vehicle?.status as string;
   const owner = contract.vehicle?.ownership as string;
@@ -245,7 +245,9 @@ function LifecyclePanel({ contract, onDone }: { contract: any; onDone: () => voi
           {vs !== "delivered" && vs !== "held" && <button className="btn-outline text-sm" onClick={() => { setF({ delivery_date: todaySA() }); setModal("deliver"); }}>Deliver</button>}
           {vs !== "held" && owner === "vista" && <button className="btn-outline text-sm text-amber-700" onClick={() => { setF({ held_date: todaySA() }); setModal("hold"); }}>Hold Vehicle</button>}
           {vs === "held" && <button className="btn-outline text-sm" disabled={busy} onClick={() => run("car_vehicle_release", { p_vehicle: vid, p_notes: null })}>Release Hold</button>}
-          {owner === "vista" && <button className="btn-outline text-sm" onClick={() => { setF({ transfer_date: todaySA() }); setModal("transfer"); }}>Transfer Out</button>}
+          {owner === "vista" && (
+            <Link href={`/accounting/sales/invoices?tab=transfer&vehicle=${vid}`} className="btn-outline text-sm">Transfer Out →</Link>
+          )}
           {owner === "transferred" && <span className="badge bg-green-100 text-green-700">Transferred — charges stopped</span>}
         </div>
       </div>
@@ -254,7 +256,7 @@ function LifecyclePanel({ contract, onDone }: { contract: any; onDone: () => voi
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setModal(null)}>
           <div className="w-full max-w-md rounded-lg bg-white p-5" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-3 text-lg font-semibold capitalize">{modal === "deliver" ? "Deliver Vehicle" : modal === "hold" ? "Hold Vehicle" : "Transfer Vehicle Out"}</h3>
+            <h3 className="mb-3 text-lg font-semibold capitalize">{modal === "deliver" ? "Deliver Vehicle" : "Hold Vehicle"}</h3>
             <div className="space-y-3">
               {modal === "deliver" && (<>
                 <div><label className="label">Delivery Date</label><input type="date" className="input" value={f.delivery_date ?? ""} onChange={(e) => setF({ ...f, delivery_date: e.target.value })} /></div>
@@ -270,18 +272,11 @@ function LifecyclePanel({ contract, onDone }: { contract: any; onDone: () => voi
                 <div><label className="label">Agreement Notes</label><textarea className="input" rows={2} value={f.agreement_notes ?? ""} onChange={(e) => setF({ ...f, agreement_notes: e.target.value })} /></div>
                 <p className="text-xs text-slate-400">Holding does not cancel the contract — the balance and installments stay active.</p>
               </>)}
-              {modal === "transfer" && (<>
-                <div><label className="label">Transfer Date</label><input type="date" className="input" value={f.transfer_date ?? ""} onChange={(e) => setF({ ...f, transfer_date: e.target.value })} /></div>
-                <div><label className="label">Destination / Company</label><input className="input" value={f.destination ?? ""} onChange={(e) => setF({ ...f, destination: e.target.value })} /></div>
-                <div><label className="label">Reference</label><input className="input" value={f.reference ?? ""} onChange={(e) => setF({ ...f, reference: e.target.value })} /></div>
-                <p className="text-xs text-slate-400">Transferring out of Vista's name stops future Monthly Service Charges. Past charges are kept.</p>
-              </>)}
             </div>
             <div className="mt-4 flex gap-2">
               <button className="btn" disabled={busy} onClick={() => {
                 if (modal === "deliver") run("car_vehicle_deliver", { p_contract: contract.id, p: f });
-                else if (modal === "hold") run("car_vehicle_hold", { p_contract: contract.id, p: f });
-                else run("car_vehicle_transfer", { p_vehicle: vid, p: f });
+                else run("car_vehicle_hold", { p_contract: contract.id, p: f });
               }}>{busy ? "Saving…" : "Confirm"}</button>
               <button className="btn-outline" onClick={() => setModal(null)}>Cancel</button>
             </div>

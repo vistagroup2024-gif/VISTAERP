@@ -101,17 +101,6 @@ export default function MonthlyChargesVoucher({ canEdit }: { canEdit: boolean })
     if (l.paid > 0) { setErr(`A payment is recorded against ${l.vehicle} — it cannot be taken off the voucher.`); return; }
     setLines((a) => a.filter((_, j) => j !== i)); setDirty(true);
   }
-  async function transferOut(vehicleId: string, label: string) {
-    if (!canEdit) return;
-    if (!confirm(`Transfer ${label} out of Vista's name?\n\nThis stops future Monthly Service Charges for this vehicle. Charges already billed (this month and earlier) stay payable.`)) return;
-    setBusy(true); setErr(null); setDone(null);
-    const { error } = await supabase.rpc("car_vehicle_transfer", { p_vehicle: vehicleId, p: { transfer_date: todaySA() } });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    setDone(`${label} transferred out — Monthly Service Charges stop from here`);
-    if (addId === vehicleId) setAddId("");
-    await load(month);
-  }
   async function generate() {
     setBusy(true); setErr(null); setDone(null);
     const { data: n, error } = await supabase.rpc("car_generate_service_charges", { p_asof: `${month}-01` });
@@ -204,12 +193,6 @@ export default function MonthlyChargesVoucher({ canEdit }: { canEdit: boolean })
                     <td className="px-2 py-1">
                       <div className="font-medium text-slate-800">{l.vehicle}</div>
                       <div className="text-xs text-slate-400">{[l.car, l.plate].filter(Boolean).join(" · ")}</div>
-                      {canEdit && (
-                        <button type="button" onClick={() => transferOut(l.vehicle_id, l.vehicle)} disabled={busy}
-                          className="mt-0.5 text-[11px] text-amber-600 hover:underline disabled:opacity-40">
-                          Transfer out
-                        </button>
-                      )}
                     </td>
                     <td className="px-2 py-1">{l.customer ?? <span className="text-slate-400">—</span>}</td>
                     <td className="px-2 py-1 tabular-nums text-slate-500">{l.delivered ? dateStr(l.delivered) : <span className="text-amber-600">not delivered</span>}</td>
@@ -259,10 +242,6 @@ export default function MonthlyChargesVoucher({ canEdit }: { canEdit: boolean })
                 }))} />
             </div>
             <button onClick={addLine} disabled={!addId} className="btn-outline text-sm disabled:opacity-40">+ Line</button>
-            <button onClick={() => { const c = candidates.find((x) => x.vehicle_id === addId); if (c) transferOut(c.vehicle_id, c.vehicle); }}
-              disabled={!addId || busy} className="btn-outline text-sm text-amber-600 disabled:opacity-40">
-              Transfer out
-            </button>
           </div>
         )}
 
