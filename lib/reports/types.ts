@@ -13,6 +13,15 @@ export interface Col {
   label: string;
   kind?: ColKind;       // text (default) | qty | money | date | pct | int | class
   total?: boolean;      // summed in the footer
+  /** A `pct` column's own Total-row figure, derived rather than summed —
+   *  summing a percentage down a column is meaningless (it's not additive),
+   *  so a plain `total: true` pct column always rendered blank in the
+   *  footer. `pctOf` names the two OTHER columns (both must be `total:
+   *  true` money columns) whose already-computed footer sums this column's
+   *  Total-row cell is built from: `num`/`den` totals[num]/totals[den]*100.
+   *  Never set alongside `total` on the same column — a column is either
+   *  summed or derived, never both. */
+  pctOf?: { num: string; den: string };
   sortable?: boolean;   // default true for text/date, true for numeric kinds
   hideByDefault?: boolean;
   /** Drill-down: when set, the cell's text is wrapped in a link to this

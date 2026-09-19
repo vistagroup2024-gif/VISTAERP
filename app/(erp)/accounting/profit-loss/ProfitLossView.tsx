@@ -171,13 +171,13 @@ const PL_COLS = [
   { key: "revenue", label: "Revenue", kind: "money" as const, total: true },
   { key: "cogs", label: "COGS", kind: "money" as const, total: true },
   { key: "gross_profit", label: "Gross", kind: "money" as const, total: true },
-  { key: "gp_pct", label: "GRS %", kind: "pct" as const },
+  { key: "gp_pct", label: "GRS %", kind: "pct" as const, pctOf: { num: "gross_profit", den: "revenue" } },
   { key: "expense", label: "Expenses", kind: "money" as const, total: true },
   { key: "net_profit", label: "Net", kind: "money" as const, total: true },
-  { key: "per_pct", label: "PER %", kind: "pct" as const },
+  { key: "per_pct", label: "PER %", kind: "pct" as const, pctOf: { num: "net_profit", den: "revenue" } },
   { key: "drawing", label: "Drawing", kind: "money" as const, total: true },
   { key: "actual_net", label: "Actual Net", kind: "money" as const, total: true },
-  { key: "act_pct", label: "Act %", kind: "pct" as const },
+  { key: "act_pct", label: "Act %", kind: "pct" as const, pctOf: { num: "actual_net", den: "revenue" } },
 ];
 
 // P&L Filteration is CC Group / Cost Center / Tag Area Group / Tag Area —
@@ -444,9 +444,9 @@ export default function ProfitLossView() {
               {ccGroupNetRows.length === 0 && <tr><td colSpan={2} className="px-3 py-6 text-center text-slate-400">No activity.</td></tr>}
             </tbody>
             {ccGroupNetRows.length > 0 && (
-              <tfoot><tr className="bg-slate-50 font-semibold">
+              <tfoot><tr className="bg-slate-200 font-bold border-t-2 border-slate-400">
                 <td className="px-3 py-1.5">Total</td>
-                <td className={`px-3 py-1.5 text-right tabular-nums ${ccGroupNetTotal < 0 ? "text-red-600" : ""}`}>{money(ccGroupNetTotal)}</td>
+                <td className={`px-3 py-1.5 text-right tabular-nums ${ccGroupNetTotal < 0 ? "bg-red-50 text-red-700" : ""}`}>{money(ccGroupNetTotal)}</td>
               </tr></tfoot>
             )}
           </table>

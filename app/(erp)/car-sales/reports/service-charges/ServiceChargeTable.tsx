@@ -64,7 +64,7 @@ export default function ServiceChargeTable({ rows }: { rows: Row[] }) {
             ))}
             {shown.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>No charges for this selection.</td></tr>}
           </tbody>
-          {shown.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
+          {shown.length > 0 && <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
             <td className="td" colSpan={4}>Total ({shown.length} vehicles)</td>
             <td className="td text-right tabular-nums">{sar(t.charged)}</td><td className="td text-right tabular-nums">{sar(t.paid)}</td>
             <td className="td text-right tabular-nums">{sar(t.outstanding)}</td><td className="td text-right tabular-nums">{sar(t.overdue)}</td>

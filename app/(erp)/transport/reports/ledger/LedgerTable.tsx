@@ -149,7 +149,7 @@ export default function LedgerTable({ rows, isAdmin }: { rows: LedgerRow[]; isAd
             {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={11}>No trips match.</td></tr>}
           </tbody>
           {filtered.length > 0 && (
-            <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+            <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
               <td className="td" colSpan={7}>Total ({filtered.length} trips)</td>
               <td className="td text-right">{money(totFare)}</td>
               <td className="td text-right">{money(totSupp)}</td>

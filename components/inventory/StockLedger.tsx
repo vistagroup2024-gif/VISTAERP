@@ -113,7 +113,7 @@ export default function StockLedger() {
                         <td className={`px-3 py-1.5 text-right tabular-nums ${Number(r.bal_value) < 0 ? "text-red-600" : ""}`}>{money(r.bal_value)}</td>
                       </tr>
                     ))}
-                    <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+                    <tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
                       <td className="px-3 py-1.5" colSpan={3}>Total</td>
                       <td className="px-3 py-1.5 text-right tabular-nums">{qtyf(recQty)}</td>
                       <td />

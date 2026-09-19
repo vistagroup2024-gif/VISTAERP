@@ -80,7 +80,7 @@ export default function TrialBalanceView() {
             {rows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={8}>No account activity.</td></tr>}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+            <tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
               <td className="px-3 py-2" colSpan={6}>Total</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(totDr)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(totCr)}</td>

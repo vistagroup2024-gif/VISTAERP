@@ -84,7 +84,7 @@ export default function VisaLedgerTable({ rows, isAdmin }: { rows: VisaLedgerRow
             )}
           </tbody>
           {filtered.length > 0 && (
-            <tfoot><tr className="border-t-2 border-slate-200 font-semibold text-slate-700">
+            <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold text-slate-700">
               <td className="td" colSpan={7}>Total ({filtered.length})</td>
               <td className="td text-right tabular-nums">{totPax}</td>
               <td className="td"></td>

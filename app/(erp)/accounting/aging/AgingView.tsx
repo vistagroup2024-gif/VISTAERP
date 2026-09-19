@@ -52,7 +52,7 @@ function QuickList({ title, rows }: { title: string; rows: { account_id: string;
             {rows.length === 0 && <tr><td className="px-3 py-4 text-center text-slate-400" colSpan={3}>None.</td></tr>}
           </tbody>
           {rows.length > 0 && (
-            <tfoot><tr className="sticky bottom-0 bg-slate-50 font-semibold">
+            <tfoot><tr className="sticky bottom-0 bg-slate-200 font-bold border-t-2 border-slate-400">
               <td className="px-3 py-2" colSpan={2}>Total ({rows.length})</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(total)}</td>
             </tr></tfoot>
@@ -338,7 +338,7 @@ function AgingDetailGrid({ title, rows }: { title: string; rows: Row[] }) {
           </tbody>
           {rows.length > 0 && (
             <tfoot>
-              <tr className="bg-slate-50 font-semibold">
+              <tr className="bg-slate-200 font-bold border-t-2 border-slate-400">
                 <td className="px-3 py-2" colSpan={2}>Total</td>
                 <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.due), 0))}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{money(rows.reduce((s, r) => s + Number(r.overdue), 0))}</td>

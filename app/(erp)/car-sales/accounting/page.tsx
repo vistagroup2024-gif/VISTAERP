@@ -80,7 +80,7 @@ export default async function CarAccountingPage({ searchParams }: { searchParams
               </tr>
             ))}
           </tbody>
-          <tfoot><tr className="border-t-2 border-slate-200 font-semibold"><td className="td">Total</td><td className="td text-right">{totalEntries}</td><td className="td"></td></tr></tfoot>
+          <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold"><td className="td">Total</td><td className="td text-right">{totalEntries}</td><td className="td"></td></tr></tfoot>
         </table>
       </section>
     </div>

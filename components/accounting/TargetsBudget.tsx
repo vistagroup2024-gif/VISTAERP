@@ -395,7 +395,7 @@ export default function TargetsBudget() {
             {rows.length === 0 && <tr><td colSpan={colSpan} className="px-3 py-6 text-center text-slate-400">Nothing to show for this period.</td></tr>}
           </tbody>
           {rows.length > 0 && (
-            <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+            <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
               {showGroup && <td className="px-3 py-2" />}
               <td className="px-3 py-2">Total</td>
               <td className="px-3 py-2 text-right tabular-nums">{money(tt)}</td>

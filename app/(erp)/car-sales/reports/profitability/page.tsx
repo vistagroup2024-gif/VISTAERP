@@ -55,7 +55,7 @@ export default async function ProfitabilityReport() {
             ))}
             {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>No contracts.</td></tr>}
           </tbody>
-          {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
+          {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
             <td className="td" colSpan={2}>Total ({rows.length})</td>
             <td className="td text-right tabular-nums">{sar(t.cost)}</td><td className="td text-right tabular-nums">{sar(t.sale)}</td>
             <td className="td text-right tabular-nums">{sar(t.gross)}</td><td className="td text-right tabular-nums">{sar(t.commission)}</td>

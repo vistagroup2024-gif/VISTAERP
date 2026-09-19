@@ -184,7 +184,7 @@ export default function AgeingSummaryTable({ rows, totalCars }: { rows: AgeingRo
               ))}
               {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={15}>No outstanding balances or recent activity.</td></tr>}
             </tbody>
-            {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
+            {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
               <td className="td" />
               <td className="td">Total ({rows.length})</td>
               <td className={`td text-right tabular-nums ${totalBalance < -0.005 ? "text-emerald-700" : ""}`}>{drCr(totalBalance)}</td>

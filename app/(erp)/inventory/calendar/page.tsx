@@ -91,8 +91,8 @@ export default async function CalendarPage({
                   })}
                 </tr>
               ))}
-              <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold">
-                <td className="td sticky left-0 z-10 bg-slate-50 text-left">TOTAL AVAILABLE</td>
+              <tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
+                <td className="td sticky left-0 z-10 bg-slate-200 text-left">TOTAL AVAILABLE</td>
                 {totals.map((t, i) => (
                   <td key={i} className="td px-2">{t}</td>
                 ))}

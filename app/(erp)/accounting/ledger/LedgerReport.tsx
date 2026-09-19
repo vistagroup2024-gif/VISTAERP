@@ -369,7 +369,7 @@ export default function LedgerReport({ nodes, initialAccount, initialFrom, initi
                       )}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+                      <tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
                         <td className="px-2 py-1.5" colSpan={1 + columns.length}>Total</td>
                         <td className="px-2 py-1.5 text-right tabular-nums">{money(b.total_debit)}</td>
                         <td className="px-2 py-1.5 text-right tabular-nums">{money(b.total_credit)}</td>

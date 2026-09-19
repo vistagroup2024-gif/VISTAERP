@@ -28,6 +28,42 @@ function negativeTotalClass(col: Col, v: any): string {
   return !isNaN(n) && n < 0 ? "bg-red-50 text-red-700" : "";
 }
 
+// A grand-Total row (FlatBody's/GroupedBody's own footer) has to read as
+// the one line a viewer scans for WITHOUT reading everything above it — the
+// same reasoning Balance Sheet's own three total bars were already built
+// on. bg-slate-50 was actually LIGHTER than the zebra stripe on an odd data
+// row (bg-slate-100/80), so a Total row barely registered next to the rows
+// it was totalling. This is deliberately the strongest tier of the three:
+// data rows (bg-slate-100/80 zebra), a group Subtotal (SUBTOTAL_ROW_CLASS,
+// one notch up), a grand Total (this one, top of the stack).
+const TOTAL_ROW_CLASS = "bg-slate-200 font-bold border-t-2 border-slate-400";
+// A group's own plain Subtotal row (a label-only heading's rollup, GroupRows
+// below) sits between a data row and a grand Total — real enough to stand
+// out from the rows it sums, one tier lighter than TOTAL_ROW_CLASS so the
+// grand Total (when a report also has one) still reads as the heavier line.
+const SUBTOTAL_ROW_CLASS = "bg-slate-200/60 font-semibold border-t border-slate-300";
+
+// A `pct` column can't be summed down a column — summing a percentage is
+// meaningless — so a plain `c.total` check always left it blank in a Total
+// row, even when the two money columns it's a ratio of both have real
+// totals right beside it. `pctOf` (lib/reports/types.ts) names those two
+// columns; this derives num/den*100 from whatever totals map the caller
+// (FlatBody's flat `totals`, GroupedBody's `groupTotals`, or a group's own
+// `subtotal`) already computed, the same way a data row's own pct cell is
+// computed from that row's own money fields — just at the Total level.
+function footerCellText(col: Col, totals: Record<string, any>): { text: string; value?: number } {
+  if (col.total) return { text: cellText(col, totals[col.key]), value: Number(totals[col.key]) };
+  if (col.pctOf) {
+    const num = Number(totals[col.pctOf.num]);
+    const den = Number(totals[col.pctOf.den]);
+    if (den) {
+      const v = (num / den) * 100;
+      return { text: cellText(col, v), value: v };
+    }
+  }
+  return { text: "" };
+}
+
 export interface DataGroup {
   key: string;
   label: string;
@@ -229,12 +265,15 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals, roomy }: {
         )}
       </tbody>
       {rows.length > 0 && hasTotals && (
-        <tfoot><tr className="bg-slate-50 font-semibold">
-          {cols.map((c, i) => (
-            <td key={c.key} className={`border border-slate-200 px-3 ${py} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total ? negativeTotalClass(c, totals[c.key]) : ""}`}>
-              {c.total ? cellText(c, totals[c.key]) : i === 0 ? "Total" : ""}
-            </td>
-          ))}
+        <tfoot><tr className={TOTAL_ROW_CLASS}>
+          {cols.map((c, i) => {
+            const { text, value } = footerCellText(c, totals);
+            return (
+              <td key={c.key} className={`border border-slate-200 px-3 ${py} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${negativeTotalClass(c, value)}`}>
+                {text || (i === 0 ? "Total" : "")}
+              </td>
+            );
+          })}
         </tr></tfoot>
       )}
     </>
@@ -253,12 +292,15 @@ function GroupedBody({ cols, groups, empty, expanded, onToggle, roomy, showGroup
     <>
       <tbody>{groups.map((g, i) => <GroupRows key={g.key} cols={cols} g={g} depth={0} idx={i} expanded={expanded} onToggle={onToggle} roomy={roomy} />)}</tbody>
       {showGroupTotal && hasTotals && (
-        <tfoot><tr className="bg-slate-50 font-semibold">
-          {cols.map((c, i) => (
-            <td key={c.key} className={`border border-slate-200 px-3 ${py} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total ? negativeTotalClass(c, groupTotals?.[c.key]) : ""}`}>
-              {c.total ? cellText(c, groupTotals?.[c.key]) : i === 0 ? "Total" : ""}
-            </td>
-          ))}
+        <tfoot><tr className={TOTAL_ROW_CLASS}>
+          {cols.map((c, i) => {
+            const { text, value } = footerCellText(c, groupTotals ?? {});
+            return (
+              <td key={c.key} className={`border border-slate-200 px-3 ${py} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${negativeTotalClass(c, value)}`}>
+                {text || (i === 0 ? "Total" : "")}
+              </td>
+            );
+          })}
         </tr></tfoot>
       )}
     </>
@@ -316,12 +358,15 @@ function GroupRows({ cols, g, depth, idx, expanded, onToggle, roomy }: {
           duplicate, not a summary. Only a plain label-only heading (no
           `values`) still needs this line to show a total for what's below it. */}
       {open && !g.subgroups && g.subtotal && !g.values && (
-        <tr key={`${g.key}-sub`} className="bg-slate-50/60 font-medium">
-          {cols.map((c, i) => (
-            <td key={c.key} className={`border border-slate-200 px-3 ${subPy} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${c.total && g.subtotal![c.key] !== undefined ? negativeTotalClass(c, g.subtotal![c.key]) : ""}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>
-              {c.total && g.subtotal![c.key] !== undefined ? cellText(c, g.subtotal![c.key]) : i === 0 ? "Subtotal" : ""}
-            </td>
-          ))}
+        <tr key={`${g.key}-sub`} className={SUBTOTAL_ROW_CLASS}>
+          {cols.map((c, i) => {
+            const { text, value } = footerCellText(c, g.subtotal!);
+            return (
+              <td key={c.key} className={`border border-slate-200 px-3 ${subPy} ${isNumeric(c) ? "text-right tabular-nums" : ""} ${negativeTotalClass(c, value)}`} style={i === 0 ? { paddingLeft: indent + 16 } : undefined}>
+                {text || (i === 0 ? "Subtotal" : "")}
+              </td>
+            );
+          })}
         </tr>
       )}
     </Fragment>

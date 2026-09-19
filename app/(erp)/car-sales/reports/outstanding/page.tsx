@@ -213,8 +213,8 @@ function MonthlyBalances({ rows }: { rows: MatrixRow[] }) {
               ))}
               {custs.length === 0 && <tr><td className="td text-slate-400" colSpan={months.length + 2}>No due schedule found.</td></tr>}
             </tbody>
-            {custs.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
-              <td className="td sticky left-0 bg-slate-50 z-10">Total ({custs.length})</td>
+            {custs.length > 0 && <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
+              <td className="td sticky left-0 bg-slate-200 z-10">Total ({custs.length})</td>
               {months.map((mk) => <td key={mk} className="td text-right tabular-nums">{num(monthTotal(mk))}</td>)}
               <td className="td text-right tabular-nums border-l border-slate-100">{num(totalBilled)}</td>
             </tr></tfoot>}
@@ -342,8 +342,8 @@ function BilledVsReceipts({ rows }: { rows: MatrixRow[] }) {
               ))}
               {custs.length === 0 && <tr><td className="td text-slate-400" colSpan={months.length * 3 + 1}>No activity found.</td></tr>}
             </tbody>
-            {custs.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
-              <td className="td sticky left-0 bg-slate-50 z-10">Total ({custs.length})</td>
+            {custs.length > 0 && <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
+              <td className="td sticky left-0 bg-slate-200 z-10">Total ({custs.length})</td>
               {months.map((mk) => {
                 const b = monthTotal(mk, "billed"), r = monthTotal(mk, "receiptsByBill");
                 return (

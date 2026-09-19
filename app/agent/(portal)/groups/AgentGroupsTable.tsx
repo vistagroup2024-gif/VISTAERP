@@ -152,7 +152,7 @@ export default function AgentGroupsTable({ rows, showPackage }: { rows: AgentRow
             {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={COLS.length}>No matching groups.</td></tr>}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+            <tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
               <td className="td" colSpan={3}>Total Pilgrims (filtered)</td>
               <td className="td text-brand-dark">{totalPax}</td>
               <td className="td" colSpan={COLS.length - 4}></td>

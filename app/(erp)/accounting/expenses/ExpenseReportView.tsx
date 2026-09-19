@@ -334,7 +334,7 @@ function BudgetExpenseReport({ nodes, monthKeys }: { nodes: BEONode[]; monthKeys
             : <tr><td colSpan={colCount} className="px-3 py-6 text-center text-slate-400">No expenses in this period.</td></tr>}
         </tbody>
         {nodes.length > 0 && (
-          <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+          <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
             <td className="border border-slate-200 px-3 py-1.5">Total</td>
             {grandMonthly.map((g, i) => (
               <Fragment key={monthKeys[i]}>
@@ -635,7 +635,7 @@ export default function ExpenseReportView() {
               )}
             </tbody>
             {budgetAccounts.length > 0 && (
-              <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+              <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
                 <td className="border border-slate-200 px-3 py-2">Total</td>
                 {budgetCostCentres.map((cc) => {
                   const colTotal = budgetAccounts.reduce((s, acc) => s + (budgetCell.get(`${acc.id}::${cc.id}`) ?? 0), 0);

@@ -55,7 +55,7 @@ export default async function UpcomingReport({ searchParams }: { searchParams: {
             ))}
             {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={6}>Nothing due in this window.</td></tr>}
           </tbody>
-          {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold"><td className="td" colSpan={5}>Total ({rows.length})</td><td className="td text-right tabular-nums">{sar(total)}</td></tr></tfoot>}
+          {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold"><td className="td" colSpan={5}>Total ({rows.length})</td><td className="td text-right tabular-nums">{sar(total)}</td></tr></tfoot>}
         </table>
       </div>
     </div>

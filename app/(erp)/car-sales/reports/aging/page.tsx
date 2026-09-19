@@ -51,7 +51,7 @@ export default async function AgingReport() {
             ))}
             {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>Nothing outstanding.</td></tr>}
           </tbody>
-          {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 font-semibold">
+          {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
             <td className="td" colSpan={2}>Total</td>
             <td className="td text-right tabular-nums">{sar(t.current)}</td><td className="td text-right tabular-nums">{sar(t.d30)}</td>
             <td className="td text-right tabular-nums">{sar(t.d60)}</td><td className="td text-right tabular-nums">{sar(t.d90)}</td>

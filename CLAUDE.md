@@ -3008,3 +3008,74 @@ in credit; `Customers Owing` narrows that to `balance > 0` — genuinely
 owes something right now. Worth stating plainly rather than assuming
 it's self-evident from the label alone, since two customer-count cards
 side by side invite exactly that "aren't these the same" question.
+
+## A Total row's own percentage is derived, not summed — and a Total row needed to actually look like one
+
+Two more, from the owner's own reaction to the P&L Summary fix above: "in
+total percentage not coming" and "total color not changed... already ask
+early to make total row color change so it can be differentiate, do this
+in all report."
+
+**A `pct` column was never summable, so it was never shown.** `DataTable`'s
+footer only ever rendered a cell for a `c.total` column (`totals[c.key]`
+built by summing `flatRows`/`groups`) — a `pct` column like P&L's own
+`gp_pct`/`per_pct`/`act_pct` was correctly never marked `total: true`
+(summing a percentage down a column is meaningless), but that also meant
+its Total-row cell always rendered blank. `Col.pctOf?: { num, den }`
+(`lib/reports/types.ts`) is the fix: it names the two other `total: true`
+money columns this percentage is a ratio of, and `footerCellText()`
+(`DataTable.tsx`) derives `totals[num] / totals[den] * 100` for exactly
+that cell — the same arithmetic a data row's own pct cell already uses,
+just applied once more at the Total level instead of being left as the
+one blank cell in an otherwise-complete row. `PL_COLS` sets it on all
+three (`gp_pct` → gross_profit/revenue, `per_pct` → net_profit/revenue,
+`act_pct` → actual_net/revenue) and both `FlatBody`'s and the newly-added
+`GroupedBody`'s footers, plus a group's own plain Subtotal row, all read
+through the same helper — a caller sets `pctOf` once and gets it
+everywhere that row can appear.
+
+**The Total row's own background was actually LIGHTER than a zebra-striped
+data row, not heavier.** `bg-slate-50` (the footer) versus `bg-slate-100/80`
+(an odd data row) — a Total row is the one line a viewer scans for without
+reading everything above it, and it was reading as the least prominent row
+on the grid rather than the most. `TOTAL_ROW_CLASS`
+(`bg-slate-200 font-bold border-t-2 border-slate-400`) and
+`SUBTOTAL_ROW_CLASS` (`bg-slate-200/60 font-semibold border-t border-slate-300`,
+one tier lighter — a group's own rollup sits between a data row and a
+report's grand total, not level with it) are the two-tier fix, both in
+`DataTable.tsx`: `FlatBody`'s footer, the newly-added `GroupedBody`'s
+footer, and `GroupRows`' own plain Subtotal row all moved onto them. This
+reaches every report built on `DataTable` at once, the same way "a loss
+reads red" and "DataTable group starts collapsed" did.
+
+**Every hand-rolled (non-`DataTable`) report table's own Total/footer row
+was swept for the identical `bg-slate-50 font-semibold` (or the
+border-only `border-t-2 border-slate-200 font-semibold`) pattern and moved
+onto the same `bg-slate-200 font-bold border-t-2 border-slate-400`
+treatment**: P&L's own Cost Center Profit & Loss panel, Expense Report's
+Monthwise pivot and Budget-and-Expense grid, Trial Balance, AR&AP Aging
+(both the Receivables/Payables panel and the Vista Car Customers panel),
+Stock Ledger, the Ledger Report's per-account closing total, Transport
+Reports' shared ledger table, Targets & Budget, Car Customer Balances (all
+four tabs — Ageing Summary, Monthly Balances, Billed vs Receipts, including
+their sticky first-column cell background, which needed the same darker
+fill or it kept reading as the old shade under a newly-dark row), Vehicle
+Profitability, Upcoming Instalments, Car Ageing, Service Charges, the Car
+Sales journal-entries listing, the Visa Ledger, the BRN Daily Calendar's
+own TOTAL AVAILABLE row, and the Umrah Groups / B2B agent portal groups
+lists' own Total Pax rows. Deliberately left untouched: voucher-entry
+screens (`TradeVoucher`, `VoucherEditor`, `MonthlyChargesVoucher`, a
+journal/voucher's own page, `CarInvoiceForm`, `PayrollRun`) — those carry
+the shared `.th`/`.td` voucher-line convention this file's own report
+section already says is deliberately unchanged, not a report grid; and
+`MultiLevelMovement`'s own `bg-slate-50` row, which turned out on
+inspection to be a group HEADING row (zebra-by-index, like `DataTable`'s
+own group rows), not a grand-total footer — there was no real Total row
+there to fix.
+
+**The lesson repeats "a fix applied once belongs everywhere the same shape
+recurs"**: both gaps were general — a `pct` column's Total cell and a
+Total row's own visual weight — not specific to the one screen the owner
+happened to be looking at, so both went into `DataTable.tsx` first (the
+component nearly every report shares) and only then out to the hand-rolled
+tables that had independently copied its old, weaker convention.

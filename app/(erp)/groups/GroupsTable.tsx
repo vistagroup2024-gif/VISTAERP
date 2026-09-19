@@ -260,7 +260,7 @@ export default function GroupsTable({ rows, perms }: { rows: GroupRow[]; perms: 
             {filtered.length === 0 && <tr><td className="td text-slate-400" colSpan={COLS.length + 2}>No matching groups.</td></tr>}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+            <tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
               <td className="td" colSpan={5}>Total Pax (filtered)</td>
               <td className="td text-brand-dark">{totalPax}</td>
               <td className="td" colSpan={COLS.length - 4}></td>
