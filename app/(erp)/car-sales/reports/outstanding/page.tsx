@@ -35,13 +35,15 @@ type MatrixRow = { customer_id: string; name: string; month: string; billed: num
 // Building this report's own totals from car_installments alone, the way it
 // did before, is what let it disagree with the card in the first place.
 //
-// FOUR TABS: Customer Due Ageing Summary (default — one row per customer,
+// FIVE TABS: Customer Due Ageing Summary (default — one row per customer,
 // combining car_customer_balances()'s "what is owed right now" with
 // car_customer_monthwise()'s "what was due and collected, month by month" —
 // both read the same three due-date sources, so merging them client-side
 // (no new RPC) never tells two different stories about the same customer),
-// Monthly Balances, Receipts Monthwise and Billed vs Receipts Monthwise —
-// the latter three all pivoted client-side off the ONE flat
+// Installment Aging (moved in from its own former screen — one row per
+// CONTRACT instead of per customer, car_installment_aging()), Monthly
+// Balances, Receipts Monthwise and Billed vs Receipts Monthwise — the
+// latter three all pivoted client-side off the ONE flat
 // car_customer_monthly_matrix() RPC (migration 449), so they can never
 // disagree with each other about what a given customer's given month holds.
 //
@@ -53,22 +55,33 @@ type MatrixRow = { customer_id: string; name: string; month: string; billed: num
 export default async function OutstandingReport({ searchParams }: { searchParams: { tab?: string } }) {
   await guardStaffPage("carsales.reports");
   const supabase = createClient();
-  const tab = ["monthly", "receipts", "billed"].includes(searchParams.tab ?? "") ? (searchParams.tab as "monthly" | "receipts" | "billed") : "ageing";
+  const tab = ["monthly", "receipts", "billed", "installments"].includes(searchParams.tab ?? "")
+    ? (searchParams.tab as "monthly" | "receipts" | "billed" | "installments") : "ageing";
 
   const TABS: [string, string][] = [
     ["ageing", "Customer Due Ageing Summary"],
+    ["installments", "Installment Aging"],
     ["monthly", "Monthly Balances"],
     ["receipts", "Receipts Monthwise"],
     ["billed", "Billed vs Receipts Monthwise"],
   ];
 
   let matrixRows: MatrixRow[] = [];
-  if (tab !== "ageing") {
+  if (tab === "monthly" || tab === "receipts" || tab === "billed") {
     const { data } = await supabase.rpc("car_customer_monthly_matrix", { p_company: COMPANY_ID });
     matrixRows = ((data ?? []) as any[]).map((r) => ({
       customer_id: r.customer_id, name: r.name ?? "—", month: String(r.month).slice(0, 7),
       billed: Number(r.billed || 0), outstanding: Number(r.outstanding || 0), receipts: Number(r.receipts || 0),
       receiptsByBill: Number(r.receipts_by_bill || 0),
+    }));
+  }
+  let instRows: InstallmentAgingRow[] = [];
+  if (tab === "installments") {
+    const { data } = await supabase.rpc("car_installment_aging");
+    instRows = ((data ?? []) as any[]).map((r) => ({
+      id: r.id, contract_no: r.contract_no, customer: r.customer ?? "—",
+      current: Number(r.current || 0), d30: Number(r.d30 || 0), d60: Number(r.d60 || 0),
+      d90: Number(r.d90 || 0), d90p: Number(r.d90p || 0), total: Number(r.total || 0),
     }));
   }
 
@@ -84,9 +97,59 @@ export default async function OutstandingReport({ searchParams }: { searchParams
         ))}
       </div>
       {tab === "ageing" ? await AgeingSummary(supabase)
+        : tab === "installments" ? <InstallmentAging rows={instRows} />
         : tab === "monthly" ? <MonthlyBalances rows={matrixRows} />
         : tab === "receipts" ? <ReceiptsMonthwise rows={matrixRows} />
         : <BilledVsReceipts rows={matrixRows} />}
+    </div>
+  );
+}
+
+// Moved in from the standalone Installment Aging report (car_installment_aging(),
+// migration 430) — same per-contract bucketing (current/1-30/31-60/61-90/90+),
+// the same three due-date sources (installments, the invoice advance, monthly
+// service charges) car_customer_balances() and dashboard_metrics() already use,
+// so this tab never disagrees with the Ageing Summary tab beside it.
+type InstallmentAgingRow = {
+  id: string; contract_no: string; customer: string;
+  current: number; d30: number; d60: number; d90: number; d90p: number; total: number;
+};
+function InstallmentAging({ rows }: { rows: InstallmentAgingRow[] }) {
+  const t = rows.reduce((a, r) => ({
+    current: a.current + r.current, d30: a.d30 + r.d30, d60: a.d60 + r.d60,
+    d90: a.d90 + r.d90, d90p: a.d90p + r.d90p, total: a.total + r.total,
+  }), { current: 0, d30: 0, d60: 0, d90: 0, d90p: 0, total: 0 });
+
+  return (
+    <div className="card overflow-x-auto p-0">
+      <table className="report-grid w-full min-w-[820px]">
+        <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800"><tr>
+          <th className="px-4 py-2.5 text-left"><span className="col-resize">Contract</span></th><th className="px-4 py-2.5 text-left"><span className="col-resize">Customer</span></th>
+          <th className="px-4 py-2.5 text-right"><span className="col-resize">Current</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">1-30</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">31-60</span></th>
+          <th className="px-4 py-2.5 text-right"><span className="col-resize">61-90</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">90+</span></th><th className="px-4 py-2.5 text-right"><span className="col-resize">Total</span></th>
+        </tr></thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-100/80" : ""}`}>
+              <td className="td"><Link href={`/car-sales/contracts/${r.id}`} className="text-brand hover:underline">{r.contract_no}</Link></td>
+              <td className="td">{r.customer}</td>
+              <td className="td text-right tabular-nums">{num(r.current)}</td>
+              <td className="td text-right tabular-nums">{num(r.d30)}</td>
+              <td className="td text-right tabular-nums">{num(r.d60)}</td>
+              <td className="td text-right tabular-nums">{num(r.d90)}</td>
+              <td className="td text-right tabular-nums text-red-600">{num(r.d90p)}</td>
+              <td className="td text-right tabular-nums font-medium">{num(r.total)}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>Nothing outstanding.</td></tr>}
+        </tbody>
+        {rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-400 bg-slate-200 font-bold">
+          <td className="td" colSpan={2}>Total</td>
+          <td className="td text-right tabular-nums">{num(t.current)}</td><td className="td text-right tabular-nums">{num(t.d30)}</td>
+          <td className="td text-right tabular-nums">{num(t.d60)}</td><td className="td text-right tabular-nums">{num(t.d90)}</td>
+          <td className="td text-right tabular-nums">{num(t.d90p)}</td><td className="td text-right tabular-nums">{num(t.total)}</td>
+        </tr></tfoot>}
+      </table>
     </div>
   );
 }

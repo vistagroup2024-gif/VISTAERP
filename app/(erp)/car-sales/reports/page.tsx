@@ -5,12 +5,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 const REPORTS = [
-  { href: "/car-sales/reports/outstanding", title: "Car Customer Balances", desc: "Ageing summary (default) and month-by-month due & receipts — same figures as the dashboard card." },
-  { href: "/car-sales/reports/aging", title: "Installment Aging", desc: "Overdue buckets: current / 1-30 / 31-60 / 61-90 / 90+." },
-  { href: "/car-sales/reports/upcoming", title: "Upcoming Collection", desc: "Installments due soon, with contact numbers." },
-  { href: "/car-sales/reports/held", title: "Vehicles Held by Vista", desc: "Retained vehicles with outstanding & agreement notes." },
-  { href: "/car-sales/reports/service-charges", title: "Monthly Service Charges", desc: "Charge status by vehicle & ownership." },
-  { href: "/car-sales/reports/profitability", title: "Vehicle Profitability", desc: "Purchase vs sale, profit, collected & outstanding." },
+  { href: "/car-sales/reports/outstanding", title: "Car Customer Balances", desc: "Ageing summary (default), installment aging, and month-by-month due & receipts — same figures as the dashboard card." },
   { href: "/car-sales/reports/delivery", title: "Car Delivery Report", desc: "Sold vehicles and delivery status, with the invoice that sold them." },
 ];
 
