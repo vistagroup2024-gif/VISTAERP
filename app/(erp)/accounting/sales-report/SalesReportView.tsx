@@ -28,12 +28,13 @@ type SalesData = typeof EMPTY;
 // pivot, and Sales vs Target — is a view of the same sales data sliced by
 // one of these four dimensions. A user wanting Cost Centre AND Customer
 // side by side is asking to see two independent slices at once, the same
-// multi-select test this file's own convention already states elsewhere
-// (a pivot dimension is single-select only when the options are mutually
-// exclusive views of ONE thing — these are four different things to slice
-// the same total by, not states of each other). "View By" below is one
-// shared multi-select governing every dimension-aware section on the page,
-// rather than each section keeping its own separate single-select picker.
+// multi-select test this file's own convention already states elsewhere.
+// "View By" below is one shared multi-select governing every
+// dimension-aware section on the page. Each section is still ONE table,
+// though — a selected dimension becomes a collapsible group WITHIN that
+// table (the same ▸/▾ DataGroup pattern P&L uses), not a whole separate
+// box per dimension; picking three dimensions opens three sections inside
+// one grid, not three grids.
 type Dim = "ccGroup" | "costCentre" | "customer" | "product";
 const DIM_ORDER: Dim[] = ["ccGroup", "costCentre", "customer", "product"];
 const DIM_LABEL: Record<Dim, string> = { ccGroup: "CC Group", costCentre: "Cost Centre", customer: "Customer", product: "Product" };
@@ -114,17 +115,28 @@ function lyVsCy(cur: any[], prev: any[], keyFn: (r: any) => string): { name: str
 
 const PIVOT_COLS = (monthKeys: string[], showValue: boolean, showQty: boolean) => monthKeys.length * ((showValue ? 1 : 0) + (showQty ? 1 : 0)) + 1 + (showValue ? 1 : 0) + (showQty ? 1 : 0);
 
-// One Monthwise pivot table — rows are whichever dimension it's given,
-// columns are the selected months. Rendered once per dimension in "View By".
-function MonthwisePivotTable({ label, rows, monthKeys, showValue, showQty, grandTotal }: {
-  label: string; rows: PivotRow[]; monthKeys: string[]; showValue: boolean; showQty: boolean; grandTotal: number;
+// The Monthwise Sales pivot — ONE table for every selected "View By"
+// dimension, each rendered as its own collapsible group (▸/▾, starts
+// closed) rather than a separate table per dimension, so picking Cost
+// Centre and Customer together opens two sections in one grid instead of
+// two grids. Hand-rolled rather than DataTable's own grouped mode, because
+// the two-row month/Value-Qty header this pivot needs isn't something
+// DataTable's generic Col system expresses — but the group open/closed
+// affordance follows the exact same rule DataTable itself now does:
+// starts collapsed, opens only on a click.
+function MonthwisePivotTable({ groups, monthKeys, showValue, showQty }: {
+  groups: { key: Dim; label: string; rows: PivotRow[] }[]; monthKeys: string[]; showValue: boolean; showQty: boolean;
 }) {
+  const [expanded, setExpanded] = useState<Set<Dim>>(new Set());
+  function toggle(k: Dim) { setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; }); }
+  const colCount = PIVOT_COLS(monthKeys, showValue, showQty);
+
   return (
     <div className="card overflow-x-auto p-0 text-sm">
       <table className="report-grid w-full">
         <thead className="bg-brand-50 text-[11px] font-semibold uppercase tracking-wide text-brand-800">
           <tr>
-            <th className="px-3 py-2 text-left" rowSpan={2}><span className="col-resize">{label}</span></th>
+            <th className="px-3 py-2 text-left" rowSpan={2}><span className="col-resize">Name</span></th>
             {monthKeys.map((mk) => <th key={mk} className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}><span className="col-resize">{monthShort(mk)}</span></th>)}
             <th className="px-3 py-2 text-center" colSpan={(showValue ? 1 : 0) + (showQty ? 1 : 0)}><span className="col-resize">Total</span></th>
           </tr>
@@ -140,40 +152,42 @@ function MonthwisePivotTable({ label, rows, monthKeys, showValue, showQty, grand
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={row.key} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
-              <td className="px-3 py-1.5">{row.label}</td>
-              {monthKeys.map((mk) => (
-                <Fragment key={mk}>
-                  {showValue && <td className="px-2 py-1.5 text-right tabular-nums">{row.cells[mk]?.amount ? money(row.cells[mk].amount) : "—"}</td>}
-                  {showQty && <td className="px-2 py-1.5 text-right tabular-nums">{row.cells[mk]?.qty ? qtyFmt(row.cells[mk].qty) : "—"}</td>}
-                </Fragment>
-              ))}
-              {showValue && <td className="px-2 py-1.5 text-right font-medium tabular-nums">{money(row.total.amount)}</td>}
-              {showQty && <td className="px-2 py-1.5 text-right font-medium tabular-nums">{qtyFmt(row.total.qty)}</td>}
-            </tr>
-          ))}
-          {rows.length === 0 && <tr><td className="px-3 py-6 text-center text-slate-400" colSpan={PIVOT_COLS(monthKeys, showValue, showQty)}>No sales in this period.</td></tr>}
+          {groups.map((g, gi) => {
+            const open = expanded.has(g.key);
+            const grandTotal = g.rows.reduce((s, r) => s + r.total.amount, 0);
+            const grandQty = g.rows.reduce((s, r) => s + r.total.qty, 0);
+            return (
+              <Fragment key={g.key}>
+                <tr className={`cursor-pointer font-semibold ${gi % 2 === 1 ? "bg-slate-50/70" : ""}`} onClick={() => toggle(g.key)}>
+                  <td colSpan={colCount} className="border border-slate-200 px-3 py-2">
+                    <span className="mr-1.5 inline-block w-3 text-slate-400">{open ? "▾" : "▸"}</span>
+                    {g.label}
+                    <span className="ml-2 font-normal text-slate-500">
+                      — {showValue ? money(grandTotal) : qtyFmt(grandQty)}
+                    </span>
+                  </td>
+                </tr>
+                {open && g.rows.map((row, i) => (
+                  <tr key={row.key} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>
+                    <td className="px-3 py-1.5" style={{ paddingLeft: 28 }}>{row.label}</td>
+                    {monthKeys.map((mk) => (
+                      <Fragment key={mk}>
+                        {showValue && <td className="px-2 py-1.5 text-right tabular-nums">{row.cells[mk]?.amount ? money(row.cells[mk].amount) : "—"}</td>}
+                        {showQty && <td className="px-2 py-1.5 text-right tabular-nums">{row.cells[mk]?.qty ? qtyFmt(row.cells[mk].qty) : "—"}</td>}
+                      </Fragment>
+                    ))}
+                    {showValue && <td className="px-2 py-1.5 text-right font-medium tabular-nums">{money(row.total.amount)}</td>}
+                    {showQty && <td className="px-2 py-1.5 text-right font-medium tabular-nums">{qtyFmt(row.total.qty)}</td>}
+                  </tr>
+                ))}
+                {open && g.rows.length === 0 && (
+                  <tr><td colSpan={colCount} className="px-3 py-4 text-center text-slate-400">No sales in this period.</td></tr>
+                )}
+              </Fragment>
+            );
+          })}
+          {groups.length === 0 && <tr><td colSpan={colCount} className="px-3 py-6 text-center text-slate-400">Select a dimension in View By above.</td></tr>}
         </tbody>
-        {rows.length > 0 && (
-          <tfoot>
-            <tr className="bg-slate-50 font-semibold">
-              <td className="px-3 py-1.5">Total</td>
-              {monthKeys.map((mk) => {
-                const colValueTotal = rows.reduce((s, r) => s + (r.cells[mk]?.amount ?? 0), 0);
-                const colQtyTotal = rows.reduce((s, r) => s + (r.cells[mk]?.qty ?? 0), 0);
-                return (
-                  <Fragment key={mk}>
-                    {showValue && <td className="px-2 py-1.5 text-right tabular-nums">{money(colValueTotal)}</td>}
-                    {showQty && <td className="px-2 py-1.5 text-right tabular-nums">{qtyFmt(colQtyTotal)}</td>}
-                  </Fragment>
-                );
-              })}
-              {showValue && <td className="px-2 py-1.5 text-right tabular-nums">{money(grandTotal)}</td>}
-              {showQty && <td className="px-2 py-1.5 text-right tabular-nums">{qtyFmt(rows.reduce((s, r) => s + r.total.qty, 0))}</td>}
-            </tr>
-          </tfoot>
-        )}
       </table>
     </div>
   );
@@ -196,6 +210,7 @@ export default function SalesReportView() {
   const [curMonth, setCurMonth] = useState<SalesData>(EMPTY);
   const [prevMonth, setPrevMonth] = useState<SalesData>(EMPTY);
   const [targets, setTargets] = useState<any[]>([]);
+  const [curMonthTargets, setCurMonthTargets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dims, setDims] = useState<Set<Dim>>(() => new Set<Dim>(["ccGroup"]));
   // Both can be on at once — "if we want to see qty + value so both should
@@ -225,6 +240,16 @@ export default function SalesReportView() {
       return [`${py2}-${pad(pm)}-01`, `${py2}-${pad(pm)}-${pad(last)}`] as const;
     };
     const [lmFrom, lmTo] = lastMonthDate();
+    // The full current calendar month's own target — deliberately NOT
+    // bounded at today, so "Current Month Target" reads the whole month's
+    // figure even on day 3, and "Current Month Achievement %" compares
+    // month-to-date sales against it honestly (a partial month against a
+    // full target) rather than a target prorated to make the % look better.
+    const curMonthEnd = () => {
+      const t = todaySA(); const y = Number(t.slice(0, 4)); const m = Number(t.slice(5, 7));
+      const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      return `${t.slice(0, 7)}-${pad(last)}`;
+    };
 
     Promise.all([
       fetchSales(sb, ym),
@@ -232,10 +257,12 @@ export default function SalesReportView() {
       sb.rpc("report_sales", { p_company: COMPANY_ID, p_from: monthStartSA(), p_to: todaySA() }).then(({ data }) => (data as SalesData) ?? EMPTY),
       sb.rpc("report_sales", { p_company: COMPANY_ID, p_from: lmFrom, p_to: lmTo }).then(({ data }) => (data as SalesData) ?? EMPTY),
       sb.rpc("report_cost_center_targets", { p_from: from, p_to: to }).then(({ data }) => (data as any[]) ?? []),
-    ]).then(([sData, pyData, cm, pm, tg]) => {
+      sb.rpc("report_cost_center_targets", { p_from: monthStartSA(), p_to: curMonthEnd() }).then(({ data }) => (data as any[]) ?? []),
+    ]).then(([sData, pyData, cm, pm, tg, curTg]) => {
       if (!live) return;
       setS(sData); setPy(pyData); setCurMonth(cm); setPrevMonth(pm);
       setTargets(tg.filter((r) => Number(r.actual || 0) || Number(r.target || 0)));
+      setCurMonthTargets(curTg);
       setLoading(false);
     });
     return () => { live = false; };
@@ -250,6 +277,12 @@ export default function SalesReportView() {
   // for exactly that [from,to]) — not always the whole year. The period is
   // named right on the label so this never has to be guessed at.
   const periodTxt = periodLabel(ym);
+  // Current Month Target / Achievement — always THIS calendar month,
+  // regardless of what the PeriodDropdown above is set to, so the owner
+  // reads "how is this month doing" at a glance without changing the
+  // report's own period selection.
+  const curMonthTargetTotal = curMonthTargets.reduce((a, r) => a + Number(r.target || 0), 0);
+  const curMonthAchievement = curMonthTargetTotal > 0 ? (Number(curMonth.total) / curMonthTargetTotal) * 100 : null;
 
   // Target per cost centre, keyed by name, for the nested table below.
   const targetByName = new Map(targets.map((r) => [r.cost_center, Number(r.target || 0)]));
@@ -283,11 +316,12 @@ export default function SalesReportView() {
     };
   }).sort((a, b) => (b.subtotal!.current_year ?? 0) - (a.subtotal!.current_year ?? 0));
 
-  // LY vs CY, one flat table per selected "View By" dimension — the old
-  // software's own "Cost Center Group wise Sales" table, generalised so it
-  // isn't stuck at Group level: Cost Centre, Customer and Product all carry
-  // both a current- and previous-year array already (py is fetched in full,
-  // same shape as s), so the same lyVsCy() merge works for all four.
+  // LY vs CY — one DataGroup per selected "View By" dimension inside ONE
+  // DataTable, so picking Cost Centre and Customer opens two collapsible
+  // sections in the same grid instead of two separate grids. Cost Centre,
+  // Customer and Product all carry both a current- and previous-year array
+  // already (py is fetched in full, same shape as s), so the same lyVsCy()
+  // merge works for all four.
   const lyVsCyByDim: Record<Dim, { name: string; ly: number; cy: number; growth: number | null }[]> = {
     ccGroup: ccGroups.map((g) => ({
       name: g.label, ly: Number(g.subtotal!.previous_year), cy: Number(g.subtotal!.current_year),
@@ -329,6 +363,10 @@ export default function SalesReportView() {
   // source drives either granularity ccGroup/costCentre selects. A month is
   // "completed" once the NEXT month has started — comparing wall-clock
   // Riyadh "today" against it, never the selected period's own end date.
+  // The section title says "Completed Months" once — it doesn't also spell
+  // out which months those are; that's what the word already means, and a
+  // long comma list of month names was exactly the un-professional clutter
+  // this was called out for.
   const isMonthCompleted = (monthKey: string) => {
     const [y, m] = monthKey.split("-").map(Number);
     const nextStart = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
@@ -372,6 +410,33 @@ export default function SalesReportView() {
   const activeDims = DIM_ORDER.filter((d) => dims.has(d));
   const activeTargetDims = TARGET_DIMS.filter((d) => dims.has(d));
 
+  // One DataGroup per active dimension for the LY vs CY table — a group's
+  // own header row carries the dimension's totals (via `subtotal`, since
+  // rows here have no `values` of their own) and starts collapsed; a
+  // reader clicks ▸ to see the individual CC Groups / Cost Centres /
+  // Customers / Products behind that total.
+  const lyVsCyGroups: DataGroup[] = activeDims.map((d) => {
+    const rows = lyVsCyByDim[d];
+    const ly = rows.reduce((s, r) => s + r.ly, 0);
+    const cy = rows.reduce((s, r) => s + r.cy, 0);
+    return {
+      key: d, label: `${DIM_LABEL[d]} wise Sales — LY vs CY`, rows,
+      subtotal: { ly, cy, growth: ly ? ((cy - ly) / Math.abs(ly)) * 100 : null },
+    };
+  });
+
+  const salesVsTargetGroups: DataGroup[] = activeTargetDims.map((d) => {
+    const rows = salesVsTargetForDim(d);
+    const target = rows.reduce((s, r) => s + r.target, 0);
+    const sales = rows.reduce((s, r) => s + r.sales, 0);
+    return {
+      key: d, label: DIM_LABEL[d], rows,
+      subtotal: { target, sales, achieved: target > 0 ? (sales / target) * 100 : null },
+    };
+  });
+
+  const pivotGroups = activeDims.map((d) => ({ key: d, label: DIM_LABEL[d], rows: buildPivot(pivotSourceByDim[d]) }));
+
   return (
     <div className="space-y-4">
       <PageHeader title="Sales Report">
@@ -384,6 +449,9 @@ export default function SalesReportView() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
           <ReportKpi label="Total Sales (period)" value={money(s.total)} icon="sales" tone="info" />
           <ReportKpi label="Current Month" value={money(curMonth.total)} icon="sales" />
+          <ReportKpi label="Current Month Target" value={money(curMonthTargetTotal)} icon="trendUp" />
+          <ReportKpi label="Current Month Achievement %" value={curMonthAchievement === null ? "No target set" : `${curMonthAchievement.toFixed(1)}%`} icon="trendUp"
+            tone={curMonthAchievement !== null ? (curMonthAchievement >= 100 ? "pos" : curMonthAchievement >= 80 ? "warn" : "neg") : undefined} />
           <ReportKpi label="Previous Month" value={money(prevMonth.total)} icon="sales" />
           <ReportKpi label="Previous Year (same months)" value={money(py.total)} icon="sales" />
           <ReportKpi label={`Target — ${periodTxt}`} value={money(totalTarget)} icon="trendUp" />
@@ -418,8 +486,8 @@ export default function SalesReportView() {
 
       {/* Shared multi-select — governs every dimension-aware section below
           (LY vs CY, Sales vs Target, Monthwise Sales): pick any combination
-          of CC Group / Cost Centre / Customer / Product and see all of them
-          at once, rather than one exclusive tab hiding the others. */}
+          of CC Group / Cost Centre / Customer / Product and each becomes a
+          collapsible section inside that section's one table. */}
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">View By</span>
         <div className="flex flex-wrap gap-1">
@@ -432,37 +500,29 @@ export default function SalesReportView() {
         </div>
       </div>
 
-      <div className="space-y-4">
-        {activeDims.map((d) => (
-          <div key={d}>
-            <SectionHeader title={`${DIM_LABEL[d]} wise Sales — LY vs CY`} />
-            <DataTable
-              cols={[
-                { key: "name", label: DIM_LABEL[d] },
-                { key: "ly", label: "LY Sales", kind: "money", total: true },
-                { key: "cy", label: "CY Sales", kind: "money", total: true },
-                { key: "growth", label: "Growth %", kind: "pct" },
-              ]}
-              rows={lyVsCyByDim[d]} empty="No sales in this period." />
-          </div>
-        ))}
+      <div>
+        <SectionHeader title="Sales — LY vs CY" />
+        <DataTable
+          cols={[
+            { key: "name", label: "Name" },
+            { key: "ly", label: "LY Sales", kind: "money", total: true },
+            { key: "cy", label: "CY Sales", kind: "money", total: true },
+            { key: "growth", label: "Growth %", kind: "pct" },
+          ]}
+          groups={lyVsCyGroups} empty="Select a dimension in View By above." />
       </div>
 
-      {completedMonthKeys.length > 0 && activeTargetDims.length > 0 && (
-        <div className="space-y-4">
-          {activeTargetDims.map((d) => (
-            <div key={d}>
-              <SectionHeader title={`Sales vs Target of Completed Months — ${DIM_LABEL[d]} — ${completedMonthKeys.map((mk) => monthShort(mk)).join(", ")}`} />
-              <DataTable
-                cols={[
-                  { key: "name", label: DIM_LABEL[d] },
-                  { key: "target", label: "Target", kind: "money", total: true },
-                  { key: "sales", label: "Sales", kind: "money", total: true },
-                  { key: "achieved", label: "% Achieved", kind: "pct" },
-                ]}
-                rows={salesVsTargetForDim(d)} empty="No target entered yet for these cost centres — set one on Accounting → Targets & Budget." />
-            </div>
-          ))}
+      {completedMonthKeys.length > 0 && salesVsTargetGroups.length > 0 && (
+        <div>
+          <SectionHeader title="Sales vs Target of Completed Months" />
+          <DataTable
+            cols={[
+              { key: "name", label: "Name" },
+              { key: "target", label: "Target", kind: "money", total: true },
+              { key: "sales", label: "Sales", kind: "money", total: true },
+              { key: "achieved", label: "% Achieved", kind: "pct" },
+            ]}
+            groups={salesVsTargetGroups} empty="No target entered yet for these cost centres — set one on Accounting → Targets & Budget." />
         </div>
       )}
 
@@ -482,8 +542,8 @@ export default function SalesReportView() {
       </div>
 
       {monthKeys.length > 1 && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <SectionHeader title="Monthwise Sales" />
             <div className="flex gap-1 print:hidden">
               <button onClick={() => setShowValue((v) => showQty ? !v : true)}
@@ -492,16 +552,7 @@ export default function SalesReportView() {
                 className={`rounded-full px-3 py-1 text-sm ${showQty ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>Qty</button>
             </div>
           </div>
-          {activeDims.map((d) => {
-            const rows = buildPivot(pivotSourceByDim[d]);
-            const grandTotal = rows.reduce((sum, r) => sum + r.total.amount, 0);
-            return (
-              <div key={d}>
-                <h3 className="mb-1 text-sm font-semibold text-slate-600">{DIM_LABEL[d]}</h3>
-                <MonthwisePivotTable label={DIM_LABEL[d]} rows={rows} monthKeys={monthKeys} showValue={showValue} showQty={showQty} grandTotal={grandTotal} />
-              </div>
-            );
-          })}
+          <MonthwisePivotTable groups={pivotGroups} monthKeys={monthKeys} showValue={showValue} showQty={showQty} />
         </div>
       )}
 

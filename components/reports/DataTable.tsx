@@ -53,7 +53,11 @@ export default function DataTable({
   bare?: boolean;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Tracks which groups are OPEN, not which are closed — so the empty set
+  // this starts as means every group starts collapsed. A report opens
+  // showing its group totals only; a group's own rows appear once the
+  // viewer clicks its ▸, never before.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const visibleCols = useMemo(() => cols.filter((c) => !c.hideByDefault), [cols]);
   const isFlat = !groups;
@@ -111,7 +115,7 @@ export default function DataTable({
               hasTotals={hasTotals} totals={totals} />
           ) : (
             <GroupedBody cols={visibleCols} groups={groups ?? []} empty={empty}
-              collapsed={collapsed} onToggle={(k) => setCollapsed((c) => {
+              expanded={expanded} onToggle={(k) => setExpanded((c) => {
                 const n = new Set(c); n.has(k) ? n.delete(k) : n.add(k); return n;
               })} />
           )}
@@ -160,20 +164,20 @@ function FlatBody({ cols, rows, empty, rowClass, hasTotals, totals }: {
   );
 }
 
-function GroupedBody({ cols, groups, empty, collapsed, onToggle }: {
-  cols: Col[]; groups: DataGroup[]; empty: string; collapsed: Set<string>; onToggle: (key: string) => void;
+function GroupedBody({ cols, groups, empty, expanded, onToggle }: {
+  cols: Col[]; groups: DataGroup[]; empty: string; expanded: Set<string>; onToggle: (key: string) => void;
 }) {
   if (groups.length === 0) {
     return <tbody><tr><td colSpan={cols.length} className="border border-slate-200 px-3 py-8 text-center text-slate-400">{empty}</td></tr></tbody>;
   }
-  return <tbody>{groups.map((g, i) => <GroupRows key={g.key} cols={cols} g={g} depth={0} idx={i} collapsed={collapsed} onToggle={onToggle} />)}</tbody>;
+  return <tbody>{groups.map((g, i) => <GroupRows key={g.key} cols={cols} g={g} depth={0} idx={i} expanded={expanded} onToggle={onToggle} />)}</tbody>;
 }
 
 // One group, rendered at its own depth — and, when it has subgroups, each of
 // those again, one level deeper. A Cost Centre Group's row is the same shape
 // as a Cost Centre's; only the indent and what happens on expand differ.
-function GroupRows({ cols, g, depth, idx, collapsed, onToggle }: {
-  cols: Col[]; g: DataGroup; depth: number; idx: number; collapsed: Set<string>; onToggle: (key: string) => void;
+function GroupRows({ cols, g, depth, idx, expanded, onToggle }: {
+  cols: Col[]; g: DataGroup; depth: number; idx: number; expanded: Set<string>; onToggle: (key: string) => void;
 }) {
   // A group with nothing beneath it (no subgroups, an empty rows array) gets
   // no chevron and no click handler — expanding it would show nothing, so
@@ -181,7 +185,7 @@ function GroupRows({ cols, g, depth, idx, collapsed, onToggle }: {
   // exactly this: the group's own header row already carries its totals via
   // `values`, and there is no month drill to reveal under it.
   const hasChildren = !!(g.subgroups && g.subgroups.length) || (!g.subgroups && g.rows && g.rows.length > 0);
-  const open = hasChildren && !collapsed.has(g.key);
+  const open = hasChildren && expanded.has(g.key);
   const indent = depth * 16 + 12;
   // Zebra by sibling position, not by depth — a static per-depth shade meant
   // every top-level group row read the same flat grey as its neighbours;
@@ -206,7 +210,7 @@ function GroupRows({ cols, g, depth, idx, collapsed, onToggle }: {
         )}
       </tr>
       {open && g.subgroups && g.subgroups.map((sg, si) => (
-        <GroupRows key={sg.key} cols={cols} g={sg} depth={depth + 1} idx={si} collapsed={collapsed} onToggle={onToggle} />
+        <GroupRows key={sg.key} cols={cols} g={sg} depth={depth + 1} idx={si} expanded={expanded} onToggle={onToggle} />
       ))}
       {open && !g.subgroups && g.rows.map((r, i) => (
         <tr key={`${g.key}-${i}`} className={i % 2 === 1 ? "bg-slate-50/70" : ""}>

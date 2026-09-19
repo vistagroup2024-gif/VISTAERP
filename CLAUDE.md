@@ -1562,3 +1562,58 @@ layout-swap tab (Car Sales Outstanding's Ageing vs Monthly, Targets &
 Budget's three data-entry tabs), and two ledger tables
 (`transport/reports/ledger`, `visa/invoices`) that were already multi-
 select per-column pickers richer than the toggle-button pattern itself.
+
+## A DataTable group starts collapsed, and "multi-select" never means "one table per selection"
+
+Two more mistakes the report sweep above didn't catch, both from live
+owner feedback on P&L and Sales Report after the sweep shipped:
+
+**Every `DataTable` group used to open on load.** Its collapse state
+tracked which keys were CLOSED, starting as an empty `Set` — meaning
+nothing was closed, so every group rendered fully expanded the moment the
+page loaded, and the ▸/▾ only ever let you close something, never the
+other way round. `expanded: Set<string>` (tracking which keys are OPEN
+instead, same empty-set-by-default) fixes this the right way round: a
+report opens showing only its group *totals*, and a group's rows appear
+only once the viewer clicks ▸. This is a change to `DataTable.tsx` itself,
+so it reaches every grouped report at once — P&L, Balance Sheet, Cash &
+Bank, Aging, Cost Centre Costing, Sales Report, every grouped Inventory
+report through `ReportRunner` — not a per-page fix.
+
+**"Multi-select" filtration does not mean "render N full tables side by
+side."** Sales Report's first cut of "View By" did exactly that: picking
+CC Group and Customer together spawned two entire separate boxes, each
+with its own header and its own copy of the grid — which is what the
+owner's screenshot of the old software was pointing at as wrong, not the
+idea of combining dimensions itself. The fix is the same ▸/▾ `DataGroup`
+pattern P&L already uses: ONE table, and each selected dimension becomes
+one collapsible group *inside* it (`lyVsCyGroups`, `salesVsTargetGroups` —
+one `DataGroup` per dimension, `subtotal` carrying that dimension's own
+totals since the rows underneath have no `values` of their own). The
+Monthwise Sales pivot needed the same fix but couldn't reuse `DataTable`
+directly — its two-row month/Value-Qty header isn't expressible in
+`DataTable`'s generic `Col` system — so `MonthwisePivotTable` in
+`SalesReportView.tsx` was rewritten to manage its own `expanded: Set<Dim>`
+state (same empty-by-default rule) and render one shared header with a
+collapsible group row per dimension, rather than one whole table per
+dimension. **The lesson for any future multi-select section**: combining
+N selections means N collapsible sections in one grid, never N grids.
+
+`Sales vs Target of Completed Months`'s title also used to spell out every
+completed month by name (`Jan-26, Feb-26, …, Aug-26`) after the word
+"Completed" — a list "Completed Months" already says the meaning of. The
+title is just `Sales vs Target of Completed Months` now; which months
+counted is answered by the word itself, not a comma-separated repeat of it.
+
+**Two Current Month KPIs were added so an owner reads today's tracking at
+a glance without touching the period picker.** `Target — <period>` and
+`Achievement % — <period>` follow whatever PeriodDropdown is set to
+(usually the whole year), which answers a different question ("are we on
+pace for the year") from "how is *this* month doing" — the number an
+owner actually opens the report to check most days. `Current Month
+Target` and `Current Month Achievement %` sit right beside the existing
+`Current Month` sales figure, always scoped to the real calendar month
+regardless of the period picker, fed by a second `report_cost_center_targets()`
+call bounded to `monthStartSA()`..the month's own last day (not today) —
+the full month's target, so a partial month is honestly compared against
+a whole one rather than a target prorated to flatter the percentage.
