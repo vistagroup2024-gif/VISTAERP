@@ -5,7 +5,7 @@ export const VISTA = {
   name: "Vista Group",
   tagline: "Umrah | Transportation | Tourism",
   contact: "Vista Operations",
-  mobile: "+966 53 004 8282",
+  mobile: "+966 53 004 7373",
   email: "sales@vista-group.co",
   address: "Khalidiya, Madinah",
   // The pin mark only; the header stacks the name + tagline beneath it to form

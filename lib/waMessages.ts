@@ -26,7 +26,7 @@ export const waMsg = {
     [`Dear ${o.name || "Guest"},`,
      "Your Vista Group transport booking is confirmed.",
      o.voucherUrl ? `Please find your voucher here: ${o.voucherUrl}` : null,
-     "For any assistance, our 24/7 helpline is +966 53 004 8282.",
+     "For any assistance, our 24/7 helpline is +966 53 004 7373.",
      "Thank you for travelling with Vista Group."].filter(Boolean).join("\n"),
 
   // Transport driver / trip details for the passenger.

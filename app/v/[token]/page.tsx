@@ -37,7 +37,7 @@ export default async function PublicVoucherPage({ params, searchParams }: { para
   const provider = useAgent
     ? { name: ag.agency_name, tagline: null as string | null, contact: ag.contact_person, mobile: ag.mobile, email: ag.email, address: ag.address, logo: ag.logo, note: ag.voucher_note, hideName: ag.voucher_show_name === false }
     : { ...VISTA, tagline: VISTA.tagline as string | null, note: null as string | null };
-  const helpline = useAgent ? "+966 53 0048282" : null;
+  const helpline = useAgent ? "+966 53 0047373" : null;
 
   const h = headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";

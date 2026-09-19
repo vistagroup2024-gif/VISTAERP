@@ -73,7 +73,7 @@ export default async function AgentVoucherPage({ params, searchParams }: { param
   // voucher opens the Vista-branded one.
   const publicPath = b.public_token ? `/v/${b.public_token}${brand === "agent" ? "?brand=agent" : ""}` : " ";
   const qr = await QRCode.toDataURL(host && b.public_token ? `${proto}://${host}${publicPath}` : publicPath, { margin: 1, width: 160 });
-  const helpline = brand === "agent" ? "+966 53 0048282" : null;
+  const helpline = brand === "agent" ? "+966 53 0047373" : null;
 
   const docTitle = <SetDocTitle title={voucherFileName(b.booking_no, b.passenger_name)} />;
   const tabs = (
