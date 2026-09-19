@@ -407,7 +407,7 @@ export default function SalesReportView() {
 
   // Cost Centre Group share of total — the same ccGroups rollup the nested
   // table already built, read for its totals rather than recomputed.
-  const ccGroupChartData = ccGroups.map((g) => ({ name: g.label, amount: Number(g.subtotal!.current_year) }));
+  const ccGroupChartData = ccGroups.map((g) => ({ name: g.label, amount: Number(g.values!.current_year) }));
 
   const monthlyRows = s.monthly.map((m: any) => ({
     month: m.month, month_label: monthShort(m.month), txns: m.txns, amount: m.amount, average: m.txns > 0 ? Number(m.amount) / m.txns : 0,
