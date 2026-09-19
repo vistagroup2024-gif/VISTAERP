@@ -17,7 +17,7 @@ export type CardKey =
   | "order_status" | "so_advance_receipt" | "purchase_vs_sale"
   | "stock" | "bookings" | "delivery_status"
   // Absorbed from the module dashboards, which no longer exist.
-  | "approvals" | "pdc" | "car_contracts" | "car_ownership"
+  | "approvals" | "pdc" | "car_contracts"
   | "hotel_financials" | "brn_beds" | "brn_availability" | "brn_agreements"
   | "transport" | "visa_groups";
 
@@ -81,8 +81,6 @@ export const DASHBOARD_CARDS: CardDef[] = [
     hint: "Post-dated cheques pending, and how many fall due within 14 days", href: "/accounting/pdc" },
   { key: "car_contracts", label: "Car Contracts", icon: "car",
     hint: "Contracts total, active and completed, and their sale value", href: "/car-sales/contracts" },
-  { key: "car_ownership", label: "Car Ownership", icon: "car",
-    hint: "Vehicles transferred, Vista-owned and held", href: "/car-sales/vehicles" },
   { key: "hotel_financials", label: "Hotel Sales & Profit", icon: "hotel",
     hint: "Hotel sales against purchase, gross profit, payable and HCN status", href: "/hotels/reports" },
   { key: "brn_beds", label: "BRN Beds", icon: "store",

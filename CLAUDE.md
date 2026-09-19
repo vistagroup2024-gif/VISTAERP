@@ -22,17 +22,40 @@ its group in `GROUPS`. Currently hidden:
 | Visa Tracking | `/sales/visas` | Per-passenger visa status on a booking |
 | Packages | `/packages` | Pre-built Umrah packages sold at one price; also read by the B2B agent portal |
 | Invoices | `/invoices` | The customer invoice the booking flow raises automatically. Read-only |
-| Car Sales | `/car-sales/alerts`, `/car-sales/vehicles`, `/car-sales/commissions`, `/car-sales/reports` | The Car Sales module, hidden because the business is not running car sales at the moment. Vehicles, contracts, instalments and their GL postings are all still there |
+| Car Sales | `/car-sales/reports` | Reports hub (Car Customer Balances, Car Delivery Report). Hidden because the business is not running car sales at the moment; unhide by moving it into a Car Sales group in `GROUPS` |
 
-Car Sales is hidden **apart from its two invoice screens** — Car Invoices
-(`/car-sales/contracts`) and Monthly Charges (`/car-sales/service-charges`) are
-still sold and still invoiced, so they stayed in the menu under Transactions →
-Sales. With no `GROUPS` entry left to read their label and permission from, they
-are declared in `EXTRA_ITEMS` instead. Unhide the module by moving the four rows
-above back into a Car Sales group in `GROUPS`.
+Car Sales is hidden **apart from its three working screens** — Car Invoices
+(`/car-sales/contracts`), Car Expense (`/car-sales/expenses`) and Monthly
+Charges (`/car-sales/service-charges`) are still sold and still invoiced, so
+they stayed in the menu under Transactions → Sales/Purchases. With no `GROUPS`
+entry left to read their label and permission from, they are declared in
+`EXTRA_ITEMS` instead.
 
 The same applies to anything hidden later: add it to `HIDDEN_ITEMS` with a note,
-rather than deleting it.
+rather than deleting it — **except where the business explicitly decides a
+screen is not wanted at all**, which is a different decision from "not in use
+yet." Checked directly against the business's own working list (Sales
+Quotation → Sales Order → Purchase Order → Purchase Voucher → Car Invoice →
+Monthly Charges → Receipt) in September 2026, five Car Sales screens were
+removed outright rather than hidden, since there is nothing to carry on from
+if they are ever wanted again: the legacy car-specific Purchase Order screen
+(`/car-sales/purchases`, superseded by the generic Purchase Order → Purchase
+Voucher flow since "cars are stock" — its `car_purchase_orders`/
+`car_purchase_order_items` tables never held a row), Alerts, Vehicles / Stock
+(the vehicle record itself is still created automatically by the Purchase
+Voucher step; only the browsing/editing screen is gone — Inventory covers
+stock browsing now), Commissions (`car_commissions` never held a row either),
+and Car Accounting (fully answerable from the General Journal and Car
+Customer Balances). The Receipts register (`/car-sales/receipts`, a read-only
+list — receipts are entered on the Receipt voucher, not there) lost its list
+page the same way, but its single-receipt view (`/car-sales/receipts/[id]`)
+stayed, because the Car Invoice's own payment history links to it. The
+Installment Aging, Upcoming Collection, Held Vehicles, Monthly Service
+Charges and Vehicle Profitability reports went the same route: Installment
+Aging merged into Car Customer Balances (rendered under its own Ageing
+Summary grid, not a tab of its own — one screen to scroll, not a second to
+find); the other four had no reader and nothing else linked to them, so they
+are gone rather than hidden.
 
 ## The header carries a menu, and the sidebar does not repeat it
 

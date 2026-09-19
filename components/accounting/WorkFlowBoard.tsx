@@ -24,7 +24,7 @@ const HREF: Record<string, string> = {
   purchase_return: "/accounting/purchases/returns",
   supplier_bill: "/purchase/bills",
   car_invoice: "/car-sales/contracts",
-  car_expense: "/car-sales/vehicles",
+  car_expense: "/car-sales/expenses",
   car_charges: "/car-sales/service-charges",
   gl_receipt: "/accounting/receipts",
   gl_payment: "/accounting/payments",

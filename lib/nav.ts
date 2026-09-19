@@ -62,18 +62,18 @@ export const DASHBOARD: NavItem = { href: "/dashboard", label: "Dashboard", icon
  *                                      in the menu — it is recorded here so it
  *                                      is not mistaken for missing and rebuilt.
  *
- *   Car Sales        /car-sales/*    — the whole module bar its two invoice
- *                                      screens: Alerts, Vehicles / Stock,
- *                                      Commissions, Reports. Taken out of the
- *                                      menu because the business is not running
- *                                      car sales at the moment; the vehicles,
- *                                      contracts, instalments and their GL
- *                                      postings are all still there. Car
- *                                      Invoices and Monthly Charges stayed in
- *                                      the menu, under Transactions -> Sales,
- *                                      and are declared in EXTRA_ITEMS. To bring
- *                                      the module back, move these four into a
- *                                      Car Sales group in GROUPS again.
+ *   Car Sales        /car-sales/*    — Reports is the one screen left out of
+ *                                      the menu; the business decided Alerts,
+ *                                      Vehicles / Stock and Commissions were
+ *                                      not worth keeping at all and they were
+ *                                      removed outright (September 2026), not
+ *                                      hidden — there is nothing to unhide for
+ *                                      those three. Car Invoices and Monthly
+ *                                      Charges stayed in the menu, under
+ *                                      Transactions -> Sales, and are declared
+ *                                      in EXTRA_ITEMS. To bring Reports back
+ *                                      into the menu, move it into a Car Sales
+ *                                      group in GROUPS.
  */
 export const HIDDEN_ITEMS: NavItem[] = [
   { href: "/sales/catalog", label: "Service Catalog", perm: ["sales.view"] },
@@ -81,9 +81,6 @@ export const HIDDEN_ITEMS: NavItem[] = [
   { href: "/packages", label: "Packages", perm: ["sales.view"] },
   { href: "/invoices", label: "Invoices", perm: ["sales.view"] },
   { href: "/hotels/hcn", label: "HCN Management", perm: ["hotels.hcn", "hotels.bookings"] },
-  { href: "/car-sales/alerts", label: "Alerts", perm: ["carsales.view", "carsales.reports"] },
-  { href: "/car-sales/vehicles", label: "Vehicles / Stock", perm: ["carsales.vehicles", "carsales.view"] },
-  { href: "/car-sales/commissions", label: "Commissions", perm: ["carsales.ownership", "carsales.sales"] },
   { href: "/car-sales/reports", label: "Reports", perm: ["carsales.reports"] },
 ];
 

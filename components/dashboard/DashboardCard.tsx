@@ -177,13 +177,6 @@ function cells(key: CardKey, m: any): Cell[] {
       { label: "Completed", value: qty(d.completed), tone: "pos" },
       { label: "Value", value: cash(d.value) },
     ];
-    case "car_ownership": return [
-      { label: "Vehicles", value: qty(d.total), strong: true },
-      { label: "Transf.", value: qty(d.transferred) },
-      { label: "Vista", value: qty(d.vista) },
-      { label: "Held", value: qty(d.held), tone: N(d.held) > 0 ? "neg" : undefined },
-      { label: "Vista value", value: cash(d.vista_value) },
-    ];
     case "hotel_financials": return [
       { label: "Sales", value: cash(d.sales) },
       { label: "Purchase", value: cash(d.purchase) },

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { dateStr } from "@/lib/format";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
 import { SCHARGE_STATUS_LABEL, SCHARGE_STATUS_TONE, schargeStatus, monthLabel, sar } from "../lib";
@@ -67,7 +66,7 @@ export default function ServiceChargesTable({ rows }: { rows: ChargeRow[] }) {
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="td">{r.vehicle_id ? <Link href={`/car-sales/vehicles/${r.vehicle_id}`} className="text-brand hover:underline">{r.vehicle}</Link> : r.vehicle}<div className="text-xs text-slate-400">{r.plate ?? ""}</div></td>
+                <td className="td">{r.vehicle}<div className="text-xs text-slate-400">{r.plate ?? ""}</div></td>
                 <td className="td">{r.customer ?? "—"}</td>
                 <td className="td">{monthLabel(r.charge_month)}</td>
                 <td className="td">{dateStr(r.due_date)}</td>
