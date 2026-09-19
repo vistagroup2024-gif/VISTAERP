@@ -42,9 +42,9 @@ function cityLabel(c?: string | null): string {
   return c ? String(c).replace(/^\w/, (ch) => ch.toUpperCase()) : "—";
 }
 
-export default function HotelVoucherDocument({ provider, booking: b, qr, docType = "voucher", bank }: {
+export default function HotelVoucherDocument({ provider, booking: b, qr, docType = "voucher", bank, terms }: {
   provider: HotelVoucherProvider; booking: HotelVoucherData; qr?: string;
-  docType?: "voucher" | "invoice"; bank?: HotelVoucherBank;
+  docType?: "voucher" | "invoice"; bank?: HotelVoucherBank; terms?: string[] | null;
 }) {
   const isInvoice = docType === "invoice";
   const stays: HotelVoucherStay[] = b.stays && b.stays.length > 0
@@ -175,25 +175,44 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
           </table>
         </div>
 
-        {/* ── Grand Total + Bank Details (invoice only) ──────────── */}
+        {/* ── Terms & Conditions (left) + Total / Bank Details (right) ──
+            A fixed grid, not an `lg:` breakpoint — this renders inside a
+            printed A4 page, whose CSS width never reaches a `lg:` viewport
+            breakpoint, so a responsive class would silently never apply. ── */}
         {isInvoice && (
-          <div className="mt-4 flex flex-col items-end gap-4">
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-brand/30 bg-brand/5 px-5 py-3" style={exact}>
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total ({currency})</span>
-              <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(grandTotal, currency)}</span>
-            </div>
-
-            {bank && (
-              <div className="w-full">
-                <SectionTitle>Bank Details</SectionTitle>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <Field label="Bank Name" value={bank.bankName} />
-                  <Field label="Account Name" value={bank.accountName} />
-                  <Field label="Account Number" value={bank.accountNumber} mono />
-                  <Field label="IBAN Number" value={bank.iban} mono />
-                </div>
+          <div className="mt-4 grid grid-cols-[1fr_300px] items-start gap-5">
+            {terms && terms.length > 0 ? (
+              <div>
+                <SectionTitle>Terms &amp; Conditions</SectionTitle>
+                <ul className="space-y-1.5 text-[10.5px] leading-relaxed text-slate-600">
+                  {terms.map((t, i) => (
+                    <li key={i} className="flex gap-1.5">
+                      <span className="shrink-0 text-brand">•</span>
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            )}
+            ) : <div />}
+
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col items-start gap-1 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3" style={exact}>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total ({currency})</span>
+                <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(grandTotal, currency)}</span>
+              </div>
+
+              {bank && (
+                <div>
+                  <SectionTitle>Bank Details</SectionTitle>
+                  <div className="flex flex-col gap-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <Field label="Bank Name" value={bank.bankName} />
+                    <Field label="Account Name" value={bank.accountName} />
+                    <Field label="Account Number" value={bank.accountNumber} mono />
+                    <Field label="IBAN Number" value={bank.iban} mono />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
