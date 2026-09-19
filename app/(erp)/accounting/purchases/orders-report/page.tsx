@@ -18,18 +18,21 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 // Purchase Order's list/browse screen — report_purchase_orders() (migration
-// 412), same pending/history split and the same "received against" check
-// dashboard_metrics() already uses. Rows open the real voucher editor via
-// ?id=. Pending and History are independently toggleable (both on = the old
-// "All" tab) rather than three exclusive tabs — the RPC still only takes one
-// status value, so both-on is sent through as "all", same as before.
+// 412), same "received against" check dashboard_metrics() already uses.
+// Rows open the real voucher editor via ?id=. Pending / History / All are
+// three exclusive tabs (the same shape accounting/approvals/page.tsx already
+// uses correctly), not a multi-select — Pending and History are mutually
+// exclusive states of the same order, so All is its own button rather than
+// an emergent "both toggled on" state. The additive-toggle shape this used
+// to be was the bug: clicking History from the default Pending-only
+// selection ADDED history to the set instead of replacing it, jumping
+// straight to "all" (both sections' rows) on the very first click away from
+// the default — see the sales-side twin for the same fix.
+const TABS = [["pending", "Pending"], ["history", "History"], ["all", "All"]] as const;
+
 export default async function PurchaseOrdersReportPage({ searchParams }: { searchParams: { status?: string } }) {
   const sb = createClient();
-  const selected = new Set(
-    searchParams.status === "all" ? ["pending", "history"]
-      : (searchParams.status ?? "pending").split(",").filter((s) => s === "pending" || s === "history"));
-  if (selected.size === 0) selected.add("pending");
-  const status = selected.size === 2 ? "all" : selected.has("history") ? "history" : "pending";
+  const status = searchParams.status === "history" || searchParams.status === "all" ? searchParams.status : "pending";
   const { data } = await sb.rpc("report_purchase_orders", { p_company: COMPANY_ID, p_status: status });
   const rows = ((data as any)?.rows ?? []) as any[];
   const lines = ((data as any)?.lines ?? []) as any[];
@@ -42,17 +45,12 @@ export default async function PurchaseOrdersReportPage({ searchParams }: { searc
         <PrintButton />
       </PageHeader>
       <div className="flex gap-2 print:hidden">
-        {(["pending", "history"] as const).map((k) => {
-          const next = new Set(selected);
-          selected.has(k) && next.size > 1 ? next.delete(k) : next.add(k);
-          const href = `/accounting/purchases/orders-report?status=${next.size === 2 ? "all" : Array.from(next).join(",")}`;
-          return (
-            <Link key={k} href={href}
-              className={`rounded-full px-3 py-1 text-sm ${selected.has(k) ? "bg-brand text-white" : "bg-slate-100 text-slate-600"}`}>
-              {k === "pending" ? "Pending" : "History"}
-            </Link>
-          );
-        })}
+        {TABS.map(([k, label]) => (
+          <Link key={k} href={`/accounting/purchases/orders-report?status=${k}`}
+            className={`rounded-full px-3 py-1 text-sm ${status === k ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+            {label}
+          </Link>
+        ))}
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi label="Orders" value={String(rows.length)} />

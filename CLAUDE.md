@@ -529,11 +529,9 @@ always gets plain `.col-resize`.
 
 Sales Report's own Value/Qty toggle used to be a single-select radio (pick
 one) even though both are just independent columns that can be shown at
-once — the same shape as Purchase/Sales Orders Report's Pending/History/All
-three-tab split (All was only ever "both of the other two, so give it its
-own button") and the Air Ticket Bookings worklist's five exclusive status
-tabs (Held/Issued/Expired/Cancelled/All, when a user reviewing Held often
-wants Expired alongside it). None of those are a real either/or.
+once — the same shape as the Air Ticket Bookings worklist's five exclusive
+status tabs (Held/Issued/Expired/Cancelled/All, when a user reviewing Held
+often wants Expired alongside it). Neither of those is a real either/or.
 
 **The test**: if the options are independent criteria whose selections can
 be shown together — extra columns, a wider status filter, anything a plain
@@ -543,7 +541,7 @@ text-slate-600` off (`TransactionsFilters.tsx`'s `types: Set<string>` is the
 original of this shape; `LedgerReport.tsx`'s `columns: ColKey[]` column
 picker is the same idea for optional columns). Keep at least one option
 selected — a toggle that would empty the set re-adds itself instead of
-turning off, the way Purchase/Sales Orders Report's status toggle does.
+turning off.
 
 **Single-select stays single-select where the options are not additive**: a
 pivot dimension (CC Group vs Cost Centre vs Customer vs Product — the row
@@ -554,6 +552,21 @@ screen's layout (Ageing vs Monthly on Car Sales Outstanding). If unsure,
 ask: does selecting two of these ever mean something a user would want to
 see at once? If yes, multi-select; if the options describe mutually
 exclusive states of the same thing, leave it a single choice.
+
+**Purchase/Sales Orders Report's own Pending/History/All was built as the
+multi-select shape and was wrong** — a Sale/Purchase Order is either
+Pending or History, never both (a document can't be two mutually exclusive
+lifecycle states at once), so this belongs here, not above. Worse, the
+`Set`-toggle implementation didn't even work as the multi-select it was
+trying to be: from the default `{pending}` selection, clicking History ran
+the "turning on" branch (`next.add('history')`) rather than replacing the
+selection, jumping straight to a 2-item set — sent to the RPC as
+`status=all` — on the very first click away from the default, so History
+silently showed Pending's rows too. Both `orders-report/page.tsx` pages
+(sales and purchase) are now plain exclusive links — `status=pending|
+history|all` in the URL, the same three-way `TABS` shape
+`accounting/approvals/page.tsx` already used correctly — with All its own
+button rather than an emergent "both toggled on" state.
 
 **A pivot dimension can still be multi-select if the dimensions are
 levels of the SAME hierarchy rather than alternate ones.** P&L Filteration's
@@ -2262,3 +2275,39 @@ already did this once each (a global `DataTable.tsx` fix plus an explicit
 sweep of every hand-rolled table outside it); this section is the same
 discipline applied to the caption-vs-column bug, and the two sections
 above apply it again to expand-state depth and total-row backgrounds.
+
+## "Consumed" means THIS document's own next step, not any child document at all
+
+A Sale Order's own "pending" check (`dashboard_metrics()`'s `td` CTE,
+`report_sale_orders()`) used to read `exists (select 1 from
+trade_documents x where x.source_doc_id = d.id)` — ANY child row at all.
+That's wrong the moment a document has more than one legitimate
+descendant: `workflow_steps` has BOTH `purchase_order` and `sales_invoice`
+sourced from `sale_order` — the internal procurement branch (raise a PO to
+buy the car) and the customer-facing sale branch (raise the actual
+invoice) are two different branches of the same chain, not one linear
+path. A Sale Order dropped off Pending and into History the moment its
+Purchase Order was raised, long before the customer was ever invoiced —
+one real Sale Order (a PO raised, no invoice yet) read as 0 pending on the
+dashboard and as already-history on the Orders Report, because the two
+share this exact definition on purpose (411/426's own joint self-check
+enforces it) — so they agreed with each other and were both wrong the same
+way, the "two screens disagree" trap's quieter sibling: two screens that
+agree on a broken definition never surface a discrepancy to notice.
+
+Fixed (445) by checking the SPECIFIC descendant doc_type that represents
+this document's own fulfillment, not "any child": a Sale Order counts as
+consumed only by a `sales_invoice` child or a non-cancelled `car_contracts`
+row — never a `purchase_order`, which is a sibling branch, not this
+document's own next step. Purchase Order's own consumed check is
+unchanged (an MRN, or in the car flow a Purchase Voucher raised straight
+from it) — nothing else ever attaches a `source_doc_id` to a Purchase
+Order, so "any child" was already correct there; the bug was specific to
+Sale Order having two branches, not a property of the whole `td` CTE.
+
+**The general rule for any future `source_doc_id`-based "is this
+fulfilled" check**: read `workflow_steps` (or the actual chain in code)
+for every doc_type that can legitimately source from the document in
+question, and match on doc_type explicitly if there's more than one — an
+unqualified "does any row point back at me" check is only safe when a
+document has exactly one possible descendant.
