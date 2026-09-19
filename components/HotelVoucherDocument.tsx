@@ -42,6 +42,12 @@ function fmtMoney(n: number, currency: string): string {
 function cityLabel(c?: string | null): string {
   return c ? String(c).replace(/^\w/, (ch) => ch.toUpperCase()) : "—";
 }
+// "2 Quad · 1 Triple" -> "Quad · Triple": the count is redundant once the
+// stay already has its own Qty column, and doubled up it read like a typo.
+function roomTypeLabel(summary?: string | null, fallback?: string | null): string {
+  if (!summary) return fallback || "—";
+  return summary.split(" · ").map((seg) => seg.replace(/^\d+\s+/, "")).join(" · ") || fallback || "—";
+}
 
 export default function HotelVoucherDocument({ provider, booking: b, qr, docType = "voucher", bank, terms }: {
   provider: HotelVoucherProvider; booking: HotelVoucherData; qr?: string;
@@ -78,11 +84,6 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
   const GENERIC_AGENT_NAMES = new Set(["umrah package customer", "cash customer", "hotel customer"]);
   const showAgent = !!b.agent && !GENERIC_AGENT_NAMES.has(b.agent.trim().toLowerCase());
 
-  const guest: [string, React.ReactNode][] = [["Guest / Group", b.guest_name || "—"]];
-  if (b.group_no) guest.push(["Group No.", b.group_no]);
-  if (showAgent) guest.push(["Agent", b.agent]);
-  guest.push(["Guests", b.guests ?? "—"]);
-
   return (
     <div className="print-doc mx-auto overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800 shadow-sm">
       {/* ── Header ─────────────────────────────────────────────── */}
@@ -114,21 +115,24 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
         {/* ── Guest Details ─────────────────────────────────────── */}
         <SectionTitle>Guest Details</SectionTitle>
         <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
-          {guest.map(([label, val], i) => (
-            <Field key={i} label={label} value={val} />
-          ))}
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-slate-400">Guest Name</div>
+            <div className="text-base font-bold text-slate-900">{b.guest_name || "—"}</div>
+          </div>
+          {b.group_no && <Field label="Group No." value={b.group_no} />}
+          {showAgent && <Field label="Agent" value={b.agent} />}
         </div>
 
         {/* ── Stay Details ──────────────────────────────────────── */}
-        {/* Solid brand-orange pill, not a bordered neutral box — orange is
-            reserved as a rare accent (tailwind.config.ts) for exactly this:
-            the one date on the document a customer must actually act on,
-            the way QuickBooks/Xero/SAP invoices badge a payment due date
-            rather than leaving it as plain text. */}
+        {/* An outlined pill, not a solid fill — orange is reserved as a rare
+            accent (tailwind.config.ts) for exactly this: the one date on the
+            document a customer must actually act on, the way QuickBooks/
+            Xero/SAP invoices badge a payment due date rather than leaving
+            it as plain text. */}
         <SectionTitle className="mt-7" right={optionDate ? (
-          <div className="flex items-center gap-2 rounded-full bg-brand-orange py-1 pl-3 pr-1" style={exact}>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-white">Option Date</span>
-            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-brand-orange" style={exact}>{dateStr(optionDate)}</span>
+          <div className="flex items-center gap-2 rounded-full border-2 border-brand-orange bg-white px-3 py-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-brand-orange">Option Date</span>
+            <span className="text-xs font-extrabold text-brand-orange">{dateStr(optionDate)}</span>
           </div>
         ) : undefined}>Stay Details</SectionTitle>
         {/* table-fixed + a colgroup keeps every column's width within the page
@@ -137,7 +141,7 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
             overflow-x-auto table would just be scrolled off and lost when
             printed, since print has no scrollbar to reveal it. */}
         <div className="overflow-hidden rounded-xl border border-slate-200">
-          <table className="w-full table-fixed border-collapse text-xs">
+          <table className="w-full table-fixed border-collapse text-[12px]">
             <colgroup>
               <col style={{ width: isInvoice ? "12%" : "16%" }} />
               <col style={{ width: isInvoice ? "10%" : "11%" }} />
@@ -150,43 +154,43 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
               {isInvoice ? (<><col style={{ width: "11%" }} /><col style={{ width: "13%" }} /></>) : (showHcnCol && <col style={{ width: "13%" }} />)}
             </colgroup>
             <thead>
-              <tr className="bg-brand text-left text-[10px] font-semibold uppercase tracking-wide text-white" style={exact}>
-                <th className="px-2 py-2">Hotel Name</th>
-                <th className="px-2 py-2">City</th>
-                <th className="px-2 py-2">Check In</th>
-                <th className="px-2 py-2">Check Out</th>
-                <th className="px-2 py-2 text-right">Nts</th>
-                <th className="px-2 py-2">Room Type</th>
-                <th className="px-2 py-2 text-right">Qty</th>
-                <th className="px-2 py-2">Meal</th>
+              <tr className="bg-brand text-center text-[10.5px] font-bold uppercase tracking-wide text-white" style={exact}>
+                <th className="px-2 py-2.5">Hotel Name</th>
+                <th className="px-2 py-2.5">City</th>
+                <th className="px-2 py-2.5">Check In</th>
+                <th className="px-2 py-2.5">Check Out</th>
+                <th className="px-2 py-2.5">Nts</th>
+                <th className="px-2 py-2.5">Room Type</th>
+                <th className="px-2 py-2.5">Qty</th>
+                <th className="px-2 py-2.5">Meal</th>
                 {isInvoice ? (
                   <>
-                    <th className="px-2 py-2 text-right">Rate</th>
-                    <th className="px-2 py-2 text-right">Total</th>
+                    <th className="px-2 py-2.5">Rate</th>
+                    <th className="px-2 py-2.5">Total</th>
                   </>
                 ) : (
-                  showHcnCol && <th className="px-2 py-2">Conf. No.</th>
+                  showHcnCol && <th className="px-2 py-2.5">Conf. No.</th>
                 )}
               </tr>
             </thead>
             <tbody>
               {stays.map((s, i) => (
-                <tr key={i} className={`border-t border-slate-100 align-top ${i % 2 ? "bg-brand/5" : "bg-white"}`} style={exact}>
-                  <td className="break-words px-2 py-2 font-medium text-slate-800">{s.hotel_name || "—"}</td>
-                  <td className="break-words px-2 py-2 capitalize">{cityLabel(s.city)}</td>
-                  <td className="px-2 py-2">{dateStr(s.check_in)}</td>
-                  <td className="px-2 py-2">{dateStr(s.check_out)}</td>
-                  <td className="px-2 py-2 text-right">{s.nights ?? "—"}</td>
-                  <td className="break-words px-2 py-2">{s.room_summary || s.room_type || "—"}</td>
-                  <td className="px-2 py-2 text-right">{s.rooms ?? "—"}</td>
-                  <td className="break-words px-2 py-2">{s.meal_plan || "—"}</td>
+                <tr key={i} className={`border-t border-slate-100 text-center align-top ${i % 2 ? "bg-brand/5" : "bg-white"}`} style={exact}>
+                  <td className="break-words px-2 py-2.5 font-medium text-slate-800">{s.hotel_name || "—"}</td>
+                  <td className="break-words px-2 py-2.5 capitalize">{cityLabel(s.city)}</td>
+                  <td className="px-2 py-2.5">{dateStr(s.check_in)}</td>
+                  <td className="px-2 py-2.5">{dateStr(s.check_out)}</td>
+                  <td className="px-2 py-2.5">{s.nights ?? "—"}</td>
+                  <td className="break-words px-2 py-2.5">{roomTypeLabel(s.room_summary, s.room_type)}</td>
+                  <td className="px-2 py-2.5">{s.rooms ?? "—"}</td>
+                  <td className="break-words px-2 py-2.5">{s.meal_plan || "—"}</td>
                   {isInvoice ? (
                     <>
-                      <td className="break-words px-2 py-2 text-right tabular-nums">{s.sale_rate != null ? fmtMoney(Number(s.sale_rate), s.currency || currency) : "—"}</td>
-                      <td className="break-words px-2 py-2 text-right tabular-nums font-medium">{fmtMoney(rowTotal(s), s.currency || currency)}</td>
+                      <td className="break-words px-2 py-2.5 tabular-nums">{s.sale_rate != null ? fmtMoney(Number(s.sale_rate), s.currency || currency) : "—"}</td>
+                      <td className="break-words px-2 py-2.5 tabular-nums font-medium">{fmtMoney(rowTotal(s), s.currency || currency)}</td>
                     </>
                   ) : (
-                    showHcnCol && <td className="break-words px-2 py-2 font-mono">{s.hcn || "—"}</td>
+                    showHcnCol && <td className="break-words px-2 py-2.5 font-mono">{s.hcn || "—"}</td>
                   )}
                 </tr>
               ))}
@@ -218,10 +222,11 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
 
             {isInvoice && (
               <div className="flex flex-col gap-4">
-                {/* Bank Details' own heading sits first, so it lines up level
-                    with Terms & Conditions' heading on the left — Total (which
-                    carries its own label, not a SectionTitle) moved below it
-                    rather than pushing Bank Details' heading out of alignment. */}
+                <div className="flex flex-col items-start gap-1 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3" style={exact}>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total ({currency})</span>
+                  <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(grandTotal, currency)}</span>
+                </div>
+
                 {bank && (
                   <div>
                     <SectionTitle>Bank Details</SectionTitle>
@@ -233,11 +238,6 @@ export default function HotelVoucherDocument({ provider, booking: b, qr, docType
                     </div>
                   </div>
                 )}
-
-                <div className="flex flex-col items-start gap-1 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3" style={exact}>
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total ({currency})</span>
-                  <span className="text-xl font-bold text-brand" style={exact}>{fmtMoney(grandTotal, currency)}</span>
-                </div>
               </div>
             )}
           </div>
@@ -274,7 +274,7 @@ function Field({ label, value, mono = false }: { label: string; value: React.Rea
   return (
     <div>
       <div className="text-[11px] uppercase tracking-wide text-slate-400">{label}</div>
-      <div className={`font-semibold text-slate-800 ${mono ? "break-all font-mono tabular-nums" : ""}`}>{value}</div>
+      <div className={`font-semibold text-slate-800 ${mono ? "break-all text-[13px] font-bold tabular-nums" : ""}`}>{value}</div>
     </div>
   );
 }

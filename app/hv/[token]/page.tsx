@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import HotelVoucherDocument from "@/components/HotelVoucherDocument";
-import { VISTA, VISTA_HOTEL_TERMS_VOUCHER } from "@/lib/voucherBrand";
+import { VISTA, VISTA_HOTEL_TERMS } from "@/lib/voucherBrand";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ export default async function PublicHotelVoucher({ params }: { params: { token: 
           nights: v.nights, room_type: v.room_type, rooms: v.rooms, guests: v.guests, meal_plan: v.meal_plan, hcn: v.hcn,
           stays: v.stays,
         }}
-        terms={VISTA_HOTEL_TERMS_VOUCHER}
+        terms={VISTA_HOTEL_TERMS}
       />
     </div>
   );
