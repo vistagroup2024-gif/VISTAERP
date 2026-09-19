@@ -988,20 +988,6 @@ export default function TradeVoucher({ type, rights, initialId }: {
               <SearchSelect value={tagArea} onChange={setTagArea} placeholder="—"
                 options={tagAreas.map((t) => ({ value: t.name, label: t.name }))} /></div>
           )}
-          {/* Cost Centre / Tag Area are reporting attribution, not stock or
-              money — a posted voucher stays locked against the rest (Save
-              below), but these two don't need the full unpost/repost cycle,
-              so they get their own lighter save. Only worth showing once the
-              voucher is posted; unposted, the ordinary Save already covers
-              these fields with everything else. */}
-          {id && posted && (
-            <div className="col-span-2 -mt-2 flex items-end md:col-span-4">
-              <button type="button" onClick={saveAttribution} disabled={busy || !may("edit")}
-                className="text-xs text-brand hover:underline disabled:opacity-40 disabled:no-underline">
-                Update Cost Centre / Tag Area only (works even while the rest is locked)
-              </button>
-            </div>
-          )}
           <div><label className="label">Reference</label><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} /></div>
           {canPost && cfg.showWarehouse && (
             <div><label className="label">Warehouse</label>
@@ -1335,6 +1321,17 @@ export default function TradeVoucher({ type, rights, initialId }: {
               : !mayWrite() ? (id ? "No Edit rights" : "No Create rights")
               : posted ? "Re-post changes" : id ? "Save changes" : "Save"}
           </button>
+          {/* Cost Centre / Tag Area are reporting attribution, not stock or
+              money, so a posted voucher doesn't need the full unpost/repost
+              cycle Save runs to change just those two — this works even while
+              Save above is locked (missing Edit/Delete Posted, or stock has
+              already moved on and a repost would be refused anyway). */}
+          {id && posted && (
+            <button type="button" onClick={saveAttribution} disabled={busy || !may("edit")}
+              className="btn-outline disabled:opacity-40" title="Updates Cost Centre / Tag Area only, without unposting and reposting the rest of the voucher.">
+              {busy ? "Updating…" : "Update Cost Centre / Tag Area"}
+            </button>
+          )}
           <span className="ml-auto text-xs text-slate-400">{id ? `Editing ${docNo}` : "New document — number auto-assigned on save."}</span>
         </div>
       </div>
